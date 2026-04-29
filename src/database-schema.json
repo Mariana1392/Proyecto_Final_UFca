@@ -1,0 +1,413 @@
+{
+  "database": "ufca_sistema",
+  "version": "1.0.0",
+  "description": "Base de datos para el sistema UFCA - Unión Familiar de Crédito y Ahorro",
+  
+  "tables": {
+    
+    "usuarios": {
+      "description": "Tabla de usuarios del sistema",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "nombre": "VARCHAR(255) NOT NULL",
+        "email": "VARCHAR(255) UNIQUE NOT NULL",
+        "password": "VARCHAR(255) NOT NULL",
+        "rol_id": "VARCHAR(36) FOREIGN KEY REFERENCES roles(id)",
+        "cedula": "VARCHAR(20) UNIQUE",
+        "telefono": "VARCHAR(20)",
+        "activo": "BOOLEAN DEFAULT true",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "fecha_actualizacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["email", "cedula", "rol_id"]
+    },
+
+    "roles": {
+      "description": "Tabla de roles y permisos",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "nombre": "VARCHAR(100) UNIQUE NOT NULL",
+        "descripcion": "TEXT",
+        "permisos": "JSON",
+        "activo": "BOOLEAN DEFAULT true",
+        "es_sistema": "BOOLEAN DEFAULT false",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "data_example": [
+        {
+          "id": "rol_admin",
+          "nombre": "Administrador",
+          "descripcion": "Acceso completo al sistema",
+          "permisos": {
+            "usuarios": ["crear", "leer", "actualizar", "eliminar"],
+            "asociados": ["crear", "leer", "actualizar", "eliminar"],
+            "ahorros": ["crear", "leer", "actualizar", "eliminar"],
+            "creditos": ["crear", "leer", "actualizar", "aprobar", "rechazar"],
+            "compras": ["crear", "leer", "actualizar", "eliminar"],
+            "ventas": ["crear", "leer", "actualizar", "eliminar"],
+            "eventos": ["crear", "leer", "actualizar", "eliminar"],
+            "reportes": ["generar", "exportar"]
+          },
+          "activo": true,
+          "es_sistema": true
+        },
+        {
+          "id": "rol_asociado",
+          "nombre": "Asociado",
+          "descripcion": "Acceso limitado a consultas personales",
+          "permisos": {
+            "perfil": ["leer", "actualizar"],
+            "ahorros_propios": ["leer"],
+            "creditos_propios": ["leer", "solicitar"],
+            "pedidos": ["crear", "leer"],
+            "eventos": ["leer"]
+          },
+          "activo": true,
+          "es_sistema": true
+        }
+      ]
+    },
+
+    "asociados": {
+      "description": "Tabla de asociados de la cooperativa",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "usuario_id": "VARCHAR(36) FOREIGN KEY REFERENCES usuarios(id)",
+        "nombre_completo": "VARCHAR(255) NOT NULL",
+        "cedula": "VARCHAR(20) UNIQUE NOT NULL",
+        "telefono": "VARCHAR(20)",
+        "email": "VARCHAR(255)",
+        "direccion": "TEXT",
+        "fecha_ingreso": "DATE NOT NULL",
+        "estado": "ENUM('Activo', 'Inactivo', 'Suspendido') DEFAULT 'Activo'",
+        "saldo_ahorro_permanente": "DECIMAL(12,2) DEFAULT 0",
+        "saldo_ahorro_voluntario": "DECIMAL(12,2) DEFAULT 0",
+        "total_creditos": "DECIMAL(12,2) DEFAULT 0",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "fecha_actualizacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["cedula", "usuario_id", "estado"]
+    },
+
+    "ahorro_permanente": {
+      "description": "Tabla de movimientos de ahorro permanente",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "asociado_id": "VARCHAR(36) FOREIGN KEY REFERENCES asociados(id)",
+        "tipo_movimiento": "ENUM('Aporte', 'Retiro', 'Ajuste') NOT NULL",
+        "monto": "DECIMAL(12,2) NOT NULL",
+        "saldo_anterior": "DECIMAL(12,2) NOT NULL",
+        "saldo_nuevo": "DECIMAL(12,2) NOT NULL",
+        "fecha_movimiento": "DATE NOT NULL",
+        "descripcion": "TEXT",
+        "metodo_pago": "VARCHAR(50)",
+        "anulado": "BOOLEAN DEFAULT false",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["asociado_id", "fecha_movimiento", "anulado"]
+    },
+
+    "ahorro_voluntario": {
+      "description": "Tabla de movimientos de ahorro voluntario",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "asociado_id": "VARCHAR(36) FOREIGN KEY REFERENCES asociados(id)",
+        "tipo_movimiento": "ENUM('Depósito', 'Retiro', 'Interés', 'Ajuste') NOT NULL",
+        "monto": "DECIMAL(12,2) NOT NULL",
+        "saldo_anterior": "DECIMAL(12,2) NOT NULL",
+        "saldo_nuevo": "DECIMAL(12,2) NOT NULL",
+        "fecha_movimiento": "DATE NOT NULL",
+        "descripcion": "TEXT",
+        "metodo_pago": "VARCHAR(50)",
+        "anulado": "BOOLEAN DEFAULT false",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["asociado_id", "fecha_movimiento", "anulado"]
+    },
+
+    "creditos": {
+      "description": "Tabla de créditos solicitados y aprobados",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "asociado_id": "VARCHAR(36) FOREIGN KEY REFERENCES asociados(id)",
+        "monto_solicitado": "DECIMAL(12,2) NOT NULL",
+        "monto_aprobado": "DECIMAL(12,2)",
+        "tasa_interes": "DECIMAL(5,2) NOT NULL",
+        "plazo_meses": "INT NOT NULL",
+        "cuota_mensual": "DECIMAL(12,2)",
+        "saldo_pendiente": "DECIMAL(12,2)",
+        "fecha_solicitud": "DATE NOT NULL",
+        "fecha_aprobacion": "DATE",
+        "fecha_desembolso": "DATE",
+        "estado": "ENUM('Pendiente', 'Aprobado', 'Rechazado', 'Desembolsado', 'En pago', 'Pagado', 'Vencido') DEFAULT 'Pendiente'",
+        "tipo_credito": "VARCHAR(50)",
+        "destino": "TEXT",
+        "garantia": "TEXT",
+        "observaciones": "TEXT",
+        "aprobado_por": "VARCHAR(36) FOREIGN KEY REFERENCES usuarios(id)",
+        "anulado": "BOOLEAN DEFAULT false",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "fecha_actualizacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["asociado_id", "estado", "fecha_solicitud", "anulado"]
+    },
+
+    "pagos_credito": {
+      "description": "Tabla de pagos realizados a créditos",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "credito_id": "VARCHAR(36) FOREIGN KEY REFERENCES creditos(id)",
+        "monto_pago": "DECIMAL(12,2) NOT NULL",
+        "monto_capital": "DECIMAL(12,2) NOT NULL",
+        "monto_interes": "DECIMAL(12,2) NOT NULL",
+        "saldo_anterior": "DECIMAL(12,2) NOT NULL",
+        "saldo_nuevo": "DECIMAL(12,2) NOT NULL",
+        "fecha_pago": "DATE NOT NULL",
+        "metodo_pago": "VARCHAR(50)",
+        "referencia": "VARCHAR(100)",
+        "observaciones": "TEXT",
+        "anulado": "BOOLEAN DEFAULT false",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["credito_id", "fecha_pago", "anulado"]
+    },
+
+    "categorias": {
+      "description": "Tabla de categorías de productos",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "nombre": "VARCHAR(100) UNIQUE NOT NULL",
+        "descripcion": "TEXT",
+        "activo": "BOOLEAN DEFAULT true",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["nombre"]
+    },
+
+    "productos": {
+      "description": "Tabla de productos para venta",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "codigo": "VARCHAR(50) UNIQUE NOT NULL",
+        "nombre": "VARCHAR(255) NOT NULL",
+        "descripcion": "TEXT",
+        "categoria_id": "VARCHAR(36) FOREIGN KEY REFERENCES categorias(id)",
+        "precio_compra": "DECIMAL(12,2) NOT NULL",
+        "precio_venta": "DECIMAL(12,2) NOT NULL",
+        "stock_actual": "INT DEFAULT 0",
+        "stock_minimo": "INT DEFAULT 0",
+        "unidad_medida": "VARCHAR(20)",
+        "activo": "BOOLEAN DEFAULT true",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "fecha_actualizacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["codigo", "categoria_id", "activo"]
+    },
+
+    "proveedores": {
+      "description": "Tabla de proveedores",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "nombre": "VARCHAR(255) NOT NULL",
+        "nit": "VARCHAR(20) UNIQUE",
+        "contacto": "VARCHAR(255)",
+        "telefono": "VARCHAR(20)",
+        "email": "VARCHAR(255)",
+        "direccion": "TEXT",
+        "ciudad": "VARCHAR(100)",
+        "activo": "BOOLEAN DEFAULT true",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["nit", "nombre", "activo"]
+    },
+
+    "compras": {
+      "description": "Tabla de compras a proveedores",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "numero_factura": "VARCHAR(50) UNIQUE NOT NULL",
+        "proveedor_id": "VARCHAR(36) FOREIGN KEY REFERENCES proveedores(id)",
+        "fecha_compra": "DATE NOT NULL",
+        "subtotal": "DECIMAL(12,2) NOT NULL",
+        "iva": "DECIMAL(12,2) DEFAULT 0",
+        "descuento": "DECIMAL(12,2) DEFAULT 0",
+        "total": "DECIMAL(12,2) NOT NULL",
+        "estado": "ENUM('Pendiente', 'En tránsito', 'Recibida', 'Cancelada') DEFAULT 'Pendiente'",
+        "metodo_pago": "VARCHAR(50)",
+        "observaciones": "TEXT",
+        "anulado": "BOOLEAN DEFAULT false",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["numero_factura", "proveedor_id", "estado", "anulado"]
+    },
+
+    "detalle_compras": {
+      "description": "Tabla de productos incluidos en cada compra",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "compra_id": "VARCHAR(36) FOREIGN KEY REFERENCES compras(id)",
+        "producto_id": "VARCHAR(36) FOREIGN KEY REFERENCES productos(id)",
+        "cantidad": "INT NOT NULL",
+        "precio_unitario": "DECIMAL(12,2) NOT NULL",
+        "subtotal": "DECIMAL(12,2) NOT NULL",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["compra_id", "producto_id"]
+    },
+
+    "ventas": {
+      "description": "Tabla de ventas realizadas",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "numero_venta": "VARCHAR(50) UNIQUE NOT NULL",
+        "asociado_id": "VARCHAR(36) FOREIGN KEY REFERENCES asociados(id)",
+        "fecha_venta": "DATE NOT NULL",
+        "subtotal": "DECIMAL(12,2) NOT NULL",
+        "descuento": "DECIMAL(12,2) DEFAULT 0",
+        "total": "DECIMAL(12,2) NOT NULL",
+        "estado": "ENUM('Pendiente', 'Pagada', 'Cancelada') DEFAULT 'Pendiente'",
+        "metodo_pago": "VARCHAR(50)",
+        "observaciones": "TEXT",
+        "anulado": "BOOLEAN DEFAULT false",
+        "vendedor_id": "VARCHAR(36) FOREIGN KEY REFERENCES usuarios(id)",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["numero_venta", "asociado_id", "estado", "anulado"]
+    },
+
+    "detalle_ventas": {
+      "description": "Tabla de productos incluidos en cada venta",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "venta_id": "VARCHAR(36) FOREIGN KEY REFERENCES ventas(id)",
+        "producto_id": "VARCHAR(36) FOREIGN KEY REFERENCES productos(id)",
+        "cantidad": "INT NOT NULL",
+        "precio_unitario": "DECIMAL(12,2) NOT NULL",
+        "subtotal": "DECIMAL(12,2) NOT NULL",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["venta_id", "producto_id"]
+    },
+
+    "pedidos": {
+      "description": "Tabla de pedidos de asociados",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "numero_pedido": "VARCHAR(50) UNIQUE NOT NULL",
+        "asociado_id": "VARCHAR(36) FOREIGN KEY REFERENCES asociados(id)",
+        "fecha_pedido": "DATE NOT NULL",
+        "fecha_entrega_estimada": "DATE",
+        "subtotal": "DECIMAL(12,2) NOT NULL",
+        "total": "DECIMAL(12,2) NOT NULL",
+        "estado": "ENUM('Pendiente', 'En proceso', 'Entregado', 'Cancelado') DEFAULT 'Pendiente'",
+        "observaciones": "TEXT",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "fecha_actualizacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["numero_pedido", "asociado_id", "estado"]
+    },
+
+    "detalle_pedidos": {
+      "description": "Tabla de productos incluidos en cada pedido",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "pedido_id": "VARCHAR(36) FOREIGN KEY REFERENCES pedidos(id)",
+        "producto_id": "VARCHAR(36) FOREIGN KEY REFERENCES productos(id)",
+        "cantidad": "INT NOT NULL",
+        "precio_unitario": "DECIMAL(12,2) NOT NULL",
+        "subtotal": "DECIMAL(12,2) NOT NULL",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["pedido_id", "producto_id"]
+    },
+
+    "eventos": {
+      "description": "Tabla de eventos organizados",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "nombre": "VARCHAR(255) NOT NULL",
+        "tipo": "VARCHAR(50) NOT NULL",
+        "fecha": "DATE NOT NULL",
+        "lugar": "VARCHAR(255) NOT NULL",
+        "participantes": "INT DEFAULT 0",
+        "presupuesto": "DECIMAL(12,2) DEFAULT 0",
+        "responsable": "VARCHAR(255)",
+        "descripcion": "TEXT",
+        "estado": "ENUM('Programado', 'En proceso', 'Realizado', 'Cancelado') DEFAULT 'Programado'",
+        "anulado": "BOOLEAN DEFAULT false",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "fecha_actualizacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["fecha", "tipo", "estado", "anulado"]
+    },
+
+    "pagos_premios": {
+      "description": "Tabla de pagos de premios a asociados",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "asociado_id": "VARCHAR(36) FOREIGN KEY REFERENCES asociados(id)",
+        "tipo_premio": "ENUM('Cumpleaños', 'Navidad', 'Día del padre', 'Día de la madre', 'Otro') NOT NULL",
+        "monto": "DECIMAL(12,2) NOT NULL",
+        "fecha_pago": "DATE NOT NULL",
+        "metodo_pago": "VARCHAR(50)",
+        "estado": "ENUM('Pendiente', 'Programado', 'Pagado', 'Cancelado') DEFAULT 'Pendiente'",
+        "observaciones": "TEXT",
+        "anulado": "BOOLEAN DEFAULT false",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["asociado_id", "tipo_premio", "estado", "anulado"]
+    },
+
+    "liquidaciones": {
+      "description": "Tabla de procesos de liquidación",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "periodo": "VARCHAR(50) NOT NULL",
+        "fecha_inicio": "DATE NOT NULL",
+        "fecha_fin": "DATE NOT NULL",
+        "total_ahorros": "DECIMAL(12,2) DEFAULT 0",
+        "total_creditos": "DECIMAL(12,2) DEFAULT 0",
+        "total_intereses": "DECIMAL(12,2) DEFAULT 0",
+        "utilidades": "DECIMAL(12,2) DEFAULT 0",
+        "estado": "ENUM('Pendiente', 'En proceso', 'Completada', 'Anulada') DEFAULT 'Pendiente'",
+        "procesado_por": "VARCHAR(36) FOREIGN KEY REFERENCES usuarios(id)",
+        "fecha_procesamiento": "TIMESTAMP",
+        "observaciones": "TEXT",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["periodo", "estado"]
+    },
+
+    "solicitudes_credito": {
+      "description": "Tabla de solicitudes pendientes en comité evaluador",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "credito_id": "VARCHAR(36) FOREIGN KEY REFERENCES creditos(id)",
+        "asociado_id": "VARCHAR(36) FOREIGN KEY REFERENCES asociados(id)",
+        "fecha_solicitud": "DATE NOT NULL",
+        "fecha_evaluacion": "DATE",
+        "estado": "ENUM('pendiente', 'aprobada', 'rechazada') DEFAULT 'pendiente'",
+        "evaluado_por": "VARCHAR(36) FOREIGN KEY REFERENCES usuarios(id)",
+        "observaciones_evaluacion": "TEXT",
+        "fecha_creacion": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": ["credito_id", "asociado_id", "estado"]
+    }
+  },
+
+  "relationships": {
+    "usuarios_roles": "usuarios.rol_id -> roles.id (Many-to-One)",
+    "usuarios_asociados": "asociados.usuario_id -> usuarios.id (One-to-One)",
+    "asociados_ahorros": "ahorro_permanente.asociado_id -> asociados.id (One-to-Many)",
+    "asociados_creditos": "creditos.asociado_id -> asociados.id (One-to-Many)",
+    "creditos_pagos": "pagos_credito.credito_id -> creditos.id (One-to-Many)",
+    "productos_categorias": "productos.categoria_id -> categorias.id (Many-to-One)",
+    "compras_proveedores": "compras.proveedor_id -> proveedores.id (Many-to-One)",
+    "compras_detalles": "detalle_compras.compra_id -> compras.id (One-to-Many)",
+    "ventas_asociados": "ventas.asociado_id -> asociados.id (Many-to-One)",
+    "ventas_detalles": "detalle_ventas.venta_id -> ventas.id (One-to-Many)",
+    "pedidos_asociados": "pedidos.asociado_id -> asociados.id (Many-to-One)",
+    "pedidos_detalles": "detalle_pedidos.pedido_id -> pedidos.id (One-to-Many)",
+    "pagos_premios_asociados": "pagos_premios.asociado_id -> asociados.id (Many-to-One)"
+  }
+}

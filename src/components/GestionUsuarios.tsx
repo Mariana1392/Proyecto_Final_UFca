@@ -1,0 +1,1370 @@
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Badge } from './ui/badge';
+import { Label } from './ui/label';
+import { Switch } from './ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Search, Plus, ChevronLeft, ChevronRight, UserCircle, Edit, Trash2, Shield, Clock, FileText, AlertTriangle, User } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
+import { toast } from 'sonner';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { rolLabel } from '../lib/permissions';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+// rolLabel viene de '../lib/permissions' — no redefinir aquí
+
+const getRolColor = (rol: string) => {
+  if (rol === 'admin' || rol === 'Administrador')                   return 'bg-emerald-100 text-emerald-700';
+  if (rol === 'asociado' || rol === 'Asociado')                     return 'bg-blue-100 text-blue-700';
+  if (rol === 'usuario' || rol === 'Usuario' || rol === 'Usuario Normal') return 'bg-amber-100 text-amber-700';
+  return 'bg-purple-100 text-purple-700';
+};
+
+/** Traduce los mensajes de error de Supabase Auth al español */
+const traducirErrorAuth = (msg: string): string => {
+  if (msg.includes('Password should be at least'))     return 'La contraseña debe tener al menos 6 caracteres';
+  if (msg.includes('password'))                        return 'La contraseña no cumple los requisitos mínimos (al menos 6 caracteres)';
+  if (msg.includes('User already registered'))         return 'Este correo ya está registrado en el sistema';
+  if (msg.includes('Email already in use'))            return 'Este correo ya está en uso por otro usuario';
+  if (msg.includes('Invalid email'))                   return 'El formato del correo electrónico no es válido';
+  if (msg.includes('Email not confirmed'))             return 'El correo no ha sido confirmado aún';
+  if (msg.includes('Invalid login credentials'))       return 'Credenciales incorrectas';
+  if (msg.includes('Too many requests'))               return 'Demasiados intentos. Espera un momento e intenta de nuevo';
+  if (msg.includes('signup is disabled'))              return 'El registro de nuevos usuarios está deshabilitado';
+  if (msg.includes('Email rate limit exceeded'))       return 'Límite de correos superado. Intenta más tarde';
+  if (msg.includes('weak_password'))                   return 'La contraseña es demasiado débil. Usa al menos 6 caracteres con letras y números';
+  return msg; // fallback: mostrar mensaje original si no se reconoce
+};
+
+interface GestionUsuariosProps {
+  userRole?: 'admin' | 'asociado';
+}
+
+export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsuariosProps) {
+  // ── Fuente única de verdad — AuthContext ───────────────────────────────────
+  // El usuario actual viene del contexto global, no se re-fetcha aquí.
+  const { user: authUser } = useAuth();
+  // Es admin si su rol en BD es 'admin' (no comparamos label traducido)
+  const esAdmin = authUser?.rol === 'admin';
+
+  const [searchTerm, setSearchTerm]                             = useState('');
+  const [currentPage, setCurrentPage]                           = useState(1);
+  const [isCreateModalOpen, setIsCreateModalOpen]               = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen]                   = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen]               = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen]             = useState(false);
+  const [isToggleEstadoDialogOpen, setIsToggleEstadoDialogOpen] = useState(false);
+  const [selectedUsuario, setSelectedUsuario]                   = useState<any>(null);
+  const itemsPerPage = 10;
+
+  const [auditoria, setAuditoria]           = useState<any[]>([]);
+  const [auditoriaPage, setAuditoriaPage]   = useState(1);
+  const AUDITORIA_PER_PAGE = 5;
+  const [filterRol, setFilterRol]           = useState('');
+  const [filterEstado, setFilterEstado]     = useState('');
+  const [formData, setFormData]         = useState({
+    identificacion: '', username: '', nombre: '',
+    email: '', telefono: '', rol: '', password: '',
+    direccion: '', fechaIngreso: '',
+  });
+
+  // ── Estado Supabase ──────────────────────────────────────────────────────────
+  const [usuarios, setUsuarios]     = useState<any[]>([]);
+  const [roles, setRoles]           = useState<any[]>([]);
+  const [loading, setLoading]       = useState(true);
+
+  useEffect(() => { cargarDatos(); }, []);
+
+  async function cargarDatos() {
+  try {
+    setLoading(true);
+
+    // El perfil del usuario actual ya viene de AuthContext — no re-fetchar aquí.
+    const [
+      { data: usData, error: usErr },
+      { data: rolesData },
+      { data: asociadosData },
+      { data: auditoriaData },
+    ] = await Promise.all([
+      supabase.from('usuarios').select('*, roles(nombre)').order('nombre'),
+      supabase.from('roles').select('*').order('nombre'),
+      supabase.from('asociados').select('id, nombre, cedula, telefono, email, estado, created_at').order('nombre'),
+      supabase.from('auditoria').select('*').eq('tabla', 'usuarios').order('created_at', { ascending: false }).limit(100),
+    ]);
+
+    if (usErr) throw usErr;
+
+    // IDs de asociados que ya tienen usuario vinculado
+    const asociadosYaVinculados = new Set(
+      (usData || []).map((u: any) => u.asociado_id).filter(Boolean)
+    );
+
+    // Usuarios normales
+    const usuariosMapeados = (usData || []).map((u: any) => ({
+      id:               u.id,
+      identificacion:   u.identificacion || u.id.slice(0, 8),
+      username:         u.username || u.email?.split('@')[0] || '—',
+      nombre:           u.nombre,
+      email:            u.email,
+      telefono:         u.telefono || '',
+      direccion:        u.direccion || '',
+      rol:              rolLabel(u.roles?.nombre ?? 'usuario'),
+      rol_nombre_db:    u.roles?.nombre ?? 'usuario', // nombre real en BD
+      rol_id:           u.rol_id,
+      asociado_id:      u.asociado_id,
+      ultimoAcceso:     u.ultimo_acceso
+        ? new Date(u.ultimo_acceso).toLocaleString('es-CO')
+        : 'Nunca',
+      estado:           u.activo,
+      fechaCreacion:    u.created_at?.split('T')[0] ?? '—',
+      fechaModificacion: u.updated_at?.split('T')[0] ?? '—',
+      soloLectura:      false,
+    }));
+
+    // Asociados sin cuenta de usuario — solo lectura
+    const asociadosSinCuenta = (asociadosData || [])
+      .filter((a: any) => !asociadosYaVinculados.has(a.id))
+      .map((a: any) => ({
+        id:             a.id,
+        identificacion: a.cedula,
+        username:       '—',
+        nombre:         a.nombre,
+        email:          a.email ?? '—',
+        telefono:       a.telefono ?? '',
+        rol:            'Asociado',
+        rol_id:         null,
+        asociado_id:    a.id,
+        ultimoAcceso:   '—',
+        estado:         a.estado ?? true,
+        fechaCreacion:    a.created_at?.split('T')[0] ?? '—',
+      fechaModificacion: a.created_at?.split('T')[0] ?? '—',
+        soloLectura:    true,  // bloquea editar/eliminar
+      }));
+
+    setUsuarios([...usuariosMapeados, ...asociadosSinCuenta]);
+    setRoles(rolesData || []);
+
+    // Cargar auditoría persistida desde Supabase
+    const auditoriaFormateada = (auditoriaData || []).map((r: any) => ({
+      usuarioId:        r.usuario_id,
+      usuarioNombre:    r.detalle?.usuarioNombre ?? '—',
+      estadoAnterior:   r.detalle?.estadoAnterior ?? '—',
+      estadoNuevo:      r.detalle?.estadoNuevo ?? '—',
+      fechaHora:        new Date(r.created_at).toLocaleString('es-CO'),
+      adminResponsable: r.detalle?.adminResponsable ?? '—',
+      accion:           r.accion,
+    }));
+    setAuditoria(auditoriaFormateada);
+  } catch (err: any) {
+    toast.error('Error al cargar usuarios: ' + err.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+  // ── Filtro y paginación ──────────────────────────────────────────────────────
+  const filteredUsuarios = usuarios.filter(u => {
+    const term = searchTerm.toLowerCase();
+    const matchSearch = !term ||
+      u.nombre.toLowerCase().includes(term) ||
+      u.email.toLowerCase().includes(term) ||
+      (u.username || '').toLowerCase().includes(term) ||
+      (u.identificacion || '').toLowerCase().includes(term) ||
+      u.rol.toLowerCase().includes(term);
+    const matchRol    = !filterRol    || u.rol === filterRol;
+    const matchEstado = !filterEstado ||
+      (filterEstado === 'activo' ? u.estado === true : u.estado === false);
+    return matchSearch && matchRol && matchEstado;
+  });
+
+  const totalPages      = Math.ceil(filteredUsuarios.length / itemsPerPage);
+  const startIndex      = (currentPage - 1) * itemsPerPage;
+  const endIndex        = startIndex + itemsPerPage;
+  const currentUsuarios = filteredUsuarios.slice(startIndex, endIndex);
+
+  // Texto de paginación sin mostrar "1 a 0"
+  const paginacionTexto = filteredUsuarios.length === 0
+    ? 'Sin resultados'
+    : `Mostrando ${startIndex + 1} a ${Math.min(endIndex, filteredUsuarios.length)} de ${filteredUsuarios.length} usuarios`;
+
+  // ── Guardar auditoría en Supabase ────────────────────────────────────────────
+  async function guardarAuditoria(registro: {
+    usuarioId: string;
+    usuarioNombre: string;
+    estadoAnterior: string;
+    estadoNuevo: string;
+    fechaHora: string;
+    adminResponsable: string;
+    accion: string;
+  }) {
+    await supabase.from('auditoria').insert({
+      usuario_id:  registro.usuarioId,
+      accion:      registro.accion,
+      tabla:       'usuarios',
+      registro_id: registro.usuarioId,
+      detalle: {
+        usuarioNombre:    registro.usuarioNombre,
+        estadoAnterior:   registro.estadoAnterior,
+        estadoNuevo:      registro.estadoNuevo,
+        adminResponsable: registro.adminResponsable,
+        fechaHora:        registro.fechaHora,
+      },
+    });
+    setAuditoria(prev => [registro, ...prev]);
+    setAuditoriaPage(1);
+  }
+
+  // ── Toggle estado ────────────────────────────────────────────────────────────
+  const handleToggleEstado = async (id: string) => {
+    const usuario    = usuarios.find(u => u.id === id);
+    const nuevoEstado = !usuario?.estado;
+    const fechaHora  = new Date().toLocaleString('es-CO', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+
+    // Bloquear desactivación si tiene procesos pendientes
+    if (!nuevoEstado && usuario?.asociado_id) {
+      const asociadoId = usuario.asociado_id;
+      const [
+        { data: ahorros },
+        { data: creditos },
+        { data: pedidos },
+      ] = await Promise.all([
+        supabase.from('ahorro_permanente').select('id').eq('asociado_id', asociadoId).eq('estado', true).eq('anulado', false).limit(1),
+        supabase.from('creditos').select('id').eq('asociado_id', asociadoId).in('estado', ['activo', 'pendiente', 'aprobado']).limit(1),
+        supabase.from('pedidos').select('id').eq('asociado_id', asociadoId).in('estado', ['pendiente', 'aprobado']).limit(1),
+      ]);
+
+      const procesos: string[] = [];
+      if (ahorros && ahorros.length > 0)  procesos.push('ahorros permanentes activos');
+      if (creditos && creditos.length > 0) procesos.push('créditos activos o pendientes');
+      if (pedidos  && pedidos.length > 0)  procesos.push('pedidos pendientes');
+
+      if (procesos.length > 0) {
+        toast.error(`No se puede desactivar a "${usuario?.nombre}"`, {
+          description: `Tiene: ${procesos.join(', ')}. Resuelve estos procesos antes de desactivar la cuenta.`,
+        });
+        setIsToggleEstadoDialogOpen(false);
+        setSelectedUsuario(null);
+        return;
+      }
+    }
+
+    try {
+      const { error } = await supabase.from('usuarios').update({ activo: nuevoEstado }).eq('id', id);
+      if (error) throw error;
+
+      // Sincronizar estado en la tabla asociados si el usuario tiene asociado vinculado
+      if (usuario?.asociado_id) {
+        try {
+          await supabase
+            .from('asociados')
+            .update({
+              estado:              nuevoEstado ? 'activo' : 'inactivo',
+              fecha_cambio_estado: new Date().toISOString(),
+              modificado_por:      authUser?.nombre ?? 'Administrador',
+            })
+            .eq('id', usuario.asociado_id);
+        } catch {
+          // Si falla la sincronización (ej. política RLS en asociados),
+          // no bloquear el flujo principal — el estado en usuarios ya se guardó.
+        }
+      }
+
+      setUsuarios(prev => prev.map(u => u.id === id ? { ...u, estado: nuevoEstado } : u));
+
+      nuevoEstado
+        ? toast.success(`Usuario "${usuario?.nombre}" activado`, {
+            description: `El usuario ya puede iniciar sesión | ${fechaHora}`,
+          })
+        : toast.warning(`Usuario "${usuario?.nombre}" desactivado`, {
+            description: `El usuario NO podrá iniciar sesión | ${fechaHora}`,
+          });
+
+      guardarAuditoria({
+        usuarioId:        id,
+        usuarioNombre:    usuario?.nombre ?? '—',
+        estadoAnterior:   usuario?.estado ? 'Activo' : 'Inactivo',
+        estadoNuevo:      nuevoEstado ? 'Activo' : 'Inactivo',
+        fechaHora,
+        adminResponsable: authUser?.nombre ?? 'Desconocido',
+        accion:           nuevoEstado ? 'ACTIVACIÓN' : 'DESACTIVACIÓN',
+      });
+    } catch (err: any) {
+      toast.error('Error al cambiar estado: ' + err.message);
+    }
+
+    setIsToggleEstadoDialogOpen(false);
+    setSelectedUsuario(null);
+  };
+
+  // ── Ver detalles ─────────────────────────────────────────────────────────────
+  const handleViewDetails = (usuario: any) => {
+    if (!esAdmin) {
+      toast.error('Acceso denegado', {
+        description: 'Solo los administradores pueden ver detalles de otros usuarios.',
+      });
+      return;
+    }
+    const existe = usuarios.find(u => u.id === usuario.id);
+    if (!existe) {
+      toast.error('Usuario no encontrado', {
+        description: 'El usuario fue eliminado o ya no existe.',
+      });
+      return;
+    }
+    setSelectedUsuario(usuario);
+    setIsDetailModalOpen(true);
+  };
+
+  // ── Crear ────────────────────────────────────────────────────────────────────
+  const handleOpenCreate = () => {
+    setFormData({ identificacion: '', username: '', nombre: '', email: '', telefono: '', rol: '', password: '', direccion: '', fechaIngreso: '' });
+    setIsCreateModalOpen(true);
+  };
+
+  const handleCreate = async () => {
+    if (!formData.identificacion.trim()) { toast.error('La identificación es obligatoria'); return; }
+    if (!/^\d+$/.test(formData.identificacion.trim())) { toast.error('La identificación solo debe contener números'); return; }
+    if (formData.identificacion.trim().length > 12)    { toast.error('La identificación no puede superar 12 dígitos'); return; }
+    if (!formData.username.trim())       { toast.error('El nombre de usuario es obligatorio'); return; }
+    if (!formData.nombre.trim())         { toast.error('El nombre es obligatorio'); return; }
+    if (!formData.email.trim())          { toast.error('El correo electrónico es obligatorio'); return; }
+    if (!formData.telefono.trim())       { toast.error('El teléfono es obligatorio'); return; }
+    if (formData.telefono.trim().length > 15) { toast.error('El teléfono no puede superar 15 caracteres'); return; }
+    if (!formData.rol)                   { toast.error('Debes seleccionar un rol'); return; }
+    if (!formData.password.trim())       { toast.error('La contraseña es obligatoria'); return; }
+    if (formData.password.trim().length < 6) { toast.error('La contraseña debe tener al menos 6 caracteres'); return; }
+
+    // Campos adicionales si es Asociado
+    if (formData.rol === 'Asociado') {
+      if (!formData.direccion.trim())    { toast.error('La dirección es obligatoria para asociados'); return; }
+      if (!formData.fechaIngreso.trim()) { toast.error('La fecha de ingreso es obligatoria para asociados'); return; }
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email.trim())) { toast.error('El formato del email no es válido'); return; }
+
+    if (usuarios.some(u => u.identificacion === formData.identificacion.trim()))
+      { toast.error(`Ya existe un usuario con la identificación "${formData.identificacion}"`); return; }
+    if (usuarios.some(u => u.username.toLowerCase() === formData.username.trim().toLowerCase()))
+      { toast.error(`Ya existe un usuario con el nombre "${formData.username}"`); return; }
+    if (usuarios.some(u => u.email.toLowerCase() === formData.email.trim().toLowerCase()))
+      { toast.error(`Ya existe un usuario con el email "${formData.email}"`); return; }
+
+    try {
+      // Crear en Supabase Auth usando signUp (funciona desde el frontend)
+      const { data: authData, error: authErr } = await supabase.auth.signUp({
+        email:    formData.email.trim(),
+        password: formData.password.trim(),
+        options:  { data: { nombre: formData.nombre.trim() } },
+      });
+      if (authErr) throw authErr;
+      if (!authData.user) throw new Error('No se pudo crear el usuario en Auth');
+
+      // Buscar el rol en la BD por su nombre original (sin capitalizar)
+      const rolSeleccionado = roles.find(r =>
+        rolLabel(r.nombre) === formData.rol || r.nombre === formData.rol
+      );
+
+      // Si el rol es Asociado, crear primero el registro en la tabla asociados
+      let asociadoId: string | null = null;
+      if (formData.rol === 'Asociado') {
+        const { data: nuevoAsociado, error: asociadoErr } = await supabase
+          .from('asociados')
+          .insert({
+            nombre:        formData.nombre.trim(),
+            cedula:        formData.identificacion.trim(),
+            telefono:      formData.telefono.trim(),
+            email:         formData.email.trim(),
+            direccion:     formData.direccion.trim(),
+            fecha_ingreso: formData.fechaIngreso.trim(),
+            estado:        'activo',
+          })
+          .select('id')
+          .single();
+        if (asociadoErr) throw new Error('Error al crear el asociado: ' + asociadoErr.message);
+        asociadoId = nuevoAsociado.id;
+      }
+
+      const { error: userErr } = await supabase.from('usuarios').insert({
+        id:             authData.user.id,
+        nombre:         formData.nombre.trim(),
+        email:          formData.email.trim(),
+        username:       formData.username.trim().toLowerCase(),
+        identificacion: formData.identificacion.trim(),
+        telefono:       formData.telefono.trim(),
+        direccion:      formData.direccion.trim(),
+        rol_id:         rolSeleccionado?.id,
+        activo:         true,
+        ...(asociadoId ? { asociado_id: asociadoId } : {}),
+      });
+      if (userErr) throw userErr;
+
+      setUsuarios(prev => [...prev, {
+        id:             authData.user!.id,
+        identificacion: formData.identificacion.trim(),
+        username:       formData.username.trim().toLowerCase(),
+        nombre:         formData.nombre.trim(),
+        email:          formData.email.trim(),
+        telefono:       formData.telefono.trim(),
+        rol:            formData.rol,
+        asociado_id:    asociadoId,
+        ultimoAcceso:   'Nunca',
+        estado:         true,
+        fechaCreacion:  new Date().toISOString().split('T')[0],
+        soloLectura:    false,
+      }]);
+
+      toast.success(`Usuario "${formData.nombre}" creado exitosamente${asociadoId ? ' y registrado como asociado' : ''}`);
+      setIsCreateModalOpen(false);
+    } catch (err: any) {
+      toast.error(traducirErrorAuth(err.message));
+    }
+  };
+
+  // ── Editar ───────────────────────────────────────────────────────────────────
+  const handleOpenEdit = (usuario: any) => {
+    setSelectedUsuario(usuario);
+    setFormData({
+      identificacion: usuario.identificacion,
+      username:       usuario.username,
+      nombre:         usuario.nombre,
+      email:          usuario.email,
+      telefono:       usuario.telefono || '',
+      direccion:      usuario.direccion || '',
+      rol:            usuario.rol,
+      password:       '',
+      fechaIngreso:   '',
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleEdit = async () => {
+    if (!selectedUsuario) return;
+    if (!formData.nombre.trim())         { toast.error('El nombre es obligatorio'); return; }
+    if (!formData.identificacion.trim()) { toast.error('La identificación es obligatoria'); return; }
+    if (!/^\d+$/.test(formData.identificacion.trim())) { toast.error('La identificación solo debe contener números'); return; }
+    if (formData.identificacion.trim().length > 12)    { toast.error('La identificación no puede superar 12 dígitos'); return; }
+    if (!formData.username.trim())       { toast.error('El nombre de usuario es obligatorio'); return; }
+    if (!formData.email.trim())          { toast.error('El correo electrónico es obligatorio'); return; }
+    if (formData.telefono.trim().length > 15) { toast.error('El teléfono no puede superar 15 caracteres'); return; }
+    if (!formData.rol)                   { toast.error('El rol es obligatorio'); return; }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email.trim())) { toast.error('El formato del email no es válido'); return; }
+
+    // Solo comparar contra usuarios reales (no registros soloLectura de asociados sin cuenta)
+    const usuariosReales = usuarios.filter(u => !u.soloLectura);
+    if (usuariosReales.some(u => u.identificacion === formData.identificacion.trim() && u.id !== selectedUsuario.id))
+      { toast.error(`Ya existe otro usuario con la identificación "${formData.identificacion}"`); return; }
+    if (usuariosReales.some(u => (u.username || '').toLowerCase() === formData.username.trim().toLowerCase() && u.id !== selectedUsuario.id))
+      { toast.error(`Ya existe otro usuario con el nombre de usuario "${formData.username}"`); return; }
+    if (usuariosReales.some(u => u.email.toLowerCase() === formData.email.trim().toLowerCase() && u.id !== selectedUsuario.id))
+      { toast.error(`Ya existe otro usuario con el email "${formData.email}"`); return; }
+
+    const rolSeleccionado = roles.find(r =>
+      rolLabel(r.nombre) === formData.rol || r.nombre === formData.rol
+    );
+
+    try {
+      const { error } = await supabase.from('usuarios')
+        .update({
+          nombre:         formData.nombre.trim(),
+          email:          formData.email.trim(),
+          username:       formData.username.trim().toLowerCase(),
+          identificacion: formData.identificacion.trim(),
+          telefono:       formData.telefono.trim(),
+          direccion:      formData.direccion.trim(),
+          rol_id:         rolSeleccionado?.id,
+        })
+        .eq('id', selectedUsuario.id);
+      if (error) throw error;
+
+      // Sincronizar datos hacia la tabla asociados si el usuario tiene asociado vinculado
+      if (selectedUsuario.asociado_id) {
+        await supabase.from('asociados').update({
+          nombre:             formData.nombre.trim(),
+          email:              formData.email.trim(),
+          cedula:             formData.identificacion.trim(),
+          telefono:           formData.telefono.trim(),
+          direccion:          formData.direccion.trim(),
+          fecha_modificacion: new Date().toISOString(),
+          modificado_por:     authUser?.nombre ?? 'Administrador',
+        }).eq('id', selectedUsuario.asociado_id);
+      }
+
+      setUsuarios(prev => prev.map(u =>
+        u.id === selectedUsuario.id
+          ? { ...u,
+              nombre:         formData.nombre.trim(),
+              email:          formData.email.trim(),
+              username:       formData.username.trim().toLowerCase(),
+              identificacion: formData.identificacion.trim(),
+              telefono:       formData.telefono.trim(),
+              direccion:      formData.direccion.trim(),
+              rol:            formData.rol,
+              rol_id:         rolSeleccionado?.id,
+              fechaModificacion: new Date().toISOString().split('T')[0],
+            }
+          : u
+      ));
+      guardarAuditoria({
+        usuarioId:        selectedUsuario.id,
+        usuarioNombre:    formData.nombre.trim(),
+        estadoAnterior:   `Rol: ${selectedUsuario.rol}`,
+        estadoNuevo:      `Rol: ${formData.rol}`,
+        fechaHora:        new Date().toLocaleString('es-CO'),
+        adminResponsable: authUser?.nombre ?? 'Desconocido',
+        accion:           'EDICIÓN',
+      });
+      toast.success(`✅ Usuario "${formData.nombre}" actualizado exitosamente`);
+    } catch (err: any) {
+      toast.error('Error al actualizar usuario: ' + err.message);
+    }
+
+    setIsEditModalOpen(false);
+    setSelectedUsuario(null);
+  };
+
+  // ── Eliminar ─────────────────────────────────────────────────────────────────
+  const handleDelete = async () => {
+    if (!selectedUsuario) return;
+
+    // Verificar que no existan registros vinculados en ninguna tabla relacionada
+    if (selectedUsuario.asociado_id) {
+      try {
+        const id = selectedUsuario.asociado_id;
+        const [creditosRes, ahorroPermRes, ahorroVolRes, pedidosRes] = await Promise.all([
+          supabase.from('creditos').select('id')
+            .eq('asociado_id', id)
+            .eq('anulado', false)
+            .in('estado', ['pendiente', 'aprobado', 'desembolsado', 'en_mora', 'activo'])
+            .limit(1),
+          supabase.from('ahorro_permanente').select('id')
+            .eq('asociado_id', id)
+            .eq('estado', true)
+            .eq('anulado', false)
+            .limit(1),
+          supabase.from('ahorro_voluntario').select('id')
+            .eq('asociado_id', id)
+            .eq('estado', true)
+            .eq('anulado', false)
+            .limit(1),
+          supabase.from('pedidos').select('id')
+            .eq('asociado_id', id)
+            .eq('estado', 'pendiente')
+            .limit(1),
+        ]);
+
+        const bloqueos: string[] = [];
+        if ((creditosRes.data?.length  ?? 0) > 0) bloqueos.push('créditos');
+        if ((ahorroPermRes.data?.length ?? 0) > 0) bloqueos.push('ahorros permanentes');
+        if ((ahorroVolRes.data?.length  ?? 0) > 0) bloqueos.push('ahorros voluntarios');
+        if ((pedidosRes.data?.length    ?? 0) > 0) bloqueos.push('pedidos');
+
+        if (bloqueos.length > 0) {
+          toast.error('No se puede eliminar este asociado', {
+            description: `Tiene registros vinculados: ${bloqueos.join(', ')}. Elimínalos primero desde sus módulos correspondientes.`,
+            duration: 8000,
+          });
+          setIsDeleteDialogOpen(false); setSelectedUsuario(null); return;
+        }
+      } catch (verifyErr: any) {
+        toast.error('Error al verificar registros del usuario: ' + verifyErr.message);
+        setIsDeleteDialogOpen(false); setSelectedUsuario(null); return;
+      }
+    }
+
+    const fechaHora = new Date().toLocaleString('es-CO', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+
+    try {
+      // 1. Eliminar el registro de asociado vinculado PRIMERO (si existe)
+      //    para evitar que reaparezca como "asociado sin cuenta" al recargar.
+      if (selectedUsuario.asociado_id) {
+        const { error: asocDelErr } = await supabase
+          .from('asociados')
+          .delete()
+          .eq('id', selectedUsuario.asociado_id);
+        if (asocDelErr) throw new Error(
+          `No se pudo eliminar el registro de asociado: ${asocDelErr.message}. ` +
+          'Puede tener ahorros, créditos u otros registros vinculados.'
+        );
+      }
+
+      // 2. Eliminar de la tabla usuarios (solo si no es un asociado sin cuenta)
+      if (!selectedUsuario.soloLectura) {
+        const { error: dbErr } = await supabase.from('usuarios').delete().eq('id', selectedUsuario.id);
+        if (dbErr) throw dbErr;
+
+        // 3. Eliminar de Supabase Auth via función SQL con SECURITY DEFINER
+        await supabase.rpc('eliminar_usuario_auth', { user_id: selectedUsuario.id });
+      }
+
+      guardarAuditoria({
+        usuarioId:        selectedUsuario.id,
+        usuarioNombre:    selectedUsuario.nombre,
+        estadoAnterior:   selectedUsuario.estado ? 'Activo' : 'Inactivo',
+        estadoNuevo:      'ELIMINADO',
+        fechaHora,
+        adminResponsable: authUser?.nombre ?? 'Desconocido',
+        accion:           'ELIMINACIÓN',
+      });
+
+      setUsuarios(prev => prev.filter(u => u.id !== selectedUsuario.id));
+      toast.success(`Usuario "${selectedUsuario.nombre}" eliminado exitosamente`);
+    } catch (err: any) {
+      toast.error('Error al eliminar usuario: ' + err.message);
+    }
+
+    setIsDeleteDialogOpen(false);
+    setSelectedUsuario(null);
+  };
+
+  // ── Loading ──────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600 mx-auto mb-3" />
+          <p className="text-sm text-slate-500">Cargando usuarios...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── JSX ──────────────────────────────────────────────────────────────────────
+  return (
+    <div className="p-8 bg-slate-50 min-h-screen">
+      <div className="max-w-7xl mx-auto space-y-6">
+
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-slate-900 mb-2 flex items-center gap-3">
+              <UserCircle className="size-8 text-emerald-600" />
+              Gestión de Usuarios
+            </h1>
+            <p className="text-slate-600">Administra los usuarios del sistema UFCA</p>
+          </div>
+          {esAdmin && (
+            <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={handleOpenCreate}>
+              <Plus className="size-4" />
+              Nuevo usuario
+            </Button>
+          )}
+        </div>
+
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                <div>
+                  <CardTitle>Lista de Usuarios</CardTitle>
+                  <p className="text-sm text-slate-500 mt-1">
+                    {filteredUsuarios.length} usuario(s) encontrado(s)
+                    {(filterRol || filterEstado || searchTerm) && (
+                      <button
+                        onClick={() => { setFilterRol(''); setFilterEstado(''); setSearchTerm(''); setCurrentPage(1); }}
+                        className="ml-2 text-emerald-600 hover:underline text-xs"
+                      >
+                        Limpiar filtros
+                      </button>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1 sm:max-w-xs">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                  <Input
+                    placeholder="Buscar por nombre, usuario, ID o rol..."
+                    className="pl-10"
+                    autoComplete="off"
+                    value={searchTerm}
+                    onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                  />
+                </div>
+                <Select value={filterRol || 'todos'} onValueChange={(v) => { setFilterRol(v === 'todos' ? '' : v); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-full sm:w-40">
+                    <SelectValue placeholder="Filtrar por rol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los roles</SelectItem>
+                    {roles.map(r => (
+                      <SelectItem key={r.id} value={rolLabel(r.nombre)}>
+                        {rolLabel(r.nombre)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={filterEstado || 'todos'} onValueChange={(v) => { setFilterEstado(v === 'todos' ? '' : v); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-full sm:w-36">
+                    <SelectValue placeholder="Estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="activo">Activos</SelectItem>
+                    <SelectItem value="inactivo">Inactivos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg border border-slate-200 overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Usuario</TableHead>
+                    <TableHead>Identificación</TableHead>
+                    <TableHead>Rol</TableHead>
+                    <TableHead>Último acceso</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {usuarios.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-12">
+                        <div className="flex flex-col items-center gap-3 text-slate-500">
+                          <UserCircle className="size-16 text-slate-300" />
+                          <div>
+                            <p className="text-lg font-medium text-slate-700">No existen usuarios en el sistema</p>
+                            <p className="text-sm mt-2">Comienza creando el primer usuario haciendo clic en "Nuevo usuario"</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : currentUsuarios.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-12">
+                        <div className="flex flex-col items-center gap-3 text-slate-500">
+                          <Search className="size-12 text-slate-300" />
+                          <div>
+                            <p className="text-lg font-medium text-slate-700">No se encontraron resultados</p>
+                            <p className="text-sm">No hay usuarios que coincidan con "{searchTerm}"</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    currentUsuarios.map((usuario) => (
+                      <TableRow
+                        key={usuario.id}
+                        className="cursor-pointer hover:bg-slate-50 transition-colors"
+                        onClick={() => handleViewDetails(usuario)}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-cyan-100 rounded-lg">
+                              <UserCircle className="size-4 text-cyan-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-900">{usuario.nombre}</p>
+                              <p className="text-xs text-slate-400">@{usuario.username}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-sm text-slate-600">{usuario.identificacion}</p>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getRolColor(usuario.rol)}>{usuario.rol}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-slate-600 text-sm">{usuario.ultimoAcceso}</p>
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={usuario.estado}
+                              disabled={!esAdmin}
+                              onCheckedChange={() => {
+                                setSelectedUsuario(usuario);
+                                setIsToggleEstadoDialogOpen(true);
+                              }}
+                            />
+                            <span className="text-sm text-slate-600">
+                              {usuario.estado ? 'Activo' : 'Inactivo'}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          {esAdmin && usuario.rol_nombre_db !== 'admin' && (
+                            <div className="flex gap-2 justify-end">
+                              {!usuario.soloLectura && (
+                                <Button
+                                  variant="outline" size="sm"
+                                  onClick={(e: { stopPropagation: () => void; }) => { e.stopPropagation(); handleOpenEdit(usuario); }}
+                                  title="Editar usuario"
+                                >
+                                  <Edit className="size-4" />
+                                </Button>
+                              )}
+                              <Button
+                                variant="outline" size="sm"
+                                onClick={(e: { stopPropagation: () => void; }) => { e.stopPropagation(); setSelectedUsuario(usuario); setIsDeleteDialogOpen(true); }}
+                                title="Eliminar usuario"
+                              >
+                                <Trash2 className="size-4 text-red-600" />
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Paginación */}
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-slate-600">{paginacionTexto}</p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setCurrentPage(page)}
+                    className={currentPage === page ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                  >
+                    {page}
+                  </Button>
+                ))}
+                <Button variant="outline" size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Registro de auditoría */}
+        {auditoria.length > 0 && (() => {
+          const totalAudPaginas = Math.ceil(auditoria.length / AUDITORIA_PER_PAGE);
+          const audPagina = auditoria.slice(
+            (auditoriaPage - 1) * AUDITORIA_PER_PAGE,
+            auditoriaPage * AUDITORIA_PER_PAGE,
+          );
+          return (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="size-5 text-emerald-600" />
+                      Registro de Cambios de Estado
+                    </CardTitle>
+                    <p className="text-sm text-slate-600 mt-1">
+                      Historial de activaciones, desactivaciones y eliminaciones
+                    </p>
+                  </div>
+                  <span className="text-xs text-slate-400">{auditoria.length} registro(s)</span>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-lg border border-slate-200 overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Usuario</TableHead>
+                        <TableHead>Acción</TableHead>
+                        <TableHead>Estado anterior</TableHead>
+                        <TableHead>Estado nuevo</TableHead>
+                        <TableHead>Fecha y hora</TableHead>
+                        <TableHead>Admin responsable</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {audPagina.map((registro, index) => (
+                        <TableRow key={index}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="p-1.5 bg-cyan-100 rounded-lg">
+                                <UserCircle className="size-3.5 text-cyan-600" />
+                              </div>
+                              <span className="text-sm font-medium text-slate-900">{registro.usuarioNombre}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={
+                              registro.accion === 'ACTIVACIÓN'  ? 'bg-emerald-100 text-emerald-700' :
+                              registro.accion === 'ELIMINACIÓN' ? 'bg-red-100 text-red-700' :
+                                                                   'bg-orange-100 text-orange-700'
+                            }>
+                              {registro.accion}
+                            </Badge>
+                          </TableCell>
+                          <TableCell><span className="text-sm text-slate-600">{registro.estadoAnterior}</span></TableCell>
+                          <TableCell><span className="text-sm font-medium text-slate-900">{registro.estadoNuevo}</span></TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2 text-sm text-slate-700">
+                              <Clock className="size-3.5 text-slate-400" />
+                              {registro.fechaHora}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="p-1.5 bg-emerald-100 rounded-lg">
+                                <Shield className="size-3.5 text-emerald-600" />
+                              </div>
+                              <span className="text-sm text-slate-700">{registro.adminResponsable}</span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Paginación del historial */}
+                {totalAudPaginas > 1 && (
+                  <div className="flex items-center justify-between mt-4 px-1">
+                    <p className="text-xs text-slate-500">
+                      Mostrando {(auditoriaPage - 1) * AUDITORIA_PER_PAGE + 1}–
+                      {Math.min(auditoriaPage * AUDITORIA_PER_PAGE, auditoria.length)} de {auditoria.length}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setAuditoriaPage(p => Math.max(1, p - 1))}
+                        disabled={auditoriaPage === 1}
+                        className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        ← Anterior
+                      </button>
+                      {Array.from({ length: totalAudPaginas }, (_, i) => i + 1).map(p => (
+                        <button
+                          key={p}
+                          onClick={() => setAuditoriaPage(p)}
+                          className={`w-8 h-8 text-xs rounded-lg border transition-colors ${
+                            p === auditoriaPage
+                              ? 'bg-emerald-600 text-white border-emerald-600 font-semibold'
+                              : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setAuditoriaPage(p => Math.min(totalAudPaginas, p + 1))}
+                        disabled={auditoriaPage === totalAudPaginas}
+                        className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Siguiente →
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
+      </div>
+
+      {/* ── Modal Crear Usuario ── */}
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCircle className="size-5 text-emerald-600" />
+              Crear Nuevo Usuario
+            </DialogTitle>
+            <DialogDescription>Completa los datos del nuevo usuario del sistema</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="c-identificacion">Identificación * <span className="text-xs text-slate-400 font-normal">(solo números, máx. 12)</span></Label>
+                <Input id="c-identificacion" placeholder="1010123456"
+                  inputMode="numeric"
+                  maxLength={12}
+                  value={formData.identificacion}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 12);
+                    setFormData(prev => ({ ...prev, identificacion: val }));
+                  }} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="c-username">Nombre de usuario *</Label>
+                <Input id="c-username" placeholder="juan.perez"
+                  value={formData.username}
+                  onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="c-nombre">Nombre completo *</Label>
+                <Input id="c-nombre" placeholder="Juan Pérez"
+                  value={formData.nombre}
+                  onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="c-email">Email *</Label>
+                <Input id="c-email" type="email" placeholder="juan.perez@ufca.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="c-telefono">Teléfono * <span className="text-xs text-slate-400 font-normal">(máx. 15 caracteres)</span></Label>
+                <Input id="c-telefono" placeholder="+57 300 111 2222"
+                  inputMode="tel"
+                  maxLength={15}
+                  value={formData.telefono}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^\d+\s\-()]/g, '').slice(0, 15);
+                    setFormData(prev => ({ ...prev, telefono: val }));
+                  }} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="c-rol">Rol *</Label>
+                <Select value={formData.rol} onValueChange={(v: string) => setFormData(prev => ({ ...prev, rol: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar rol" /></SelectTrigger>
+                  <SelectContent>
+                    {roles.map(r => (
+                      <SelectItem key={r.id} value={rolLabel(r.nombre)}>
+                        {rolLabel(r.nombre)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="c-password">Contraseña *</Label>
+              <Input id="c-password" type="password" placeholder="••••••••"
+                autoComplete="new-password"
+                value={formData.password}
+                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))} />
+            </div>
+            {formData.rol === 'Asociado' && (
+              <>
+                <div className="border-t border-slate-200 pt-4">
+                  <p className="text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
+                    <User className="size-4 text-emerald-600" />
+                    Datos de asociado (requeridos al registrar con rol Asociado)
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="c-direccion">Dirección *</Label>
+                      <Input id="c-direccion" placeholder="Calle 10 # 5-20, Florencia"
+                        value={formData.direccion}
+                        onChange={(e) => setFormData(prev => ({ ...prev, direccion: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="c-fecha-ingreso">Fecha de ingreso *</Label>
+                      <Input id="c-fecha-ingreso" type="date"
+                        value={formData.fechaIngreso}
+                        onChange={(e) => setFormData(prev => ({ ...prev, fechaIngreso: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreate} className="bg-emerald-600 hover:bg-emerald-700">Crear usuario</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal Editar Usuario ── */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="size-5 text-emerald-600" />
+              Editar Usuario: {selectedUsuario?.nombre}
+            </DialogTitle>
+            <DialogDescription>Actualiza la información del usuario</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="e-identificacion">Identificación * <span className="text-xs text-slate-400 font-normal">(solo números, máx. 12)</span></Label>
+                <Input id="e-identificacion" placeholder="1010123456"
+                  inputMode="numeric"
+                  maxLength={12}
+                  value={formData.identificacion}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 12);
+                    setFormData(prev => ({ ...prev, identificacion: val }));
+                  }} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="e-username">Nombre de usuario *</Label>
+                <Input id="e-username" placeholder="juan.perez"
+                  value={formData.username}
+                  onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="e-nombre">Nombre completo *</Label>
+                <Input id="e-nombre" placeholder="Juan Pérez"
+                  value={formData.nombre}
+                  onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="e-email">Email *</Label>
+                <Input id="e-email" type="email" placeholder="juan.perez@ufca.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="e-telefono">Teléfono <span className="text-xs text-slate-400 font-normal">(máx. 15 caracteres)</span></Label>
+                <Input id="e-telefono" placeholder="+57 300 111 2222"
+                  inputMode="tel"
+                  maxLength={15}
+                  value={formData.telefono}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^\d+\s\-()]/g, '').slice(0, 15);
+                    setFormData(prev => ({ ...prev, telefono: val }));
+                  }} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="e-rol">Rol *</Label>
+                <Select value={formData.rol} onValueChange={(v: string) => setFormData(prev => ({ ...prev, rol: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar rol" /></SelectTrigger>
+                  <SelectContent>
+                    {roles.map(r => (
+                      <SelectItem key={r.id} value={rolLabel(r.nombre)}>
+                        {rolLabel(r.nombre)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="e-direccion">Dirección</Label>
+              <Input id="e-direccion" placeholder="Calle 10 # 5-20, Florencia"
+                value={formData.direccion}
+                onChange={(e) => setFormData(prev => ({ ...prev, direccion: e.target.value }))} />
+            </div>
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-700">
+                <strong>Nota:</strong> Para cambiar la contraseña, el usuario debe solicitarlo desde la página de inicio de sesión.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => { setIsEditModalOpen(false); setSelectedUsuario(null); }}>Cancelar</Button>
+            <Button onClick={handleEdit} className="bg-emerald-600 hover:bg-emerald-700">Actualizar usuario</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal Ver Detalles ── */}
+      <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="size-5 text-emerald-600" />
+              Detalles del Usuario
+            </DialogTitle>
+            <DialogDescription>Información completa del usuario</DialogDescription>
+          </DialogHeader>
+          {selectedUsuario && (
+            <div className="space-y-4 py-2">
+              {/* Encabezado del perfil */}
+              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="p-4 bg-cyan-100 rounded-full">
+                  <UserCircle className="size-10 text-cyan-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-slate-900">{selectedUsuario.nombre}</h3>
+                  <p className="text-sm text-slate-500">@{selectedUsuario.username}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge className={getRolColor(selectedUsuario.rol)}>{selectedUsuario.rol}</Badge>
+                    <Badge className={selectedUsuario.estado ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}>
+                      {selectedUsuario.estado ? '● Activo' : '● Inactivo'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Datos personales */}
+              <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <User className="size-4 text-slate-500" />
+                  Datos personales
+                </h4>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                  <div>
+                    <Label className="text-xs text-slate-500">Nombre completo</Label>
+                    <p className="text-sm font-medium text-slate-900 mt-0.5">{selectedUsuario.nombre || '—'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Nombre de usuario</Label>
+                    <p className="text-sm font-medium text-slate-900 mt-0.5">
+                      {selectedUsuario.username && selectedUsuario.username !== '—'
+                        ? `@${selectedUsuario.username}`
+                        : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Identificación</Label>
+                    <p className="text-sm font-medium text-slate-900 mt-0.5">
+                      {selectedUsuario.identificacion && !selectedUsuario.identificacion.includes('-')
+                        ? selectedUsuario.identificacion
+                        : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Teléfono</Label>
+                    <p className="text-sm font-medium text-slate-900 mt-0.5">
+                      {selectedUsuario.telefono || '—'}
+                    </p>
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs text-slate-500">Correo electrónico</Label>
+                    <p className="text-sm font-medium text-slate-900 mt-0.5">{selectedUsuario.email || '—'}</p>
+                  </div>
+                  {selectedUsuario.direccion && (
+                    <div className="col-span-2">
+                      <Label className="text-xs text-slate-500">Dirección</Label>
+                      <p className="text-sm font-medium text-slate-900 mt-0.5">{selectedUsuario.direccion}</p>
+                    </div>
+                  )}
+                  <div>
+                    <Label className="text-xs text-slate-500">Rol asignado</Label>
+                    <p className="text-sm font-medium mt-0.5">
+                      <Badge className={`${getRolColor(selectedUsuario.rol)} text-xs`}>{selectedUsuario.rol}</Badge>
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Estado</Label>
+                    <p className="text-sm font-medium mt-0.5">
+                      <Badge className={`text-xs ${selectedUsuario.estado ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                        {selectedUsuario.estado ? '● Activo' : '● Inactivo'}
+                      </Badge>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fechas y acceso */}
+              <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <Clock className="size-4 text-slate-500" />
+                  Historial de actividad
+                </h4>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                  <div>
+                    <Label className="text-xs text-slate-500">Fecha de creación</Label>
+                    <p className="text-sm font-medium text-slate-900 mt-0.5">{selectedUsuario.fechaCreacion}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Última modificación</Label>
+                    <p className="text-sm font-medium text-slate-900 mt-0.5">{selectedUsuario.fechaModificacion}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs text-slate-500">Último acceso al sistema</Label>
+                    <p className="text-sm font-medium text-slate-900 mt-0.5">{selectedUsuario.ultimoAcceso}</p>
+                  </div>
+                </div>
+              </div>
+
+              {!selectedUsuario.estado && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2 text-red-700 text-sm">
+                  <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+                  <span>Este usuario está <strong>inactivo</strong> y no puede iniciar sesión ni realizar acciones en el sistema.</span>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsDetailModalOpen(false); setSelectedUsuario(null); }}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal Eliminar ── */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-700">
+              <AlertTriangle className="size-5" />
+              ¿Eliminar usuario permanentemente?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <span className="block">
+                Estás a punto de eliminar a <strong className="text-slate-900">"{selectedUsuario?.nombre}"</strong> (@{selectedUsuario?.username}).
+                Esta acción <strong>no se puede deshacer</strong>.
+              </span>
+              <span className="block p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                <span className="flex items-center gap-2 mb-1 font-medium">
+                  <AlertTriangle className="size-3.5 shrink-0" />
+                  Consecuencias de la eliminación:
+                </span>
+                <ul className="space-y-1 ml-5 list-disc text-xs">
+                  <li>El usuario no podrá iniciar sesión</li>
+                  <li>No aparecerá en listados operativos</li>
+                  <li>La acción quedará registrada en auditoría</li>
+                </ul>
+              </span>
+              <span className="block text-xs text-slate-500">
+                Nota: No se puede eliminar si el usuario tiene créditos activos o ahorros con saldo.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSelectedUsuario(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+              Eliminar permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Modal Cambiar Estado ── */}
+      <AlertDialog open={isToggleEstadoDialogOpen} onOpenChange={setIsToggleEstadoDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Confirmar cambio de estado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Estás a punto de {selectedUsuario?.estado ? 'desactivar' : 'activar'} al usuario "{selectedUsuario?.nombre}".
+              {selectedUsuario?.estado && ' El usuario no podrá acceder al sistema mientras esté inactivo.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSelectedUsuario(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => handleToggleEstado(selectedUsuario?.id)}
+              className={selectedUsuario?.estado ? 'bg-orange-600 hover:bg-orange-700' : 'bg-emerald-600 hover:bg-emerald-700'}
+            >
+              {selectedUsuario?.estado ? 'Desactivar' : 'Activar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

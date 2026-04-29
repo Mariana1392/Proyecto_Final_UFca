@@ -1,0 +1,895 @@
+import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Badge } from './ui/badge';
+import { Alert, AlertDescription } from './ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import {
+  UserCircle, FileText, CheckCircle2, Clock, XCircle, Send, UserPlus,
+  MapPin, Calendar, Award, Shield, PiggyBank, CreditCard, Users,
+  TrendingUp, Target, Trophy, Sparkles, Upload, X, FileImage,
+  ExternalLink, AlertTriangle, Briefcase, MessageSquare,
+} from 'lucide-react';
+import { Textarea } from './ui/textarea';
+import { toast } from 'sonner';
+
+// ─── tipos de identificación ────────────────────────────────────────────────
+const TIPOS_ID = [
+  { value: 'CC',  label: 'Cédula de Ciudadanía (CC)' },
+  { value: 'TI',  label: 'Tarjeta de Identidad (TI)' },
+  { value: 'CE',  label: 'Cédula de Extranjería (CE)' },
+  { value: 'PP',  label: 'Pasaporte (PP)' },
+  { value: 'NIT', label: 'NIT' },
+];
+
+interface Solicitud {
+  id: string;
+  estado: 'pendiente' | 'aprobada' | 'rechazada';
+  nombres: string;
+  apellidos: string;
+  cedula: string;
+  tipo_identificacion: string | null;
+  telefono: string | null;
+  direccion: string | null;
+  ocupacion: string | null;
+  ingreso_mensual: string | null;
+  motivacion: string | null;
+  documentos: string[] | null;
+  observaciones: string | null;
+  fecha_solicitud: string;
+}
+
+const ESTADO_CONFIG = {
+  pendiente: {
+    label: 'Pendiente de revisión',
+    Icon: Clock,
+    cls: 'bg-amber-50 text-amber-700 border-amber-200',
+  },
+  aprobada: {
+    label: 'Solicitud aprobada',
+    Icon: CheckCircle2,
+    cls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  },
+  rechazada: {
+    label: 'Solicitud rechazada',
+    Icon: XCircle,
+    cls: 'bg-red-50 text-red-700 border-red-200',
+  },
+};
+
+// ─── Slot de archivo ────────────────────────────────────────────────────────
+interface ArchivoSlotProps {
+  label: string;
+  accept: string;
+  file: File | null;
+  required?: boolean;
+  hint: string;
+  onChange: (f: File | null) => void;
+}
+function ArchivoSlot({ label, accept, file, required, hint, onChange }: ArchivoSlotProps) {
+  const ref = useRef<HTMLInputElement>(null);
+  const esImagen = file ? file.type.startsWith('image/') : false;
+  const esPdf    = file ? file.type === 'application/pdf' : false;
+
+  return (
+    <div className={`relative rounded-xl border-2 border-dashed transition-colors p-4 ${
+      file ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-slate-50 hover:border-emerald-200'
+    }`}>
+      <input
+        ref={ref}
+        type="file"
+        accept={accept}
+        className="hidden"
+        onChange={e => onChange(e.target.files?.[0] ?? null)}
+      />
+      {file ? (
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-lg shrink-0 ${esPdf ? 'bg-red-100' : 'bg-blue-100'}`}>
+            {esPdf ? (
+              <FileText className="size-5 text-red-600" />
+            ) : (
+              <FileImage className="size-5 text-blue-600" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-slate-800 truncate">{file.name}</p>
+            <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(0)} KB · {esPdf ? 'PDF' : 'Imagen'}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => { onChange(null); if (ref.current) ref.current.value = ''; }}
+            className="p-1 rounded-full hover:bg-red-100 text-slate-400 hover:text-red-600 transition-colors"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => ref.current?.click()} className="w-full text-left">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-slate-200 rounded-lg shrink-0">
+              <Upload className="size-5 text-slate-500" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-700">
+                {label} {required && <span className="text-red-500">*</span>}
+              </p>
+              <p className="text-xs text-slate-400 mt-0.5">{hint}</p>
+            </div>
+          </div>
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Componente principal ────────────────────────────────────────────────────
+export default function MiSolicitud() {
+  const { user } = useAuth();
+
+  const [solicitud, setSolicitud]       = useState<Solicitud | null>(null);
+  const [loading, setLoading]           = useState(true);
+  const [showForm, setShowForm]         = useState(false);
+  const [submitting, setSubmitting]     = useState(false);
+
+  // Campos del formulario
+  const [tipoId, setTipoId]             = useState('CC');
+  const [cedula, setCedula]             = useState('');
+  const [telefono, setTelefono]         = useState('');
+  const [direccion, setDireccion]       = useState('');
+  const [ocupacion, setOcupacion]       = useState('');
+  const [ingresoMensual, setIngresoMensual] = useState('');
+  const [motivacion, setMotivacion]     = useState('');
+  // Archivos: 2 PDFs obligatorios + 1 imagen opcional
+  const [pdf1, setPdf1]                 = useState<File | null>(null);
+  const [pdf2, setPdf2]                 = useState<File | null>(null);
+  const [imagen, setImagen]             = useState<File | null>(null);
+
+  useEffect(() => { cargarSolicitud(); }, []);
+
+  async function cargarSolicitud() {
+    if (!user) return;
+    try {
+      const { data } = await supabase
+        .from('solicitudes_asociados')
+        .select('id,estado,nombres,apellidos,cedula,tipo_identificacion,telefono,direccion,ocupacion,ingreso_mensual,motivacion,documentos,observaciones,fecha_solicitud')
+        .eq('usuario_id', user.id)
+        .order('fecha_solicitud', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setSolicitud(data ?? null);
+    } catch { /* tabla puede no existir aún */ }
+    setLoading(false);
+  }
+
+  // Sube un archivo a Supabase Storage y devuelve la URL pública
+  async function subirArchivo(file: File): Promise<string> {
+    const BUCKET = 'solicitudes';
+
+    // Intentar crear el bucket si no existe (falla silenciosamente si ya existe
+    // o si no hay permisos — en ese caso el upload fallará con mensaje claro)
+    await supabase.storage.createBucket(BUCKET, {
+      public: true,
+      fileSizeLimit: 5 * 1024 * 1024, // 5 MB
+    }).catch(() => { /* ya existe o sin permisos — continuamos */ });
+
+    const ext  = file.name.split('.').pop() ?? 'bin';
+    const path = `${user!.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, file, { contentType: file.type, upsert: false });
+
+    if (error) {
+      if (error.message.toLowerCase().includes('bucket not found')) {
+        throw new Error(
+          'El almacenamiento de archivos no está configurado. ' +
+          'Crea el bucket "solicitudes" en Supabase Dashboard → Storage → New bucket (público).'
+        );
+      }
+      throw new Error(`Error al subir "${file.name}": ${error.message}`);
+    }
+
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user) return;
+
+    if (!cedula.trim()) {
+      toast.error('El número de identificación es obligatorio');
+      return;
+    }
+    if (!pdf1 || !pdf2) {
+      toast.error('Debes adjuntar los 2 documentos PDF obligatorios');
+      return;
+    }
+    // Validar tipos
+    if (pdf1.type !== 'application/pdf') {
+      toast.error('El documento 1 debe ser un archivo PDF');
+      return;
+    }
+    if (pdf2.type !== 'application/pdf') {
+      toast.error('El documento 2 debe ser un archivo PDF');
+      return;
+    }
+    if (imagen && !imagen.type.startsWith('image/')) {
+      toast.error('El archivo de foto debe ser una imagen (JPG, PNG, etc.)');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Subir archivos
+      const urls: string[] = [];
+      urls.push(await subirArchivo(pdf1));
+      urls.push(await subirArchivo(pdf2));
+      if (imagen) urls.push(await subirArchivo(imagen));
+
+      const partes    = user.nombre.trim().split(' ');
+      const mitad     = Math.ceil(partes.length / 2);
+      const nombres   = partes.slice(0, mitad).join(' ');
+      const apellidos = partes.slice(mitad).join(' ') || nombres;
+
+      // Payload base (columnas que siempre existen)
+      const payloadBase: Record<string, any> = {
+        usuario_id:      user.id,
+        nombres,
+        apellidos,
+        email:           user.email,
+        cedula:          cedula.trim(),
+        telefono:        telefono.trim()       || null,
+        direccion:       direccion.trim()      || null,
+        ocupacion:       ocupacion.trim()      || null,
+        ingreso_mensual: ingresoMensual.trim() || null,
+        motivacion:      motivacion.trim()     || null,
+        fecha_solicitud: new Date().toISOString(),
+        estado:          'pendiente',
+        observaciones:   null,
+      };
+
+      // Intentar con las columnas nuevas primero; si fallan, reintentar sin ellas
+      const payloadCompleto = {
+        ...payloadBase,
+        tipo_identificacion: tipoId,
+        documentos:          urls,
+      };
+
+      let error: any;
+
+      const guardar = async (payload: Record<string, any>) => {
+        if (solicitud?.id) {
+          return supabase.from('solicitudes_asociados').update(payload).eq('id', solicitud.id);
+        }
+        return supabase.from('solicitudes_asociados').insert(payload);
+      };
+
+      ({ error } = await guardar(payloadCompleto));
+
+      // Si falló por columna inexistente, reintentar solo con campos base
+      if (error && (error.message?.includes('column') || error.message?.includes('schema cache'))) {
+        console.warn('Columnas nuevas no disponibles, guardando sin tipo_identificacion/documentos:', error.message);
+        ({ error } = await guardar(payloadBase));
+      }
+
+      if (error) throw error;
+
+      // Notificar al admin sobre la nueva solicitud
+      await supabase.from('notificaciones').insert({
+        titulo:     'Nueva solicitud de afiliación',
+        mensaje:    `${nombres} ${apellidos} ha enviado una solicitud de membresía y está pendiente de revisión.`,
+        tipo:       'solicitud_afiliacion',
+        leida:      false,
+        para_admin: true,
+        asociado_id: null,
+      }).then(() => {}).catch(() => {}); // silencioso — no bloquea si falla
+
+      toast.success('¡Solicitud enviada!', {
+        description: 'El equipo de UFCA revisará tu solicitud pronto.',
+      });
+      setShowForm(false);
+      setPdf1(null); setPdf2(null); setImagen(null);
+      await cargarSolicitud();
+    } catch (err: any) {
+      toast.error('Error al enviar solicitud', { description: err.message });
+    }
+    setSubmitting(false);
+  }
+
+  function resetForm() {
+    setCedula(''); setTipoId('CC'); setTelefono('');
+    setDireccion(''); setOcupacion(''); setIngresoMensual(''); setMotivacion('');
+    setPdf1(null); setPdf2(null); setImagen(null);
+    setShowForm(false);
+  }
+
+  return (
+    <div className="p-6 max-w-2xl mx-auto space-y-6">
+      {/* Título */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Mi Portal</h1>
+        <p className="text-slate-500 mt-1 text-sm">
+          Gestiona tu perfil y solicitud de membresía en UFCA
+        </p>
+      </div>
+
+      {/* Tarjeta de perfil */}
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-100 rounded-full">
+              <UserCircle className="size-5 text-emerald-600" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Mi Perfil</CardTitle>
+              <CardDescription>Información de tu cuenta</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-0.5">Nombre</p>
+              <p className="text-slate-900 font-medium">{user?.nombre}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-0.5">Correo electrónico</p>
+              <p className="text-slate-900 font-medium">{user?.email}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-1">Estado de cuenta</p>
+              <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">
+                Activo
+              </Badge>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-1">Tipo</p>
+              <Badge className="bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-100">
+                Usuario registrado
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Sección de solicitud / CTA ── */}
+      {loading ? (
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="py-12 text-center text-slate-400 text-sm">Cargando...</CardContent>
+        </Card>
+
+      ) : !solicitud && !showForm ? (
+        /* ── CTA: aún no hay solicitud ── */
+        <Card className="border-2 border-dashed border-emerald-200 shadow-sm bg-gradient-to-br from-emerald-50 to-teal-50">
+          <CardContent className="py-10 text-center space-y-5">
+            <div className="flex justify-center">
+              <div className="p-5 bg-white rounded-full shadow-sm border border-emerald-100">
+                <UserPlus className="size-12 text-emerald-500" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-800">¿Quieres ser asociado de UFCA?</h3>
+              <p className="text-slate-500 text-sm mt-2 max-w-sm mx-auto leading-relaxed">
+                Completa tu solicitud con tu identificación y documentos requeridos.
+                El equipo la revisará y recibirás una respuesta pronto.
+              </p>
+            </div>
+            <Button
+              onClick={() => setShowForm(true)}
+              size="lg"
+              className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-lg shadow-emerald-200 px-10 gap-2 text-base"
+            >
+              <UserPlus className="size-5" />
+              Hazte asociado
+            </Button>
+          </CardContent>
+        </Card>
+
+      ) : showForm ? (
+        /* ── Formulario de solicitud ── */
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-100 rounded-full">
+                <FileText className="size-5 text-blue-600" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Solicitud de membresía</CardTitle>
+                <CardDescription>Completa la información y adjunta tus documentos</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-5">
+
+              {/* Identificación */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <Shield className="size-4 text-emerald-600" />
+                  Identificación
+                </h4>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="tipo-id">Tipo de identificación <span className="text-red-500">*</span></Label>
+                    <Select value={tipoId} onValueChange={setTipoId}>
+                      <SelectTrigger id="tipo-id">
+                        <SelectValue placeholder="Selecciona..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIPOS_ID.map(t => (
+                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="sol-cedula">Número de identificación <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="sol-cedula"
+                      placeholder="Ej: 1234567890"
+                      value={cedula}
+                      onChange={e => setCedula(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="sol-telefono">Teléfono de contacto</Label>
+                    <Input
+                      id="sol-telefono"
+                      type="tel"
+                      placeholder="+57 300 123 4567"
+                      value={telefono}
+                      onChange={e => setTelefono(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="sol-direccion">Dirección de residencia</Label>
+                    <Input
+                      id="sol-direccion"
+                      placeholder="Ej: Calle 10 #20-30, Medellín"
+                      value={direccion}
+                      onChange={e => setDireccion(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Información laboral */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <Briefcase className="size-4 text-emerald-600" />
+                  Información laboral
+                </h4>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="sol-ocupacion">Ocupación / Cargo</Label>
+                    <Input
+                      id="sol-ocupacion"
+                      placeholder="Ej: Contador, Docente…"
+                      value={ocupacion}
+                      onChange={e => setOcupacion(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="sol-ingreso">Ingreso mensual</Label>
+                    <Input
+                      id="sol-ingreso"
+                      placeholder="Ej: 2500000"
+                      value={ingresoMensual}
+                      onChange={e => setIngresoMensual(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Motivación */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <MessageSquare className="size-4 text-emerald-600" />
+                  Motivación
+                </h4>
+                <Textarea
+                  id="sol-motivacion"
+                  rows={3}
+                  className="resize-none text-sm"
+                  placeholder="¿Por qué deseas ingresar a la asociación UFCA?"
+                  value={motivacion}
+                  onChange={e => setMotivacion(e.target.value)}
+                />
+              </div>
+
+              {/* Documentos */}
+              <div className="space-y-3">
+                <div className="flex items-start justify-between">
+                  <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <Upload className="size-4 text-emerald-600" />
+                    Documentos requeridos
+                  </h4>
+                  <span className="text-xs text-slate-400">Máx. 5 MB por archivo</span>
+                </div>
+
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2 text-amber-700 text-xs">
+                  <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    Adjunta <strong>2 documentos PDF obligatorios</strong> (ej: cédula, certificado laboral, extracto bancario)
+                    y opcionalmente una <strong>foto o imagen</strong>.
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  <ArchivoSlot
+                    label="Documento PDF 1"
+                    accept="application/pdf"
+                    file={pdf1}
+                    required
+                    hint="Solo archivos PDF · Ej: copia de cédula"
+                    onChange={setPdf1}
+                  />
+                  <ArchivoSlot
+                    label="Documento PDF 2"
+                    accept="application/pdf"
+                    file={pdf2}
+                    required
+                    hint="Solo archivos PDF · Ej: certificado laboral o extracto"
+                    onChange={setPdf2}
+                  />
+                  <ArchivoSlot
+                    label="Foto o imagen"
+                    accept="image/jpeg,image/png,image/webp,image/jpg"
+                    file={imagen}
+                    hint="Opcional · JPG, PNG o WebP · Ej: foto de perfil"
+                    onChange={setImagen}
+                  />
+                </div>
+
+                {/* Indicador de progreso de archivos */}
+                <div className="flex items-center gap-2 pt-1">
+                  {[pdf1, pdf2, imagen].map((f, i) => (
+                    <div
+                      key={i}
+                      className={`flex-1 h-1.5 rounded-full transition-colors ${
+                        f ? 'bg-emerald-500' : i < 2 ? 'bg-slate-200' : 'bg-slate-100'
+                      }`}
+                    />
+                  ))}
+                  <span className="text-xs text-slate-500 shrink-0">
+                    {[pdf1, pdf2, imagen].filter(Boolean).length} / 3 archivos
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={resetForm}
+                  disabled={submitting}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitting || !pdf1 || !pdf2}
+                  className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 gap-2"
+                >
+                  <Send className="size-4" />
+                  {submitting ? 'Enviando...' : 'Enviar solicitud'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+      ) : solicitud ? (
+        /* ── Estado de solicitud existente ── */
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-100 rounded-full">
+                <FileText className="size-5 text-blue-600" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Mi Solicitud de Membresía</CardTitle>
+                <CardDescription>Estado actual de tu solicitud</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Banner de estado */}
+            {(() => {
+              const cfg = ESTADO_CONFIG[solicitud.estado];
+              return (
+                <div className={`flex items-center gap-3 p-4 rounded-xl border ${cfg.cls}`}>
+                  <cfg.Icon className="size-5 shrink-0" />
+                  <div>
+                    <p className="font-semibold text-sm">{cfg.label}</p>
+                    <p className="text-xs opacity-75 mt-0.5">
+                      Enviada el{' '}
+                      {new Date(solicitud.fecha_solicitud).toLocaleDateString('es-CO', {
+                        day: '2-digit', month: 'long', year: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Motivo de rechazo */}
+            {solicitud.estado === 'rechazada' && solicitud.observaciones && (
+              <Alert variant="destructive" className="py-3">
+                <AlertDescription>
+                  <strong>Motivo del rechazo:</strong> {solicitud.observaciones}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Datos enviados */}
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
+              <div className="grid sm:grid-cols-2 gap-3">
+                {solicitud.tipo_identificacion && (
+                  <div>
+                    <p className="text-xs text-slate-500 font-medium">Tipo de ID</p>
+                    <p className="text-slate-800 text-sm mt-0.5">
+                      {TIPOS_ID.find(t => t.value === solicitud.tipo_identificacion)?.label ?? solicitud.tipo_identificacion}
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-slate-500 font-medium">Número de identificación</p>
+                  <p className="text-slate-800 text-sm mt-0.5">{solicitud.cedula}</p>
+                </div>
+                {solicitud.telefono && (
+                  <div>
+                    <p className="text-xs text-slate-500 font-medium">Teléfono</p>
+                    <p className="text-slate-800 text-sm mt-0.5">{solicitud.telefono}</p>
+                  </div>
+                )}
+                {solicitud.direccion && (
+                  <div className="sm:col-span-2">
+                    <p className="text-xs text-slate-500 font-medium">Dirección</p>
+                    <p className="text-slate-800 text-sm mt-0.5">{solicitud.direccion}</p>
+                  </div>
+                )}
+                {solicitud.ocupacion && (
+                  <div>
+                    <p className="text-xs text-slate-500 font-medium">Ocupación</p>
+                    <p className="text-slate-800 text-sm mt-0.5">{solicitud.ocupacion}</p>
+                  </div>
+                )}
+                {solicitud.ingreso_mensual && (
+                  <div>
+                    <p className="text-xs text-slate-500 font-medium">Ingreso mensual</p>
+                    <p className="text-slate-800 text-sm mt-0.5">{solicitud.ingreso_mensual}</p>
+                  </div>
+                )}
+              </div>
+              {solicitud.motivacion && (
+                <div className="pt-1 border-t border-slate-200">
+                  <p className="text-xs text-slate-500 font-medium mb-1">Motivación</p>
+                  <p className="text-slate-700 text-sm leading-relaxed">{solicitud.motivacion}</p>
+                </div>
+              )}
+
+              {/* Documentos adjuntos */}
+              {solicitud.documentos && solicitud.documentos.length > 0 && (
+                <div>
+                  <p className="text-xs text-slate-500 font-medium mb-2">Documentos adjuntos</p>
+                  <div className="space-y-1.5">
+                    {solicitud.documentos.map((url, i) => {
+                      const isPdf = url.toLowerCase().includes('.pdf') || url.includes('pdf');
+                      return (
+                        <a
+                          key={i}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 transition-colors text-sm"
+                        >
+                          {isPdf
+                            ? <FileText className="size-4 text-red-500 shrink-0" />
+                            : <FileImage className="size-4 text-blue-500 shrink-0" />
+                          }
+                          <span className="flex-1 text-slate-700 truncate">
+                            {isPdf ? `Documento ${i + 1} (PDF)` : 'Foto / Imagen'}
+                          </span>
+                          <ExternalLink className="size-3.5 text-slate-400 shrink-0" />
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Mensaje si aprobada */}
+            {solicitud.estado === 'aprobada' && (
+              <Alert className="bg-emerald-50 border-emerald-200 py-3">
+                <CheckCircle2 className="size-4 text-emerald-600" />
+                <AlertDescription className="text-emerald-700 text-sm">
+                  ¡Felicidades! Tu solicitud fue aprobada. Recarga la página o vuelve a iniciar sesión para acceder a todas las funcionalidades de asociado.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Reenviar si rechazada */}
+            {solicitud.estado === 'rechazada' && (
+              <Button
+                onClick={() => setShowForm(true)}
+                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 gap-2"
+              >
+                <UserPlus className="size-4" />
+                Enviar nueva solicitud
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* ── Sección informativa: Sobre UFCA ── */}
+      <div className="pt-4 border-t border-slate-100">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="p-1.5 bg-emerald-100 rounded-lg">
+            <Sparkles className="size-4 text-emerald-600" />
+          </div>
+          <h2 className="text-base font-semibold text-slate-800">Sobre UFCA</h2>
+        </div>
+
+        <Card className="border-slate-200 shadow-sm bg-gradient-to-br from-emerald-50 to-teal-50">
+          <CardContent className="p-5 space-y-4">
+            <p className="text-slate-700 text-sm leading-relaxed">
+              Somos una <span className="font-semibold text-emerald-700">sociedad conformada por familiares y amigos</span> dedicada
+              a manejar microinversiones en fiducia, préstamos y dos tipos de ahorros: permanente y voluntario.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-start gap-2.5 p-3 bg-white rounded-xl border border-emerald-100">
+                <div className="p-1.5 bg-emerald-100 rounded-lg shrink-0">
+                  <MapPin className="size-4 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-800">Ubicación</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Medellín, Colombia</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 p-3 bg-white rounded-xl border border-blue-100">
+                <div className="p-1.5 bg-blue-100 rounded-lg shrink-0">
+                  <Calendar className="size-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-800">Experiencia</p>
+                  <p className="text-xs text-slate-500 mt-0.5">2 años de trayectoria</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 p-3 bg-white rounded-xl border border-purple-100">
+                <div className="p-1.5 bg-purple-100 rounded-lg shrink-0">
+                  <UserCircle className="size-4 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-800">Administración</p>
+                  <p className="text-xs text-slate-500 mt-0.5">María Edilma Arboleda</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 p-3 bg-white rounded-xl border border-amber-100">
+                <div className="p-1.5 bg-amber-100 rounded-lg shrink-0">
+                  <Award className="size-4 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-800">Confianza</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Unión familiar y amistosa</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 pt-1">
+              <div className="text-center p-3 bg-white rounded-xl border border-emerald-100">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <Users className="size-4 text-emerald-600" />
+                  <span className="text-lg font-bold text-emerald-600">1.200+</span>
+                </div>
+                <p className="text-xs text-slate-500">Asociados</p>
+              </div>
+              <div className="text-center p-3 bg-white rounded-xl border border-emerald-100">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <Target className="size-4 text-emerald-600" />
+                  <span className="text-lg font-bold text-emerald-600">$2.5M</span>
+                </div>
+                <p className="text-xs text-slate-500">En ahorros</p>
+              </div>
+              <div className="text-center p-3 bg-white rounded-xl border border-emerald-100">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <Trophy className="size-4 text-emerald-600" />
+                  <span className="text-lg font-bold text-emerald-600">98%</span>
+                </div>
+                <p className="text-xs text-slate-500">Satisfacción</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Beneficios ── */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <div className="p-1.5 bg-blue-100 rounded-lg">
+            <Shield className="size-4 text-blue-600" />
+          </div>
+          <h2 className="text-base font-semibold text-slate-800">Beneficios al ser asociado</h2>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="border-emerald-100 hover:shadow-md transition-shadow">
+            <CardContent className="p-4 flex items-start gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl shrink-0">
+                <PiggyBank className="size-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Ahorros</p>
+                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">Ahorro permanente y voluntario con rentabilidad garantizada.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-blue-100 hover:shadow-md transition-shadow">
+            <CardContent className="p-4 flex items-start gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl shrink-0">
+                <CreditCard className="size-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Créditos</p>
+                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">Préstamos con tasas preferenciales y plazos flexibles.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-purple-100 hover:shadow-md transition-shadow">
+            <CardContent className="p-4 flex items-start gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shrink-0">
+                <Users className="size-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Comunidad</p>
+                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">Red de referidos y bonificaciones por cada nuevo miembro.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-amber-100 hover:shadow-md transition-shadow">
+            <CardContent className="p-4 flex items-start gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl shrink-0">
+                <TrendingUp className="size-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Eventos</p>
+                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">Acceso exclusivo a eventos, premios y actividades especiales.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-3 p-5 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl text-white">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-white/20 rounded-xl shrink-0">
+              <Shield className="size-5" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm">¿Por qué confiar en UFCA?</p>
+              <p className="text-emerald-50 text-xs mt-1 leading-relaxed">
+                Somos más que una institución financiera, somos una familia comprometida
+                con el bienestar económico de nuestros asociados. Tus datos y tu dinero,
+                siempre protegidos.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
