@@ -68,6 +68,29 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v);
 
+  // ── Mes fiscal: día 1 al 30 de cada mes ──────────────────────────────────
+  const getMesFiscal = () => {
+    const hoy  = new Date();
+    const año  = hoy.getFullYear();
+    const mes  = hoy.getMonth(); // 0-based
+    const primerDia = new Date(año, mes, 1);
+    // El mes fiscal termina el día 30 (o el último día del mes si es menor a 30)
+    const ultimoDelMes  = new Date(año, mes + 1, 0).getDate(); // último día real
+    const diaFin        = Math.min(30, ultimoDelMes);
+    const ultimoDia     = new Date(año, mes, diaFin);
+    const fmt           = (d: Date) => d.toISOString().split('T')[0];
+    const nombreMes     = hoy.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+    return {
+      primerDia:  fmt(primerDia),
+      ultimoDia:  fmt(ultimoDia),
+      hoy:        fmt(hoy),
+      diaFin,
+      nombreMes:  nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1),
+    };
+  };
+
+  const MONTO_MINIMO_VOLUNTARIO = 50_000;
+
   // ── Carga inicial ─────────────────────────────────────────────────────────
   useEffect(() => { cargarDatos(); }, []);
 
@@ -116,10 +139,24 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
       setAhorroPermanente(permRes.data ?? null);
       setAhorrosVoluntarios(volRes.data ?? []);
 
-      // Solicitudes: la más reciente de cada tipo
+      // Solicitudes: priorizar pendiente/rechazada sobre aprobada (para detectar anulaciones)
       const sols: any[] = solRes.data ?? [];
-      setSolicitudPerm(sols.find(s => s.tipo === 'permanente') ?? null);
-      setSolicitudVol(sols.find(s => s.tipo === 'voluntario') ?? null);
+      const solsPerm = sols.filter(s => s.tipo === 'permanente');
+      const solsVol  = sols.filter(s => s.tipo === 'voluntario');
+
+      // Si no hay ahorro activo, priorizar la solicitud pendiente o rechazada más reciente
+      // Si hay ahorro activo, la solicitud aprobada es la relevante
+      const encontrarSolicitud = (lista: any[], hayAhorro: boolean) => {
+        if (hayAhorro) return lista[0] ?? null; // la más reciente (aprobada)
+        return (
+          lista.find(s => s.estado === 'pendiente') ??
+          lista.find(s => s.estado === 'rechazada') ??
+          lista[0] ?? null
+        );
+      };
+
+      setSolicitudPerm(encontrarSolicitud(solsPerm, !!permRes.data));
+      setSolicitudVol(encontrarSolicitud(solsVol,  (volRes.data ?? []).length > 0));
 
       if (!configRes.error && configRes.data) {
         const m = parseFloat(configRes.data.valor);
@@ -286,7 +323,9 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
     setAporteAhorroId(ahorroId);
     setAporteTipo(tipo);
     setAporteMonto('');
-    setAporteFecha(new Date().toISOString().split('T')[0]);
+    // Para voluntario: la fecha por defecto es hoy, pero limitada al rango del mes fiscal (1-30)
+    const { hoy, ultimoDia } = getMesFiscal();
+    setAporteFecha(hoy <= ultimoDia ? hoy : ultimoDia);
     setAporteMedio('Transferencia bancaria');
     setAporteNota('');
     setIsAporteDialogOpen(true);
@@ -297,6 +336,27 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
     const monto = parseFloat(aporteMonto.replace(/\./g, '').replace(',', '.'));
     if (!monto || monto <= 0) { toast.error('Ingresa un monto válido'); return; }
     if (!aporteFecha)         { toast.error('Selecciona la fecha del pago'); return; }
+
+    // ── Reglas del ahorro voluntario ─────────────────────────────────────────
+    if (aporteTipo === 'voluntario') {
+      // 1. Monto mínimo $50.000
+      if (monto < MONTO_MINIMO_VOLUNTARIO) {
+        toast.error('Monto mínimo no alcanzado', {
+          description: `El ahorro voluntario mínimo es ${formatCurrency(MONTO_MINIMO_VOLUNTARIO)} por depósito.`,
+          duration: 6000,
+        });
+        return;
+      }
+      // 2. La fecha debe estar dentro del mes fiscal actual (día 1 al 30)
+      const { primerDia, ultimoDia, nombreMes } = getMesFiscal();
+      if (aporteFecha < primerDia || aporteFecha > ultimoDia) {
+        toast.error('Fecha fuera del mes fiscal', {
+          description: `El depósito debe aplicar al mes fiscal actual: ${nombreMes} (del día 1 al ${ultimoDia.split('-')[2]}).`,
+          duration: 6000,
+        });
+        return;
+      }
+    }
 
     setSavingAporte(true);
     try {
@@ -412,7 +472,34 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
       </div>
     );
 
-    return null;
+    // Para cualquier otro estado (aprobada, anulada, etc.) sin ahorro activo
+    // → mostrar el estado "sin ahorro" con botón de solicitar nuevamente
+    return (
+      <div className="flex flex-col items-center text-center gap-3 py-6">
+        <div className={`p-4 rounded-full ${tipo === 'permanente' ? 'bg-emerald-100' : 'bg-blue-100'}`}>
+          {tipo === 'permanente'
+            ? <PiggyBank className="size-8 text-emerald-600" />
+            : <Wallet className="size-8 text-blue-600" />}
+        </div>
+        <div>
+          <p className="font-semibold text-slate-700">
+            {tipo === 'permanente' ? 'Sin ahorro permanente activo' : 'Sin ahorro voluntario activo'}
+          </p>
+          <p className="text-sm text-slate-500 mt-0.5">
+            {tipo === 'permanente'
+              ? `Tu plan anterior fue anulado. Puedes solicitar uno nuevo.`
+              : 'Tu plan anterior fue anulado. Puedes solicitar uno nuevo.'}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          className={`gap-2 ${tipo === 'permanente' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+          onClick={onSolicitar}
+        >
+          <Send className="size-4" /> Solicitar nuevo plan
+        </Button>
+      </div>
+    );
   };
 
   // ── Loading ───────────────────────────────────────────────────────────────
@@ -778,7 +865,7 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Banknote className="size-5 text-emerald-600" />
+              <Banknote className={`size-5 ${aporteTipo === 'voluntario' ? 'text-blue-600' : 'text-emerald-600'}`} />
               Reportar pago de aporte
             </DialogTitle>
             <DialogDescription>
@@ -787,13 +874,42 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
+
+            {/* ── Banner mes fiscal (solo voluntario) ── */}
+            {aporteTipo === 'voluntario' && (() => {
+              const { nombreMes, primerDia, ultimoDia } = getMesFiscal();
+              const diaInicio = primerDia.split('-')[2];
+              const diaFin    = ultimoDia.split('-')[2];
+              return (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-1">
+                  <p className="text-xs font-semibold text-blue-800 flex items-center gap-1.5">
+                    <Calendar className="size-3.5" />
+                    Mes fiscal actual: <span className="capitalize">{nombreMes}</span>
+                  </p>
+                  <p className="text-xs text-blue-700">
+                    Tu depósito se aplicará al periodo del <strong>día {diaInicio} al {diaFin}</strong> de este mes.
+                  </p>
+                  <p className="text-xs text-blue-700">
+                    Monto mínimo por depósito: <strong>{formatCurrency(MONTO_MINIMO_VOLUNTARIO)}</strong>
+                  </p>
+                </div>
+              );
+            })()}
+
             <div className="space-y-1.5">
-              <Label>Monto pagado <span className="text-red-500">*</span></Label>
+              <Label>
+                Monto pagado <span className="text-red-500">*</span>
+                {aporteTipo === 'voluntario' && (
+                  <span className="ml-1 text-xs text-blue-600 font-normal">
+                    (mín. {formatCurrency(MONTO_MINIMO_VOLUNTARIO)})
+                  </span>
+                )}
+              </Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
                 <Input
                   className="pl-7"
-                  placeholder="0"
+                  placeholder={aporteTipo === 'voluntario' ? '50.000' : '0'}
                   value={aporteMonto}
                   onChange={e => setAporteMonto(e.target.value.replace(/[^\d.,]/g, ''))}
                 />
@@ -801,12 +917,30 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
             </div>
             <div className="space-y-1.5">
               <Label>Fecha del pago <span className="text-red-500">*</span></Label>
-              <Input
-                type="date"
-                value={aporteFecha}
-                onChange={e => setAporteFecha(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
-              />
+              {aporteTipo === 'voluntario' ? (() => {
+                const { primerDia, ultimoDia } = getMesFiscal();
+                return (
+                  <Input
+                    type="date"
+                    value={aporteFecha}
+                    onChange={e => setAporteFecha(e.target.value)}
+                    min={primerDia}
+                    max={ultimoDia}
+                  />
+                );
+              })() : (
+                <Input
+                  type="date"
+                  value={aporteFecha}
+                  onChange={e => setAporteFecha(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                />
+              )}
+              {aporteTipo === 'voluntario' && (
+                <p className="text-xs text-slate-500">
+                  Solo puedes reportar aportes del mes fiscal actual.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Medio de pago <span className="text-red-500">*</span></Label>

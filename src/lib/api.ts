@@ -705,12 +705,41 @@ export const eventosApi = {
   },
 
   async create(evento: Omit<any, 'id' | 'created_at' | 'updated_at'>) {
+    // Intentar con RPC SECURITY DEFINER (bypasea RLS e inscribe asociados automáticamente)
+    const { data: rpcData, error: rpcError } = await supabase.rpc('crear_evento_con_inscritos', {
+      p_titulo:      evento.titulo,
+      p_descripcion: evento.descripcion ?? '',
+      p_fecha:       evento.fecha,
+      p_lugar:       evento.lugar ?? '',
+      p_capacidad:   evento.capacidad ?? 0,
+      p_estado:      evento.estado ?? 'programado',
+    });
+
+    if (!rpcError && rpcData) return rpcData;
+
+    // Fallback: insert directo + inscribir asociados manualmente
     const { data, error } = await supabase
       .from('eventos')
       .insert(evento)
       .select()
       .single();
     if (error) throw error;
+
+    // Inscribir todos los asociados activos al evento recién creado
+    const { data: asociados } = await supabase
+      .from('asociados')
+      .select('id')
+      .eq('estado', true)
+      .eq('anulado', false);
+
+    if (asociados && asociados.length > 0) {
+      const inscritos = asociados.map((a: any) => ({
+        evento_id:   data.id,
+        asociado_id: a.id,
+      }));
+      await supabase.from('eventos_inscritos').insert(inscritos);
+    }
+
     return data;
   },
 

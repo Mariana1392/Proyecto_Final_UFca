@@ -235,7 +235,7 @@ export default function ComiteEvaluador() {
         email:              s.email               ?? '',
         direccion:          s.direccion           ?? '',
         ocupacion:          s.ocupacion           ?? '',
-        ingresoMensual:     s.ingreso_mensual      ?? '',
+        ingresoMensual:     s.ingreso_mensual != null ? String(s.ingreso_mensual) : '',
         motivacion:         s.motivacion           ?? '',
         documentos:         Array.isArray(s.documentos) ? s.documentos : [],
         urlDocumento:       s.url_documento        ?? '',
@@ -334,10 +334,17 @@ export default function ComiteEvaluador() {
   // ── Open detail ───────────────────────────────────────────────────────────
   function handleVerDetalle(s: Solicitud) {
     setSelectedSolicitud(s);
-    if (s.evaluacion) {
+    // Defensive: only use saved evaluacion if it has the expected shape
+    if (s.evaluacion && s.evaluacion.verificaciones &&
+        typeof s.evaluacion.scoreCredito === 'number') {
       setScoreCredito(s.evaluacion.scoreCredito);
-      setVerificaciones(s.evaluacion.verificaciones);
-      setComentariosComite(s.evaluacion.comentariosComite);
+      setVerificaciones({
+        documentacion: !!s.evaluacion.verificaciones.documentacion,
+        ingresos:      !!s.evaluacion.verificaciones.ingresos,
+        referencias:   !!s.evaluacion.verificaciones.referencias,
+        antecedentes:  !!s.evaluacion.verificaciones.antecedentes,
+      });
+      setComentariosComite(s.evaluacion.comentariosComite ?? '');
     } else {
       setScoreCredito(70);
       setVerificaciones({ documentacion: false, ingresos: false, referencias: false, antecedentes: false });
@@ -353,11 +360,11 @@ export default function ComiteEvaluador() {
 
   const calcularCapacidadPago = () => {
     if (!selectedSolicitud?.ingresoMensual) return 0;
-    const n = parseFloat(selectedSolicitud.ingresoMensual.replace(/[^0-9.]/g, '')) || 0;
+    const n = parseFloat(String(selectedSolicitud.ingresoMensual).replace(/[^0-9.]/g, '')) || 0;
     return n * 0.3;
   };
 
-  const verificacionesCompletas = Object.values(verificaciones).filter(Boolean).length;
+  const verificacionesCompletas = Object.values(verificaciones ?? {}).filter(Boolean).length;
 
   async function handleGuardarEvaluacion() {
     if (!selectedSolicitud) return;
@@ -1294,7 +1301,7 @@ export default function ComiteEvaluador() {
                             <div className="mt-3 p-3 bg-blue-50 rounded-lg">
                               <p className="text-xs text-blue-600 font-medium">Capacidad de pago estimada (30%)</p>
                               <p className="text-lg font-bold text-blue-700">
-                                ${(parseFloat(selectedSolicitud.ingresoMensual.replace(/[^0-9.]/g, '')) * 0.3 || 0).toLocaleString('es-CO')}
+                                ${(parseFloat(String(selectedSolicitud.ingresoMensual).replace(/[^0-9.]/g, '')) * 0.3 || 0).toLocaleString('es-CO')}
                               </p>
                             </div>
                           )}

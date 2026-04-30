@@ -71,8 +71,8 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
       { data: refs },
       { data: peds },
     ] = await Promise.all([
-      supabase.from('ahorro_permanente').select('id, monto_ahorrado, cuota_mensual, fecha_inicio, estado').eq('asociado_id', base.id),
-      supabase.from('ahorro_voluntario').select('id, monto_ahorrado, cuota_mensual, fecha_inicio, estado').eq('asociado_id', base.id),
+      supabase.from('ahorro_permanente').select('id, monto_ahorrado, cuota_mensual, fecha_inicio, estado').eq('asociado_id', base.id).eq('anulado', false).eq('estado', true),
+      supabase.from('ahorro_voluntario').select('id, monto_ahorrado, cuota_mensual, fecha_inicio, estado').eq('asociado_id', base.id).eq('anulado', false).eq('estado', true),
       supabase.from('creditos').select('id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado').eq('asociado_id', base.id),
       supabase.from('asociados').select('id, nombre, cedula, telefono, fecha_ingreso, estado').eq('referido_por_id', base.id),
       supabase.from('pedidos').select('id, total, fecha, estado').eq('asociado_id', base.id).then(r => r).catch(() => ({ data: [] })),
@@ -323,7 +323,7 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
   };
 
   // ── Estadísticas calculadas ───────────────────────────────────────────────
-  const totalAhorros    = ahorros.reduce((sum, a) => sum + (a.saldo || 0), 0);
+  const totalAhorros    = ahorros.reduce((sum, a) => sum + (a.saldo || 0), 0); // solo activos (filtrado desde BD)
   const creditosActivos = creditos.filter(c => c.estado === 'Activo').length;
   const totalReferidos  = referidos.length;
 
@@ -846,7 +846,8 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
                           <DollarSign className="size-12 text-slate-400" />
                         </div>
                       </div>
-                      <p className="text-slate-600">No tienes cuentas de ahorro</p>
+                      <p className="font-semibold text-slate-700 mb-1">Sin ahorros activos</p>
+                      <p className="text-sm text-slate-500">No tienes planes de ahorro activos en este momento.<br/>Dirígete a <strong>Mis Ahorros</strong> para solicitar uno.</p>
                     </div>
                   )}
                 </div>

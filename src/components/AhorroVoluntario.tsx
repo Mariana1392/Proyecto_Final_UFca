@@ -316,12 +316,50 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
     setLoadingMovimientos(false);
   };
 
+  // ── Mes fiscal helpers ────────────────────────────────────────────────────
+  const MONTO_MINIMO_VOLUNTARIO = 50_000;
+
+  const getMesFiscal = () => {
+    const hoy = new Date();
+    const año = hoy.getFullYear();
+    const mes = hoy.getMonth();
+    const ultimoDelMes = new Date(año, mes + 1, 0).getDate();
+    const diaFin       = Math.min(30, ultimoDelMes);
+    const fmt = (d: Date) => d.toISOString().split('T')[0];
+    return {
+      primerDia:  fmt(new Date(año, mes, 1)),
+      ultimoDia:  fmt(new Date(año, mes, diaFin)),
+      nombreMes:  hoy.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' }),
+      diaFin,
+    };
+  };
+
   // ── Registrar movimiento (depósito / retiro) ──────────────────────────────
   const handleRegistrarMovimiento = async () => {
     const monto = parseCurrencyInput(formMovMonto);
     if (!monto || monto <= 0) { toast.error('El monto debe ser mayor a cero'); return; }
     if (!formMovFecha)        { toast.error('Selecciona la fecha del movimiento'); return; }
     if (!selectedItem)        return;
+
+    // ── Reglas del negocio para depósitos voluntarios ─────────────────────
+    if (formMovTipo === 'Depósito') {
+      if (monto < MONTO_MINIMO_VOLUNTARIO) {
+        toast.error('Monto mínimo no alcanzado', {
+          description: `El depósito mínimo al ahorro voluntario es ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(MONTO_MINIMO_VOLUNTARIO)}.`,
+          duration: 6000,
+        });
+        return;
+      }
+      // Validar que la fecha esté dentro del mes fiscal (día 1 al 30)
+      const dia = parseInt(formMovFecha.split('-')[2], 10);
+      if (dia > 30) {
+        toast.error('Fecha fuera del mes fiscal', {
+          description: 'El mes fiscal va del día 1 al 30. Selecciona una fecha dentro de ese rango.',
+          duration: 5000,
+        });
+        return;
+      }
+    }
 
     setSavingMovimiento(true);
     try {
@@ -1845,9 +1883,37 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+
+            {/* ── Banner mes fiscal (solo depósitos) ── */}
+            {formMovTipo === 'Depósito' && (() => {
+              const { nombreMes, primerDia, diaFin } = getMesFiscal();
+              return (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-0.5">
+                  <p className="text-xs font-semibold text-blue-800 flex items-center gap-1.5">
+                    <Calendar className="size-3.5" />
+                    Mes fiscal: <span className="capitalize ml-1">{nombreMes}</span>
+                    <span className="font-normal text-blue-600 ml-1">
+                      (día 1 al {diaFin})
+                    </span>
+                  </p>
+                  <p className="text-xs text-blue-700">
+                    Mínimo por depósito: <strong>{formatCurrency(MONTO_MINIMO_VOLUNTARIO)}</strong>
+                    {' · '}La fecha debe estar entre el día 1 y el día {diaFin} del mes en curso.
+                  </p>
+                </div>
+              );
+            })()}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Monto <span className="text-red-500">*</span></Label>
+                <Label>
+                  Monto <span className="text-red-500">*</span>
+                  {formMovTipo === 'Depósito' && (
+                    <span className="ml-1 text-xs text-blue-600 font-normal">
+                      (mín. {formatCurrency(MONTO_MINIMO_VOLUNTARIO)})
+                    </span>
+                  )}
+                </Label>
                 <Input
                   type="text"
                   placeholder="50.000,0"
@@ -1859,11 +1925,24 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
               </div>
               <div className="space-y-2">
                 <Label>Fecha <span className="text-red-500">*</span></Label>
-                <Input
-                  type="date"
-                  value={formMovFecha}
-                  onChange={(e) => setFormMovFecha(e.target.value)}
-                />
+                {formMovTipo === 'Depósito' ? (() => {
+                  const { primerDia, ultimoDia } = getMesFiscal();
+                  return (
+                    <Input
+                      type="date"
+                      value={formMovFecha}
+                      onChange={(e) => setFormMovFecha(e.target.value)}
+                      min={primerDia}
+                      max={ultimoDia}
+                    />
+                  );
+                })() : (
+                  <Input
+                    type="date"
+                    value={formMovFecha}
+                    onChange={(e) => setFormMovFecha(e.target.value)}
+                  />
+                )}
               </div>
             </div>
             <div className="space-y-2">

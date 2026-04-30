@@ -33,6 +33,8 @@ interface EventosProps {
 }
 
 export default function Eventos({ userRole, userData }: EventosProps) {
+  const isAdmin = userRole === 'admin';
+
   const [searchTerm, setSearchTerm]               = useState('');
   const [currentPage, setCurrentPage]             = useState(1);
   const [currentPageAnulados, setCurrentPageAnulados] = useState(1);
@@ -60,10 +62,13 @@ export default function Eventos({ userRole, userData }: EventosProps) {
   async function cargarEventos() {
     try {
       setLoading(true);
+
+      // Ambos roles cargan todos los eventos; el asociado solo tiene vista de lectura
       const { data, error } = await supabase
         .from('eventos')
         .select('*, eventos_inscritos(count)')
         .order('fecha', { ascending: true });
+
       if (error) throw error;
 
       // Mapear al formato que espera el JSX original
@@ -191,21 +196,31 @@ export default function Eventos({ userRole, userData }: EventosProps) {
         estado:      estadoToDb(formData.estado),
       });
 
+      // Contar cuántos asociados fueron inscritos
+      const { count } = await supabase
+        .from('eventos_inscritos')
+        .select('id', { count: 'exact', head: true })
+        .eq('evento_id', nuevo.id);
+
       setEventos(prev => [{
-        id:           nuevo.id,
-        nombre:       formData.nombre,
-        tipo:         formData.tipo,
-        fecha:        formData.fecha,
-        lugar:        formData.lugar,
+        id:            nuevo.id,
+        nombre:        formData.nombre,
+        tipo:          formData.tipo,
+        fecha:         formData.fecha,
+        lugar:         formData.lugar,
         participantes: Number(formData.participantes) || 0,
-        presupuesto:  Number(formData.presupuesto) || 0,
-        responsable:  formData.responsable || 'Sin asignar',
-        descripcion:  formData.descripcion,
-        estado:       formData.estado,
-        anulado:      false,
+        presupuesto:   Number(formData.presupuesto) || 0,
+        responsable:   formData.responsable || 'Sin asignar',
+        descripcion:   formData.descripcion,
+        estado:        formData.estado,
+        anulado:       false,
       }, ...prev]);
 
-      toast.success(`Evento "${formData.nombre}" creado exitosamente`);
+      toast.success(`Evento "${formData.nombre}" creado`, {
+        description: count
+          ? `${count} asociado${count === 1 ? '' : 's'} inscrito${count === 1 ? '' : 's'} automáticamente.`
+          : 'El evento fue registrado en el sistema.',
+      });
     } catch (err: any) {
       toast.error('Error al crear evento: ' + err.message);
     }
@@ -330,10 +345,8 @@ export default function Eventos({ userRole, userData }: EventosProps) {
                   </TableCell>
                   <TableCell>
                     {isAnulados ? (
-                      <Badge className="bg-red-100 text-red-700">
-                        Anulado
-                      </Badge>
-                    ) : (
+                      <Badge className="bg-red-100 text-red-700">Anulado</Badge>
+                    ) : isAdmin ? (
                       <Select
                         defaultValue={evento.estado}
                         onValueChange={(value: any) => {
@@ -353,38 +366,34 @@ export default function Eventos({ userRole, userData }: EventosProps) {
                           <SelectItem value="Cancelado">Cancelado</SelectItem>
                         </SelectContent>
                       </Select>
+                    ) : (
+                      <Badge className={getEstadoColor(evento.estado)}>{evento.estado}</Badge>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
-                        onClick={() => {
-                          setSelectedEvento(evento);
-                          setIsDetailModalOpen(true);
-                        }}
+                        onClick={() => { setSelectedEvento(evento); setIsDetailModalOpen(true); }}
                         title="Ver detalles"
                       >
                         <Eye className="size-4" />
                       </Button>
-                      {!isAnulados && (
+                      {isAdmin && !isAnulados && (
                         <>
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={() => handleOpenEdit(evento)}
                             title="Editar evento"
                           >
                             <Edit className="size-4" />
                           </Button>
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
-                            onClick={() => {
-                              setSelectedEvento(evento);
-                              setIsDeleteDialogOpen(true);
-                            }}
+                            onClick={() => { setSelectedEvento(evento); setIsDeleteDialogOpen(true); }}
                             title="Eliminar evento"
                           >
                             <Trash2 className="size-4 text-red-600" />
@@ -407,13 +416,21 @@ export default function Eventos({ userRole, userData }: EventosProps) {
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-slate-900 mb-2">Gestión de Eventos</h1>
-            <p className="text-slate-600">Organiza y administra los eventos de la asociación</p>
+            <h1 className="text-slate-900 mb-2">
+              {isAdmin ? 'Gestión de Eventos' : 'Mis Eventos'}
+            </h1>
+            <p className="text-slate-600">
+              {isAdmin
+                ? 'Organiza y administra los eventos de la asociación'
+                : 'Consulta los eventos a los que estás inscrito'}
+            </p>
           </div>
-          <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={handleOpenCreate}>
-            <Plus className="size-4" />
-            Nuevo evento
-          </Button>
+          {isAdmin && (
+            <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={handleOpenCreate}>
+              <Plus className="size-4" />
+              Nuevo evento
+            </Button>
+          )}
         </div>
 
         <Card>
@@ -443,15 +460,17 @@ export default function Eventos({ userRole, userData }: EventosProps) {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="activos" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsList className={`grid w-full mb-4 ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'}`}>
                 <TabsTrigger value="activos" className="gap-2">
                   <Calendar className="size-4" />
-                  Eventos Activos ({filteredEventos.length})
+                  {isAdmin ? `Eventos Activos (${filteredEventos.length})` : `Eventos (${filteredEventos.length})`}
                 </TabsTrigger>
-                <TabsTrigger value="anulados" className="gap-2">
-                  <Trash2 className="size-4" />
-                  Eventos Anulados ({filteredEventosAnulados.length})
-                </TabsTrigger>
+                {isAdmin && (
+                  <TabsTrigger value="anulados" className="gap-2">
+                    <Trash2 className="size-4" />
+                    Eventos Anulados ({filteredEventosAnulados.length})
+                  </TabsTrigger>
+                )}
               </TabsList>
 
               <TabsContent value="activos" className="space-y-4">

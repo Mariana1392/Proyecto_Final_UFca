@@ -1601,26 +1601,14 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
             </Card>
           </div>
 
-          {/* ── Barra de búsqueda y filtros ── */}
+          {/* ── Barra de búsqueda y filtros (compacta) ── */}
           <Card className="border-0 shadow-sm bg-white">
-            <CardContent className="p-4 space-y-4">
+            <CardContent className="p-3 space-y-2.5">
 
-              {/* ── Búsqueda principal ── */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                    <Search className="size-3.5" /> Buscar crédito
-                  </p>
-                  {hayFiltros && (
-                    <button
-                      className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                      onClick={() => { setAsocSearch(''); setAsocFilterEstado(''); setAsocFechaDesde(''); setAsocFechaHasta(''); }}
-                    >
-                      <X className="size-3" /> Limpiar todo
-                    </button>
-                  )}
-                </div>
-                <div className="relative">
+              {/* ── Fila principal: búsqueda + estado + ordenar ── */}
+              <div className="flex gap-2 items-center">
+                {/* Input de búsqueda */}
+                <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   {asocSearch && (
                     <button className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
@@ -1629,89 +1617,80 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                     </button>
                   )}
                   <Input
-                    className="pl-10 pr-8 h-10"
-                    placeholder="N° crédito (CRE-...), estado, tipo o fecha (AAAA-MM-DD)..."
+                    className="pl-9 pr-8 h-9 text-sm"
+                    placeholder="Buscar por N° crédito, estado, tipo o fecha…"
                     value={asocSearch}
                     autoComplete="off"
                     onChange={(e) => setAsocSearch(e.target.value)}
                   />
                 </div>
-                <p className="text-[11px] text-slate-400 flex flex-wrap gap-x-3">
-                  <span>Busca por:</span>
-                  <span className="font-medium text-slate-500">N° de crédito</span>
-                  <span className="text-slate-300">·</span>
-                  <span className="font-medium text-slate-500">Estado (ej. "En mora")</span>
-                  <span className="text-slate-300">·</span>
-                  <span className="font-medium text-slate-500">Tipo (ej. "Educación")</span>
-                  <span className="text-slate-300">·</span>
-                  <span className="font-medium text-slate-500">Fecha (ej. "2024-03")</span>
-                </p>
+
+                {/* Estado */}
+                <Select value={asocFilterEstado || 'todos'} onValueChange={(v) => setAsocFilterEstado(v === 'todos' ? '' : v)}>
+                  <SelectTrigger className="h-9 text-xs w-36 shrink-0">
+                    <SelectValue placeholder="Estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los estados</SelectItem>
+                    {ESTADOS_APROBACION.map(e => (
+                      <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                    ))}
+                    <SelectItem value="anulado">Anulado</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Ordenar */}
+                <Select value={asocSortBy} onValueChange={(v) => setAsocSortBy(v as any)}>
+                  <SelectTrigger className="h-9 text-xs w-40 shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fecha_desc">Más reciente</SelectItem>
+                    <SelectItem value="fecha_asc">Más antiguo</SelectItem>
+                    <SelectItem value="estado">Estado A–Z</SelectItem>
+                    <SelectItem value="monto_desc">Mayor monto</SelectItem>
+                    <SelectItem value="monto_asc">Menor monto</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* ── Filtros secundarios ── */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {/* Filtrar por estado */}
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Filtrar por estado</p>
-                  <Select value={asocFilterEstado || 'todos'} onValueChange={(v) => setAsocFilterEstado(v === 'todos' ? '' : v)}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Todos los estados" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todos los estados</SelectItem>
-                      {ESTADOS_APROBACION.map(e => (
-                        <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
-                      ))}
-                      <SelectItem value="anulado">Anulado</SelectItem>
-                    </SelectContent>
-                  </Select>
+              {/* ── Fila secundaria: fechas + limpiar ── */}
+              <div className="flex gap-2 items-center">
+                <span className="text-[11px] text-slate-400 shrink-0">Periodo:</span>
+                <div className="relative flex-1">
+                  <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
+                  <Input
+                    type="date" className="pl-8 h-8 text-xs"
+                    value={asocFechaDesde}
+                    onChange={(e) => setAsocFechaDesde(e.target.value)}
+                  />
                 </div>
-                {/* Ordenar */}
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Ordenar por</p>
-                  <Select value={asocSortBy} onValueChange={(v) => setAsocSortBy(v as any)}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fecha_desc">Fecha — más reciente</SelectItem>
-                      <SelectItem value="fecha_asc">Fecha — más antiguo</SelectItem>
-                      <SelectItem value="estado">Estado (A–Z)</SelectItem>
-                      <SelectItem value="monto_desc">Monto — mayor primero</SelectItem>
-                      <SelectItem value="monto_asc">Monto — menor primero</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <span className="text-[11px] text-slate-400 shrink-0">–</span>
+                <div className="relative flex-1">
+                  <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
+                  <Input
+                    type="date" className="pl-8 h-8 text-xs"
+                    value={asocFechaHasta}
+                    onChange={(e) => setAsocFechaHasta(e.target.value)}
+                  />
                 </div>
-                {/* Fecha desde */}
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Desde</p>
-                  <div className="relative">
-                    <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
-                    <Input
-                      type="date" className="pl-8 h-8 text-xs"
-                      value={asocFechaDesde}
-                      onChange={(e) => setAsocFechaDesde(e.target.value)}
-                    />
-                  </div>
-                </div>
-                {/* Fecha hasta */}
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Hasta</p>
-                  <div className="relative">
-                    <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
-                    <Input
-                      type="date" className="pl-8 h-8 text-xs"
-                      value={asocFechaHasta}
-                      onChange={(e) => setAsocFechaHasta(e.target.value)}
-                    />
-                  </div>
-                </div>
+                {hayFiltros && (
+                  <button
+                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 shrink-0 whitespace-nowrap"
+                    onClick={() => { setAsocSearch(''); setAsocFilterEstado(''); setAsocFechaDesde(''); setAsocFechaHasta(''); }}
+                  >
+                    <X className="size-3" /> Limpiar
+                  </button>
+                )}
+                {/* Contador de resultados */}
+                <span className="text-[11px] text-slate-400 shrink-0 ml-auto">
+                  {misCreditosFiltrados.length} crédito{misCreditosFiltrados.length !== 1 ? 's' : ''}
+                </span>
               </div>
 
               {/* ── Chips de filtros activos ── */}
               {hayFiltros && (
                 <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
-                  <span className="text-[10px] text-slate-400 self-center">Filtros activos:</span>
                   {asocSearch.trim() && (
                     <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
                       <Search className="size-2.5" />
