@@ -6,7 +6,7 @@ import { Badge } from './ui/badge';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Plus, ChevronLeft, ChevronRight, UserCircle, Edit, Trash2, Shield, Clock, FileText, AlertTriangle, User } from 'lucide-react';
+import { Search, Plus, ChevronLeft, ChevronRight, UserCircle, Edit, Trash2, Shield, Clock, FileText, AlertTriangle, User, Lock } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
@@ -105,26 +105,32 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     );
 
     // Usuarios normales
-    const usuariosMapeados = (usData || []).map((u: any) => ({
-      id:               u.id,
-      identificacion:   u.identificacion || u.id.slice(0, 8),
-      username:         u.username || u.email?.split('@')[0] || '—',
-      nombre:           u.nombre,
-      email:            u.email,
-      telefono:         u.telefono || '',
-      direccion:        u.direccion || '',
-      rol:              rolLabel(u.roles?.nombre ?? 'usuario'),
-      rol_nombre_db:    u.roles?.nombre ?? 'usuario', // nombre real en BD
-      rol_id:           u.rol_id,
-      asociado_id:      u.asociado_id,
-      ultimoAcceso:     u.ultimo_acceso
-        ? new Date(u.ultimo_acceso).toLocaleString('es-CO')
-        : 'Nunca',
-      estado:           u.activo,
-      fechaCreacion:    u.created_at?.split('T')[0] ?? '—',
-      fechaModificacion: u.updated_at?.split('T')[0] ?? '—',
-      soloLectura:      false,
-    }));
+    const ROLES_SISTEMA = ['admin', 'administrador'];
+    const usuariosMapeados = (usData || []).map((u: any) => {
+      const rolDb = u.roles?.nombre ?? 'usuario';
+      return {
+        id:               u.id,
+        identificacion:   u.identificacion || u.id.slice(0, 8),
+        username:         u.username || u.email?.split('@')[0] || '—',
+        nombre:           u.nombre,
+        email:            u.email,
+        telefono:         u.telefono || '',
+        direccion:        u.direccion || '',
+        rol:              rolLabel(rolDb),
+        rol_nombre_db:    rolDb, // nombre real en BD
+        rol_id:           u.rol_id,
+        asociado_id:      u.asociado_id,
+        ultimoAcceso:     u.ultimo_acceso
+          ? new Date(u.ultimo_acceso).toLocaleString('es-CO')
+          : 'Nunca',
+        estado:           u.activo,
+        fechaCreacion:    u.created_at?.split('T')[0] ?? '—',
+        fechaModificacion: u.updated_at?.split('T')[0] ?? '—',
+        soloLectura:      false,
+        // Usuario de sistema: no se puede modificar ni eliminar
+        esSistema:        ROLES_SISTEMA.includes(rolDb),
+      };
+    });
 
     // Asociados sin cuenta de usuario — solo lectura
     const asociadosSinCuenta = (asociadosData || [])
@@ -222,6 +228,17 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
   // ── Toggle estado ────────────────────────────────────────────────────────────
   const handleToggleEstado = async (id: string) => {
     const usuario    = usuarios.find(u => u.id === id);
+
+    // Protección: el usuario administrador nunca puede desactivarse
+    if (usuario?.esSistema) {
+      toast.error('Acción no permitida', {
+        description: `El usuario "${usuario.nombre}" tiene rol de administrador del sistema y no puede ser desactivado.`,
+      });
+      setIsToggleEstadoDialogOpen(false);
+      setSelectedUsuario(null);
+      return;
+    }
+
     const nuevoEstado = !usuario?.estado;
     const fechaHora  = new Date().toLocaleString('es-CO', {
       year: 'numeric', month: '2-digit', day: '2-digit',
@@ -537,6 +554,16 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
   const handleDelete = async () => {
     if (!selectedUsuario) return;
 
+    // Protección: el usuario administrador nunca puede eliminarse
+    if (selectedUsuario.esSistema) {
+      toast.error('Acción no permitida', {
+        description: `El usuario "${selectedUsuario.nombre}" tiene rol de administrador del sistema y no puede eliminarse.`,
+      });
+      setIsDeleteDialogOpen(false);
+      setSelectedUsuario(null);
+      return;
+    }
+
     // Verificar que no existan registros vinculados en ninguna tabla relacionada
     if (selectedUsuario.asociado_id) {
       try {
@@ -787,21 +814,31 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-2">
-                            <Switch
-                              checked={usuario.estado}
-                              disabled={!esAdmin}
-                              onCheckedChange={() => {
-                                setSelectedUsuario(usuario);
-                                setIsToggleEstadoDialogOpen(true);
-                              }}
-                            />
-                            <span className="text-sm text-slate-600">
-                              {usuario.estado ? 'Activo' : 'Inactivo'}
-                            </span>
+                            {usuario.esSistema ? (
+                              /* Administrador: siempre activo, no se puede cambiar */
+                              <div className="flex items-center gap-2" title="El usuario administrador siempre debe estar activo">
+                                <Lock className="size-3.5 text-slate-400" />
+                                <span className="text-sm text-slate-500">Siempre activo</span>
+                              </div>
+                            ) : (
+                              <>
+                                <Switch
+                                  checked={usuario.estado}
+                                  disabled={!esAdmin}
+                                  onCheckedChange={() => {
+                                    setSelectedUsuario(usuario);
+                                    setIsToggleEstadoDialogOpen(true);
+                                  }}
+                                />
+                                <span className="text-sm text-slate-600">
+                                  {usuario.estado ? 'Activo' : 'Inactivo'}
+                                </span>
+                              </>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                          {esAdmin && usuario.rol_nombre_db !== 'admin' && (
+                          {esAdmin && !usuario.esSistema && (
                             <div className="flex gap-2 justify-end">
                               {!usuario.soloLectura && (
                                 <Button
