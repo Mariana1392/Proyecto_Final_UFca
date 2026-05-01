@@ -87,6 +87,14 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
       if (perfilError || !perfil) throw new Error('Usuario no encontrado en el sistema.');
       if (!perfil.activo) { await supabase.auth.signOut(); throw new Error('Tu cuenta está desactivada. Contacta al administrador.'); }
 
+      // Verificar que el email haya sido confirmado (protege contra emails falsos)
+      if (!authData.user.email_confirmed_at) {
+        await supabase.auth.signOut();
+        setPendingConfirmEmail(emailToUse);
+        setIsLoading(false);
+        return;
+      }
+
       const rolNombre   = (perfil as any).roles?.nombre   ?? 'usuario';
       const rolLabelDB  = (perfil as any).roles?.label    ?? undefined;
       const rolPermisos = Array.isArray((perfil as any).roles?.permisos) ? (perfil as any).roles.permisos : [];
@@ -200,41 +208,10 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
         activo: true,
       });
 
-      // Si no hay sesión activa, Supabase requiere confirmación de email
-      if (!data.session) {
-        setPendingConfirmEmail(registerEmail.trim());
-        setIsLoading(false);
-        return;
-      }
-
-      // Sin confirmación requerida (modo dev/auto-confirm): entrar directamente
-      const rolPermisos = Array.isArray(rolData?.[0]?.permisos) ? rolData[0].permisos : [];
-      iniciarSesion({
-        id:          data.user!.id,
-        nombre:      registerName.trim(),
-        email:       registerEmail.trim(),
-        username:    registerEmail.trim().split('@')[0],
-        rol:         'usuario',
-        label:       'Usuario',
-        rol_id:      rolData?.[0]?.id ?? null,
-        asociado_id: null,
-        activo:      true,
-        permisos:    getPermisosEfectivos('usuario', rolPermisos),
-      });
-
-      toast.success('¡Cuenta creada exitosamente!', {
-        description: 'Ahora puedes solicitar tu membresía como asociado.',
-      });
-
-      setTimeout(() => {
-        onLogin('usuario', {
-          id:        data.user!.id,
-          name:      registerName.trim(),
-          email:     registerEmail.trim(),
-          role:      'usuario',
-          rol_nombre: 'usuario',
-        });
-      }, 800);
+      // Siempre mostrar la pantalla de confirmación de email,
+      // sin importar si Supabase tiene Auto Confirm activado.
+      // Así los emails falsos no pueden entrar sin verificar.
+      setPendingConfirmEmail(registerEmail.trim());
     } catch (err: any) {
       setError(
         err.message?.includes('already registered')
