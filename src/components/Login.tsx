@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
-import { Mail, Lock, User, AlertCircle, Shield, CheckCircle2, RefreshCw, ArrowLeft, InboxIcon, PiggyBank, UserCircle2 } from 'lucide-react';
+import { Mail, Lock, User, AlertCircle, Shield, CheckCircle2, RefreshCw, ArrowLeft, InboxIcon, PiggyBank, UserCircle2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import logo from '../assets/logo.svg';
 
@@ -31,6 +31,11 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
   const [resendLoading, setResendLoading]       = useState(false);
   const [resendCooldown, setResendCooldown]     = useState(0);
   const [activeTab, setActiveTab]               = useState<'login'|'register'>('login');
+
+  // ── Visibilidad de contraseñas ─────────────────────────────────────────────
+  const [showLoginPassword,   setShowLoginPassword]   = useState(false);
+  const [showRegisterPass,    setShowRegisterPass]    = useState(false);
+  const [showConfirmPass,     setShowConfirmPass]     = useState(false);
 
   // ── Login con Supabase Auth ───────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
@@ -446,10 +451,19 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
                       <Label htmlFor="login-password" className="text-slate-700 font-semibold text-sm">Contraseña</Label>
                       <div className="relative">
                         <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400"/>
-                        <Input id="login-password" type="password" placeholder="••••••••"
-                          className="pl-10 h-11 rounded-xl border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20 bg-slate-50"
+                        <Input id="login-password" type={showLoginPassword ? 'text' : 'password'} placeholder="••••••••"
+                          className="pl-10 pr-11 h-11 rounded-xl border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20 bg-slate-50"
                           value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
                           required disabled={isLoading}/>
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginPassword(v => !v)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                          tabIndex={-1}
+                          aria-label={showLoginPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                        >
+                          {showLoginPassword ? <EyeOff className="size-4"/> : <Eye className="size-4"/>}
+                        </button>
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-sm">
@@ -503,9 +517,18 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
                       <Label htmlFor="register-password" className="text-slate-700 font-semibold text-sm">Contraseña</Label>
                       <div className="relative">
                         <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400"/>
-                        <Input id="register-password" type="password" placeholder="••••••••"
-                          className="pl-10 h-11 rounded-xl border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20 bg-slate-50"
+                        <Input id="register-password" type={showRegisterPass ? 'text' : 'password'} placeholder="••••••••"
+                          className="pl-10 pr-11 h-11 rounded-xl border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20 bg-slate-50"
                           value={registerPassword} onChange={e => setRegisterPassword(e.target.value)} required/>
+                        <button
+                          type="button"
+                          onClick={() => setShowRegisterPass(v => !v)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                          tabIndex={-1}
+                          aria-label={showRegisterPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                        >
+                          {showRegisterPass ? <EyeOff className="size-4"/> : <Eye className="size-4"/>}
+                        </button>
                       </div>
                       <p className="text-xs text-slate-400">Mínimo 6 caracteres</p>
                     </div>
@@ -525,12 +548,12 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
                         }`}/>
                         <Input
                           id="register-confirm"
-                          type="password"
+                          type={showConfirmPass ? 'text' : 'password'}
                           placeholder="••••••••"
                           value={registerConfirmPassword}
                           onChange={e => setRegisterConfirmPassword(e.target.value)}
                           required
-                          className={`pl-10 h-11 rounded-xl bg-slate-50 transition-colors ${
+                          className={`pl-10 pr-11 h-11 rounded-xl bg-slate-50 transition-colors ${
                             registerConfirmPassword.length > 0 && registerPassword !== registerConfirmPassword
                               ? 'border-red-400 focus:border-red-500 focus:ring-red-200 bg-red-50'
                               : registerConfirmPassword.length > 0 && registerPassword === registerConfirmPassword
@@ -538,6 +561,15 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
                               : 'border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20'
                           }`}
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPass(v => !v)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                          tabIndex={-1}
+                          aria-label={showConfirmPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                        >
+                          {showConfirmPass ? <EyeOff className="size-4"/> : <Eye className="size-4"/>}
+                        </button>
                       </div>
                       {/* Mensajes de validación en tiempo real */}
                       {registerConfirmPassword.length > 0 && registerPassword !== registerConfirmPassword && (
