@@ -21,9 +21,10 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
   const { iniciarSesion } = useAuth();
   const [loginEmail, setLoginEmail]           = useState('');
   const [loginPassword, setLoginPassword]     = useState('');
-  const [registerName, setRegisterName]         = useState('');
-  const [registerEmail, setRegisterEmail]       = useState('');
-  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerName, setRegisterName]                     = useState('');
+  const [registerEmail, setRegisterEmail]                   = useState('');
+  const [registerPassword, setRegisterPassword]             = useState('');
+  const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
   const [isLoading, setIsLoading]               = useState(false);
   const [error, setError]                       = useState('');
   const [pendingConfirmEmail, setPendingConfirmEmail] = useState('');
@@ -145,6 +146,7 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(registerEmail)) { setError('Formato de correo electrónico inválido'); return; }
     if (registerPassword.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return; }
+    if (registerPassword !== registerConfirmPassword) { setError('Las contraseñas no coinciden. Verifica e intenta de nuevo.'); return; }
 
     setIsLoading(true);
     try {
@@ -401,7 +403,7 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
           {/* Tabs propios */}
           <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-2xl mb-6 shadow-sm">
             {(['login','register'] as const).map((tab) => (
-              <button key={tab} onClick={() => { setActiveTab(tab); setError(''); }}
+              <button key={tab} onClick={() => { setActiveTab(tab); setError(''); setRegisterConfirmPassword(''); }}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                   activeTab === tab
                     ? 'bg-gradient-to-r from-[#054030] to-[#0a7050] text-white shadow-md'
@@ -507,7 +509,53 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
                       </div>
                       <p className="text-xs text-slate-400">Mínimo 6 caracteres</p>
                     </div>
-                    <Button type="submit" disabled={isLoading}
+
+                    {/* ── Confirmar contraseña ── */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="register-confirm" className="text-slate-700 font-semibold text-sm">
+                        Confirmar contraseña
+                      </Label>
+                      <div className="relative">
+                        <Lock className={`absolute left-3.5 top-1/2 -translate-y-1/2 size-4 ${
+                          registerConfirmPassword.length > 0 && registerPassword !== registerConfirmPassword
+                            ? 'text-red-400'
+                            : registerConfirmPassword.length > 0 && registerPassword === registerConfirmPassword
+                            ? 'text-emerald-500'
+                            : 'text-slate-400'
+                        }`}/>
+                        <Input
+                          id="register-confirm"
+                          type="password"
+                          placeholder="••••••••"
+                          value={registerConfirmPassword}
+                          onChange={e => setRegisterConfirmPassword(e.target.value)}
+                          required
+                          className={`pl-10 h-11 rounded-xl bg-slate-50 transition-colors ${
+                            registerConfirmPassword.length > 0 && registerPassword !== registerConfirmPassword
+                              ? 'border-red-400 focus:border-red-500 focus:ring-red-200 bg-red-50'
+                              : registerConfirmPassword.length > 0 && registerPassword === registerConfirmPassword
+                              ? 'border-emerald-400 focus:border-emerald-500 focus:ring-emerald-200 bg-emerald-50/40'
+                              : 'border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20'
+                          }`}
+                        />
+                      </div>
+                      {/* Mensajes de validación en tiempo real */}
+                      {registerConfirmPassword.length > 0 && registerPassword !== registerConfirmPassword && (
+                        <p className="text-xs text-red-500 flex items-center gap-1 font-medium">
+                          <AlertCircle className="size-3 shrink-0"/>
+                          Las contraseñas no coinciden
+                        </p>
+                      )}
+                      {registerConfirmPassword.length > 0 && registerPassword === registerConfirmPassword && (
+                        <p className="text-xs text-emerald-600 flex items-center gap-1 font-medium">
+                          <CheckCircle2 className="size-3 shrink-0"/>
+                          Las contraseñas coinciden
+                        </p>
+                      )}
+                    </div>
+
+                    <Button type="submit"
+                      disabled={isLoading || (registerConfirmPassword.length > 0 && registerPassword !== registerConfirmPassword)}
                       className="w-full h-12 rounded-xl bg-gradient-to-r from-[#054030] to-[#0a7050] hover:from-[#032a1e] hover:to-[#054030] text-white font-bold text-base shadow-lg shadow-emerald-900/20 mt-2">
                       {isLoading ? 'Creando cuenta...' : 'Crear cuenta'}
                     </Button>
