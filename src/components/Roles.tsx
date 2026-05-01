@@ -170,7 +170,7 @@ export default function Roles({ userRole }: RolesProps) {
           cantidadUsuarios: conteoMap[r.id] ?? 0,
           estado:           r.activo ?? true,
           // Usa el campo es_sistema de la BD + nombres conocidos como doble protección
-          esSistema:        r.es_sistema === true || r.nombre === 'admin' || r.nombre === 'asociado' || r.nombre === 'usuario',
+          esSistema:        r.es_sistema === true || r.nombre === 'admin' || r.nombre === 'administrador' || r.nombre === 'asociado' || r.nombre === 'usuario',
           fechaCreacion:    r.created_at ? new Date(r.created_at).toLocaleDateString('es-CO') : '—',
         };
       });
@@ -698,8 +698,14 @@ export default function Roles({ userRole }: RolesProps) {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                            {rol.esSistema ? (
-                              /* Roles del sistema: estado fijo, no se puede cambiar */
+                            {rol.nombre_db === 'admin' ? (
+                              /* Administrador: rol protegido, siempre activo, sin opciones */
+                              <div className="flex items-center gap-2" title="El rol Administrador no puede modificarse">
+                                <Lock className="size-3.5 text-slate-400" />
+                                <span className="text-sm text-slate-500">Siempre activo</span>
+                              </div>
+                            ) : rol.esSistema ? (
+                              /* Otros roles del sistema: estado fijo, no se puede cambiar */
                               <div className="flex items-center gap-2" title="El estado de los roles del sistema no puede modificarse">
                                 <Lock className="size-3.5 text-slate-400" />
                                 <span className="text-sm text-slate-500">Siempre activo</span>
@@ -722,57 +728,64 @@ export default function Roles({ userRole }: RolesProps) {
                         </TableCell>
                         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1.5 justify-end">
-                            {/* Agregar permiso */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedItem(rol);
-                                setPermisosToAdd([]);
-                                setIsAddPermisosDialogOpen(true);
-                              }}
-                              title={PERMISOS_CONFIG.every(p => rol.permisos[p.key]) ? 'El rol ya tiene todos los permisos' : 'Agregar permiso'}
-                              disabled={PERMISOS_CONFIG.every(p => rol.permisos[p.key])}
-                              className={PERMISOS_CONFIG.every(p => rol.permisos[p.key]) ? 'opacity-40 cursor-not-allowed' : 'text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300'}
-                            >
-                              <ShieldPlus className="size-4" />
-                            </Button>
-                            {/* Quitar permiso */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedItem(rol);
-                                setPermisosToRemove([]);
-                                setIsRemoveSelectDialogOpen(true);
-                              }}
-                              title={getPermisosActivosCount(rol.permisos) <= 1 ? 'Debe conservar al menos un permiso' : 'Eliminar permiso'}
-                              disabled={getPermisosActivosCount(rol.permisos) <= 1}
-                              className={getPermisosActivosCount(rol.permisos) <= 1 ? 'opacity-40 cursor-not-allowed' : 'text-orange-600 hover:bg-orange-50 hover:border-orange-300'}
-                            >
-                              <ShieldMinus className="size-4" />
-                            </Button>
-                            {/* Editar — permitido, pero campos protegidos dentro del diálogo */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenEdit(rol)}
-                              title={rol.esSistema ? 'Solo se puede editar la descripción' : 'Editar rol'}
-                            >
-                              <Edit className="size-4" />
-                            </Button>
-                            {/* Eliminar — solo roles personalizados sin usuarios activos */}
-                            {!rol.esSistema && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => { setSelectedItem(rol); setIsDeleteDialogOpen(true); }}
-                                title={rol.cantidadUsuarios > 0 ? `No se puede eliminar: tiene ${rol.cantidadUsuarios} usuario(s) activo(s)` : 'Eliminar rol'}
-                                disabled={rol.cantidadUsuarios > 0}
-                                className={rol.cantidadUsuarios > 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-50 hover:border-red-300'}
-                              >
-                                <Trash2 className="size-4 text-red-500" />
-                              </Button>
+                            {rol.nombre_db === 'admin' ? (
+                              /* Administrador: rol protegido, no se muestran acciones */
+                              <span className="text-xs text-slate-400 italic">Rol protegido</span>
+                            ) : (
+                              <>
+                                {/* Agregar permiso */}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedItem(rol);
+                                    setPermisosToAdd([]);
+                                    setIsAddPermisosDialogOpen(true);
+                                  }}
+                                  title={PERMISOS_CONFIG.every(p => rol.permisos[p.key]) ? 'El rol ya tiene todos los permisos' : 'Agregar permiso'}
+                                  disabled={PERMISOS_CONFIG.every(p => rol.permisos[p.key])}
+                                  className={PERMISOS_CONFIG.every(p => rol.permisos[p.key]) ? 'opacity-40 cursor-not-allowed' : 'text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300'}
+                                >
+                                  <ShieldPlus className="size-4" />
+                                </Button>
+                                {/* Quitar permiso */}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedItem(rol);
+                                    setPermisosToRemove([]);
+                                    setIsRemoveSelectDialogOpen(true);
+                                  }}
+                                  title={getPermisosActivosCount(rol.permisos) <= 1 ? 'Debe conservar al menos un permiso' : 'Eliminar permiso'}
+                                  disabled={getPermisosActivosCount(rol.permisos) <= 1}
+                                  className={getPermisosActivosCount(rol.permisos) <= 1 ? 'opacity-40 cursor-not-allowed' : 'text-orange-600 hover:bg-orange-50 hover:border-orange-300'}
+                                >
+                                  <ShieldMinus className="size-4" />
+                                </Button>
+                                {/* Editar — permitido, pero campos protegidos dentro del diálogo */}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenEdit(rol)}
+                                  title={rol.esSistema ? 'Solo se puede editar la descripción' : 'Editar rol'}
+                                >
+                                  <Edit className="size-4" />
+                                </Button>
+                                {/* Eliminar — solo roles personalizados sin usuarios activos */}
+                                {!rol.esSistema && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => { setSelectedItem(rol); setIsDeleteDialogOpen(true); }}
+                                    title={rol.cantidadUsuarios > 0 ? `No se puede eliminar: tiene ${rol.cantidadUsuarios} usuario(s) activo(s)` : 'Eliminar rol'}
+                                    disabled={rol.cantidadUsuarios > 0}
+                                    className={rol.cantidadUsuarios > 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-50 hover:border-red-300'}
+                                  >
+                                    <Trash2 className="size-4 text-red-500" />
+                                  </Button>
+                                )}
+                              </>
                             )}
                           </div>
                         </TableCell>
