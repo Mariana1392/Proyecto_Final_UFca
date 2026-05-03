@@ -143,10 +143,9 @@ export default function MiSolicitud() {
   const [ocupacion, setOcupacion]       = useState('');
   const [ingresoMensual, setIngresoMensual] = useState('');
   const [motivacion, setMotivacion]     = useState('');
-  // Archivos: 2 PDFs obligatorios + 1 imagen opcional
-  const [pdf1, setPdf1]                 = useState<File | null>(null);
-  const [pdf2, setPdf2]                 = useState<File | null>(null);
-  const [imagen, setImagen]             = useState<File | null>(null);
+  // Archivos: cédula y extracto bancario (ambos opcionales)
+  const [pdf1, setPdf1] = useState<File | null>(null);
+  const [pdf2, setPdf2] = useState<File | null>(null);
 
   useEffect(() => { cargarSolicitud(); }, []);
 
@@ -204,31 +203,22 @@ export default function MiSolicitud() {
       toast.error('El número de identificación es obligatorio');
       return;
     }
-    if (!pdf1 || !pdf2) {
-      toast.error('Debes adjuntar los 2 documentos PDF obligatorios');
+    // Validar tipos si se adjuntaron archivos
+    if (pdf1 && pdf1.type !== 'application/pdf') {
+      toast.error('La cédula debe ser un archivo PDF');
       return;
     }
-    // Validar tipos
-    if (pdf1.type !== 'application/pdf') {
-      toast.error('El documento 1 debe ser un archivo PDF');
-      return;
-    }
-    if (pdf2.type !== 'application/pdf') {
-      toast.error('El documento 2 debe ser un archivo PDF');
-      return;
-    }
-    if (imagen && !imagen.type.startsWith('image/')) {
-      toast.error('El archivo de foto debe ser una imagen (JPG, PNG, etc.)');
+    if (pdf2 && pdf2.type !== 'application/pdf') {
+      toast.error('El extracto bancario debe ser un archivo PDF');
       return;
     }
 
     setSubmitting(true);
     try {
-      // Subir archivos
+      // Subir archivos (solo los que se adjuntaron)
       const urls: string[] = [];
-      urls.push(await subirArchivo(pdf1));
-      urls.push(await subirArchivo(pdf2));
-      if (imagen) urls.push(await subirArchivo(imagen));
+      if (pdf1) urls.push(await subirArchivo(pdf1));
+      if (pdf2) urls.push(await subirArchivo(pdf2));
 
       const partes    = user.nombre.trim().split(' ');
       const mitad     = Math.ceil(partes.length / 2);
@@ -292,7 +282,7 @@ export default function MiSolicitud() {
         description: 'El equipo de UFCA revisará tu solicitud pronto.',
       });
       setShowForm(false);
-      setPdf1(null); setPdf2(null); setImagen(null);
+      setPdf1(null); setPdf2(null);
       await cargarSolicitud();
     } catch (err: any) {
       toast.error('Error al enviar solicitud', { description: err.message });
@@ -303,7 +293,7 @@ export default function MiSolicitud() {
   function resetForm() {
     setCedula(''); setTipoId('CC'); setTelefono('');
     setDireccion(''); setOcupacion(''); setIngresoMensual(''); setMotivacion('');
-    setPdf1(null); setPdf2(null); setImagen(null);
+    setPdf1(null); setPdf2(null);
     setShowForm(false);
   }
 
@@ -507,57 +497,48 @@ export default function MiSolicitud() {
                 <div className="flex items-start justify-between">
                   <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                     <Upload className="size-4 text-emerald-600" />
-                    Documentos requeridos
+                    Documentos adjuntos
                   </h4>
                   <span className="text-xs text-slate-400">Máx. 5 MB por archivo</span>
                 </div>
 
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2 text-amber-700 text-xs">
-                  <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-start gap-2 text-slate-600 text-xs">
+                  <AlertTriangle className="size-3.5 shrink-0 mt-0.5 text-slate-400" />
                   <span>
-                    Adjunta <strong>2 documentos PDF obligatorios</strong> (ej: cédula, certificado laboral, extracto bancario)
-                    y opcionalmente una <strong>foto o imagen</strong>.
+                    Puedes adjuntar tu <strong>cédula</strong> y/o tu <strong>extracto bancario</strong> en formato PDF.
+                    Ambos documentos son <strong>opcionales</strong>.
                   </span>
                 </div>
 
                 <div className="space-y-3">
                   <ArchivoSlot
-                    label="Documento PDF 1"
+                    label="Cédula de Ciudadanía"
                     accept="application/pdf"
                     file={pdf1}
-                    required
-                    hint="Solo archivos PDF · Ej: copia de cédula"
+                    hint="Opcional · Solo archivos PDF · Copia de tu cédula"
                     onChange={setPdf1}
                   />
                   <ArchivoSlot
-                    label="Documento PDF 2"
+                    label="Extracto bancario"
                     accept="application/pdf"
                     file={pdf2}
-                    required
-                    hint="Solo archivos PDF · Ej: certificado laboral o extracto"
+                    hint="Opcional · Solo archivos PDF · Extracto de cuenta bancaria"
                     onChange={setPdf2}
-                  />
-                  <ArchivoSlot
-                    label="Foto o imagen"
-                    accept="image/jpeg,image/png,image/webp,image/jpg"
-                    file={imagen}
-                    hint="Opcional · JPG, PNG o WebP · Ej: foto de perfil"
-                    onChange={setImagen}
                   />
                 </div>
 
                 {/* Indicador de progreso de archivos */}
                 <div className="flex items-center gap-2 pt-1">
-                  {[pdf1, pdf2, imagen].map((f, i) => (
+                  {[pdf1, pdf2].map((f, i) => (
                     <div
                       key={i}
                       className={`flex-1 h-1.5 rounded-full transition-colors ${
-                        f ? 'bg-emerald-500' : i < 2 ? 'bg-slate-200' : 'bg-slate-100'
+                        f ? 'bg-emerald-500' : 'bg-slate-200'
                       }`}
                     />
                   ))}
                   <span className="text-xs text-slate-500 shrink-0">
-                    {[pdf1, pdf2, imagen].filter(Boolean).length} / 3 archivos
+                    {[pdf1, pdf2].filter(Boolean).length} / 2 archivos
                   </span>
                 </div>
               </div>
@@ -574,7 +555,7 @@ export default function MiSolicitud() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={submitting || !pdf1 || !pdf2}
+                  disabled={submitting}
                   className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 gap-2"
                 >
                   <Send className="size-4" />
