@@ -334,23 +334,12 @@ export default function ComiteEvaluador() {
   // ── Open detail ───────────────────────────────────────────────────────────
   function handleVerDetalle(s: Solicitud) {
     setSelectedSolicitud(s);
-    // Defensive: only use saved evaluacion if it has the expected shape
-    if (s.evaluacion && s.evaluacion.verificaciones &&
-        typeof s.evaluacion.scoreCredito === 'number') {
-      setScoreCredito(s.evaluacion.scoreCredito);
-      setVerificaciones({
-        documentacion: !!s.evaluacion.verificaciones.documentacion,
-        ingresos:      !!s.evaluacion.verificaciones.ingresos,
-        referencias:   !!s.evaluacion.verificaciones.referencias,
-        antecedentes:  !!s.evaluacion.verificaciones.antecedentes,
-      });
-      setComentariosComite(s.evaluacion.comentariosComite ?? '');
-    } else {
-      setScoreCredito(70);
-      setVerificaciones({ documentacion: false, ingresos: false, referencias: false, antecedentes: false });
-      setComentariosComite('');
-    }
-    fetchDocsStorage(s.cedula, s);  // cargar documentos desde URLs guardadas
+    // Las verificaciones siempre inician en false para que el comité
+    // las marque conforme revisa cada ítem (nunca se restauran del guardado).
+    setVerificaciones({ documentacion: false, ingresos: false, referencias: false, antecedentes: false });
+    // Solo restaurar los comentarios si ya había una evaluación previa
+    setComentariosComite(s.evaluacion?.comentariosComite ?? '');
+    fetchDocsStorage(s.cedula, s);
     setIsDetailOpen(true);
   }
 
@@ -369,12 +358,9 @@ export default function ComiteEvaluador() {
   async function handleGuardarEvaluacion() {
     if (!selectedSolicitud) return;
     const evaluacion = {
-      scoreCredito,
-      nivelRiesgo:      calcularNivelRiesgo(scoreCredito),
-      capacidadPago:    calcularCapacidadPago(),
       verificaciones,
       comentariosComite,
-      evaluadoPor:      'Comité Evaluador',
+      evaluadoPor: 'Comité Evaluador',
     };
     try {
       const { error } = await supabase
@@ -1440,22 +1426,10 @@ export default function ComiteEvaluador() {
                         {selectedSolicitud.observaciones}
                       </p>
                     )}
-                    {selectedSolicitud.evaluacion && (
-                      <div className="mt-3 grid grid-cols-2 gap-3">
-                        <div className="p-3 bg-white rounded-lg border">
-                          <p className="text-xs text-slate-400 mb-1">Score de crédito</p>
-                          <p className="text-xl font-bold text-blue-600">{selectedSolicitud.evaluacion.scoreCredito}/100</p>
-                        </div>
-                        <div className="p-3 bg-white rounded-lg border">
-                          <p className="text-xs text-slate-400 mb-1">Nivel de riesgo</p>
-                          {getRiesgoBadge(selectedSolicitud.evaluacion.nivelRiesgo)}
-                        </div>
-                        {selectedSolicitud.evaluacion.comentariosComite && (
-                          <div className="col-span-2 p-3 bg-white rounded-lg border">
-                            <p className="text-xs text-slate-400 mb-1">Comentarios del comité</p>
-                            <p className="text-sm text-slate-700">{selectedSolicitud.evaluacion.comentariosComite}</p>
-                          </div>
-                        )}
+                    {selectedSolicitud.evaluacion?.comentariosComite && (
+                      <div className="mt-3 p-3 bg-white rounded-lg border">
+                        <p className="text-xs text-slate-400 mb-1">Comentarios del comité</p>
+                        <p className="text-sm text-slate-700">{selectedSolicitud.evaluacion.comentariosComite}</p>
                       </div>
                     )}
                   </div>
@@ -1464,37 +1438,6 @@ export default function ComiteEvaluador() {
                 {/* Formulario de evaluación (solo pendientes) */}
                 {selectedSolicitud.estado === 'pendiente' && (
                   <>
-                    {/* Score crediticio */}
-                    <Card className="border-blue-200 bg-blue-50/50">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                          <Calculator className="size-4 text-blue-600" /> Score de crédito
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-3xl font-bold text-blue-600">{scoreCredito}<span className="text-base font-normal text-slate-400">/100</span></p>
-                            <p className="text-xs text-slate-500">Calificación crediticia asignada</p>
-                          </div>
-                          {getRiesgoBadge(calcularNivelRiesgo(scoreCredito))}
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-slate-600 block mb-2">Ajustar score ({scoreCredito})</label>
-                          <input
-                            type="range" min="0" max="100" value={scoreCredito}
-                            onChange={e => setScoreCredito(Number(e.target.value))}
-                            className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                          />
-                          <div className="flex justify-between text-xs text-slate-400 mt-1">
-                            <span>0 — Alto riesgo</span>
-                            <span>50 — Medio</span>
-                            <span>100 — Bajo riesgo</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
                     {/* Verificaciones */}
                     <Card>
                       <CardHeader className="pb-3">
