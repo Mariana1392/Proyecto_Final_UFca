@@ -252,10 +252,28 @@ export default function MiSolicitud() {
       let error: any;
 
       const guardar = async (payload: Record<string, any>) => {
+        // Si ya tenemos el id de la solicitud → actualizar directamente
         if (solicitud?.id) {
           return supabase.from('solicitudes_asociados').update(payload).eq('id', solicitud.id);
         }
-        return supabase.from('solicitudes_asociados').insert(payload);
+        // Intentar insertar; si hay conflicto de cédula (constraint unique),
+        // buscar el registro existente de ESTE usuario y actualizarlo
+        const result = await supabase.from('solicitudes_asociados').insert(payload);
+        if (result.error?.message?.includes('cedula_key') || result.error?.code === '23505') {
+          // Existe una solicitud con esta cédula — buscar si pertenece a este usuario
+          const { data: existente } = await supabase
+            .from('solicitudes_asociados')
+            .select('id, usuario_id')
+            .eq('cedula', cedula.trim())
+            .maybeSingle();
+          if (existente?.usuario_id && existente.usuario_id !== user!.id) {
+            throw new Error('Ya existe una solicitud registrada con esta cédula por otro usuario. Verifica el número de identificación.');
+          }
+          if (existente?.id) {
+            return supabase.from('solicitudes_asociados').update(payload).eq('id', existente.id);
+          }
+        }
+        return result;
       };
 
       ({ error } = await guardar(payloadCompleto));
