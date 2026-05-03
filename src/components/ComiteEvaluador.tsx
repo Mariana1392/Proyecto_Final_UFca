@@ -10,7 +10,7 @@ import {
   Eye, Mail, Phone, Briefcase, MessageSquare,
   Users, AlertTriangle, Shield, Award,
   Calculator, FileCheck, UserPlus, Edit, Trash2,
-  UserCheck, Crown, CalendarDays, Paperclip, ExternalLink,
+  CalendarDays, Paperclip, ExternalLink,
   ChevronRight, Flame,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -56,18 +56,6 @@ interface Solicitud {
   evaluacion?: EvaluacionComite | null;
 }
 
-interface MiembroComite {
-  id: string;
-  nombres: string;
-  apellidos: string;
-  cedula: string;
-  cargo: 'presidente' | 'secretario' | 'vocal' | 'suplente';
-  email: string;
-  telefono: string;
-  fechaVinculacion: string;
-  estado: 'activo' | 'inactivo';
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const getEstadoBadge = (estado: string) => {
   switch (estado) {
@@ -106,61 +94,12 @@ const diasDesde = (fecha?: string): number => {
   return Math.floor(diff / 86_400_000);
 };
 
-// ── Campos del formulario de miembro — componente EXTERNO para evitar remounts ──
-interface MiembroFormProps {
-  form: { nombres: string; apellidos: string; cedula: string; cargo: string; email: string; telefono: string };
-  onChange: (field: string, value: string) => void;
-}
-function MiembroFormFields({ form, onChange }: MiembroFormProps) {
-  return (
-    <div className="space-y-3 py-2">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label>Nombres <span className="text-red-500">*</span></Label>
-          <Input value={form.nombres} onChange={e => onChange('nombres', e.target.value)} placeholder="Nombres" />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Apellidos <span className="text-red-500">*</span></Label>
-          <Input value={form.apellidos} onChange={e => onChange('apellidos', e.target.value)} placeholder="Apellidos" />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label>Cédula <span className="text-red-500">*</span></Label>
-          <Input value={form.cedula} onChange={e => onChange('cedula', e.target.value)} placeholder="Número de cédula" />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Cargo</Label>
-          <Select value={form.cargo} onValueChange={v => onChange('cargo', v)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="presidente">Presidente</SelectItem>
-              <SelectItem value="secretario">Secretario</SelectItem>
-              <SelectItem value="vocal">Vocal</SelectItem>
-              <SelectItem value="suplente">Suplente</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      <div className="space-y-1.5">
-        <Label>Email <span className="text-red-500">*</span></Label>
-        <Input type="email" value={form.email} onChange={e => onChange('email', e.target.value)} placeholder="correo@ejemplo.com" />
-      </div>
-      <div className="space-y-1.5">
-        <Label>Teléfono <span className="text-red-500">*</span></Label>
-        <Input value={form.telefono} onChange={e => onChange('telefono', e.target.value)} placeholder="300 000 0000" />
-      </div>
-    </div>
-  );
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ComiteEvaluador() {
 
   // ── Data ──────────────────────────────────────────────────────────────────
   const [solicitudes, setSolicitudes]                 = useState<Solicitud[]>([]);
   const [filteredSolicitudes, setFilteredSolicitudes] = useState<Solicitud[]>([]);
-  const [miembros, setMiembros]                       = useState<MiembroComite[]>([]);
   const [loading, setLoading]                         = useState(true);
 
   // ── Search / Filter ───────────────────────────────────────────────────────
@@ -200,21 +139,13 @@ export default function ComiteEvaluador() {
   const [loadingDocs, setLoadingDocs]   = useState(false);
   const [errorDocs,   setErrorDocs]     = useState<string | null>(null);
 
-  // ── Dialogs: miembros ─────────────────────────────────────────────────────
-  const [showCreateMiembroModal, setShowCreateMiembroModal] = useState(false);
-  const [showEditMiembroModal, setShowEditMiembroModal]     = useState(false);
-  const [showDeleteMiembroModal, setShowDeleteMiembroModal] = useState(false);
-  const [selectedMiembro, setSelectedMiembro]               = useState<MiembroComite | null>(null);
-  const emptyMiembro = { nombres: '', apellidos: '', cedula: '', cargo: 'vocal', email: '', telefono: '' };
-  const [formMiembro, setFormMiembro] = useState(emptyMiembro);
-
   useEffect(() => { loadAll(); }, []);
   useEffect(() => { applyFilter(); }, [solicitudes, searchTerm, filterEstado]);
 
   // ── Load ──────────────────────────────────────────────────────────────────
   async function loadAll() {
     setLoading(true);
-    await Promise.all([loadSolicitudes(), loadMiembros()]);
+    await loadSolicitudes();
     setLoading(false);
   }
 
@@ -247,29 +178,6 @@ export default function ComiteEvaluador() {
       })));
     } catch (err: any) {
       toast.error('Error al cargar solicitudes: ' + err.message);
-    }
-  }
-
-  async function loadMiembros() {
-    try {
-      const { data, error } = await supabase
-        .from('miembros_comite')
-        .select('*')
-        .order('cargo');
-      if (error) throw error;
-      setMiembros((data || []).map((m: any) => ({
-        id:               m.id,
-        nombres:          m.nombres           ?? '',
-        apellidos:        m.apellidos         ?? '',
-        cedula:           m.cedula            ?? '',
-        cargo:            m.cargo             ?? 'vocal',
-        email:            m.email             ?? '',
-        telefono:         m.telefono          ?? '',
-        fechaVinculacion: m.fecha_vinculacion ?? '',
-        estado:           m.estado            ?? 'activo',
-      })));
-    } catch {
-      // Tabla puede no existir aún — no mostramos error crítico
     }
   }
 
@@ -561,69 +469,6 @@ export default function ComiteEvaluador() {
     }
   }
 
-  // ── Miembros CRUD ─────────────────────────────────────────────────────────
-  async function handleCreateMiembro() {
-    if (!formMiembro.nombres || !formMiembro.apellidos || !formMiembro.cedula || !formMiembro.email || !formMiembro.telefono) {
-      toast.error('Completa todos los campos obligatorios.'); return;
-    }
-    try {
-      const { data, error } = await supabase
-        .from('miembros_comite')
-        .insert({ ...formMiembro, fecha_vinculacion: new Date().toISOString().split('T')[0], estado: 'activo' })
-        .select()
-        .single();
-      if (error) throw error;
-      setMiembros(prev => [...prev, {
-        id: data.id, nombres: formMiembro.nombres, apellidos: formMiembro.apellidos,
-        cedula: formMiembro.cedula, cargo: formMiembro.cargo as any,
-        email: formMiembro.email, telefono: formMiembro.telefono,
-        fechaVinculacion: data.fecha_vinculacion, estado: 'activo',
-      }]);
-      toast.success(`${formMiembro.nombres} ${formMiembro.apellidos} agregado al comité.`);
-      setShowCreateMiembroModal(false);
-      setFormMiembro(emptyMiembro);
-    } catch (err: any) {
-      toast.error('Error: ' + err.message);
-    }
-  }
-
-  async function handleEditMiembro() {
-    if (!selectedMiembro) return;
-    if (!formMiembro.nombres || !formMiembro.apellidos || !formMiembro.cedula || !formMiembro.email || !formMiembro.telefono) {
-      toast.error('Completa todos los campos obligatorios.'); return;
-    }
-    try {
-      const { error } = await supabase
-        .from('miembros_comite')
-        .update(formMiembro)
-        .eq('id', selectedMiembro.id);
-      if (error) throw error;
-      setMiembros(prev => prev.map(m => m.id === selectedMiembro.id ? { ...m, ...formMiembro, cargo: formMiembro.cargo as any } : m));
-      toast.success('Miembro actualizado correctamente.');
-      setShowEditMiembroModal(false);
-      setSelectedMiembro(null);
-    } catch (err: any) {
-      toast.error('Error: ' + err.message);
-    }
-  }
-
-  async function handleDeleteMiembro() {
-    if (!selectedMiembro) return;
-    try {
-      const { error } = await supabase
-        .from('miembros_comite')
-        .update({ estado: 'inactivo' })
-        .eq('id', selectedMiembro.id);
-      if (error) throw error;
-      setMiembros(prev => prev.map(m => m.id === selectedMiembro.id ? { ...m, estado: 'inactivo' } : m));
-      toast.success('Miembro removido del comité activo.');
-      setShowDeleteMiembroModal(false);
-      setSelectedMiembro(null);
-    } catch (err: any) {
-      toast.error('Error: ' + err.message);
-    }
-  }
-
   // ── Stats ─────────────────────────────────────────────────────────────────
   const stats = {
     total:      solicitudes.length,
@@ -631,8 +476,6 @@ export default function ComiteEvaluador() {
     aprobadas:  solicitudes.filter(s => s.estado === 'aprobada').length,
     rechazadas: solicitudes.filter(s => s.estado === 'rechazada').length,
   };
-  const miembrosActivos = miembros.filter(m => m.estado === 'activo');
-
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="p-8 bg-slate-50 min-h-screen">
@@ -759,99 +602,6 @@ export default function ComiteEvaluador() {
             </Button>
           </div>
         )}
-
-        {/* ── Miembros del Comité ── */}
-        <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-white shadow-sm">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-purple-100 rounded-xl"><Users className="size-5 text-purple-600" /></div>
-                <div>
-                  <CardTitle className="text-purple-900">Miembros del Comité Evaluador</CardTitle>
-                  <p className="text-sm text-purple-600 mt-0.5">{miembrosActivos.length} miembro{miembrosActivos.length !== 1 ? 's' : ''} activo{miembrosActivos.length !== 1 ? 's' : ''}</p>
-                </div>
-              </div>
-              <Button
-                className="bg-purple-600 hover:bg-purple-700 gap-2"
-                onClick={() => { setFormMiembro(emptyMiembro); setShowCreateMiembroModal(true); }}
-              >
-                <UserPlus className="size-4" /> Agregar miembro
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {miembrosActivos.length === 0 ? (
-              <div className="text-center py-8">
-                <Users className="size-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500 text-sm">No hay miembros activos en el comité.</p>
-                <p className="text-slate-400 text-xs mt-1">Agrega el primer miembro para comenzar.</p>
-              </div>
-            ) : (
-              <div className="grid md:grid-cols-3 gap-4">
-                {miembrosActivos.map(m => (
-                  <div
-                    key={m.id}
-                    className="bg-white border-2 border-purple-100 rounded-xl p-4 hover:border-purple-300 hover:shadow-md transition-all"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2.5 rounded-full ${
-                          m.cargo === 'presidente' ? 'bg-yellow-100'
-                          : m.cargo === 'secretario' ? 'bg-blue-100'
-                          : m.cargo === 'vocal' ? 'bg-emerald-100'
-                          : 'bg-slate-100'
-                        }`}>
-                          {m.cargo === 'presidente'
-                            ? <Crown className="size-4 text-yellow-600" />
-                            : <UserCheck className={`size-4 ${
-                                m.cargo === 'secretario' ? 'text-blue-600'
-                                : m.cargo === 'vocal' ? 'text-emerald-600'
-                                : 'text-slate-600'
-                              }`} />
-                          }
-                        </div>
-                        <div>
-                          <p className="font-semibold text-slate-900 text-sm">{m.nombres} {m.apellidos}</p>
-                          <Badge className={`mt-1 text-xs ${
-                            m.cargo === 'presidente' ? 'bg-yellow-100 text-yellow-700'
-                            : m.cargo === 'secretario' ? 'bg-blue-100 text-blue-700'
-                            : m.cargo === 'vocal' ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-slate-100 text-slate-700'
-                          }`}>
-                            {m.cargo.charAt(0).toUpperCase() + m.cargo.slice(1)}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="flex gap-1 shrink-0">
-                        <Button
-                          variant="ghost" size="sm"
-                          onClick={() => {
-                            setSelectedMiembro(m);
-                            setFormMiembro({ nombres: m.nombres, apellidos: m.apellidos, cedula: m.cedula, cargo: m.cargo, email: m.email, telefono: m.telefono });
-                            setShowEditMiembroModal(true);
-                          }}
-                        >
-                          <Edit className="size-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost" size="sm"
-                          onClick={() => { setSelectedMiembro(m); setShowDeleteMiembroModal(true); }}
-                        >
-                          <Trash2 className="size-3.5 text-red-500" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5 text-xs text-slate-500">
-                      <div className="flex items-center gap-2"><FileText className="size-3" /> {m.cedula}</div>
-                      <div className="flex items-center gap-2 truncate"><Mail className="size-3 shrink-0" /> {m.email}</div>
-                      <div className="flex items-center gap-2"><Phone className="size-3" /> {m.telefono}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* ── Búsqueda y filtros ── */}
         <Card className="border-0 shadow-sm">
@@ -1725,74 +1475,6 @@ export default function ComiteEvaluador() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* ── Dialog: Crear miembro del comité ─────────────────────────────── */}
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      <Dialog open={showCreateMiembroModal} onOpenChange={open => { setShowCreateMiembroModal(open); if (!open) setFormMiembro(emptyMiembro); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="size-5 text-purple-600" /> Agregar miembro al comité
-            </DialogTitle>
-          </DialogHeader>
-          <MiembroFormFields
-            form={formMiembro}
-            onChange={(field, value) => setFormMiembro(p => ({ ...p, [field]: value }))}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateMiembroModal(false)}>Cancelar</Button>
-            <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleCreateMiembro}>
-              Agregar miembro
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Dialog: Editar miembro ── */}
-      <Dialog open={showEditMiembroModal} onOpenChange={open => { setShowEditMiembroModal(open); if (!open) setSelectedMiembro(null); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit className="size-5 text-purple-600" /> Editar miembro del comité
-            </DialogTitle>
-          </DialogHeader>
-          <MiembroFormFields
-            form={formMiembro}
-            onChange={(field, value) => setFormMiembro(p => ({ ...p, [field]: value }))}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditMiembroModal(false)}>Cancelar</Button>
-            <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleEditMiembro}>
-              Guardar cambios
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── AlertDialog: Remover miembro ── */}
-      <AlertDialog open={showDeleteMiembroModal} onOpenChange={open => { setShowDeleteMiembroModal(open); if (!open) setSelectedMiembro(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="size-5 text-amber-500" /> ¿Remover este miembro?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {selectedMiembro && (
-                <span>
-                  <strong>{selectedMiembro.nombres} {selectedMiembro.apellidos}</strong> será marcado como inactivo
-                  y no aparecerá en el listado activo del comité. Su registro histórico se conserva.
-                </span>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteMiembro} className="bg-red-600 hover:bg-red-700">
-              Remover del comité
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
