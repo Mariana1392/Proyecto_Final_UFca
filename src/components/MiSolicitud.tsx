@@ -26,6 +26,54 @@ const TIPOS_ID = [
   { value: 'NIT', label: 'NIT' },
 ];
 
+// ─── Reglas de validación por tipo de ID ────────────────────────────────────
+const ID_RULES: Record<string, { soloNumeros: boolean; min: number; max: number; hint: string }> = {
+  CC:  { soloNumeros: true,  min: 6,  max: 10, hint: '6–10 dígitos numéricos' },
+  TI:  { soloNumeros: true,  min: 8,  max: 11, hint: '8–11 dígitos numéricos' },
+  CE:  { soloNumeros: false, min: 6,  max: 12, hint: '6–12 caracteres alfanuméricos' },
+  PP:  { soloNumeros: false, min: 5,  max: 12, hint: '5–12 caracteres alfanuméricos' },
+  NIT: { soloNumeros: true,  min: 9,  max: 10, hint: '9–10 dígitos (sin guion ni dígito de verificación)' },
+};
+
+function validarNumeroId(tipo: string, valor: string): string | null {
+  const v = valor.trim();
+  if (!v) return 'El número de identificación es obligatorio';
+  const r = ID_RULES[tipo];
+  if (!r) return null;
+  if (r.soloNumeros && !/^\d+$/.test(v))
+    return `El ${TIPOS_ID.find(t => t.value === tipo)?.label ?? tipo} solo debe contener dígitos numéricos`;
+  if (!r.soloNumeros && !/^[a-zA-Z0-9]+$/.test(v))
+    return 'Solo se permiten letras y números (sin espacios ni caracteres especiales)';
+  if (v.length < r.min) return `Debe tener al menos ${r.min} caracteres (${r.hint})`;
+  if (v.length > r.max) return `No puede superar ${r.max} caracteres (${r.hint})`;
+  return null;
+}
+
+function validarTelefono(valor: string): string | null {
+  const v = valor.trim();
+  if (!v) return null;
+  const limpio = v.replace(/[\s\-().]/g, '');
+  if (!/^(\+57)?[0-9]{10}$/.test(limpio) && !/^[0-9]{7}$/.test(limpio))
+    return 'Número inválido. Ej: 3001234567 o +573001234567';
+  return null;
+}
+
+function validarIngreso(valor: string): string | null {
+  const v = valor.trim();
+  if (!v) return null;
+  if (!/^\d+(\.\d{1,2})?$/.test(v)) return 'Ingresa solo números (ej: 2500000)';
+  if (parseFloat(v) <= 0) return 'El ingreso debe ser mayor a 0';
+  return null;
+}
+
+function validarMotivacion(valor: string): string | null {
+  const v = valor.trim();
+  if (!v) return null;
+  if (v.length < 20) return `Mínimo 20 caracteres (llevas ${v.length})`;
+  if (v.length > 1000) return 'Máximo 1000 caracteres';
+  return null;
+}
+
 interface Solicitud {
   id: string;
   estado: 'pendiente' | 'aprobada' | 'rechazada';
@@ -147,6 +195,14 @@ export default function MiSolicitud() {
   const [pdf1, setPdf1] = useState<File | null>(null);
   const [pdf2, setPdf2] = useState<File | null>(null);
 
+  // Errores de validación en tiempo real
+  const [cedulaError, setCedulaError]           = useState<string | null>(null);
+  const [cedulaTouched, setCedulaTouched]       = useState(false);
+  const [telefonoError, setTelefonoError]       = useState<string | null>(null);
+  const [ingresoError, setIngresoError]         = useState<string | null>(null);
+  const [motivacionError, setMotivacionError]   = useState<string | null>(null);
+  const [cedulaDuplicada, setCedulaDuplicada]   = useState(false);
+
   useEffect(() => { cargarSolicitud(); }, []);
 
   async function cargarSolicitud() {
@@ -199,17 +255,38 @@ export default function MiSolicitud() {
     e.preventDefault();
     if (!user) return;
 
-    if (!cedula.trim()) {
-      toast.error('El número de identificación es obligatorio');
+    // ── Validación completa antes de enviar ──────────────────────────────────
+    setCedulaTouched(true);
+    const errCedula   = validarNumeroId(tipoId, cedula);
+    const errTelefono = validarTelefono(telefono);
+    const errIngreso  = validarIngreso(ingresoMensual);
+    const errMotiv    = validarMotivacion(motivacion);
+
+    setCedulaError(errCedula);
+    setTelefonoError(errTelefono);
+    setIngresoError(errIngreso);
+    setMotivacionError(errMotiv);
+
+    if (errCedula || errTelefono || errIngreso || errMotiv) {
+      toast.error('Corrige los errores del formulario antes de continuar');
       return;
     }
-    // Validar tipos si se adjuntaron archivos
+    // Validar tipos de archivo si se adjuntaron
     if (pdf1 && pdf1.type !== 'application/pdf') {
       toast.error('La cédula debe ser un archivo PDF');
       return;
     }
     if (pdf2 && pdf2.type !== 'application/pdf') {
       toast.error('El extracto bancario debe ser un archivo PDF');
+      return;
+    }
+    // Validar tamaño de archivos (máx 5 MB)
+    if (pdf1 && pdf1.size > 5 * 1024 * 1024) {
+      toast.error('El archivo de cédula supera el límite de 5 MB');
+      return;
+    }
+    if (pdf2 && pdf2.size > 5 * 1024 * 1024) {
+      toast.error('El archivo de extracto bancario supera el límite de 5 MB');
       return;
     }
 
@@ -303,7 +380,23 @@ export default function MiSolicitud() {
       setPdf1(null); setPdf2(null);
       await cargarSolicitud();
     } catch (err: any) {
-      toast.error('Error al enviar solicitud', { description: err.message });
+      const msg: string = err.message ?? '';
+      // Error de cédula duplicada → marcar el campo visualmente
+      if (
+        msg.includes('cedula_key') ||
+        msg.includes('23505') ||
+        msg.toLowerCase().includes('cédula') ||
+        msg.toLowerCase().includes('cedula') ||
+        msg.toLowerCase().includes('duplicate')
+      ) {
+        setCedulaDuplicada(true);
+        setCedulaError('Esta cédula ya tiene una solicitud registrada por otro usuario. Verifica el número.');
+        toast.error('Número de identificación duplicado', {
+          description: 'Ya existe una solicitud con este número en el sistema.',
+        });
+      } else {
+        toast.error('Error al enviar solicitud', { description: msg });
+      }
     }
     setSubmitting(false);
   }
@@ -312,6 +405,9 @@ export default function MiSolicitud() {
     setCedula(''); setTipoId('CC'); setTelefono('');
     setDireccion(''); setOcupacion(''); setIngresoMensual(''); setMotivacion('');
     setPdf1(null); setPdf2(null);
+    setCedulaError(null); setCedulaTouched(false);
+    setTelefonoError(null); setIngresoError(null); setMotivacionError(null);
+    setCedulaDuplicada(false);
     setShowForm(false);
   }
 
@@ -421,9 +517,19 @@ export default function MiSolicitud() {
                   Identificación
                 </h4>
                 <div className="grid sm:grid-cols-2 gap-3">
+                  {/* Tipo de ID */}
                   <div className="space-y-1.5">
                     <Label htmlFor="tipo-id">Tipo de identificación <span className="text-red-500">*</span></Label>
-                    <Select value={tipoId} onValueChange={setTipoId}>
+                    <Select
+                      value={tipoId}
+                      onValueChange={v => {
+                        setTipoId(v);
+                        setCedula('');
+                        setCedulaError(null);
+                        setCedulaTouched(false);
+                        setCedulaDuplicada(false);
+                      }}
+                    >
                       <SelectTrigger id="tipo-id">
                         <SelectValue placeholder="Selecciona..." />
                       </SelectTrigger>
@@ -434,16 +540,66 @@ export default function MiSolicitud() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Número de identificación */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="sol-cedula">Número de identificación <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="sol-cedula">
+                      Número de identificación <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                       id="sol-cedula"
-                      placeholder="Ej: 1234567890"
+                      placeholder={
+                        tipoId === 'CC'  ? 'Ej: 1023456789' :
+                        tipoId === 'TI'  ? 'Ej: 10234567890' :
+                        tipoId === 'CE'  ? 'Ej: CE123456' :
+                        tipoId === 'PP'  ? 'Ej: AB123456' :
+                        tipoId === 'NIT' ? 'Ej: 900123456' : ''}
                       value={cedula}
-                      onChange={e => setCedula(e.target.value)}
-                      required
+                      className={`transition-colors ${
+                        cedulaTouched && cedulaError
+                          ? 'border-red-400 focus-visible:ring-red-200 bg-red-50'
+                          : cedulaTouched && !cedulaError && cedula.trim()
+                          ? 'border-emerald-400 focus-visible:ring-emerald-200 bg-emerald-50/40'
+                          : ''
+                      }`}
+                      onChange={e => {
+                        const raw = e.target.value;
+                        const regla = ID_RULES[tipoId];
+                        // Filtrar caracteres no permitidos según el tipo
+                        const filtrado = regla?.soloNumeros
+                          ? raw.replace(/\D/g, '')
+                          : raw.replace(/[^a-zA-Z0-9]/g, '');
+                        setCedula(filtrado);
+                        setCedulaTouched(true);
+                        setCedulaDuplicada(false);
+                        setCedulaError(validarNumeroId(tipoId, filtrado));
+                      }}
+                      onBlur={() => {
+                        setCedulaTouched(true);
+                        setCedulaError(validarNumeroId(tipoId, cedula));
+                      }}
                     />
+                    {/* Hint de formato */}
+                    {!cedulaTouched && ID_RULES[tipoId] && (
+                      <p className="text-xs text-slate-400">{ID_RULES[tipoId].hint}</p>
+                    )}
+                    {/* Error en tiempo real */}
+                    {cedulaTouched && cedulaError && (
+                      <p className="text-xs text-red-500 flex items-center gap-1">
+                        <AlertTriangle className="size-3 shrink-0" />
+                        {cedulaError}
+                      </p>
+                    )}
+                    {/* Éxito */}
+                    {cedulaTouched && !cedulaError && cedula.trim() && (
+                      <p className="text-xs text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 className="size-3 shrink-0" />
+                        Número válido
+                      </p>
+                    )}
                   </div>
+
+                  {/* Teléfono */}
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label htmlFor="sol-telefono">Teléfono de contacto</Label>
                     <Input
@@ -451,9 +607,30 @@ export default function MiSolicitud() {
                       type="tel"
                       placeholder="+57 300 123 4567"
                       value={telefono}
-                      onChange={e => setTelefono(e.target.value)}
+                      className={`transition-colors ${
+                        telefonoError
+                          ? 'border-red-400 focus-visible:ring-red-200 bg-red-50'
+                          : telefono.trim() && !telefonoError
+                          ? 'border-emerald-400 focus-visible:ring-emerald-200 bg-emerald-50/40'
+                          : ''
+                      }`}
+                      onChange={e => {
+                        // Solo permitir dígitos, +, espacios, guiones y paréntesis
+                        const val = e.target.value.replace(/[^\d\s\+\-\(\)\.]/g, '');
+                        setTelefono(val);
+                        setTelefonoError(validarTelefono(val));
+                      }}
+                      onBlur={() => setTelefonoError(validarTelefono(telefono))}
                     />
+                    {telefonoError && (
+                      <p className="text-xs text-red-500 flex items-center gap-1">
+                        <AlertTriangle className="size-3 shrink-0" />
+                        {telefonoError}
+                      </p>
+                    )}
                   </div>
+
+                  {/* Dirección */}
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label htmlFor="sol-direccion">Dirección de residencia</Label>
                     <Input
@@ -483,13 +660,33 @@ export default function MiSolicitud() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="sol-ingreso">Ingreso mensual</Label>
+                    <Label htmlFor="sol-ingreso">Ingreso mensual (COP)</Label>
                     <Input
                       id="sol-ingreso"
+                      inputMode="numeric"
                       placeholder="Ej: 2500000"
                       value={ingresoMensual}
-                      onChange={e => setIngresoMensual(e.target.value)}
+                      className={`transition-colors ${
+                        ingresoError
+                          ? 'border-red-400 focus-visible:ring-red-200 bg-red-50'
+                          : ingresoMensual.trim() && !ingresoError
+                          ? 'border-emerald-400 focus-visible:ring-emerald-200 bg-emerald-50/40'
+                          : ''
+                      }`}
+                      onChange={e => {
+                        // Solo permitir dígitos y un punto decimal
+                        const val = e.target.value.replace(/[^\d.]/g, '');
+                        setIngresoMensual(val);
+                        setIngresoError(validarIngreso(val));
+                      }}
+                      onBlur={() => setIngresoError(validarIngreso(ingresoMensual))}
                     />
+                    {ingresoError && (
+                      <p className="text-xs text-red-500 flex items-center gap-1">
+                        <AlertTriangle className="size-3 shrink-0" />
+                        {ingresoError}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -500,14 +697,40 @@ export default function MiSolicitud() {
                   <MessageSquare className="size-4 text-emerald-600" />
                   Motivación
                 </h4>
-                <Textarea
-                  id="sol-motivacion"
-                  rows={3}
-                  className="resize-none text-sm"
-                  placeholder="¿Por qué deseas ingresar a la asociación UFCA?"
-                  value={motivacion}
-                  onChange={e => setMotivacion(e.target.value)}
-                />
+                <div className="space-y-1.5">
+                  <Textarea
+                    id="sol-motivacion"
+                    rows={3}
+                    maxLength={1000}
+                    className={`resize-none text-sm transition-colors ${
+                      motivacionError
+                        ? 'border-red-400 focus-visible:ring-red-200 bg-red-50'
+                        : motivacion.trim().length >= 20
+                        ? 'border-emerald-400 focus-visible:ring-emerald-200'
+                        : ''
+                    }`}
+                    placeholder="¿Por qué deseas ingresar a la asociación UFCA? (mínimo 20 caracteres)"
+                    value={motivacion}
+                    onChange={e => {
+                      setMotivacion(e.target.value);
+                      setMotivacionError(validarMotivacion(e.target.value));
+                    }}
+                    onBlur={() => setMotivacionError(validarMotivacion(motivacion))}
+                  />
+                  <div className="flex items-center justify-between">
+                    {motivacionError ? (
+                      <p className="text-xs text-red-500 flex items-center gap-1">
+                        <AlertTriangle className="size-3 shrink-0" />
+                        {motivacionError}
+                      </p>
+                    ) : <span />}
+                    <span className={`text-xs shrink-0 ${
+                      motivacion.length > 950 ? 'text-amber-500' : 'text-slate-400'
+                    }`}>
+                      {motivacion.length}/1000
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* Documentos */}
@@ -561,6 +784,20 @@ export default function MiSolicitud() {
                 </div>
               </div>
 
+              {/* Resumen de errores si existen */}
+              {(cedulaError || telefonoError || ingresoError || motivacionError) && cedulaTouched && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg space-y-1">
+                  <p className="text-xs font-semibold text-red-700 flex items-center gap-1.5">
+                    <AlertTriangle className="size-3.5" />
+                    Corrige los siguientes errores:
+                  </p>
+                  {cedulaError    && <p className="text-xs text-red-600 pl-5">• {cedulaError}</p>}
+                  {telefonoError  && <p className="text-xs text-red-600 pl-5">• {telefonoError}</p>}
+                  {ingresoError   && <p className="text-xs text-red-600 pl-5">• {ingresoError}</p>}
+                  {motivacionError && <p className="text-xs text-red-600 pl-5">• {motivacionError}</p>}
+                </div>
+              )}
+
               <div className="flex gap-3 pt-1">
                 <Button
                   type="button"
@@ -573,8 +810,14 @@ export default function MiSolicitud() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={submitting}
-                  className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 gap-2"
+                  disabled={
+                    submitting ||
+                    !!(cedulaTouched && cedulaError) ||
+                    !!telefonoError ||
+                    !!ingresoError ||
+                    !!motivacionError
+                  }
+                  className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send className="size-4" />
                   {submitting ? 'Enviando...' : 'Enviar solicitud'}
