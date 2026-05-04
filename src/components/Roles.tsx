@@ -70,22 +70,8 @@ const PERMISOS_CONFIG: Permiso[] = [
 
 const PERMISOS_MINIMOS: PermisoKey[] = ['dashboard'];
 
-// Permisos por defecto para roles del sistema
-const PERMISOS_ADMIN: Record<PermisoKey, boolean> = {
-  dashboard: true, configuracion: true, roles: true, usuarios: true, asociados: true,
-  ahorros: true, creditos: true, eventos: true, compras: true, ventas: true, reportes: true,
-  mis_ahorros: false, mis_creditos: false, mi_solicitud: false,
-};
-const PERMISOS_ASOCIADO: Record<PermisoKey, boolean> = {
-  dashboard: true, configuracion: false, roles: false, usuarios: false, asociados: false,
-  ahorros: false, creditos: false, eventos: false, compras: false, ventas: false, reportes: false,
-  mis_ahorros: true, mis_creditos: true, mi_solicitud: false,
-};
-const PERMISOS_USUARIO: Record<PermisoKey, boolean> = {
-  dashboard: true, configuracion: false, roles: false, usuarios: false, asociados: false,
-  ahorros: false, creditos: false, eventos: false, compras: false, ventas: false, reportes: false,
-  mis_ahorros: false, mis_creditos: false, mi_solicitud: true,
-};
+// Los permisos de cada rol se leen siempre desde la base de datos (roles.permisos)
+// No existen objetos hardcoded — la BD es la única fuente de verdad
 
 interface RolesProps {
   userRole?: 'admin' | 'asociado';
@@ -179,42 +165,13 @@ export default function Roles({ userRole }: RolesProps) {
         if (u.rol_id) conteoMap[u.rol_id] = (conteoMap[u.rol_id] || 0) + 1;
       });
 
-      // Forzar permisos correctos en BD para roles del sistema (sin condición — siempre)
-      // Esto limpia cualquier permiso sucio heredado de versiones anteriores
-      const PERMISOS_SISTEMA: Record<string, string[]> = {
-        admin:    ['dashboard','configuracion','roles','usuarios','asociados','ahorros','creditos','eventos','compras','ventas','reportes'],
-        asociado: ['dashboard','mis_ahorros','mis_creditos'],
-        usuario:  ['dashboard','mi_solicitud'],
-      };
-      for (const row of (data || [])) {
-        const correcto = PERMISOS_SISTEMA[row.nombre];
-        if (!correcto) continue;
-        const raw: any[] = Array.isArray(row.permisos) ? row.permisos : [];
-        // Actualizar si hay diferencia (cualquier extra o faltante)
-        const iguales = correcto.length === raw.filter(k => correcto.includes(k)).length
-          && raw.every(k => correcto.includes(k));
-        if (!iguales) {
-          await supabase.from('roles').update({ permisos: correcto }).eq('id', row.id);
-          row.permisos = correcto;
-        }
-      }
-
+      // Mapear roles: todos leen permisos directamente desde la BD
       const mapeados = (data || []).map((r: any) => {
-        const permisosRaw: any[] = Array.isArray(r.permisos) ? r.permisos : [];
-        // Para roles del sistema: usar siempre los valores canónicos (ignora BD)
-        // Para roles personalizados: leer de la BD
-        let permisos: Record<PermisoKey, boolean>;
-        if (r.nombre === 'admin' || r.nombre === 'administrador') {
-          permisos = { ...PERMISOS_ADMIN };
-        } else if (r.nombre === 'asociado') {
-          permisos = { ...PERMISOS_ASOCIADO };
-        } else if (r.nombre === 'usuario') {
-          permisos = { ...PERMISOS_USUARIO };
-        } else {
-          permisos = Object.fromEntries(
-            PERMISOS_CONFIG.map(p => [p.key, permisosRaw.includes(p.key)])
-          ) as Record<PermisoKey, boolean>;
-        }
+        const permisosRaw: string[] = Array.isArray(r.permisos) ? r.permisos : [];
+        // Fuente única de verdad: la BD — aplica igual para roles del sistema y personalizados
+        const permisos = Object.fromEntries(
+          PERMISOS_CONFIG.map(p => [p.key, permisosRaw.includes(p.key)])
+        ) as Record<PermisoKey, boolean>;
 
         return {
           id:               r.id,
@@ -567,21 +524,19 @@ export default function Roles({ userRole }: RolesProps) {
     setPermisosToRemove([]);
   };
 
-  const getPermisosBadges = (permisos: Record<PermisoKey, boolean>, nombreDb?: string) => {
-    const aplicables = nombreDb ? getPermisosAplicables(nombreDb) : (Object.keys(permisos) as PermisoKey[]);
-    return Object.entries(permisos)
-      .filter(([key, v]) => v && aplicables.includes(key as PermisoKey))
+  // Badges: muestra exactamente los permisos activos según la BD (sin filtros adicionales)
+  const getPermisosBadges = (permisos: Record<PermisoKey, boolean>) =>
+    Object.entries(permisos)
+      .filter(([, v]) => v)
       .map(([key]) => (
         <Badge key={key} variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
           {PERMISOS_CONFIG.find(p => p.key === key)?.label || key}
         </Badge>
       ));
-  };
 
-  const getPermisosActivosCount = (permisos: Record<PermisoKey, boolean>, nombreDb?: string) => {
-    const aplicables = nombreDb ? getPermisosAplicables(nombreDb) : (Object.keys(permisos) as PermisoKey[]);
-    return aplicables.filter(k => permisos[k]).length;
-  };
+  const getPermisosActivosCount = (permisos: Record<PermisoKey, boolean>) =>
+    Object.values(permisos).filter(Boolean).length;
+
   const getTotalPermisosAplicables = (nombreDb?: string) =>
     nombreDb ? getPermisosAplicables(nombreDb).length : PERMISOS_CONFIG.length;
 
@@ -747,10 +702,10 @@ export default function Roles({ userRole }: RolesProps) {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1 max-w-xs">
-                            {getPermisosBadges(rol.permisos, rol.nombre_db).slice(0, 2)}
-                            {getPermisosActivosCount(rol.permisos, rol.nombre_db) > 2 && (
+                            {getPermisosBadges(rol.permisos).slice(0, 2)}
+                            {getPermisosActivosCount(rol.permisos) > 2 && (
                               <Badge variant="outline" className="bg-slate-50">
-                                +{getPermisosActivosCount(rol.permisos, rol.nombre_db) - 2} más
+                                +{getPermisosActivosCount(rol.permisos) - 2} más
                               </Badge>
                             )}
                           </div>
@@ -821,9 +776,9 @@ export default function Roles({ userRole }: RolesProps) {
                                     setPermisosToRemove([]);
                                     setIsRemoveSelectDialogOpen(true);
                                   }}
-                                  title={getPermisosActivosCount(rol.permisos, rol.nombre_db) <= 1 ? 'Debe conservar al menos un permiso' : 'Eliminar permiso'}
-                                  disabled={getPermisosActivosCount(rol.permisos, rol.nombre_db) <= 1}
-                                  className={getPermisosActivosCount(rol.permisos, rol.nombre_db) <= 1 ? 'opacity-40 cursor-not-allowed' : 'text-orange-600 hover:bg-orange-50 hover:border-orange-300'}
+                                  title={getPermisosActivosCount(rol.permisos) <= 1 ? 'Debe conservar al menos un permiso' : 'Eliminar permiso'}
+                                  disabled={getPermisosActivosCount(rol.permisos) <= 1}
+                                  className={getPermisosActivosCount(rol.permisos) <= 1 ? 'opacity-40 cursor-not-allowed' : 'text-orange-600 hover:bg-orange-50 hover:border-orange-300'}
                                 >
                                   <ShieldMinus className="size-4" />
                                 </Button>
@@ -1278,7 +1233,7 @@ export default function Roles({ userRole }: RolesProps) {
                   <div>
                     <Label className="text-slate-500 text-xs">Permisos activos</Label>
                     <p className="font-semibold mt-1 text-emerald-700">
-                      {getPermisosActivosCount(selectedItem.permisos, selectedItem.nombre_db)} de {getTotalPermisosAplicables(selectedItem.nombre_db)} permisos
+                      {getPermisosActivosCount(selectedItem.permisos)} de {getTotalPermisosAplicables(selectedItem.nombre_db)} permisos
                     </p>
                   </div>
                 </div>
@@ -1290,7 +1245,7 @@ export default function Roles({ userRole }: RolesProps) {
                   <div>
                     <h4 className="font-semibold text-slate-900">Permisos del rol</h4>
                     <p className="text-sm text-slate-500">
-                      {getPermisosActivosCount(selectedItem.permisos, selectedItem.nombre_db)} de {getTotalPermisosAplicables(selectedItem.nombre_db)} permisos activos
+                      {getPermisosActivosCount(selectedItem.permisos)} de {getTotalPermisosAplicables(selectedItem.nombre_db)} permisos activos
                       {permisosToRemove.length > 0 && (
                         <span className="ml-2 text-red-600 font-medium">· {permisosToRemove.length} seleccionado(s) para eliminar</span>
                       )}
@@ -1330,7 +1285,7 @@ export default function Roles({ userRole }: RolesProps) {
                       <Settings className="size-4 text-slate-600" />
                       <span className="font-medium text-slate-900">Lista completa de permisos</span>
                       <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                        {getPermisosActivosCount(selectedItem.permisos, selectedItem.nombre_db)} activos
+                        {getPermisosActivosCount(selectedItem.permisos)} activos
                       </Badge>
                     </div>
                     {isPermisosExpanded ? (
