@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import {
   Users, PiggyBank, Wallet, CreditCard, ShoppingCart, Calendar,
-  ArrowRight, UserPlus, CheckCircle, ClipboardList,
+  ArrowRight, UserPlus, CheckCircle, ClipboardList, TrendingUp, Landmark,
 } from 'lucide-react';
 import {
   BarChart, Bar, PieChart, Pie, Cell,
@@ -30,6 +30,8 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
     totalAhorrosVol:       0,
     totalAhorros:          0,
     totalCreditos:         0,
+    totalCarteraCreditos:  0,
+    totalInteresesMes:     0,
     pedidosPendientes:     0,
     solicitudesPendientes: 0,
     liquidacionesPend:     0,
@@ -80,6 +82,8 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
         totalAhorrosVol:       stats.totalAhorrosVol,
         totalAhorros:          stats.totalAhorros,
         totalCreditos:         stats.totalCreditos,
+        totalCarteraCreditos:  stats.totalCarteraCreditos,
+        totalInteresesMes:     stats.totalInteresesMes,
         pedidosPendientes:     stats.pedidosPendientes,
         solicitudesPendientes: stats.solicitudesPendientes,
         liquidacionesPend:     stats.liquidacionesPend,
@@ -226,40 +230,43 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
   // ── Tarjetas admin (datos 100% reales) ───────────────────────────────────
   const adminStats = [
     {
-      title: 'Asociados activos',
-      value: liveStats.totalAsociados.toLocaleString('es-CO'),
-      sub:   `${liveStats.totalUsuarios} usuarios con cuenta`,
-      icon: Users, color: 'emerald',
+      title: 'Cartera de créditos',
+      value: fmtCOP(liveStats.totalCarteraCreditos),
+      sub:   `${liveStats.totalCreditos} crédito${liveStats.totalCreditos !== 1 ? 's' : ''} activo${liveStats.totalCreditos !== 1 ? 's' : ''}`,
+      icon: Landmark, color: 'amber',
+      highlight: true,
     },
     {
-      title: 'Solicitudes pendientes',
-      value: String(liveStats.solicitudesPendientes),
-      sub:   'Por revisar en comité',
-      icon: ClipboardList, color: 'violet',
+      title: 'Capital en ahorros',
+      value: fmtCOP(liveStats.totalAhorros),
+      sub:   `Perm: ${fmtCOP(liveStats.totalAhorrosPerm)} · Vol: ${fmtCOP(liveStats.totalAhorrosVol)}`,
+      icon: PiggyBank, color: 'emerald',
+      highlight: true,
+    },
+    {
+      title: 'Intereses cobrados',
+      value: fmtCOP(liveStats.totalInteresesMes),
+      sub:   'Recaudados este mes',
+      icon: TrendingUp, color: 'violet',
+      highlight: true,
     },
     {
       title: 'Ahorro permanente',
       value: fmtCOP(liveStats.totalAhorrosPerm),
-      sub:   `Voluntario: ${fmtCOP(liveStats.totalAhorrosVol)}`,
+      sub:   'Saldo activo',
       icon: PiggyBank, color: 'blue',
     },
     {
-      title: 'Créditos activos',
-      value: String(liveStats.totalCreditos),
-      sub:   'Desembolsados / En mora',
-      icon: CreditCard, color: 'amber',
+      title: 'Ahorro voluntario',
+      value: fmtCOP(liveStats.totalAhorrosVol),
+      sub:   'Saldo activo',
+      icon: Wallet, color: 'cyan',
     },
     {
-      title: 'Pedidos pendientes',
-      value: String(liveStats.pedidosPendientes),
-      sub:   'Tienda — sin despachar',
-      icon: ShoppingCart, color: 'pink',
-    },
-    {
-      title: 'Próximos eventos',
-      value: String(liveStats.proximosEventos),
-      sub:   'Este mes',
-      icon: Calendar, color: 'cyan',
+      title: 'Asociados activos',
+      value: liveStats.totalAsociados.toLocaleString('es-CO'),
+      sub:   `${liveStats.solicitudesPendientes} sol. pendiente${liveStats.solicitudesPendientes !== 1 ? 's' : ''}`,
+      icon: Users, color: 'pink',
     },
   ];
 
@@ -363,18 +370,28 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
         {stats.map((stat, i) => {
           const Icon   = stat.icon;
           const colors = getColorClasses(stat.color);
+          const isHighlight = (stat as any).highlight;
           return (
-            <Card key={i} className={`border ${colors.border} hover:shadow-md transition-shadow`}>
+            <Card
+              key={i}
+              className={`border transition-shadow ${
+                isHighlight
+                  ? `${colors.border} shadow-sm hover:shadow-lg ring-1 ring-inset ${colors.border}`
+                  : `${colors.border} hover:shadow-md`
+              }`}
+            >
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600">{stat.title}</CardTitle>
+                <CardTitle className={`text-sm font-medium ${isHighlight ? 'text-slate-700' : 'text-slate-600'}`}>
+                  {stat.title}
+                </CardTitle>
                 <div className={`p-2.5 rounded-xl ${colors.bg}`}>
                   <Icon className={`size-5 ${colors.text}`} />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-slate-900">
+                <div className={`font-bold text-slate-900 ${isHighlight ? 'text-3xl' : 'text-2xl'}`}>
                   {loadingStats
-                    ? <div className="h-7 w-24 rounded bg-slate-200 animate-pulse" />
+                    ? <div className={`rounded bg-slate-200 animate-pulse ${isHighlight ? 'h-8 w-32' : 'h-7 w-24'}`} />
                     : stat.value}
                 </div>
                 {stat.sub && (
@@ -386,19 +403,50 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
         })}
       </div>
 
-      {/* ── Resumen total de capital (solo admin) ── */}
+      {/* ── Franja financiera rápida (solo admin) ── */}
       {userRole === 'admin' && !loadingStats && (
-        <div className="grid sm:grid-cols-3 gap-4">
-          {[
-            { label: 'Capital total en ahorros', value: fmtCOP(liveStats.totalAhorros),     color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
-            { label: 'Usuarios con acceso',       value: liveStats.totalUsuarios.toLocaleString('es-CO'), color: 'text-slate-700', bg: 'bg-slate-50 border-slate-200' },
-            { label: 'Liquidaciones en proceso',  value: String(liveStats.liquidacionesPend), color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
-          ].map(({ label, value, color, bg }) => (
-            <div key={label} className={`rounded-xl border px-5 py-4 flex items-center justify-between ${bg}`}>
-              <p className="text-sm text-slate-600">{label}</p>
-              <p className={`text-xl font-bold ${color}`}>{value}</p>
-            </div>
-          ))}
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="grid sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+            {[
+              {
+                label: 'Cartera total',
+                value: fmtCOP(liveStats.totalCarteraCreditos),
+                sub: 'Lo que le deben al negocio',
+                color: 'text-amber-600',
+                dot: 'bg-amber-400',
+              },
+              {
+                label: 'Capital administrado',
+                value: fmtCOP(liveStats.totalAhorros),
+                sub: 'Total ahorros bajo gestión',
+                color: 'text-emerald-600',
+                dot: 'bg-emerald-400',
+              },
+              {
+                label: 'Intereses este mes',
+                value: fmtCOP(liveStats.totalInteresesMes),
+                sub: 'Ganancia por créditos',
+                color: 'text-violet-600',
+                dot: 'bg-violet-400',
+              },
+              {
+                label: 'Liquidaciones activas',
+                value: String(liveStats.liquidacionesPend),
+                sub: `${liveStats.totalUsuarios} usuarios con acceso`,
+                color: 'text-slate-600',
+                dot: 'bg-slate-400',
+              },
+            ].map(({ label, value, sub, color, dot }) => (
+              <div key={label} className="px-6 py-4 flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className={`size-2 rounded-full ${dot}`} />
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{label}</p>
+                </div>
+                <p className={`text-xl font-bold ${color}`}>{value}</p>
+                <p className="text-xs text-slate-400">{sub}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

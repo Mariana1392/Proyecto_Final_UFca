@@ -825,6 +825,10 @@ export const excepcionesApi = {
 
 export const dashboardApi = {
   async getStats() {
+    // Inicio del mes actual para intereses
+    const hoy = new Date();
+    const inicioMes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
+
     const [
       { count: totalAsociados },
       { count: totalUsuarios },
@@ -834,6 +838,8 @@ export const dashboardApi = {
       { count: totalPedidos },
       { count: solicitudesPend },
       { count: liquidacionesPend },
+      { data: carteraData },
+      { data: interesesData },
     ] = await Promise.all([
       // Asociados activos (estado es string 'activo')
       supabase.from('asociados').select('*', { count: 'exact', head: true }).eq('estado', 'activo'),
@@ -854,10 +860,18 @@ export const dashboardApi = {
       // Liquidaciones en proceso (no pagadas ni rechazadas)
       supabase.from('liquidaciones').select('*', { count: 'exact', head: true })
         .not('detalle->>estado', 'in', '("Pagada","Rechazada","Borrador")'),
+      // Cartera activa: saldo total que los asociados deben al negocio
+      supabase.from('creditos').select('saldo')
+        .eq('anulado', false)
+        .in('estado', ['activo', 'aprobado', 'desembolsado', 'en_mora']),
+      // Intereses cobrados este mes
+      supabase.from('pagos_credito').select('interes').gte('fecha_pago', inicioMes),
     ]);
 
-    const totalAhorrosPerm = ahorrosPerm?.reduce((s, a) => s + (a.monto_ahorrado || 0), 0) ?? 0;
-    const totalAhorrosVol  = ahorrosVol?.reduce((s, a)  => s + (a.monto_ahorrado || 0), 0) ?? 0;
+    const totalAhorrosPerm     = ahorrosPerm?.reduce((s, a) => s + (a.monto_ahorrado || 0), 0) ?? 0;
+    const totalAhorrosVol      = ahorrosVol?.reduce((s, a)  => s + (a.monto_ahorrado || 0), 0) ?? 0;
+    const totalCarteraCreditos = carteraData?.reduce((s, c) => s + (c.saldo || 0), 0) ?? 0;
+    const totalInteresesMes    = interesesData?.reduce((s, p) => s + (p.interes || 0), 0) ?? 0;
 
     return {
       totalAsociados:        totalAsociados  ?? 0,
@@ -869,6 +883,8 @@ export const dashboardApi = {
       pedidosPendientes:     totalPedidos    ?? 0,
       solicitudesPendientes: solicitudesPend ?? 0,
       liquidacionesPend:     liquidacionesPend ?? 0,
+      totalCarteraCreditos,
+      totalInteresesMes,
     };
   },
 };
