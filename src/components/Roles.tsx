@@ -24,37 +24,67 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 type PermisoKey = 'dashboard' | 'configuracion' | 'roles' | 'usuarios' | 'asociados' |
-  'ahorros' | 'creditos' | 'eventos' | 'compras' | 'ventas' | 'reportes';
+  'ahorros' | 'creditos' | 'eventos' | 'compras' | 'ventas' | 'reportes' |
+  'mis_ahorros' | 'mis_creditos' | 'mi_solicitud';
 
 interface Permiso { key: PermisoKey; label: string; acciones: string[]; }
 interface AuditEntry { id: string; accion: string; detalle: string; fecha: string; usuario: string; }
 
+// Permisos del sistema administrador
+const PERMISOS_ADMIN_KEYS: PermisoKey[] = [
+  'dashboard', 'configuracion', 'roles', 'usuarios', 'asociados',
+  'ahorros', 'creditos', 'eventos', 'compras', 'ventas', 'reportes',
+];
+// Permisos del asociado (módulos propios)
+const PERMISOS_ASOCIADO_KEYS: PermisoKey[] = ['dashboard', 'mis_ahorros', 'mis_creditos'];
+// Permisos del usuario normal (pre-asociado)
+const PERMISOS_USUARIO_KEYS: PermisoKey[] = ['dashboard', 'mi_solicitud'];
+
+/** Devuelve los permisos que aplican al tipo de rol dado */
+function getPermisosAplicables(nombreDb: string): PermisoKey[] {
+  if (nombreDb === 'admin' || nombreDb === 'administrador') return PERMISOS_ADMIN_KEYS;
+  if (nombreDb === 'asociado') return PERMISOS_ASOCIADO_KEYS;
+  if (nombreDb === 'usuario')  return PERMISOS_USUARIO_KEYS;
+  return PERMISOS_CONFIG.map(p => p.key); // roles personalizados: todos aplican
+}
+
 const PERMISOS_CONFIG: Permiso[] = [
-  { key: 'dashboard',    label: 'Dashboard',                  acciones: ['ver', 'estadísticas'] },
-  { key: 'configuracion',label: 'Configuración',              acciones: ['ver', 'crear', 'editar', 'eliminar'] },
-  { key: 'roles',        label: 'Gestión de Roles',           acciones: ['ver', 'crear', 'editar', 'eliminar'] },
-  { key: 'usuarios',     label: 'Gestión de Usuarios',        acciones: ['ver', 'crear', 'editar', 'eliminar'] },
-  { key: 'asociados',    label: 'Gestión de Asociados',       acciones: ['ver', 'crear', 'editar', 'eliminar'] },
-  { key: 'ahorros',      label: 'Módulo de Ahorros',          acciones: ['ver', 'crear', 'editar'] },
-  { key: 'creditos',     label: 'Módulo de Créditos',         acciones: ['ver', 'crear', 'editar', 'aprobar'] },
-  { key: 'eventos',      label: 'Módulo de Eventos',          acciones: ['ver', 'crear', 'editar'] },
-  { key: 'compras',      label: 'Módulo de Compras',          acciones: ['ver', 'crear', 'editar'] },
-  { key: 'ventas',       label: 'Módulo de Ventas',           acciones: ['ver', 'crear', 'editar'] },
-  { key: 'reportes',     label: 'Reportes y Estadísticas',    acciones: ['ver', 'exportar'] },
+  // ── Admin ──────────────────────────────────────────────────────────────────
+  { key: 'dashboard',     label: 'Dashboard',               acciones: ['ver', 'estadísticas'] },
+  { key: 'configuracion', label: 'Configuración',           acciones: ['ver', 'crear', 'editar', 'eliminar'] },
+  { key: 'roles',         label: 'Gestión de Roles',        acciones: ['ver', 'crear', 'editar', 'eliminar'] },
+  { key: 'usuarios',      label: 'Gestión de Usuarios',     acciones: ['ver', 'crear', 'editar', 'eliminar'] },
+  { key: 'asociados',     label: 'Gestión de Asociados',    acciones: ['ver', 'crear', 'editar', 'eliminar'] },
+  { key: 'ahorros',       label: 'Módulo de Ahorros',       acciones: ['ver', 'crear', 'editar'] },
+  { key: 'creditos',      label: 'Módulo de Créditos',      acciones: ['ver', 'crear', 'editar', 'aprobar'] },
+  { key: 'eventos',       label: 'Módulo de Eventos',       acciones: ['ver', 'crear', 'editar'] },
+  { key: 'compras',       label: 'Módulo de Compras',       acciones: ['ver', 'crear', 'editar'] },
+  { key: 'ventas',        label: 'Módulo de Ventas',        acciones: ['ver', 'crear', 'editar'] },
+  { key: 'reportes',      label: 'Reportes y Estadísticas', acciones: ['ver', 'exportar'] },
+  // ── Asociado ───────────────────────────────────────────────────────────────
+  { key: 'mis_ahorros',   label: 'Mis Ahorros',             acciones: ['ver'] },
+  { key: 'mis_creditos',  label: 'Mis Créditos',            acciones: ['ver'] },
+  // ── Usuario ────────────────────────────────────────────────────────────────
+  { key: 'mi_solicitud',  label: 'Mi Solicitud',            acciones: ['ver', 'crear', 'editar'] },
 ];
 
 const PERMISOS_MINIMOS: PermisoKey[] = ['dashboard'];
-
-// Filtro adicional: permisos específicos para filtrar roles (inicializado en el componente)
 
 // Permisos por defecto para roles del sistema
 const PERMISOS_ADMIN: Record<PermisoKey, boolean> = {
   dashboard: true, configuracion: true, roles: true, usuarios: true, asociados: true,
   ahorros: true, creditos: true, eventos: true, compras: true, ventas: true, reportes: true,
+  mis_ahorros: false, mis_creditos: false, mi_solicitud: false,
 };
 const PERMISOS_ASOCIADO: Record<PermisoKey, boolean> = {
   dashboard: true, configuracion: false, roles: false, usuarios: false, asociados: false,
-  ahorros: true, creditos: true, eventos: true, compras: true, ventas: false, reportes: false,
+  ahorros: false, creditos: false, eventos: false, compras: false, ventas: false, reportes: false,
+  mis_ahorros: true, mis_creditos: true, mi_solicitud: false,
+};
+const PERMISOS_USUARIO: Record<PermisoKey, boolean> = {
+  dashboard: true, configuracion: false, roles: false, usuarios: false, asociados: false,
+  ahorros: false, creditos: false, eventos: false, compras: false, ventas: false, reportes: false,
+  mis_ahorros: false, mis_creditos: false, mi_solicitud: true,
 };
 
 interface RolesProps {
@@ -149,6 +179,19 @@ export default function Roles({ userRole }: RolesProps) {
         if (u.rol_id) conteoMap[u.rol_id] = (conteoMap[u.rol_id] || 0) + 1;
       });
 
+      // Migrar permisos correctos en BD para roles del sistema
+      for (const row of (data || [])) {
+        const raw: any[] = Array.isArray(row.permisos) ? row.permisos : [];
+        if (row.nombre === 'asociado' && (!raw.includes('mis_ahorros') || !raw.includes('mis_creditos'))) {
+          await supabase.from('roles').update({ permisos: ['dashboard', 'mis_ahorros', 'mis_creditos'] }).eq('id', row.id);
+          row.permisos = ['dashboard', 'mis_ahorros', 'mis_creditos'];
+        }
+        if (row.nombre === 'usuario' && !raw.includes('mi_solicitud')) {
+          await supabase.from('roles').update({ permisos: ['dashboard', 'mi_solicitud'] }).eq('id', row.id);
+          row.permisos = ['dashboard', 'mi_solicitud'];
+        }
+      }
+
       const mapeados = (data || []).map((r: any) => {
         const permisosRaw: any[] = Array.isArray(r.permisos) ? r.permisos : [];
         // Si la BD no tiene permisos guardados aún, usar los valores por defecto
@@ -159,6 +202,7 @@ export default function Roles({ userRole }: RolesProps) {
 
         if (usarDefecto && r.nombre === 'admin')    Object.assign(permisos, PERMISOS_ADMIN);
         if (usarDefecto && r.nombre === 'asociado') Object.assign(permisos, PERMISOS_ASOCIADO);
+        if (usarDefecto && r.nombre === 'usuario')  Object.assign(permisos, PERMISOS_USUARIO);
 
         return {
           id:               r.id,
@@ -518,8 +562,12 @@ export default function Roles({ userRole }: RolesProps) {
       </Badge>
     ));
 
-  const getPermisosActivosCount = (permisos: Record<PermisoKey, boolean>) =>
-    Object.values(permisos).filter(v => v).length;
+  const getPermisosActivosCount = (permisos: Record<PermisoKey, boolean>, nombreDb?: string) => {
+    const aplicables = nombreDb ? getPermisosAplicables(nombreDb) : (Object.keys(permisos) as PermisoKey[]);
+    return aplicables.filter(k => permisos[k]).length;
+  };
+  const getTotalPermisosAplicables = (nombreDb?: string) =>
+    nombreDb ? getPermisosAplicables(nombreDb).length : PERMISOS_CONFIG.length;
 
   const handleClearHistory = async () => {
     try {
@@ -1214,7 +1262,7 @@ export default function Roles({ userRole }: RolesProps) {
                   <div>
                     <Label className="text-slate-500 text-xs">Permisos activos</Label>
                     <p className="font-semibold mt-1 text-emerald-700">
-                      {getPermisosActivosCount(selectedItem.permisos)} de {PERMISOS_CONFIG.length} permisos
+                      {getPermisosActivosCount(selectedItem.permisos, selectedItem.nombre_db)} de {getTotalPermisosAplicables(selectedItem.nombre_db)} permisos
                     </p>
                   </div>
                 </div>
@@ -1226,7 +1274,7 @@ export default function Roles({ userRole }: RolesProps) {
                   <div>
                     <h4 className="font-semibold text-slate-900">Permisos del rol</h4>
                     <p className="text-sm text-slate-500">
-                      {getPermisosActivosCount(selectedItem.permisos)} de {PERMISOS_CONFIG.length} permisos activos
+                      {getPermisosActivosCount(selectedItem.permisos, selectedItem.nombre_db)} de {getTotalPermisosAplicables(selectedItem.nombre_db)} permisos activos
                       {permisosToRemove.length > 0 && (
                         <span className="ml-2 text-red-600 font-medium">· {permisosToRemove.length} seleccionado(s) para eliminar</span>
                       )}
@@ -1266,7 +1314,7 @@ export default function Roles({ userRole }: RolesProps) {
                       <Settings className="size-4 text-slate-600" />
                       <span className="font-medium text-slate-900">Lista completa de permisos</span>
                       <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                        {getPermisosActivosCount(selectedItem.permisos)} activos
+                        {getPermisosActivosCount(selectedItem.permisos, selectedItem.nombre_db)} activos
                       </Badge>
                     </div>
                     {isPermisosExpanded ? (
@@ -1278,10 +1326,43 @@ export default function Roles({ userRole }: RolesProps) {
 
                   {isPermisosExpanded && (
                     <div className="divide-y divide-slate-100">
-                      {PERMISOS_CONFIG.map((permiso) => {
-                        const activo = selectedItem.permisos[permiso.key];
+                      {/* Primero los permisos que aplican al rol, luego los bloqueados */}
+                      {(() => {
+                        const aplicables = getPermisosAplicables(selectedItem.nombre_db);
+                        const propios    = PERMISOS_CONFIG.filter(p => aplicables.includes(p.key));
+                        const bloqueados = PERMISOS_CONFIG.filter(p => !aplicables.includes(p.key));
+                        return [...propios, ...bloqueados];
+                      })().map((permiso) => {
+                        const aplicables  = getPermisosAplicables(selectedItem.nombre_db);
+                        const esBloqueado = !aplicables.includes(permiso.key);
+                        const activo      = selectedItem.permisos[permiso.key];
                         const seleccionado = permisosToRemove.includes(permiso.key);
-                        const esMinimo = PERMISOS_MINIMOS.includes(permiso.key);
+                        const esMinimo    = PERMISOS_MINIMOS.includes(permiso.key);
+
+                        // ── Permiso bloqueado (no aplica a este rol) ──────────
+                        if (esBloqueado) {
+                          return (
+                            <div
+                              key={permiso.key}
+                              className="flex items-center justify-between p-4 bg-slate-50/60 opacity-60"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-slate-200">
+                                  <Lock className="size-4 text-slate-400" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-slate-400">{permiso.label}</p>
+                                  <p className="text-xs text-slate-400">No aplica para este rol</p>
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="bg-slate-100 text-slate-400 border-slate-200 gap-1">
+                                <Lock className="size-3" /> Bloqueado
+                              </Badge>
+                            </div>
+                          );
+                        }
+
+                        // ── Permiso normal (aplica al rol) ────────────────────
                         return (
                           <div
                             key={permiso.key}
@@ -1299,12 +1380,8 @@ export default function Roles({ userRole }: RolesProps) {
                                   className="border-slate-300 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
                                 />
                               ) : (
-                                <div className={`p-2 rounded-lg ${activo ? 'bg-emerald-100' : 'bg-slate-100'}`}>
-                                  {activo ? (
-                                    <Check className="size-4 text-emerald-600" />
-                                  ) : (
-                                    <X className="size-4 text-slate-400" />
-                                  )}
+                                <div className="p-2 rounded-lg bg-slate-100">
+                                  <X className="size-4 text-slate-400" />
                                 </div>
                               )}
                               <div>
@@ -1338,8 +1415,7 @@ export default function Roles({ userRole }: RolesProps) {
                                     <Badge className="bg-emerald-100 text-emerald-700 border-0">Activo</Badge>
                                   )}
                                   <Button
-                                    variant="ghost"
-                                    size="sm"
+                                    variant="ghost" size="sm"
                                     className={`h-8 w-8 p-0 ${
                                       seleccionado
                                         ? 'text-red-600 bg-red-100 hover:bg-red-200'
