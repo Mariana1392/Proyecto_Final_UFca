@@ -44,23 +44,16 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
     setIsLoading(true);
 
     try {
-      let emailToUse = loginEmail.trim();
+      const emailToUse = loginEmail.trim();
 
-      // 1. Si ingresaron username en lugar de email, resolver primero
-      if (!emailToUse.includes('@')) {
-        const { data: found } = await supabase
-          .from('usuarios')
-          .select('email, activo')
-          .eq('username', emailToUse.toLowerCase())
-          .limit(1)
-          .single();
-
-        if (!found) { setError('Nombre de usuario no encontrado en el sistema'); setIsLoading(false); return; }
-        if (!found.activo) { setError('Tu cuenta está desactivada. Contacta al administrador.'); setIsLoading(false); return; }
-        emailToUse = found.email;
+      // Validar formato de correo antes de consultar
+      if (!emailToUse.includes('@') || !emailToUse.includes('.')) {
+        setError('Ingresa un correo electrónico válido para iniciar sesión.');
+        setIsLoading(false);
+        return;
       }
 
-      // 2. Autenticar
+      // Autenticar
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: emailToUse, password: loginPassword,
       });
@@ -415,13 +408,13 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
                       </Alert>
                     )}
                     <div className="space-y-1.5">
-                      <Label htmlFor="login-email" className="text-slate-700 font-semibold text-sm">Correo o usuario</Label>
+                      <Label htmlFor="login-email" className="text-slate-700 font-semibold text-sm">Correo electrónico</Label>
                       <div className="relative">
                         <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400"/>
-                        <Input id="login-email" type="text" placeholder="tu@correo.com"
+                        <Input id="login-email" type="email" placeholder="tu@correo.com"
                           className="pl-10 h-11 rounded-xl border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20 bg-slate-50"
                           value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
-                          autoComplete="username" required disabled={isLoading}/>
+                          autoComplete="email" required disabled={isLoading}/>
                       </div>
                     </div>
                     <div className="space-y-1.5">
