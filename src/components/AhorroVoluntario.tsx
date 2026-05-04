@@ -1326,17 +1326,17 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                         {aportesPendientesVol.map(ap => (
                           <div key={ap.id} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border ${
                             ap.estado === 'pendiente'   ? 'bg-blue-50 border-blue-200' :
-                            ap.estado === 'confirmado'  ? 'bg-emerald-50 border-emerald-200' :
+                            ap.estado === 'aprobada'    ? 'bg-emerald-50 border-emerald-200' :
                             'bg-red-50 border-red-200'
                           }`}>
                             <div className="flex items-center gap-3">
                               <div className={`p-2 rounded-full ${
                                 ap.estado === 'pendiente'  ? 'bg-blue-100' :
-                                ap.estado === 'confirmado' ? 'bg-emerald-100' : 'bg-red-100'
+                                ap.estado === 'aprobada'   ? 'bg-emerald-100' : 'bg-red-100'
                               }`}>
                                 {ap.estado === 'pendiente'  && <Clock className="size-5 text-blue-600" />}
-                                {ap.estado === 'confirmado' && <CheckCircle2 className="size-5 text-emerald-600" />}
-                                {ap.estado === 'rechazado'  && <XCircle className="size-5 text-red-500" />}
+                                {ap.estado === 'aprobada'   && <CheckCircle2 className="size-5 text-emerald-600" />}
+                                {ap.estado === 'rechazada'  && <XCircle className="size-5 text-red-500" />}
                               </div>
                               <div>
                                 <p className="font-semibold text-slate-800">{ap.asociados?.nombre ?? '—'}</p>
@@ -1357,7 +1357,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                                 {ap.nota && (
                                   <p className="text-xs text-slate-600 mt-0.5 italic">"{ap.nota}"</p>
                                 )}
-                                {ap.nota_admin && ap.estado === 'rechazado' && (
+                                {ap.nota_admin && ap.estado === 'rechazada' && (
                                   <p className="text-xs text-red-600 mt-0.5">Motivo rechazo: {ap.nota_admin}</p>
                                 )}
                               </div>
@@ -1383,9 +1383,9 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                                 </>
                               ) : (
                                 <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                                  ap.estado === 'confirmado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                                  ap.estado === 'aprobada'   ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
                                 }`}>
-                                  {ap.estado === 'confirmado' ? 'Confirmado' : 'Rechazado'}
+                                  {ap.estado === 'aprobada'   ? 'Confirmado' : 'Rechazado'}
                                 </span>
                               )}
                             </div>
