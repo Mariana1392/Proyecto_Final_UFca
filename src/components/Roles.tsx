@@ -179,30 +179,42 @@ export default function Roles({ userRole }: RolesProps) {
         if (u.rol_id) conteoMap[u.rol_id] = (conteoMap[u.rol_id] || 0) + 1;
       });
 
-      // Migrar permisos correctos en BD para roles del sistema
+      // Forzar permisos correctos en BD para roles del sistema (sin condición — siempre)
+      // Esto limpia cualquier permiso sucio heredado de versiones anteriores
+      const PERMISOS_SISTEMA: Record<string, string[]> = {
+        admin:    ['dashboard','configuracion','roles','usuarios','asociados','ahorros','creditos','eventos','compras','ventas','reportes'],
+        asociado: ['dashboard','mis_ahorros','mis_creditos'],
+        usuario:  ['dashboard','mi_solicitud'],
+      };
       for (const row of (data || [])) {
+        const correcto = PERMISOS_SISTEMA[row.nombre];
+        if (!correcto) continue;
         const raw: any[] = Array.isArray(row.permisos) ? row.permisos : [];
-        if (row.nombre === 'asociado' && (!raw.includes('mis_ahorros') || !raw.includes('mis_creditos'))) {
-          await supabase.from('roles').update({ permisos: ['dashboard', 'mis_ahorros', 'mis_creditos'] }).eq('id', row.id);
-          row.permisos = ['dashboard', 'mis_ahorros', 'mis_creditos'];
-        }
-        if (row.nombre === 'usuario' && !raw.includes('mi_solicitud')) {
-          await supabase.from('roles').update({ permisos: ['dashboard', 'mi_solicitud'] }).eq('id', row.id);
-          row.permisos = ['dashboard', 'mi_solicitud'];
+        // Actualizar si hay diferencia (cualquier extra o faltante)
+        const iguales = correcto.length === raw.filter(k => correcto.includes(k)).length
+          && raw.every(k => correcto.includes(k));
+        if (!iguales) {
+          await supabase.from('roles').update({ permisos: correcto }).eq('id', row.id);
+          row.permisos = correcto;
         }
       }
 
       const mapeados = (data || []).map((r: any) => {
         const permisosRaw: any[] = Array.isArray(r.permisos) ? r.permisos : [];
-        // Si la BD no tiene permisos guardados aún, usar los valores por defecto
-        const usarDefecto = permisosRaw.length === 0;
-        const permisos = Object.fromEntries(
-          PERMISOS_CONFIG.map(p => [p.key, permisosRaw.includes(p.key)])
-        ) as Record<PermisoKey, boolean>;
-
-        if (usarDefecto && r.nombre === 'admin')    Object.assign(permisos, PERMISOS_ADMIN);
-        if (usarDefecto && r.nombre === 'asociado') Object.assign(permisos, PERMISOS_ASOCIADO);
-        if (usarDefecto && r.nombre === 'usuario')  Object.assign(permisos, PERMISOS_USUARIO);
+        // Para roles del sistema: usar siempre los valores canónicos (ignora BD)
+        // Para roles personalizados: leer de la BD
+        let permisos: Record<PermisoKey, boolean>;
+        if (r.nombre === 'admin' || r.nombre === 'administrador') {
+          permisos = { ...PERMISOS_ADMIN };
+        } else if (r.nombre === 'asociado') {
+          permisos = { ...PERMISOS_ASOCIADO };
+        } else if (r.nombre === 'usuario') {
+          permisos = { ...PERMISOS_USUARIO };
+        } else {
+          permisos = Object.fromEntries(
+            PERMISOS_CONFIG.map(p => [p.key, permisosRaw.includes(p.key)])
+          ) as Record<PermisoKey, boolean>;
+        }
 
         return {
           id:               r.id,
@@ -555,12 +567,16 @@ export default function Roles({ userRole }: RolesProps) {
     setPermisosToRemove([]);
   };
 
-  const getPermisosBadges = (permisos: Record<PermisoKey, boolean>) =>
-    Object.entries(permisos).filter(([, v]) => v).map(([key]) => (
-      <Badge key={key} variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-        {PERMISOS_CONFIG.find(p => p.key === key)?.label || key}
-      </Badge>
-    ));
+  const getPermisosBadges = (permisos: Record<PermisoKey, boolean>, nombreDb?: string) => {
+    const aplicables = nombreDb ? getPermisosAplicables(nombreDb) : (Object.keys(permisos) as PermisoKey[]);
+    return Object.entries(permisos)
+      .filter(([key, v]) => v && aplicables.includes(key as PermisoKey))
+      .map(([key]) => (
+        <Badge key={key} variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+          {PERMISOS_CONFIG.find(p => p.key === key)?.label || key}
+        </Badge>
+      ));
+  };
 
   const getPermisosActivosCount = (permisos: Record<PermisoKey, boolean>, nombreDb?: string) => {
     const aplicables = nombreDb ? getPermisosAplicables(nombreDb) : (Object.keys(permisos) as PermisoKey[]);
@@ -731,10 +747,10 @@ export default function Roles({ userRole }: RolesProps) {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1 max-w-xs">
-                            {getPermisosBadges(rol.permisos).slice(0, 2)}
-                            {getPermisosActivosCount(rol.permisos) > 2 && (
+                            {getPermisosBadges(rol.permisos, rol.nombre_db).slice(0, 2)}
+                            {getPermisosActivosCount(rol.permisos, rol.nombre_db) > 2 && (
                               <Badge variant="outline" className="bg-slate-50">
-                                +{getPermisosActivosCount(rol.permisos) - 2} más
+                                +{getPermisosActivosCount(rol.permisos, rol.nombre_db) - 2} más
                               </Badge>
                             )}
                           </div>
@@ -805,9 +821,9 @@ export default function Roles({ userRole }: RolesProps) {
                                     setPermisosToRemove([]);
                                     setIsRemoveSelectDialogOpen(true);
                                   }}
-                                  title={getPermisosActivosCount(rol.permisos) <= 1 ? 'Debe conservar al menos un permiso' : 'Eliminar permiso'}
-                                  disabled={getPermisosActivosCount(rol.permisos) <= 1}
-                                  className={getPermisosActivosCount(rol.permisos) <= 1 ? 'opacity-40 cursor-not-allowed' : 'text-orange-600 hover:bg-orange-50 hover:border-orange-300'}
+                                  title={getPermisosActivosCount(rol.permisos, rol.nombre_db) <= 1 ? 'Debe conservar al menos un permiso' : 'Eliminar permiso'}
+                                  disabled={getPermisosActivosCount(rol.permisos, rol.nombre_db) <= 1}
+                                  className={getPermisosActivosCount(rol.permisos, rol.nombre_db) <= 1 ? 'opacity-40 cursor-not-allowed' : 'text-orange-600 hover:bg-orange-50 hover:border-orange-300'}
                                 >
                                   <ShieldMinus className="size-4" />
                                 </Button>
