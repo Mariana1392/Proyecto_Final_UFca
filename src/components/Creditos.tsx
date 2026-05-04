@@ -470,28 +470,29 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
       setCreditosSimulacion(simulaciones);
       setAsociadosDisponibles(asociadosData || []);
 
-      // ── Cargar solicitudes de crédito (pre-solicitudes de asociados) ────
+      // ── Cargar solicitudes de crédito desde tabla unificada ─────────────
       const { data: solData } = await supabase
-        .from('credito_solicitudes')
+        .from('solicitudes')
         .select('*, asociados(nombre, cedula)')
+        .eq('tipo', 'credito')
         .order('created_at', { ascending: false });
 
       const solMapeadas = (solData ?? []).map((s: any) => ({
-        id:          s.id,
-        asociadoId:  s.asociado_id,
-        asociado:    s.asociados?.nombre ?? 'Sin nombre',
-        cedula:      s.asociados?.cedula ?? '',
-        tipoCreditoLabel: TIPOS_CREDITO.find(t => t.value === s.tipo_credito)?.label ?? s.tipo_credito ?? '—',
-        tipoCredito: s.tipo_credito ?? 'libre_inversion',
-        monto:       s.monto,
-        plazoMeses:  s.plazo_meses,
-        tasaInteres: s.tasa_interes ?? 0,
-        destino:     s.destino ?? '',
-        observaciones: s.observaciones ?? '',
-        estado:      s.estado ?? 'pendiente',
-        notaAdmin:   s.nota_admin ?? '',
-        createdAt:   s.created_at,
-        reviewedAt:  s.reviewed_at,
+        id:               s.id,
+        asociadoId:       s.asociado_id,
+        asociado:         s.asociados?.nombre ?? 'Sin nombre',
+        cedula:           s.asociados?.cedula ?? '',
+        tipoCreditoLabel: TIPOS_CREDITO.find(t => t.value === s.datos?.tipo_credito)?.label ?? s.datos?.tipo_credito ?? '—',
+        tipoCredito:      s.datos?.tipo_credito ?? 'libre_inversion',
+        monto:            s.monto,
+        plazoMeses:       s.datos?.plazo_meses,
+        tasaInteres:      s.datos?.tasa_interes ?? 0,
+        destino:          s.datos?.destino ?? '',
+        observaciones:    s.datos?.observaciones ?? s.observaciones ?? '',
+        estado:           s.estado ?? 'pendiente',
+        notaAdmin:        s.nota_admin ?? '',
+        createdAt:        s.created_at,
+        reviewedAt:       s.fecha_resolucion,
       }));
 
       // Admin ve todas; asociado ve solo las suyas (por cedula)
@@ -1265,16 +1266,19 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
     setSavingSolicitud(true);
     try {
       const { data, error } = await supabase
-        .from('credito_solicitudes')
+        .from('solicitudes')
         .insert({
-          asociado_id:  userData?.asociado_id ?? userData?.id,
-          tipo_credito: solTipo,
+          tipo:        'credito',
+          asociado_id: userData?.asociado_id ?? userData?.id,
           monto,
-          plazo_meses:  plazo,
-          tasa_interes: parseFloat(solTasa) || 0,
-          destino:      solDestino.trim(),
-          observaciones: solObs.trim() || null,
-          estado:       'pendiente',
+          estado:      'pendiente',
+          datos: {
+            tipo_credito: solTipo,
+            plazo_meses:  plazo,
+            tasa_interes: parseFloat(solTasa) || 0,
+            destino:      solDestino.trim(),
+            observaciones: solObs.trim() || null,
+          },
         })
         .select('*, asociados(nombre, cedula)')
         .single();
@@ -1286,13 +1290,13 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
         asociadoId:  data.asociado_id,
         asociado:    data.asociados?.nombre ?? userData?.nombre ?? '',
         cedula:      data.asociados?.cedula ?? userData?.cedula ?? '',
-        tipoCreditoLabel: TIPOS_CREDITO.find(t => t.value === data.tipo_credito)?.label ?? data.tipo_credito,
-        tipoCredito: data.tipo_credito,
+        tipoCreditoLabel: TIPOS_CREDITO.find(t => t.value === data.datos?.tipo_credito)?.label ?? data.datos?.tipo_credito,
+        tipoCredito: data.datos?.tipo_credito,
         monto:       data.monto,
-        plazoMeses:  data.plazo_meses,
-        tasaInteres: data.tasa_interes ?? 0,
-        destino:     data.destino ?? '',
-        observaciones: data.observaciones ?? '',
+        plazoMeses:  data.datos?.plazo_meses,
+        tasaInteres: data.datos?.tasa_interes ?? 0,
+        destino:     data.datos?.destino ?? '',
+        observaciones: data.datos?.observaciones ?? '',
         estado:      'pendiente',
         notaAdmin:   '',
         createdAt:   data.created_at,
@@ -1351,8 +1355,8 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
 
       // Marcar solicitud como aprobada
       await supabase
-        .from('credito_solicitudes')
-        .update({ estado: 'aprobada', reviewed_at: ahora, nota_admin: 'Solicitud aprobada' })
+        .from('solicitudes')
+        .update({ estado: 'aprobada', fecha_resolucion: ahora, nota_admin: 'Solicitud aprobada' })
         .eq('id', sol.id);
 
       // Notificar al asociado
@@ -1407,8 +1411,8 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
     try {
       const ahora = new Date().toISOString();
       await supabase
-        .from('credito_solicitudes')
-        .update({ estado: 'rechazada', reviewed_at: ahora, nota_admin: notaRechazoSol.trim() })
+        .from('solicitudes')
+        .update({ estado: 'rechazada', fecha_resolucion: ahora, nota_admin: notaRechazoSol.trim() })
         .eq('id', solicitudSeleccionada.id);
 
       await supabase.from('notificaciones').insert({
