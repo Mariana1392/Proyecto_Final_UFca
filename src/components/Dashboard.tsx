@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import {
   Users, PiggyBank, Wallet, CreditCard, ShoppingCart, Calendar,
-  ArrowRight, UserPlus, CheckCircle, ClipboardList, FileText,
+  ArrowRight, UserPlus, CheckCircle, ClipboardList,
 } from 'lucide-react';
 import {
   BarChart, Bar, PieChart, Pie, Cell,
@@ -38,13 +38,11 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
   const [monthlyData,   setMonthlyData]   = useState<any[]>([]);
   const [allCreditosData, setAllCreditosData] = useState<any[]>([]);
   const [pieData,       setPieData]       = useState<any[]>([]);
-  const [recentActivity,setRecentActivity]= useState<any[]>([]);
   const [loadingStats,  setLoadingStats]  = useState(true);
 
   useEffect(() => {
     if (userRole === 'admin') {
       cargarStatsAdmin();
-      cargarActividadReciente();
       cargarDatosGraficas();
 
       // Suscripción en tiempo real: actualiza la gráfica de créditos cuando hay cambios
@@ -219,43 +217,6 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
     }
   }
 
-  async function cargarActividadReciente() {
-    try {
-      const { data } = await supabase
-        .from('auditoria')
-        .select('accion, detalle, created_at, tabla')
-        .order('created_at', { ascending: false })
-        .limit(6);
-
-      setRecentActivity((data || []).map((a: any) => {
-        let det: any = {};
-        try { det = typeof a.detalle === 'string' ? JSON.parse(a.detalle) : (a.detalle ?? {}); } catch { det = {}; }
-        const descripcion = det.asociado ?? det.nombre ?? det.numLiquidacion ?? a.tabla ?? '';
-        return {
-          action: a.accion,
-          name:   descripcion.toString().substring(0, 45),
-          time:   formatRelativeTime(a.created_at),
-          type:   a.accion?.includes('CREACIÓN') || a.accion?.includes('CONFIRMADO') ? 'success'
-                : a.accion?.includes('RECHAZO')  || a.accion?.includes('ANULACIÓN')  ? 'danger'
-                : 'info',
-        };
-      }));
-    } catch (err) {
-      console.error('Error cargando actividad:', err);
-    }
-  }
-
-  function formatRelativeTime(iso: string): string {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1)   return 'Ahora mismo';
-    if (mins < 60)  return `Hace ${mins} min`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24)   return `Hace ${hrs} h`;
-    const days = Math.floor(hrs / 24);
-    return `Hace ${days} día${days > 1 ? 's' : ''}`;
-  }
-
   const fmtCOP = (n: number) =>
     new Intl.NumberFormat('es-CO', {
       style: 'currency', currency: 'COP', minimumFractionDigits: 0,
@@ -330,12 +291,6 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
   const pieToShow = pieDataCalculado.length > 0 ? pieDataCalculado : [
     { name: 'Sin datos', value: 1, color: '#e2e8f0' },
   ];
-
-  // Actividad reciente — solo real, sin mocks
-  const actividadAMostrar = recentActivity.length > 0 ? recentActivity : [];
-
-  const dotColor = (type: string) =>
-    type === 'success' ? 'bg-emerald-500' : type === 'danger' ? 'bg-red-400' : 'bg-blue-400';
 
   // ── JSX ──────────────────────────────────────────────────────────────────
   return (
@@ -448,10 +403,10 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
       )}
 
       {/* ── Gráficas ── */}
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-5 gap-6">
 
-        {/* Créditos últimos 3 meses — actualización en tiempo real */}
-        <Card>
+        {/* Créditos últimos 3 meses — actualización en tiempo real (3/5) */}
+        <Card className="lg:col-span-3">
           <CardHeader className="flex flex-row items-start justify-between gap-2">
             <div>
               <CardTitle>Créditos por mes</CardTitle>
@@ -463,7 +418,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
             </span>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={180}>
+            <ResponsiveContainer width="100%" height={220}>
               <BarChart
                 data={allCreditosData}
                 layout="vertical"
@@ -521,20 +476,20 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
           </CardContent>
         </Card>
 
-        {/* Distribución de capital real */}
-        <Card>
+        {/* Distribución de capital real (2/5) */}
+        <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Distribución de capital en ahorros</CardTitle>
-            <p className="text-sm text-slate-500">Saldo total activo por tipo de ahorro</p>
+            <CardTitle>Distribución de capital</CardTitle>
+            <p className="text-sm text-slate-500">Saldo activo por tipo de ahorro</p>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie
                   data={pieToShow}
                   cx="50%" cy="50%"
-                  outerRadius={95}
-                  innerRadius={50}
+                  outerRadius={80}
+                  innerRadius={44}
                   dataKey="value"
                   label={({ name, percent }) =>
                     pieToShow[0]?.name === 'Sin datos' ? '' : `${name}: ${(percent * 100).toFixed(0)}%`
@@ -555,58 +510,24 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
               </PieChart>
             </ResponsiveContainer>
             {!loadingStats && (
-              <div className="flex justify-around mt-2 pt-3 border-t border-slate-100">
-                <div className="text-center">
+              <div className="flex flex-col gap-2 mt-2 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between">
                   <p className="text-xs text-slate-500">Permanente</p>
                   <p className="text-sm font-semibold text-emerald-700">{fmtCOP(liveStats.totalAhorrosPerm)}</p>
                 </div>
-                <div className="text-center">
+                <div className="flex items-center justify-between">
                   <p className="text-xs text-slate-500">Voluntario</p>
                   <p className="text-sm font-semibold text-blue-700">{fmtCOP(liveStats.totalAhorrosVol)}</p>
                 </div>
-                <div className="text-center">
-                  <p className="text-xs text-slate-500">Total</p>
-                  <p className="text-sm font-semibold text-slate-700">{fmtCOP(liveStats.totalAhorros)}</p>
+                <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                  <p className="text-xs font-medium text-slate-600">Total</p>
+                  <p className="text-sm font-bold text-slate-800">{fmtCOP(liveStats.totalAhorros)}</p>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
-
-      {/* ── Actividad reciente ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="size-4 text-slate-500" />
-            Actividad reciente
-          </CardTitle>
-          <p className="text-sm text-slate-500">Últimas acciones registradas en el sistema</p>
-        </CardHeader>
-        <CardContent>
-          {actividadAMostrar.length === 0 ? (
-            <div className="flex flex-col items-center py-10 gap-2 text-slate-400">
-              <FileText className="size-8 text-slate-300" />
-              <p className="text-sm">No hay actividad registrada aún</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {actividadAMostrar.map((activity, index) => (
-                <div key={index} className="flex items-center justify-between py-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`size-2.5 rounded-full shrink-0 ${dotColor(activity.type)}`} />
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">{activity.action}</p>
-                      {activity.name && <p className="text-xs text-slate-500">{activity.name}</p>}
-                    </div>
-                  </div>
-                  <span className="text-xs text-slate-400 whitespace-nowrap ml-4">{activity.time}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
