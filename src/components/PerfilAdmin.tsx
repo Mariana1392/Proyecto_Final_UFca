@@ -53,7 +53,7 @@ export default function PerfilAdmin() {
     ] = await Promise.all([
       supabase.from('usuarios').select('*', { count: 'exact', head: true }),
       supabase.from('asociados').select('*', { count: 'exact', head: true }),
-      supabase.from('solicitudes_asociados').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
+      supabase.from('solicitudes').select('*', { count: 'exact', head: true }).eq('tipo', 'afiliacion').eq('estado', 'pendiente'),
     ]);
     setStats({
       totalUsuarios:        totalUsuarios  ?? 0,

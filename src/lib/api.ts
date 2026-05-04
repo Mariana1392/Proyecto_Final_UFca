@@ -850,7 +850,7 @@ export const dashboardApi = {
       // Pedidos pendientes
       supabase.from('pedidos').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
       // Solicitudes de asociación pendientes
-      supabase.from('solicitudes_asociados').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
+      supabase.from('solicitudes').select('*', { count: 'exact', head: true }).eq('tipo', 'afiliacion').eq('estado', 'pendiente'),
       // Liquidaciones en proceso (no pagadas ni rechazadas)
       supabase.from('liquidaciones').select('*', { count: 'exact', head: true })
         .not('detalle->>estado', 'in', '("Pagada","Rechazada","Borrador")'),

@@ -125,9 +125,10 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
           .eq('anulado', false)
           .order('created_at', { ascending: false }),
         supabase
-          .from('solicitudes_ahorro')
+          .from('solicitudes')
           .select('*')
           .eq('asociado_id', asocId)
+          .in('tipo', ['ahorro_permanente', 'ahorro_voluntario'])
           .order('created_at', { ascending: false }),
         supabase
           .from('configuracion')
@@ -139,10 +140,18 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
       setAhorroPermanente(permRes.data ?? null);
       setAhorrosVoluntarios(volRes.data ?? []);
 
-      // Solicitudes: priorizar pendiente/rechazada sobre aprobada (para detectar anulaciones)
-      const sols: any[] = solRes.data ?? [];
-      const solsPerm = sols.filter(s => s.tipo === 'permanente');
-      const solsVol  = sols.filter(s => s.tipo === 'voluntario');
+      // Solicitudes: aplanar datos jsonb y priorizar pendiente/rechazada sobre aprobada
+      const flattenSol = (s: any) => ({
+        ...s,
+        nota_asociado:  s.datos?.nota_asociado,
+        nombre_plan:    s.datos?.nombre_plan,
+        frecuencia:     s.datos?.frecuencia,
+        monto_inicial:  s.datos?.monto_inicial,
+        monto_objetivo: s.datos?.monto_objetivo,
+      });
+      const sols: any[] = (solRes.data ?? []).map(flattenSol);
+      const solsPerm = sols.filter(s => s.tipo === 'ahorro_permanente');
+      const solsVol  = sols.filter(s => s.tipo === 'ahorro_voluntario');
 
       // Si no hay ahorro activo, priorizar la solicitud pendiente o rechazada más reciente
       // Si hay ahorro activo, la solicitud aprobada es la relevante
@@ -165,11 +174,19 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
 
       // 3. Solicitudes de aporte del asociado
       const { data: aportes } = await supabase
-        .from('solicitudes_aporte')
+        .from('solicitudes')
         .select('*')
         .eq('asociado_id', asocId)
+        .in('tipo', ['aporte_permanente', 'aporte_voluntario'])
         .order('created_at', { ascending: false });
-      setSolicitudesAporte(aportes ?? []);
+      const aportesMapped = (aportes ?? []).map((ap: any) => ({
+        ...ap,
+        tipo_ahorro: ap.tipo === 'aporte_permanente' ? 'permanente' : 'voluntario',
+        fecha_pago:  ap.datos?.fecha_pago,
+        medio_pago:  ap.datos?.medio_pago,
+        nota:        ap.datos?.nota,
+      }));
+      setSolicitudesAporte(aportesMapped);
 
       // 4. Movimientos del ahorro permanente (últimos 5)
       if (permRes.data?.id) {
@@ -209,12 +226,12 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
     setSaving(true);
     try {
       const { data, error } = await supabase
-        .from('solicitudes_ahorro')
+        .from('solicitudes')
         .insert({
-          asociado_id:   miAsociadoId,
-          tipo:          'permanente',
-          estado:        'pendiente',
-          nota_asociado: permNota.trim() || null,
+          tipo:        'ahorro_permanente',
+          asociado_id: miAsociadoId,
+          estado:      'pendiente',
+          datos:       { nota_asociado: permNota.trim() || null },
         })
         .select()
         .single();
@@ -228,7 +245,7 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
         para_admin: true,
       });
 
-      setSolicitudPerm(data);
+      setSolicitudPerm({ ...data, nota_asociado: data.datos?.nota_asociado });
       setIsSolPermDialogOpen(false);
       setPermNota('');
       toast.success('✅ Solicitud enviada', {
@@ -255,16 +272,18 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
       const montoObj = parseFloat(volMontoObjetivo.replace(/[^\d.]/g, '')) || 0;
 
       const { data, error } = await supabase
-        .from('solicitudes_ahorro')
+        .from('solicitudes')
         .insert({
-          asociado_id:    miAsociadoId,
-          tipo:           'voluntario',
-          estado:         'pendiente',
-          nombre_plan:    volNombrePlan.trim(),
-          frecuencia:     volFrecuencia,
-          monto_inicial:  montoIni || null,
-          monto_objetivo: montoObj || null,
-          nota_asociado:  volNota.trim() || null,
+          tipo:        'ahorro_voluntario',
+          asociado_id: miAsociadoId,
+          estado:      'pendiente',
+          datos: {
+            nombre_plan:    volNombrePlan.trim(),
+            frecuencia:     volFrecuencia,
+            monto_inicial:  montoIni || null,
+            monto_objetivo: montoObj || null,
+            nota_asociado:  volNota.trim() || null,
+          },
         })
         .select()
         .single();
@@ -278,7 +297,14 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
         para_admin: true,
       });
 
-      setSolicitudVol(data);
+      setSolicitudVol({
+        ...data,
+        nombre_plan:    data.datos?.nombre_plan,
+        frecuencia:     data.datos?.frecuencia,
+        monto_inicial:  data.datos?.monto_inicial,
+        monto_objetivo: data.datos?.monto_objetivo,
+        nota_asociado:  data.datos?.nota_asociado,
+      });
       setIsSolVolDialogOpen(false);
       setVolNombrePlan(''); setVolFrecuencia('Mensual');
       setVolMontoInicial(''); setVolMontoObjetivo(''); setVolNota('');
@@ -361,16 +387,18 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
     setSavingAporte(true);
     try {
       const { data, error } = await supabase
-        .from('solicitudes_aporte')
+        .from('solicitudes')
         .insert({
+          tipo:        aporteTipo === 'permanente' ? 'aporte_permanente' : 'aporte_voluntario',
           ahorro_id:   aporteAhorroId,
-          tipo_ahorro: aporteTipo,
           asociado_id: miAsociadoId,
           monto,
-          fecha_pago:  aporteFecha,
-          medio_pago:  aporteMedio,
-          nota:        aporteNota.trim() || null,
           estado:      'pendiente',
+          datos: {
+            fecha_pago: aporteFecha,
+            medio_pago: aporteMedio,
+            nota:       aporteNota.trim() || null,
+          },
         })
         .select()
         .single();
@@ -384,7 +412,14 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
         para_admin: true,
       });
 
-      setSolicitudesAporte(prev => [data, ...prev]);
+      const aporteAplanado = {
+        ...data,
+        tipo_ahorro: aporteTipo,
+        fecha_pago:  data.datos?.fecha_pago,
+        medio_pago:  data.datos?.medio_pago,
+        nota:        data.datos?.nota,
+      };
+      setSolicitudesAporte(prev => [aporteAplanado, ...prev]);
       setIsAporteDialogOpen(false);
       toast.success('✅ Pago reportado', {
         description: 'El administrador verificará y acreditará tu aporte pronto.',

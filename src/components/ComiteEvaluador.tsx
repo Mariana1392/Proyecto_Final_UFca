@@ -152,29 +152,31 @@ export default function ComiteEvaluador() {
   async function loadSolicitudes() {
     try {
       const { data, error } = await supabase
-        .from('solicitudes_asociados')
+        .from('solicitudes')
         .select('*')
+        .eq('tipo', 'afiliacion')
         .order('fecha_solicitud', { ascending: false });
       if (error) throw error;
       setSolicitudes((data || []).map((s: any) => ({
         id:                 s.id,
-        nombres:            s.nombres             ?? '',
-        apellidos:          s.apellidos           ?? '',
-        cedula:             s.cedula              ?? '',
-        tipoIdentificacion: s.tipo_identificacion ?? '',
-        telefono:           s.telefono            ?? '',
-        email:              s.email               ?? '',
-        direccion:          s.direccion           ?? '',
-        ocupacion:          s.ocupacion           ?? '',
-        ingresoMensual:     s.ingreso_mensual != null ? String(s.ingreso_mensual) : '',
-        motivacion:         s.motivacion           ?? '',
-        documentos:         Array.isArray(s.documentos) ? s.documentos : [],
-        urlDocumento:       s.url_documento        ?? '',
+        usuario_id:         s.usuario_id           ?? null,
+        nombres:            s.datos?.nombres       ?? '',
+        apellidos:          s.datos?.apellidos     ?? '',
+        cedula:             s.datos?.cedula        ?? '',
+        tipoIdentificacion: s.datos?.tipo_identificacion ?? '',
+        telefono:           s.datos?.telefono      ?? '',
+        email:              s.datos?.email         ?? '',
+        direccion:          s.datos?.direccion     ?? '',
+        ocupacion:          s.datos?.ocupacion     ?? '',
+        ingresoMensual:     s.datos?.ingreso_mensual != null ? String(s.datos.ingreso_mensual) : '',
+        motivacion:         s.datos?.motivacion    ?? '',
+        documentos:         Array.isArray(s.datos?.documentos) ? s.datos.documentos : [],
+        urlDocumento:       s.datos?.url_documento ?? '',
         fechaSolicitud:     s.fecha_solicitud      ?? '',
         estado:             s.estado               ?? 'pendiente',
         fechaResolucion:    s.fecha_resolucion     ?? '',
         observaciones:      s.observaciones        ?? '',
-        evaluacion:         s.evaluacion           ?? null,
+        evaluacion:         s.datos?.evaluacion    ?? null,
       })));
     } catch (err: any) {
       toast.error('Error al cargar solicitudes: ' + err.message);
@@ -271,9 +273,15 @@ export default function ComiteEvaluador() {
       evaluadoPor: 'Comité Evaluador',
     };
     try {
+      // Leer datos actuales para no sobreescribir otros campos del jsonb
+      const { data: current } = await supabase
+        .from('solicitudes')
+        .select('datos')
+        .eq('id', selectedSolicitud.id)
+        .single();
       const { error } = await supabase
-        .from('solicitudes_asociados')
-        .update({ evaluacion })
+        .from('solicitudes')
+        .update({ datos: { ...(current?.datos ?? {}), evaluacion } })
         .eq('id', selectedSolicitud.id);
       if (error) throw error;
       setSolicitudes(prev => prev.map(s =>
@@ -295,7 +303,7 @@ export default function ComiteEvaluador() {
 
       // 1. Marcar solicitud como aprobada
       const { error: upErr } = await supabase
-        .from('solicitudes_asociados')
+        .from('solicitudes')
         .update({ estado: 'aprobada', fecha_resolucion: fechaRes, observaciones: 'Aprobada por el comité evaluador' })
         .eq('id', selectedSolicitud.id);
       if (upErr) throw upErr;
@@ -318,7 +326,7 @@ export default function ComiteEvaluador() {
 
       // 3. Promover al usuario registrado al rol "asociado"
       const { data: solData } = await supabase
-        .from('solicitudes_asociados')
+        .from('solicitudes')
         .select('usuario_id')
         .eq('id', selectedSolicitud.id)
         .single();
@@ -370,7 +378,7 @@ export default function ComiteEvaluador() {
     try {
       const fechaRes = new Date().toISOString();
       const { error } = await supabase
-        .from('solicitudes_asociados')
+        .from('solicitudes')
         .update({ estado: 'rechazada', fecha_resolucion: fechaRes, observaciones: motivoRechazo.trim() })
         .eq('id', selectedSolicitud.id);
       if (error) throw error;
@@ -398,7 +406,7 @@ export default function ComiteEvaluador() {
     setDeleting(true);
     try {
       const { error } = await supabase
-        .from('solicitudes_asociados')
+        .from('solicitudes')
         .delete()
         .eq('id', selectedSolicitud.id);
       if (error) throw error;
@@ -422,19 +430,21 @@ export default function ComiteEvaluador() {
     setSavingNew(true);
     try {
       const { data, error } = await supabase
-        .from('solicitudes_asociados')
+        .from('solicitudes')
         .insert({
-          nombres:         formNueva.nombres.trim(),
-          apellidos:       formNueva.apellidos.trim(),
-          cedula:          formNueva.cedula.trim(),
-          telefono:        formNueva.telefono.trim(),
-          email:           formNueva.email.trim(),
-          direccion:       formNueva.direccion.trim(),
-          ocupacion:       formNueva.ocupacion.trim(),
-          ingreso_mensual: formNueva.ingresoMensual.trim(),
-          motivacion:      formNueva.motivacion.trim(),
-          fecha_solicitud: new Date().toISOString(),
-          estado:          'pendiente',
+          tipo:    'afiliacion',
+          estado:  'pendiente',
+          datos: {
+            nombres:         formNueva.nombres.trim(),
+            apellidos:       formNueva.apellidos.trim(),
+            cedula:          formNueva.cedula.trim(),
+            telefono:        formNueva.telefono.trim(),
+            email:           formNueva.email.trim(),
+            direccion:       formNueva.direccion.trim(),
+            ocupacion:       formNueva.ocupacion.trim(),
+            ingreso_mensual: formNueva.ingresoMensual.trim(),
+            motivacion:      formNueva.motivacion.trim(),
+          },
         })
         .select()
         .single();
@@ -442,15 +452,17 @@ export default function ComiteEvaluador() {
 
       const nueva: Solicitud = {
         id:              data.id,
-        nombres:         data.nombres         ?? '',
-        apellidos:       data.apellidos       ?? '',
-        cedula:          data.cedula          ?? '',
-        telefono:        data.telefono        ?? '',
-        email:           data.email           ?? '',
-        direccion:       data.direccion       ?? '',
-        ocupacion:       data.ocupacion       ?? '',
-        ingresoMensual:  data.ingreso_mensual ?? '',
-        motivacion:      data.motivacion      ?? '',
+        usuario_id:      data.usuario_id      ?? null,
+        nombres:         data.datos?.nombres  ?? '',
+        apellidos:       data.datos?.apellidos ?? '',
+        cedula:          data.datos?.cedula   ?? '',
+        telefono:        data.datos?.telefono ?? '',
+        email:           data.datos?.email    ?? '',
+        direccion:       data.datos?.direccion ?? '',
+        ocupacion:       data.datos?.ocupacion ?? '',
+        ingresoMensual:  data.datos?.ingreso_mensual ?? '',
+        motivacion:      data.datos?.motivacion ?? '',
+        documentos:      [],
         urlDocumento:    '',
         fechaSolicitud:  data.fecha_solicitud ?? '',
         estado:          'pendiente',

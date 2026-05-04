@@ -136,18 +136,28 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
       if (userRole === 'admin') {
         const [{ data: sols }, { data: aportes }] = await Promise.all([
           supabase
-            .from('solicitudes_ahorro')
+            .from('solicitudes')
             .select('*, asociados(nombre, cedula)')
-            .eq('tipo', 'permanente')
+            .eq('tipo', 'ahorro_permanente')
             .order('created_at', { ascending: false }),
           supabase
-            .from('solicitudes_aporte')
+            .from('solicitudes')
             .select('*, asociados(nombre, cedula)')
-            .eq('tipo_ahorro', 'permanente')
+            .eq('tipo', 'aporte_permanente')
             .order('created_at', { ascending: false }),
         ]);
-        setSolicitudes(sols || []);
-        setAportesPendientes(aportes || []);
+        // Aplanar datos jsonb para compatibilidad con la UI
+        setSolicitudes((sols || []).map((s: any) => ({
+          ...s,
+          nota_asociado: s.datos?.nota_asociado,
+        })));
+        setAportesPendientes((aportes || []).map((ap: any) => ({
+          ...ap,
+          tipo_ahorro: 'permanente',
+          fecha_pago:  ap.datos?.fecha_pago,
+          medio_pago:  ap.datos?.medio_pago,
+          nota:        ap.datos?.nota,
+        })));
       }
     } catch (err: any) {
       toast.error('Error al cargar ahorros: ' + err.message);
@@ -619,8 +629,8 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
 
       // 2. Marcar solicitud como aprobada
       await supabase
-        .from('solicitudes_ahorro')
-        .update({ estado: 'aprobada', reviewed_at: new Date().toISOString() })
+        .from('solicitudes')
+        .update({ estado: 'aprobada', fecha_resolucion: new Date().toISOString() })
         .eq('id', sol.id);
 
       // 3. Notificar al asociado
@@ -691,10 +701,10 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
         .update({ monto_ahorrado: saldoNuevo })
         .eq('id', ap.ahorro_id);
 
-      // Marcar aporte como confirmado
+      // Marcar aporte como confirmado (aprobada en la tabla unificada)
       await supabase
-        .from('solicitudes_aporte')
-        .update({ estado: 'confirmado', reviewed_at: new Date().toISOString() })
+        .from('solicitudes')
+        .update({ estado: 'aprobada', fecha_resolucion: new Date().toISOString() })
         .eq('id', ap.id);
 
       // Notificar al asociado
@@ -708,7 +718,7 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
 
       // Actualizar estado local
       setAportesPendientes(prev =>
-        prev.map(a => a.id === ap.id ? { ...a, estado: 'confirmado' } : a)
+        prev.map(a => a.id === ap.id ? { ...a, estado: 'aprobada' } : a)
       );
       setAhorros(prev =>
         prev.map(a => a.id === ap.ahorro_id ? { ...a, montoAhorrado: saldoNuevo } : a)
@@ -729,11 +739,11 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
     setSavingAporte(true);
     try {
       await supabase
-        .from('solicitudes_aporte')
+        .from('solicitudes')
         .update({
-          estado:      'rechazado',
-          nota_admin:  notaRechazoAporte.trim(),
-          reviewed_at: new Date().toISOString(),
+          estado:           'rechazada',
+          nota_admin:       notaRechazoAporte.trim(),
+          fecha_resolucion: new Date().toISOString(),
         })
         .eq('id', aporteSeleccionado.id);
 
@@ -746,7 +756,7 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
       });
 
       setAportesPendientes(prev =>
-        prev.map(a => a.id === aporteSeleccionado.id ? { ...a, estado: 'rechazado', nota_admin: notaRechazoAporte.trim() } : a)
+        prev.map(a => a.id === aporteSeleccionado.id ? { ...a, estado: 'rechazada', nota_admin: notaRechazoAporte.trim() } : a)
       );
       toast.success('Aporte rechazado y asociado notificado');
       setIsRechazarAporteOpen(false);
@@ -766,11 +776,11 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
     setSavingSolicitud(true);
     try {
       await supabase
-        .from('solicitudes_ahorro')
+        .from('solicitudes')
         .update({
-          estado:      'rechazada',
-          nota_admin:  notaRechazo.trim(),
-          reviewed_at: new Date().toISOString(),
+          estado:           'rechazada',
+          nota_admin:       notaRechazo.trim(),
+          fecha_resolucion: new Date().toISOString(),
         })
         .eq('id', solicitudSeleccionada.id);
 

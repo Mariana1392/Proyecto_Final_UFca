@@ -167,18 +167,32 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
       if (userRole === 'admin') {
         const [{ data: sols }, { data: aportes }] = await Promise.all([
           supabase
-            .from('solicitudes_ahorro')
+            .from('solicitudes')
             .select('*, asociados(nombre, cedula)')
-            .eq('tipo', 'voluntario')
+            .eq('tipo', 'ahorro_voluntario')
             .order('created_at', { ascending: false }),
           supabase
-            .from('solicitudes_aporte')
+            .from('solicitudes')
             .select('*, asociados(nombre, cedula)')
-            .eq('tipo_ahorro', 'voluntario')
+            .eq('tipo', 'aporte_voluntario')
             .order('created_at', { ascending: false }),
         ]);
-        setSolicitudesVol(sols || []);
-        setAportesPendientesVol(aportes || []);
+        // Aplanar datos jsonb para compatibilidad con la UI
+        setSolicitudesVol((sols || []).map((s: any) => ({
+          ...s,
+          nombre_plan:    s.datos?.nombre_plan,
+          frecuencia:     s.datos?.frecuencia,
+          monto_inicial:  s.datos?.monto_inicial,
+          monto_objetivo: s.datos?.monto_objetivo,
+          nota_asociado:  s.datos?.nota_asociado,
+        })));
+        setAportesPendientesVol((aportes || []).map((ap: any) => ({
+          ...ap,
+          tipo_ahorro: 'voluntario',
+          fecha_pago:  ap.datos?.fecha_pago,
+          medio_pago:  ap.datos?.medio_pago,
+          nota:        ap.datos?.nota,
+        })));
       }
     } catch (err: any) {
       toast.error('Error al cargar ahorros voluntarios: ' + err.message);
@@ -662,8 +676,8 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
       });
 
       await supabase
-        .from('solicitudes_ahorro')
-        .update({ estado: 'aprobada', reviewed_at: new Date().toISOString() })
+        .from('solicitudes')
+        .update({ estado: 'aprobada', fecha_resolucion: new Date().toISOString() })
         .eq('id', sol.id);
 
       await supabase.from('notificaciones').insert({
@@ -708,8 +722,8 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
     setSavingSolVol(true);
     try {
       await supabase
-        .from('solicitudes_ahorro')
-        .update({ estado: 'rechazada', nota_admin: notaRechazoVol.trim(), reviewed_at: new Date().toISOString() })
+        .from('solicitudes')
+        .update({ estado: 'rechazada', nota_admin: notaRechazoVol.trim(), fecha_resolucion: new Date().toISOString() })
         .eq('id', solVolSeleccionada.id);
 
       await supabase.from('notificaciones').insert({
@@ -765,8 +779,8 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
         .eq('id', ap.ahorro_id);
 
       await supabase
-        .from('solicitudes_aporte')
-        .update({ estado: 'confirmado', reviewed_at: new Date().toISOString() })
+        .from('solicitudes')
+        .update({ estado: 'aprobada', fecha_resolucion: new Date().toISOString() })
         .eq('id', ap.id);
 
       await supabase.from('notificaciones').insert({
@@ -778,7 +792,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
       });
 
       setAportesPendientesVol(prev =>
-        prev.map(a => a.id === ap.id ? { ...a, estado: 'confirmado' } : a)
+        prev.map(a => a.id === ap.id ? { ...a, estado: 'aprobada' } : a)
       );
       setAhorros(prev =>
         prev.map(a => a.id === ap.ahorro_id ? { ...a, montoAhorrado: saldoNuevo } : a)
@@ -799,11 +813,11 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
     setSavingAporteVol(true);
     try {
       await supabase
-        .from('solicitudes_aporte')
+        .from('solicitudes')
         .update({
-          estado:      'rechazado',
-          nota_admin:  notaRechazoAporteVol.trim(),
-          reviewed_at: new Date().toISOString(),
+          estado:           'rechazada',
+          nota_admin:       notaRechazoAporteVol.trim(),
+          fecha_resolucion: new Date().toISOString(),
         })
         .eq('id', aporteVolSeleccionado.id);
 
@@ -816,7 +830,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
       });
 
       setAportesPendientesVol(prev =>
-        prev.map(a => a.id === aporteVolSeleccionado.id ? { ...a, estado: 'rechazado', nota_admin: notaRechazoAporteVol.trim() } : a)
+        prev.map(a => a.id === aporteVolSeleccionado.id ? { ...a, estado: 'rechazada', nota_admin: notaRechazoAporteVol.trim() } : a)
       );
       toast.success('Aporte rechazado y asociado notificado');
       setIsRechazarAporteVolOpen(false);

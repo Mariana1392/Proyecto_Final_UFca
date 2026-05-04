@@ -209,13 +209,31 @@ export default function MiSolicitud() {
     if (!user) return;
     try {
       const { data } = await supabase
-        .from('solicitudes_asociados')
-        .select('id,estado,nombres,apellidos,cedula,tipo_identificacion,telefono,direccion,ocupacion,ingreso_mensual,motivacion,documentos,observaciones,fecha_solicitud')
+        .from('solicitudes')
+        .select('*')
         .eq('usuario_id', user.id)
+        .eq('tipo', 'afiliacion')
         .order('fecha_solicitud', { ascending: false })
         .limit(1)
         .maybeSingle();
-      setSolicitud(data ?? null);
+      // Aplanar campos de datos jsonb para compatibilidad con el formulario
+      const mapped = data ? {
+        id:                  data.id,
+        estado:              data.estado,
+        observaciones:       data.observaciones ?? '',
+        fecha_solicitud:     data.fecha_solicitud,
+        nombres:             data.datos?.nombres ?? '',
+        apellidos:           data.datos?.apellidos ?? '',
+        cedula:              data.datos?.cedula ?? '',
+        tipo_identificacion: data.datos?.tipo_identificacion ?? '',
+        telefono:            data.datos?.telefono ?? '',
+        direccion:           data.datos?.direccion ?? '',
+        ocupacion:           data.datos?.ocupacion ?? '',
+        ingreso_mensual:     data.datos?.ingreso_mensual ?? '',
+        motivacion:          data.datos?.motivacion ?? '',
+        documentos:          data.datos?.documentos ?? [],
+      } : null;
+      setSolicitud(mapped ?? null);
     } catch { /* tabla puede no existir aún */ }
     setLoading(false);
   }
@@ -302,64 +320,59 @@ export default function MiSolicitud() {
       const nombres   = partes.slice(0, mitad).join(' ');
       const apellidos = partes.slice(mitad).join(' ') || nombres;
 
-      // Payload base (columnas que siempre existen)
-      const payloadBase: Record<string, any> = {
-        usuario_id:      user.id,
+      // Todos los campos personales van en datos jsonb
+      const datosPayload = {
         nombres,
         apellidos,
-        email:           user.email,
-        cedula:          cedula.trim(),
-        telefono:        telefono.trim()       || null,
-        direccion:       direccion.trim()      || null,
-        ocupacion:       ocupacion.trim()      || null,
-        ingreso_mensual: ingresoMensual.trim() || null,
-        motivacion:      motivacion.trim()     || null,
-        fecha_solicitud: new Date().toISOString(),
-        estado:          'pendiente',
-        observaciones:   null,
-      };
-
-      // Intentar con las columnas nuevas primero; si fallan, reintentar sin ellas
-      const payloadCompleto = {
-        ...payloadBase,
+        email:              user.email,
+        cedula:             cedula.trim(),
         tipo_identificacion: tipoId,
-        documentos:          urls,
+        telefono:           telefono.trim()       || null,
+        direccion:          direccion.trim()      || null,
+        ocupacion:          ocupacion.trim()      || null,
+        ingreso_mensual:    ingresoMensual.trim() || null,
+        motivacion:         motivacion.trim()     || null,
+        documentos:         urls,
       };
 
       let error: any;
 
-      const guardar = async (payload: Record<string, any>) => {
+      const guardar = async () => {
         // Si ya tenemos el id de la solicitud → actualizar directamente
         if (solicitud?.id) {
-          return supabase.from('solicitudes_asociados').update(payload).eq('id', solicitud.id);
+          return supabase
+            .from('solicitudes')
+            .update({ datos: datosPayload, estado: 'pendiente' })
+            .eq('id', solicitud.id);
         }
-        // Intentar insertar; si hay conflicto de cédula (constraint unique),
-        // buscar el registro existente de ESTE usuario y actualizarlo
-        const result = await supabase.from('solicitudes_asociados').insert(payload);
-        if (result.error?.message?.includes('cedula_key') || result.error?.code === '23505') {
-          // Existe una solicitud con esta cédula — buscar si pertenece a este usuario
+        // Insertar nueva solicitud
+        const result = await supabase.from('solicitudes').insert({
+          tipo:            'afiliacion',
+          usuario_id:      user!.id,
+          estado:          'pendiente',
+          datos:           datosPayload,
+        });
+        if (result.error?.code === '23505') {
+          // Conflicto — buscar si ya hay solicitud de este usuario
           const { data: existente } = await supabase
-            .from('solicitudes_asociados')
+            .from('solicitudes')
             .select('id, usuario_id')
-            .eq('cedula', cedula.trim())
+            .eq('tipo', 'afiliacion')
+            .filter('datos->>cedula', 'eq', cedula.trim())
             .maybeSingle();
           if (existente?.usuario_id && existente.usuario_id !== user!.id) {
             throw new Error('Ya existe una solicitud registrada con esta cédula por otro usuario. Verifica el número de identificación.');
           }
           if (existente?.id) {
-            return supabase.from('solicitudes_asociados').update(payload).eq('id', existente.id);
+            return supabase.from('solicitudes')
+              .update({ datos: datosPayload, estado: 'pendiente' })
+              .eq('id', existente.id);
           }
         }
         return result;
       };
 
-      ({ error } = await guardar(payloadCompleto));
-
-      // Si falló por columna inexistente, reintentar solo con campos base
-      if (error && (error.message?.includes('column') || error.message?.includes('schema cache'))) {
-        console.warn('Columnas nuevas no disponibles, guardando sin tipo_identificacion/documentos:', error.message);
-        ({ error } = await guardar(payloadBase));
-      }
+      ({ error } = await guardar());
 
       if (error) throw error;
 

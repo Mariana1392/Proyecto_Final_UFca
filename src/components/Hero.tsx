@@ -242,9 +242,10 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin }: HeroP
     try {
       // ── 0. Verificar cédula duplicada ANTES de subir documentos ──────────
       const { data: existente } = await supabase
-        .from('solicitudes_asociados')
+        .from('solicitudes')
         .select('id, estado')
-        .eq('cedula', formData.cedula.trim())
+        .eq('tipo', 'afiliacion')
+        .filter('datos->>cedula', 'eq', formData.cedula.trim())
         .maybeSingle();
 
       if (existente) {
@@ -271,17 +272,20 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin }: HeroP
       setUploadingDocs(false);
 
       // ── 2. Guardar solicitud en la BD ────────────────────────────────────
-      const { error } = await supabase.from('solicitudes_asociados').insert({
-        nombres:         formData.nombres.trim(),
-        apellidos:       formData.apellidos.trim(),
-        cedula:          formData.cedula.trim(),
-        telefono:        formData.telefono.trim(),
-        email:           formData.email.trim(),
-        direccion:       formData.direccion.trim(),
-        ocupacion:       formData.ocupacion.trim(),
-        ingreso_mensual: formData.ingresoMensual,
-        motivacion:      formData.motivacion.trim(),
-        estado:          'pendiente',
+      const { error } = await supabase.from('solicitudes').insert({
+        tipo:   'afiliacion',
+        estado: 'pendiente',
+        datos: {
+          nombres:         formData.nombres.trim(),
+          apellidos:       formData.apellidos.trim(),
+          cedula:          formData.cedula.trim(),
+          telefono:        formData.telefono.trim(),
+          email:           formData.email.trim(),
+          direccion:       formData.direccion.trim(),
+          ocupacion:       formData.ocupacion.trim(),
+          ingreso_mensual: formData.ingresoMensual,
+          motivacion:      formData.motivacion.trim(),
+        },
       });
       if (error) throw error;
 
