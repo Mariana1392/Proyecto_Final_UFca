@@ -206,10 +206,8 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
         .from('asociados')
         .select(`
           *,
-          ahorro_permanente(id, monto_ahorrado, cuota_mensual, fecha_inicio, estado, anulado),
-          ahorro_voluntario(id, monto_ahorrado, cuota_mensual, fecha_inicio, estado, anulado),
+          ahorros(id, monto_ahorrado, cuota_mensual, fecha_inicio, estado, anulado, tipo),
           creditos(id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado),
-          eventos_inscritos(eventos(id, titulo, fecha, estado)),
           referidos:asociados!referido_por_id(id, nombre, cedula, fecha_ingreso, estado)
         `)
         .order('nombre');
@@ -265,10 +263,8 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
         .from('asociados')
         .select(`
           *,
-          ahorro_permanente(id, monto_ahorrado, cuota_mensual, fecha_inicio, estado, anulado),
-          ahorro_voluntario(id, monto_ahorrado, cuota_mensual, fecha_inicio, estado, anulado),
+          ahorros(id, monto_ahorrado, cuota_mensual, fecha_inicio, estado, anulado, tipo),
           creditos(id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado),
-          eventos_inscritos(eventos(id, titulo, fecha, estado)),
           referidos:asociados!referido_por_id(id, nombre, cedula, fecha_ingreso, estado)
         `)
         .order('nombre');
@@ -300,24 +296,14 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
           estadoReferido: r.estado === 'activo' ? 'Aprobado' : 'Inactivo',
           bonificacion: 50000,
         })),
-        ahorros: [
-          ...(a.ahorro_permanente || []).map((ah: any) => ({
-            id: ah.id,
-            tipo: 'Ahorro Permanente',
-            monto: ah.monto_ahorrado,
-            saldo: ah.monto_ahorrado,
-            fechaInicio: ah.fecha_inicio,
-            estado: ah.anulado ? 'Anulado' : (ah.estado ? 'Activo' : 'Inactivo'),
-          })),
-          ...(a.ahorro_voluntario || []).map((ah: any) => ({
-            id: ah.id,
-            tipo: 'Ahorro Voluntario',
-            monto: ah.monto_ahorrado,
-            saldo: ah.monto_ahorrado,
-            fechaInicio: ah.fecha_inicio,
-            estado: ah.anulado ? 'Anulado' : (ah.estado ? 'Activo' : 'Inactivo'),
-          })),
-        ],
+        ahorros: (a.ahorros || []).map((ah: any) => ({
+          id: ah.id,
+          tipo: ah.tipo === 'permanente' ? 'Ahorro Permanente' : 'Ahorro Voluntario',
+          monto: ah.monto_ahorrado,
+          saldo: ah.monto_ahorrado,
+          fechaInicio: ah.fecha_inicio,
+          estado: ah.anulado ? 'Anulado' : (ah.estado ? 'Activo' : 'Inactivo'),
+        })),
         creditos: (a.creditos || []).map((c: any) => ({
           id: c.id,
           tipo: 'Crédito',
@@ -329,17 +315,8 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
           plazo: `${c.plazo_meses} meses`,
           estado: c.anulado ? 'Anulado' : (c.estado ? 'Activo' : 'Inactivo'),
         })),
-        eventos: (a.eventos_inscritos || []).map((ei: any) => ({
-          id: ei.eventos?.id,
-          nombre: ei.eventos?.titulo,
-          fecha: ei.eventos?.fecha,
-          tipo: 'Evento',
-          participacion: 'Asistió',
-        })),
-        totalAhorros: [
-          ...(a.ahorro_permanente || []),
-          ...(a.ahorro_voluntario || []),
-        ].reduce((sum: number, ah: any) => sum + (ah.monto_ahorrado || 0), 0),
+        eventos: [],
+        totalAhorros: (a.ahorros || []).reduce((sum: number, ah: any) => sum + (ah.monto_ahorrado || 0), 0),
         totalCreditos: (a.creditos || [])
           .filter((c: any) => !c.anulado)
           .reduce((sum: number, c: any) => sum + (c.saldo || 0), 0),
@@ -1892,10 +1869,6 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
                     <div className="bg-white p-4 rounded-lg text-center">
                       <p className="text-xs text-slate-500 mb-1">Total Créditos</p>
                       <p className="text-xl font-bold text-blue-600">{formatCurrency(selectedAsociado.totalCreditos || 0)}</p>
-                    </div>
-                    <div className="bg-white p-4 rounded-lg text-center">
-                      <p className="text-xs text-slate-500 mb-1">Bonificaciones</p>
-                      <p className="text-xl font-bold text-purple-600">{formatCurrency(selectedAsociado.referidos?.reduce((sum: number, r: any) => sum + r.bonificacion, 0) || 0)}</p>
                     </div>
                   </div>
                 </div>
