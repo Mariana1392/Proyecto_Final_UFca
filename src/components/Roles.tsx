@@ -23,51 +23,21 @@ import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
-type PermisoKey = 'dashboard' | 'configuracion' | 'roles' | 'usuarios' | 'asociados' |
-  'ahorros' | 'creditos' | 'eventos' | 'compras' | 'ventas' | 'reportes' |
-  'mis_ahorros' | 'mis_creditos' | 'mi_solicitud';
+// PermisoKey ya no es un tipo fijo — los permisos vienen de la tabla `permisos` en la BD.
+// Se usa string genérico para compatibilidad con datos dinámicos.
+type PermisoKey = string;
 
-interface Permiso { key: PermisoKey; label: string; acciones: string[]; }
-interface AuditEntry { id: string; accion: string; detalle: string; fecha: string; usuario: string; }
-
-// Permisos del sistema administrador
-const PERMISOS_ADMIN_KEYS: PermisoKey[] = [
-  'dashboard', 'configuracion', 'roles', 'usuarios', 'asociados',
-  'ahorros', 'creditos', 'eventos', 'compras', 'ventas', 'reportes',
-];
-// Permisos del asociado (módulos propios)
-const PERMISOS_ASOCIADO_KEYS: PermisoKey[] = ['dashboard', 'mis_ahorros', 'mis_creditos'];
-// Permisos del usuario normal (pre-asociado)
-const PERMISOS_USUARIO_KEYS: PermisoKey[] = ['dashboard', 'mi_solicitud'];
-
-/** Devuelve los permisos que aplican al tipo de rol dado */
-function getPermisosAplicables(nombreDb: string): PermisoKey[] {
-  if (nombreDb === 'admin' || nombreDb === 'administrador') return PERMISOS_ADMIN_KEYS;
-  if (nombreDb === 'asociado') return PERMISOS_ASOCIADO_KEYS;
-  if (nombreDb === 'usuario')  return PERMISOS_USUARIO_KEYS;
-  return PERMISOS_CONFIG.map(p => p.key); // roles personalizados: todos aplican
+// Estructura que devuelve la tabla `permisos`
+interface DBPermiso {
+  clave:       string;
+  label:       string;
+  descripcion: string | null;
+  grupo:       'admin' | 'asociado' | 'usuario';
 }
 
-const PERMISOS_CONFIG: Permiso[] = [
-  // ── Admin ──────────────────────────────────────────────────────────────────
-  { key: 'dashboard',     label: 'Dashboard',               acciones: ['ver', 'estadísticas'] },
-  { key: 'configuracion', label: 'Configuración',           acciones: ['ver', 'crear', 'editar', 'eliminar'] },
-  { key: 'roles',         label: 'Gestión de Roles',        acciones: ['ver', 'crear', 'editar', 'eliminar'] },
-  { key: 'usuarios',      label: 'Gestión de Usuarios',     acciones: ['ver', 'crear', 'editar', 'eliminar'] },
-  { key: 'asociados',     label: 'Gestión de Asociados',    acciones: ['ver', 'crear', 'editar', 'eliminar'] },
-  { key: 'ahorros',       label: 'Módulo de Ahorros',       acciones: ['ver', 'crear', 'editar'] },
-  { key: 'creditos',      label: 'Módulo de Créditos',      acciones: ['ver', 'crear', 'editar', 'aprobar'] },
-  { key: 'eventos',       label: 'Módulo de Eventos',       acciones: ['ver', 'crear', 'editar'] },
-  { key: 'compras',       label: 'Módulo de Compras',       acciones: ['ver', 'crear', 'editar'] },
-  { key: 'ventas',        label: 'Módulo de Ventas',        acciones: ['ver', 'crear', 'editar'] },
-  { key: 'reportes',      label: 'Reportes y Estadísticas', acciones: ['ver', 'exportar'] },
-  // ── Asociado ───────────────────────────────────────────────────────────────
-  { key: 'mis_ahorros',   label: 'Mis Ahorros',             acciones: ['ver'] },
-  { key: 'mis_creditos',  label: 'Mis Créditos',            acciones: ['ver'] },
-  // ── Usuario ────────────────────────────────────────────────────────────────
-  { key: 'mi_solicitud',  label: 'Mi Solicitud',            acciones: ['ver', 'crear', 'editar'] },
-];
+interface AuditEntry { id: string; accion: string; detalle: string; fecha: string; usuario: string; }
 
+// Permiso mínimo que todo rol debe conservar
 const PERMISOS_MINIMOS: PermisoKey[] = ['dashboard'];
 
 // Los permisos de cada rol se leen siempre desde la base de datos (roles.permisos)
@@ -127,10 +97,13 @@ export default function Roles({ userRole }: RolesProps) {
     });
   };
 
-  // El filtrado por nombre de rol ha sido eliminado; se mantiene solo el filtro por permisos
+  // ── Catálogo de permisos cargado desde la BD ─────────────────────────────
+  const [permisosDisponibles, setPermisosDisponibles] = useState<DBPermiso[]>([]);
+
+  // formData — permisos es Record<clave, boolean>, construido dinámicamente desde la BD
   const [formData, setFormData] = useState({
     nombre: '', descripcion: '',
-    permisos: Object.fromEntries(PERMISOS_CONFIG.map(p => [p.key, false])) as Record<PermisoKey, boolean>
+    permisos: {} as Record<string, boolean>,
   });
 
   // ── Estado Supabase ───────────────────────────────────────────────────────
@@ -147,17 +120,28 @@ export default function Roles({ userRole }: RolesProps) {
         { data, error },
         { data: conteos },
         { data: auditoriaData },
+        { data: permisosData },
       ] = await Promise.all([
-        supabase.from('roles').select('*, label').order('label, nombre'),
-        // Contar usuarios por rol de forma confiable
+        supabase.from('roles')
+          .select('id, nombre, label, descripcion, activo, es_sistema, created_at, rol_permisos(permiso_clave)')
+          .order('label, nombre'),
         supabase.from('usuarios').select('rol_id').eq('activo', true),
         supabase.from('auditoria').select('*')
           .eq('tabla', 'roles')
           .order('created_at', { ascending: false })
           .limit(50),
+        // ── Catálogo de permisos desde la tabla permisos ──────────────────────
+        supabase.from('permisos')
+          .select('clave, label, descripcion, grupo')
+          .eq('activo', true)
+          .order('grupo'),
       ]);
 
       if (error) throw error;
+
+      // Guardar catálogo de permisos en estado
+      const catalogoPermisos: DBPermiso[] = (permisosData ?? []) as DBPermiso[];
+      setPermisosDisponibles(catalogoPermisos);
 
       // Mapa de conteos por rol_id
       const conteoMap: Record<string, number> = {};
@@ -165,25 +149,26 @@ export default function Roles({ userRole }: RolesProps) {
         if (u.rol_id) conteoMap[u.rol_id] = (conteoMap[u.rol_id] || 0) + 1;
       });
 
-      // Mapear roles: todos leen permisos directamente desde la BD
+      // Mapear roles — permisos desde rol_permisos (tabla relacional)
       const mapeados = (data || []).map((r: any) => {
-        const permisosRaw: string[] = Array.isArray(r.permisos) ? r.permisos : [];
-        // Fuente única de verdad: la BD — aplica igual para roles del sistema y personalizados
+        const permisosRaw: string[] = Array.isArray(r.rol_permisos)
+          ? r.rol_permisos.map((rp: any) => rp.permiso_clave).filter(Boolean)
+          : [];
+        // Construir mapa clave→boolean usando el catálogo dinámico
         const permisos = Object.fromEntries(
-          PERMISOS_CONFIG.map(p => [p.key, permisosRaw.includes(p.key)])
-        ) as Record<PermisoKey, boolean>;
+          catalogoPermisos.map(p => [p.clave, permisosRaw.includes(p.clave)])
+        ) as Record<string, boolean>;
 
         return {
           id:               r.id,
-          // Usar label de la BD; si no existe (migración pendiente) usar traducción fallback
           nombre:           r.label ?? (r.nombre === 'admin' ? 'Administrador' : r.nombre === 'asociado' ? 'Asociado' : r.nombre),
           nombre_db:        r.nombre,
           descripcion:      r.descripcion ?? '',
           permisos,
+          permisosClaves:   permisosRaw, // array puro para referencias rápidas
           cantidadUsuarios: conteoMap[r.id] ?? 0,
           estado:           r.activo ?? true,
-          // Usa el campo es_sistema de la BD + nombres conocidos como doble protección
-          esSistema:        r.es_sistema === true || r.nombre === 'admin' || r.nombre === 'administrador' || r.nombre === 'asociado' || r.nombre === 'usuario',
+          esSistema:        r.es_sistema === true || ['admin', 'administrador', 'asociado', 'usuario'].includes(r.nombre),
           fechaCreacion:    r.created_at ? new Date(r.created_at).toLocaleDateString('es-CO') : '—',
         };
       });
@@ -198,6 +183,8 @@ export default function Roles({ userRole }: RolesProps) {
         usuario: a.detalle?.usuario ?? 'Sistema',
       }));
       setAuditLog(auditMapeada);
+
+      return mapeados;
 
     } catch (err: any) {
       toast.error('Error al cargar roles: ' + err.message);
@@ -264,7 +251,8 @@ export default function Roles({ userRole }: RolesProps) {
   const handleOpenCreate = () => {
     setFormData({
       nombre: '', descripcion: '',
-      permisos: Object.fromEntries(PERMISOS_CONFIG.map(p => [p.key, false])) as Record<PermisoKey, boolean>
+      // Inicializar todos los permisos del catálogo en false
+      permisos: Object.fromEntries(permisosDisponibles.map(p => [p.clave, false])),
     });
     setIsCreateDialogOpen(true);
   };
@@ -273,7 +261,14 @@ export default function Roles({ userRole }: RolesProps) {
     const rolActual = roles.find(r => r.id === rol.id);
     if (!rolActual) { toast.error('El rol ya no está disponible.'); return; }
     setSelectedItem(rolActual);
-    setFormData({ nombre: rolActual.nombre, descripcion: rolActual.descripcion, permisos: { ...rolActual.permisos } });
+    setFormData({
+      nombre: rolActual.nombre,
+      descripcion: rolActual.descripcion,
+      // Construir mapa desde el catálogo — true si el rol tiene ese permiso
+      permisos: Object.fromEntries(
+        permisosDisponibles.map(p => [p.clave, !!rolActual.permisos[p.clave]])
+      ),
+    });
     setIsEditDialogOpen(true);
   };
 
@@ -291,20 +286,27 @@ export default function Roles({ userRole }: RolesProps) {
     if (permisosActivos === 0) { toast.error('Error: Debe seleccionar al menos un permiso.'); return; }
 
     try {
+      const clavesSeleccionadas = permisosToArray(formData.permisos);
+      // Crear el rol (sin la columna permisos jsonb — se usa rol_permisos)
       const { data, error } = await supabase.from('roles')
-        .insert({ nombre: nombreTrim.toLowerCase(), label: nombreTrim, descripcion: descTrim, permisos: permisosToArray(formData.permisos), activo: true })
+        .insert({ nombre: nombreTrim.toLowerCase(), label: nombreTrim, descripcion: descTrim, activo: true })
         .select().single();
       if (error) throw error;
 
-      setRoles(prev => [...prev, {
-        id: data.id, nombre: nombreTrim, nombre_db: nombreTrim.toLowerCase(),
-        descripcion: descTrim, permisos: { ...formData.permisos },
-        cantidadUsuarios: 0, estado: true, esSistema: false,
-        fechaCreacion: new Date().toLocaleDateString('es-CO'),
-      }]);
+      // Insertar permisos en la tabla relacional
+      if (clavesSeleccionadas.length > 0) {
+        const inserts = clavesSeleccionadas.map(clave => ({ rol_id: data.id, permiso_clave: clave }));
+        const { error: permError } = await supabase.from('rol_permisos').insert(inserts);
+        if (permError) throw permError;
+      }
+
+      const rolesActualizados = await cargarRoles();
+      const rolNuevo = rolesActualizados?.find((r: any) => r.id === data.id);
+      if (rolNuevo) setSelectedItem(rolNuevo);
+
       addAuditEntry('ROL CREADO', `Se creó el rol "${nombreTrim}" con ${permisosActivos} permisos por ${usuarioActualNombre}`, data.id);
       toast.success('✅ Rol creado exitosamente', {
-        description: `"${nombreTrim}" con ${permisosActivos} de ${PERMISOS_CONFIG.length} permisos`, duration: 4000,
+        description: `"${nombreTrim}" con ${permisosActivos} de ${permisosDisponibles.length} permisos`, duration: 4000,
       });
       setIsCreateDialogOpen(false);
     } catch (err: any) {
@@ -329,29 +331,33 @@ export default function Roles({ userRole }: RolesProps) {
     const permisosActivos = Object.values(formData.permisos).filter(v => v).length;
     if (permisosActivos === 0) { setResultMessage('El rol debe tener al menos un permiso.'); setIsErrorDialogOpen(true); return; }
 
+    const snapId = selectedItem.id;
+    const clavesSeleccionadas = permisosToArray(formData.permisos);
     try {
-      const updatePayload: any = {
-        descripcion: descTrim,
-        permisos:    permisosToArray(formData.permisos),
-      };
-      // Siempre actualizar el label (nombre de pantalla)
-      updatePayload.label = nombreTrim;
-      // Solo actualizar el nombre interno si no es un rol del sistema
-      if (!selectedItem.esSistema) {
-        updatePayload.nombre = nombreTrim.toLowerCase();
-      }
+      // 1. Actualizar metadatos del rol
+      const updatePayload: any = { descripcion: descTrim, label: nombreTrim };
+      if (!selectedItem.esSistema) updatePayload.nombre = nombreTrim.toLowerCase();
 
-      const { error } = await supabase.from('roles')
-        .update(updatePayload)
-        .eq('id', selectedItem.id);
+      const { error } = await supabase.from('roles').update(updatePayload).eq('id', snapId);
       if (error) throw error;
 
-      const updatedRol = { ...selectedItem, nombre: nombreTrim, descripcion: descTrim, permisos: { ...formData.permisos } };
-      setRoles(prev => prev.map(r => r.id === selectedItem.id ? updatedRol : r));
-      setSelectedItem(updatedRol);
-      addAuditEntry('ROL EDITADO', `Se actualizó "${nombreTrim}" por ${usuarioActualNombre}`, selectedItem.id);
+      // 2. Reemplazar permisos en rol_permisos: borrar todos y reinsertar
+      const { error: delError } = await supabase.from('rol_permisos').delete().eq('rol_id', snapId);
+      if (delError) throw delError;
+      if (clavesSeleccionadas.length > 0) {
+        const inserts = clavesSeleccionadas.map(clave => ({ rol_id: snapId, permiso_clave: clave }));
+        const { error: permError } = await supabase.from('rol_permisos').insert(inserts);
+        if (permError) throw permError;
+      }
+
+      // 3. Recargar desde BD y reflejar en selectedItem
+      const rolesActualizados = await cargarRoles();
+      const rolActualizado = rolesActualizados?.find((r: any) => r.id === snapId);
+      if (rolActualizado) setSelectedItem(rolActualizado);
+
+      addAuditEntry('ROL EDITADO', `Se actualizó "${nombreTrim}" por ${usuarioActualNombre}`, snapId);
       toast.success('✏️ Rol actualizado exitosamente', {
-        description: `"${nombreTrim}" con ${permisosActivos} permisos`, duration: 4000,
+        description: `"${nombreTrim}" con ${clavesSeleccionadas.length} permisos`, duration: 4000,
       });
       setIsEditDialogOpen(false);
     } catch (err: any) {
@@ -444,25 +450,34 @@ export default function Roles({ userRole }: RolesProps) {
   // Paso 2: guardar después de confirmar
   const handleExecuteAddPermisos = async () => {
     if (!selectedItem || permisosToAdd.length === 0) return;
-    const nuevosPermisos = { ...selectedItem.permisos };
-    permisosToAdd.forEach(p => { nuevosPermisos[p] = true; });
+    const snapId       = selectedItem.id;
+    const snapNombre   = selectedItem.nombre;
+    const snapAdd      = [...permisosToAdd];
+    const snapClaves   = [...(selectedItem.permisosClaves ?? [])];
+    setIsConfirmAddDialogOpen(false);
+    setPermisosToAdd([]);
     try {
-      const { error } = await supabase.from('roles').update({ permisos: permisosToArray(nuevosPermisos) }).eq('id', selectedItem.id);
+      // Insertar nuevos permisos en rol_permisos (solo los que no existen ya)
+      const porAgregar = snapAdd.filter(c => !snapClaves.includes(c));
+      if (porAgregar.length === 0) {
+        toast.error('Esos permisos ya están asignados al rol.');
+        return;
+      }
+      const inserts = porAgregar.map(clave => ({ rol_id: snapId, permiso_clave: clave }));
+      const { error } = await supabase.from('rol_permisos').insert(inserts);
       if (error) throw error;
-      const updatedRol = { ...selectedItem, permisos: nuevosPermisos };
-      setRoles(prev => prev.map(r => r.id === selectedItem.id ? updatedRol : r));
-      setSelectedItem(updatedRol);
-      const labels = permisosToAdd.map(p => PERMISOS_CONFIG.find(c => c.key === p)?.label).join(', ');
-      addAuditEntry('PERMISOS AGREGADOS', `Permisos agregados a "${selectedItem.nombre}": ${labels} por ${usuarioActualNombre}`, selectedItem.id);
-      const total = Object.values(nuevosPermisos).filter(v => v).length;
-      toast.success(`${permisosToAdd.length} permiso(s) agregado(s)`, {
-        description: `"${selectedItem.nombre}" ahora tiene ${total} de ${PERMISOS_CONFIG.length} permisos`, duration: 4000,
-      });
+
+      // Recargar desde BD y reflejar en selectedItem
+      const rolesActualizados = await cargarRoles();
+      const rolActualizado = rolesActualizados?.find((r: any) => r.id === snapId);
+      if (rolActualizado) setSelectedItem(rolActualizado);
+
+      const labels = snapAdd.map(p => permisosDisponibles.find(c => c.clave === p)?.label ?? p).join(', ');
+      addAuditEntry('PERMISOS AGREGADOS', `Permisos agregados a "${snapNombre}": ${labels} por ${usuarioActualNombre}`, snapId);
+      toast.success(`${snapAdd.length} permiso(s) agregado(s)`, { duration: 4000 });
     } catch (err: any) {
       toast.error('Error al agregar permisos: ' + err.message);
     }
-    setIsConfirmAddDialogOpen(false);
-    setPermisosToAdd([]);
   };
 
   const handleTogglePermisoToRemove = (permisoKey: PermisoKey) => {
@@ -486,7 +501,7 @@ export default function Roles({ userRole }: RolesProps) {
     }
     const faltanMinimos = PERMISOS_MINIMOS.filter(m => !restantes.includes(m));
     if (faltanMinimos.length > 0) {
-      const labels = faltanMinimos.map(m => PERMISOS_CONFIG.find(p => p.key === m)?.label).join(', ');
+      const labels = faltanMinimos.map(m => permisosDisponibles.find(p => p.clave === m)?.label ?? m).join(', ');
       toast.error('Acción bloqueada: acceso mínimo requerido', {
         description: `No se puede eliminar porque el rol quedaría sin: ${labels}`,
         duration: 5000,
@@ -498,47 +513,52 @@ export default function Roles({ userRole }: RolesProps) {
 
   const handleConfirmRemovePermiso = async () => {
     if (!selectedItem || permisosToRemove.length === 0) return;
-    const nuevosPermisos = { ...selectedItem.permisos };
-    permisosToRemove.forEach(k => { nuevosPermisos[k] = false; });
-
+    const snapId       = selectedItem.id;
+    const snapNombre   = selectedItem.nombre;
+    const snapRemove   = [...permisosToRemove];
+    const snapClaves   = [...(selectedItem.permisosClaves ?? [])];
+    setIsRemovePermisoDialogOpen(false);
+    setPermisosToRemove([]);
     try {
-      const { error } = await supabase.from('roles').update({ permisos: permisosToArray(nuevosPermisos) }).eq('id', selectedItem.id);
+      // Eliminar permisos de rol_permisos
+      const { error } = await supabase.from('rol_permisos')
+        .delete()
+        .eq('rol_id', snapId)
+        .in('permiso_clave', snapRemove);
       if (error) throw error;
-      const updatedRol = { ...selectedItem, permisos: nuevosPermisos };
-      setRoles(prev => prev.map(r => r.id === selectedItem.id ? updatedRol : r));
-      setSelectedItem(updatedRol);
-      const labels = permisosToRemove.map(k => PERMISOS_CONFIG.find(p => p.key === k)?.label).join(', ');
-      const total  = Object.values(nuevosPermisos).filter(v => v).length;
+
+      // Recargar desde BD y reflejar en selectedItem
+      const rolesActualizados = await cargarRoles();
+      const rolActualizado = rolesActualizados?.find((r: any) => r.id === snapId);
+      if (rolActualizado) setSelectedItem(rolActualizado);
+
+      const labels = snapRemove.map(k => permisosDisponibles.find(p => p.clave === k)?.label ?? k).join(', ');
       addAuditEntry(
         'PERMISO(S) ELIMINADO(S)',
-        `Se eliminaron ${permisosToRemove.length} permiso(s) de "${selectedItem.nombre}": ${labels} — por ${usuarioActualNombre}`,
-        selectedItem.id,
+        `Se eliminaron ${snapRemove.length} permiso(s) de "${snapNombre}": ${labels} — por ${usuarioActualNombre}`,
+        snapId,
       );
-      toast.success(`🗑️ ${permisosToRemove.length} permiso(s) eliminado(s)`, {
-        description: `"${selectedItem.nombre}" ahora tiene ${total} de ${PERMISOS_CONFIG.length} permisos`, duration: 4000,
-      });
+      toast.success(`🗑️ ${snapRemove.length} permiso(s) eliminado(s)`, { duration: 4000 });
     } catch (err: any) {
       toast.error('Error al eliminar permisos: ' + err.message);
     }
-    setIsRemovePermisoDialogOpen(false);
-    setPermisosToRemove([]);
   };
 
-  // Badges: muestra exactamente los permisos activos según la BD (sin filtros adicionales)
-  const getPermisosBadges = (permisos: Record<PermisoKey, boolean>) =>
+  // Badges: muestra los permisos activos con labels desde el catálogo de la BD
+  const getPermisosBadges = (permisos: Record<string, boolean>) =>
     Object.entries(permisos)
       .filter(([, v]) => v)
-      .map(([key]) => (
-        <Badge key={key} variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-          {PERMISOS_CONFIG.find(p => p.key === key)?.label || key}
+      .map(([clave]) => (
+        <Badge key={clave} variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+          {permisosDisponibles.find(p => p.clave === clave)?.label ?? clave}
         </Badge>
       ));
 
-  const getPermisosActivosCount = (permisos: Record<PermisoKey, boolean>) =>
+  const getPermisosActivosCount = (permisos: Record<string, boolean>) =>
     Object.values(permisos).filter(Boolean).length;
 
-  const getTotalPermisosAplicables = (nombreDb?: string) =>
-    nombreDb ? getPermisosAplicables(nombreDb).length : PERMISOS_CONFIG.length;
+  // Total de permisos disponibles según el catálogo de la BD
+  const getTotalPermisosAplicables = () => permisosDisponibles.length;
 
   const handleClearHistory = async () => {
     try {
@@ -620,8 +640,8 @@ export default function Roles({ userRole }: RolesProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todos</SelectItem>
-                    {PERMISOS_CONFIG.map(p => (
-                      <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>
+                    {permisosDisponibles.map(p => (
+                      <SelectItem key={p.clave} value={p.clave}>{p.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -761,9 +781,9 @@ export default function Roles({ userRole }: RolesProps) {
                                     setPermisosToAdd([]);
                                     setIsAddPermisosDialogOpen(true);
                                   }}
-                                  title={PERMISOS_CONFIG.every(p => rol.permisos[p.key]) ? 'El rol ya tiene todos los permisos' : 'Agregar permiso'}
-                                  disabled={PERMISOS_CONFIG.every(p => rol.permisos[p.key])}
-                                  className={PERMISOS_CONFIG.every(p => rol.permisos[p.key]) ? 'opacity-40 cursor-not-allowed' : 'text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300'}
+                                  title={permisosDisponibles.every(p => rol.permisos[p.clave]) ? 'El rol ya tiene todos los permisos' : 'Agregar permiso'}
+                                  disabled={permisosDisponibles.every(p => rol.permisos[p.clave])}
+                                  className={permisosDisponibles.every(p => rol.permisos[p.clave]) ? 'opacity-40 cursor-not-allowed' : 'text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300'}
                                 >
                                   <ShieldPlus className="size-4" />
                                 </Button>
@@ -996,37 +1016,50 @@ export default function Roles({ userRole }: RolesProps) {
                   Debe seleccionar al menos un permiso para el rol
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3">
-                {PERMISOS_CONFIG.map((permiso) => (
-                  <div
-                    key={permiso.key}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                      formData.permisos[permiso.key]
-                        ? 'bg-emerald-50 border-emerald-300'
-                        : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-                    }`}
-                    onClick={() => handlePermisoChange(permiso.key)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={formData.permisos[permiso.key]}
-                          onCheckedChange={() => handlePermisoChange(permiso.key)}
-                        />
-                        <div>
-                          <Label className="cursor-pointer">{permiso.label}</Label>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            {permiso.acciones.join(', ')}
-                          </p>
+              {(['admin', 'asociado', 'usuario'] as const).map(grupo => {
+                const grupoPermisos = permisosDisponibles.filter(p => p.grupo === grupo);
+                const grupoLabel = grupo === 'admin' ? 'Administración del sistema' : grupo === 'asociado' ? 'Módulos del asociado' : 'Usuario en espera';
+                const grupoColor = grupo === 'admin' ? 'text-blue-700 bg-blue-50 border-blue-200' : grupo === 'asociado' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-slate-600 bg-slate-50 border-slate-200';
+                return (
+                  <div key={grupo} className="space-y-2">
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-semibold uppercase tracking-wide ${grupoColor}`}>
+                      <Shield className="size-3" />
+                      {grupoLabel}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {grupoPermisos.map((permiso) => (
+                        <div
+                          key={permiso.clave}
+                          className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                            formData.permisos[permiso.clave]
+                              ? 'bg-emerald-50 border-emerald-300'
+                              : 'bg-white border-slate-200 hover:border-slate-300'
+                          }`}
+                          onClick={() => handlePermisoChange(permiso.clave)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-2">
+                              <Checkbox
+                                checked={!!formData.permisos[permiso.clave]}
+                                onCheckedChange={() => handlePermisoChange(permiso.clave)}
+                              />
+                              <div>
+                                <Label className="cursor-pointer text-sm">{permiso.label}</Label>
+                                {permiso.descripcion && (
+                                  <p className="text-xs text-slate-400 mt-0.5">{permiso.descripcion}</p>
+                                )}
+                              </div>
+                            </div>
+                            {formData.permisos[permiso.clave] && (
+                              <Check className="size-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      {formData.permisos[permiso.key] && (
-                        <Check className="size-4 text-emerald-600 shrink-0" />
-                      )}
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
           </div>
 
@@ -1042,7 +1075,7 @@ export default function Roles({ userRole }: RolesProps) {
       {/* ===== MODAL EDITAR ROL ===== */}
       <Dialog open={isEditDialogOpen} onOpenChange={(open: boolean) => {
         setIsEditDialogOpen(open);
-        if (!open) setSelectedItem(null);
+        // No resetear selectedItem — el panel de detalles debe seguir abierto tras editar
       }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1122,40 +1155,60 @@ export default function Roles({ userRole }: RolesProps) {
                   Debe mantener al menos un permiso activo
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3">
-                {PERMISOS_CONFIG.map((permiso) => (
-                  <div
-                    key={permiso.key}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                      formData.permisos[permiso.key]
-                        ? 'bg-emerald-50 border-emerald-300'
-                        : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-                    }`}
-                    onClick={() => handlePermisoChange(permiso.key)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={formData.permisos[permiso.key]}
-                          onCheckedChange={() => handlePermisoChange(permiso.key)}
-                        />
-                        <div>
-                          <Label className="cursor-pointer">{permiso.label}</Label>
-                          <p className="text-xs text-slate-500 mt-0.5">{permiso.acciones.join(', ')}</p>
+              {(['admin', 'asociado', 'usuario'] as const).map(grupo => {
+                const grupoPermisos = permisosDisponibles.filter(p => p.grupo === grupo);
+                const grupoLabel = grupo === 'admin' ? 'Administración del sistema' : grupo === 'asociado' ? 'Módulos del asociado' : 'Usuario en espera';
+                const grupoColor = grupo === 'admin' ? 'text-blue-700 bg-blue-50 border-blue-200' : grupo === 'asociado' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-slate-600 bg-slate-50 border-slate-200';
+                return (
+                  <div key={grupo} className="space-y-2">
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-semibold uppercase tracking-wide ${grupoColor}`}>
+                      <Shield className="size-3" />
+                      {grupoLabel}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {grupoPermisos.map((permiso) => (
+                        <div
+                          key={permiso.clave}
+                          className={`p-3 rounded-lg border-2 transition-all ${
+                            selectedItem?.esSistema
+                              ? 'cursor-not-allowed opacity-60'
+                              : 'cursor-pointer'
+                          } ${
+                            formData.permisos[permiso.clave]
+                              ? 'bg-emerald-50 border-emerald-300'
+                              : 'bg-white border-slate-200 hover:border-slate-300'
+                          }`}
+                          onClick={() => !selectedItem?.esSistema && handlePermisoChange(permiso.clave)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-2">
+                              <Checkbox
+                                checked={!!formData.permisos[permiso.clave]}
+                                disabled={selectedItem?.esSistema}
+                                onCheckedChange={() => !selectedItem?.esSistema && handlePermisoChange(permiso.clave)}
+                              />
+                              <div>
+                                <Label className={`text-sm ${selectedItem?.esSistema ? 'cursor-not-allowed' : 'cursor-pointer'}`}>{permiso.label}</Label>
+                                {permiso.descripcion && (
+                                  <p className="text-xs text-slate-400 mt-0.5">{permiso.descripcion}</p>
+                                )}
+                              </div>
+                            </div>
+                            {formData.permisos[permiso.clave] && (
+                              <Check className="size-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      {formData.permisos[permiso.key] && (
-                        <Check className="size-4 text-emerald-600 shrink-0" />
-                      )}
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setSelectedItem(null); }}>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancelar
             </Button>
             <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleEditRol}>
@@ -1233,7 +1286,7 @@ export default function Roles({ userRole }: RolesProps) {
                   <div>
                     <Label className="text-slate-500 text-xs">Permisos activos</Label>
                     <p className="font-semibold mt-1 text-emerald-700">
-                      {getPermisosActivosCount(selectedItem.permisos)} de {getTotalPermisosAplicables(selectedItem.nombre_db)} permisos
+                      {getPermisosActivosCount(selectedItem.permisos)} de {getTotalPermisosAplicables()} permisos
                     </p>
                   </div>
                 </div>
@@ -1245,7 +1298,7 @@ export default function Roles({ userRole }: RolesProps) {
                   <div>
                     <h4 className="font-semibold text-slate-900">Permisos del rol</h4>
                     <p className="text-sm text-slate-500">
-                      {getPermisosActivosCount(selectedItem.permisos)} de {getTotalPermisosAplicables(selectedItem.nombre_db)} permisos activos
+                      {getPermisosActivosCount(selectedItem.permisos)} de {getTotalPermisosAplicables()} permisos activos
                       {permisosToRemove.length > 0 && (
                         <span className="ml-2 text-red-600 font-medium">· {permisosToRemove.length} seleccionado(s) para eliminar</span>
                       )}
@@ -1267,7 +1320,7 @@ export default function Roles({ userRole }: RolesProps) {
                       size="sm"
                       className="bg-emerald-600 hover:bg-emerald-700 gap-2"
                       onClick={handleOpenAddPermisos}
-                      disabled={PERMISOS_CONFIG.every(p => selectedItem.permisos[p.key])}
+                      disabled={permisosDisponibles.every(p => selectedItem.permisos[p.clave])}
                     >
                       <Plus className="size-4" />
                       Agregar permisos
@@ -1297,46 +1350,19 @@ export default function Roles({ userRole }: RolesProps) {
 
                   {isPermisosExpanded && (
                     <div className="divide-y divide-slate-100">
-                      {/* Primero los permisos que aplican al rol, luego los bloqueados */}
-                      {(() => {
-                        const aplicables = getPermisosAplicables(selectedItem.nombre_db);
-                        const propios    = PERMISOS_CONFIG.filter(p => aplicables.includes(p.key));
-                        const bloqueados = PERMISOS_CONFIG.filter(p => !aplicables.includes(p.key));
-                        return [...propios, ...bloqueados];
-                      })().map((permiso) => {
-                        const aplicables  = getPermisosAplicables(selectedItem.nombre_db);
-                        const esBloqueado = !aplicables.includes(permiso.key);
-                        const activo      = selectedItem.permisos[permiso.key];
-                        const seleccionado = permisosToRemove.includes(permiso.key);
-                        const esMinimo    = PERMISOS_MINIMOS.includes(permiso.key);
+                      {/* Todos los permisos del catálogo — activos primero */}
+                      {[...permisosDisponibles].sort((a, b) => {
+                        const aActivo = selectedItem.permisos[a.clave] ? 1 : 0;
+                        const bActivo = selectedItem.permisos[b.clave] ? 1 : 0;
+                        return bActivo - aActivo;
+                      }).map((permiso) => {
+                        const activo      = !!selectedItem.permisos[permiso.clave];
+                        const seleccionado = permisosToRemove.includes(permiso.clave);
+                        const esMinimo    = PERMISOS_MINIMOS.includes(permiso.clave);
 
-                        // ── Permiso bloqueado (no aplica a este rol) ──────────
-                        if (esBloqueado) {
-                          return (
-                            <div
-                              key={permiso.key}
-                              className="flex items-center justify-between p-4 bg-slate-50/60 opacity-60"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-slate-200">
-                                  <Lock className="size-4 text-slate-400" />
-                                </div>
-                                <div>
-                                  <p className="text-sm font-medium text-slate-400">{permiso.label}</p>
-                                  <p className="text-xs text-slate-400">No aplica para este rol</p>
-                                </div>
-                              </div>
-                              <Badge variant="outline" className="bg-slate-100 text-slate-400 border-slate-200 gap-1">
-                                <Lock className="size-3" /> Bloqueado
-                              </Badge>
-                            </div>
-                          );
-                        }
-
-                        // ── Permiso normal (aplica al rol) ────────────────────
                         return (
                           <div
-                            key={permiso.key}
+                            key={permiso.clave}
                             className={`flex items-center justify-between p-4 transition-colors ${
                               seleccionado
                                 ? 'bg-red-50 border-l-2 border-red-400'
@@ -1347,7 +1373,7 @@ export default function Roles({ userRole }: RolesProps) {
                               {activo ? (
                                 <Checkbox
                                   checked={seleccionado}
-                                  onCheckedChange={() => handleTogglePermisoToRemove(permiso.key)}
+                                  onCheckedChange={() => handleTogglePermisoToRemove(permiso.clave)}
                                   className="border-slate-300 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
                                 />
                               ) : (
@@ -1369,12 +1395,11 @@ export default function Roles({ userRole }: RolesProps) {
                                     </Badge>
                                   )}
                                 </div>
-                                <p className={`text-xs ${
-                                  seleccionado ? 'text-red-500' :
-                                  activo ? 'text-emerald-600' : 'text-slate-400'
-                                }`}>
-                                  {activo ? `Acciones: ${permiso.acciones.join(', ')}` : 'Sin acceso'}
-                                </p>
+                                {permiso.descripcion && (
+                                  <p className={`text-xs ${seleccionado ? 'text-red-500' : activo ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                    {permiso.descripcion}
+                                  </p>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -1387,21 +1412,15 @@ export default function Roles({ userRole }: RolesProps) {
                                   )}
                                   <Button
                                     variant="ghost" size="sm"
-                                    className={`h-8 w-8 p-0 ${
-                                      seleccionado
-                                        ? 'text-red-600 bg-red-100 hover:bg-red-200'
-                                        : 'text-red-400 hover:text-red-700 hover:bg-red-50'
-                                    }`}
-                                    onClick={() => handleTogglePermisoToRemove(permiso.key)}
+                                    className={`h-8 w-8 p-0 ${seleccionado ? 'text-red-600 bg-red-100 hover:bg-red-200' : 'text-red-400 hover:text-red-700 hover:bg-red-50'}`}
+                                    onClick={() => handleTogglePermisoToRemove(permiso.clave)}
                                     title={seleccionado ? 'Quitar selección' : 'Seleccionar para eliminar'}
                                   >
                                     <Trash2 className="size-4" />
                                   </Button>
                                 </>
                               ) : (
-                                <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200">
-                                  Inactivo
-                                </Badge>
+                                <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200">Inactivo</Badge>
                               )}
                             </div>
                           </div>
@@ -1478,7 +1497,8 @@ export default function Roles({ userRole }: RolesProps) {
       {/* ===== DIALOG AGREGAR PERMISOS ===== */}
       <Dialog open={isAddPermisosDialogOpen} onOpenChange={(open) => {
         setIsAddPermisosDialogOpen(open);
-        if (!open) { setPermisosToAdd([]); setSelectedItem(null); }
+        if (!open) { setPermisosToAdd([]); }
+        // No resetear selectedItem — el panel de detalles debe seguir abierto
       }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -1491,52 +1511,40 @@ export default function Roles({ userRole }: RolesProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-3 max-h-80 overflow-y-auto">
-            {selectedItem && PERMISOS_CONFIG
-              .filter(p => !selectedItem.permisos[p.key])
-              .length === 0 ? (
+            {selectedItem && permisosDisponibles.filter(p => !selectedItem.permisos[p.clave]).length === 0 ? (
               <div className="text-center py-8 text-slate-400">
                 <Check className="size-10 mx-auto mb-2 text-emerald-400" />
                 <p>El rol ya tiene todos los permisos disponibles asignados</p>
               </div>
             ) : (
-              PERMISOS_CONFIG
-                .filter(p => selectedItem && !selectedItem.permisos[p.key])
+              permisosDisponibles
+                .filter(p => selectedItem && !selectedItem.permisos[p.clave])
                 .map((permiso) => (
                   <div
-                    key={permiso.key}
+                    key={permiso.clave}
                     className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                      permisosToAdd.includes(permiso.key)
+                      permisosToAdd.includes(permiso.clave)
                         ? 'bg-emerald-50 border-emerald-300'
                         : 'bg-slate-50 border-slate-200 hover:border-emerald-200'
                     }`}
-                    onClick={() => {
-                      setPermisosToAdd(prev =>
-                        prev.includes(permiso.key)
-                          ? prev.filter(p => p !== permiso.key)
-                          : [...prev, permiso.key]
-                      );
-                    }}
+                    onClick={() => setPermisosToAdd(prev =>
+                      prev.includes(permiso.clave) ? prev.filter(p => p !== permiso.clave) : [...prev, permiso.clave]
+                    )}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Checkbox
-                          checked={permisosToAdd.includes(permiso.key)}
-                          onCheckedChange={() => {
-                            setPermisosToAdd(prev =>
-                              prev.includes(permiso.key)
-                                ? prev.filter(p => p !== permiso.key)
-                                : [...prev, permiso.key]
-                            );
-                          }}
+                          checked={permisosToAdd.includes(permiso.clave)}
+                          onCheckedChange={() => setPermisosToAdd(prev =>
+                            prev.includes(permiso.clave) ? prev.filter(p => p !== permiso.clave) : [...prev, permiso.clave]
+                          )}
                         />
                         <div>
                           <p className="text-sm font-medium">{permiso.label}</p>
-                          <p className="text-xs text-slate-500">{permiso.acciones.join(', ')}</p>
+                          {permiso.descripcion && <p className="text-xs text-slate-500">{permiso.descripcion}</p>}
                         </div>
                       </div>
-                      {permisosToAdd.includes(permiso.key) && (
-                        <Check className="size-4 text-emerald-600" />
-                      )}
+                      {permisosToAdd.includes(permiso.clave) && <Check className="size-4 text-emerald-600" />}
                     </div>
                   </div>
                 ))
@@ -1549,7 +1557,7 @@ export default function Roles({ userRole }: RolesProps) {
             </p>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsAddPermisosDialogOpen(false); setPermisosToAdd([]); setSelectedItem(null); }}>
+            <Button variant="outline" onClick={() => { setIsAddPermisosDialogOpen(false); setPermisosToAdd([]); }}>
               Cancelar
             </Button>
             <Button
@@ -1579,37 +1587,33 @@ export default function Roles({ userRole }: RolesProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-3 max-h-80 overflow-y-auto">
-            {selectedItem && PERMISOS_CONFIG.filter(p => selectedItem.permisos[p.key]).length === 0 ? (
+            {selectedItem && permisosDisponibles.filter(p => selectedItem.permisos[p.clave]).length === 0 ? (
               <div className="text-center py-8 text-slate-400">
                 <ShieldMinus className="size-10 mx-auto mb-2 text-slate-300" />
                 <p>Este rol no tiene permisos activos para eliminar</p>
               </div>
             ) : (
-              PERMISOS_CONFIG
-                .filter(p => selectedItem && selectedItem.permisos[p.key])
+              permisosDisponibles
+                .filter(p => selectedItem && selectedItem.permisos[p.clave])
                 .map((permiso) => {
-                  const seleccionado = permisosToRemove.includes(permiso.key);
-                  const esMinimo = PERMISOS_MINIMOS.includes(permiso.key);
+                  const seleccionado = permisosToRemove.includes(permiso.clave);
+                  const esMinimo = PERMISOS_MINIMOS.includes(permiso.clave);
                   const activosRestantes = selectedItem
-                    ? PERMISOS_CONFIG.filter(p => selectedItem.permisos[p.key]).length
+                    ? permisosDisponibles.filter(p => selectedItem.permisos[p.clave]).length
                     : 0;
                   const bloqueado = esMinimo || (activosRestantes - permisosToRemove.length <= 1 && !seleccionado);
                   return (
                     <div
-                      key={permiso.key}
+                      key={permiso.clave}
                       className={`p-3 rounded-lg border-2 transition-all ${
-                        bloqueado
-                          ? 'bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed'
-                          : seleccionado
-                            ? 'bg-red-50 border-red-300 cursor-pointer'
-                            : 'bg-slate-50 border-slate-200 hover:border-red-200 cursor-pointer'
+                        bloqueado ? 'bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed'
+                          : seleccionado ? 'bg-red-50 border-red-300 cursor-pointer'
+                          : 'bg-slate-50 border-slate-200 hover:border-red-200 cursor-pointer'
                       }`}
                       onClick={() => {
                         if (bloqueado) return;
                         setPermisosToRemove(prev =>
-                          prev.includes(permiso.key)
-                            ? prev.filter(p => p !== permiso.key)
-                            : [...prev, permiso.key]
+                          prev.includes(permiso.clave) ? prev.filter(p => p !== permiso.clave) : [...prev, permiso.clave]
                         );
                       }}
                     >
@@ -1621,9 +1625,7 @@ export default function Roles({ userRole }: RolesProps) {
                             onCheckedChange={() => {
                               if (bloqueado) return;
                               setPermisosToRemove(prev =>
-                                prev.includes(permiso.key)
-                                  ? prev.filter(p => p !== permiso.key)
-                                  : [...prev, permiso.key]
+                                prev.includes(permiso.clave) ? prev.filter(p => p !== permiso.clave) : [...prev, permiso.clave]
                               );
                             }}
                             className="border-slate-300 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
@@ -1639,7 +1641,7 @@ export default function Roles({ userRole }: RolesProps) {
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-xs text-slate-500">{permiso.acciones.join(', ')}</p>
+                            {permiso.descripcion && <p className="text-xs text-slate-500">{permiso.descripcion}</p>}
                           </div>
                         </div>
                         {seleccionado && <Trash2 className="size-4 text-red-500 shrink-0" />}
@@ -1686,24 +1688,25 @@ export default function Roles({ userRole }: RolesProps) {
               <ShieldPlus className="size-5" />
               ¿Agregar {permisosToAdd.length === 1 ? 'este permiso' : `estos ${permisosToAdd.length} permisos`}?
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <span className="block">
+            {/* div en lugar de AlertDialogDescription para evitar <ul> dentro de <p> (HTML inválido) */}
+            <div className="text-muted-foreground text-sm space-y-3">
+              <p>
                 Estás a punto de agregar los siguientes permisos al rol <strong className="text-slate-900">"{selectedItem?.nombre}"</strong>.
                 Los usuarios con este rol ganarán acceso a los módulos correspondientes.
-              </span>
-              <ul className="space-y-1.5 mt-2">
+              </p>
+              <div className="space-y-1.5">
                 {permisosToAdd.map(k => {
-                  const cfg = PERMISOS_CONFIG.find(p => p.key === k);
+                  const cfg = permisosDisponibles.find(p => p.clave === k);
                   return (
-                    <li key={k} className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-1.5">
+                    <div key={k} className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-1.5">
                       <ShieldPlus className="size-3.5 shrink-0" />
                       <span className="font-medium">{cfg?.label}</span>
-                      <span className="text-emerald-400">— {cfg?.acciones.join(', ')}</span>
-                    </li>
+                      {cfg?.descripcion && <span className="text-emerald-400">— {cfg.descripcion}</span>}
+                    </div>
                   );
                 })}
-              </ul>
-            </AlertDialogDescription>
+              </div>
+            </div>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setPermisosToAdd([])}>Cancelar</AlertDialogCancel>
@@ -1720,7 +1723,8 @@ export default function Roles({ userRole }: RolesProps) {
       {/* ===== ALERT ELIMINAR PERMISO(S) ===== */}
       <AlertDialog open={isRemovePermisoDialogOpen} onOpenChange={(open) => {
         setIsRemovePermisoDialogOpen(open);
-        if (!open) { setPermisosToRemove([]); setSelectedItem(null); }
+        if (!open) { setPermisosToRemove([]); }
+        // No resetear selectedItem — el panel de detalles debe seguir abierto
       }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1728,24 +1732,25 @@ export default function Roles({ userRole }: RolesProps) {
               <Trash2 className="size-5" />
               ¿Eliminar {permisosToRemove.length === 1 ? 'este permiso' : `estos ${permisosToRemove.length} permisos`}?
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <span className="block">
+            {/* div en lugar de AlertDialogDescription para evitar <div> dentro de <p> (HTML inválido) */}
+            <div className="text-muted-foreground text-sm space-y-3">
+              <p>
                 Estás a punto de eliminar los siguientes permisos del rol <strong className="text-slate-900">"{selectedItem?.nombre}"</strong>.
                 Los usuarios con este rol perderán acceso a los módulos correspondientes.
-              </span>
-              <ul className="space-y-1.5 mt-2">
+              </p>
+              <div className="space-y-1.5">
                 {permisosToRemove.map(k => {
-                  const cfg = PERMISOS_CONFIG.find(p => p.key === k);
+                  const cfg = permisosDisponibles.find(p => p.clave === k);
                   return (
-                    <li key={k} className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-1.5">
+                    <div key={k} className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-1.5">
                       <Trash2 className="size-3.5 shrink-0" />
                       <span className="font-medium">{cfg?.label}</span>
-                      <span className="text-red-400">— {cfg?.acciones.join(', ')}</span>
-                    </li>
+                      {cfg?.descripcion && <span className="text-red-400">— {cfg.descripcion}</span>}
+                    </div>
                   );
                 })}
-              </ul>
-            </AlertDialogDescription>
+              </div>
+            </div>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setPermisosToRemove([])}>Cancelar</AlertDialogCancel>

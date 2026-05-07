@@ -56,13 +56,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data } = await supabase
         .from('usuarios')
-        .select('id,nombre,email,username,identificacion,activo,rol_id,asociado_id,roles(nombre,label,permisos),asociados(cedula)')
+        .select('id,nombre,email,username,identificacion,activo,rol_id,asociado_id,roles(nombre,label,rol_permisos(permiso_clave)),asociados(cedula)')
         .eq('id', userId)
         .single();
       if (!data || !data.activo) return;
       const rolNombre  = (data as any).roles?.nombre ?? 'usuario';
       const rolLabelDB = (data as any).roles?.label  ?? undefined;
-      const dbPermisos = Array.isArray((data as any).roles?.permisos) ? (data as any).roles.permisos : [];
+      // Leer permisos desde rol_permisos (tabla relacional)
+      const dbPermisos: string[] = Array.isArray((data as any).roles?.rol_permisos)
+        ? (data as any).roles.rol_permisos.map((rp: any) => rp.permiso_clave).filter(Boolean)
+        : [];
       setU({
         id:          data.id,
         nombre:      data.nombre,
@@ -109,13 +112,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('usuarios')
-        .select('id,nombre,email,username,identificacion,activo,rol_id,asociado_id,roles(nombre,label,permisos),asociados(cedula)')
+        .select('id,nombre,email,username,identificacion,activo,rol_id,asociado_id,roles(nombre,label,rol_permisos(permiso_clave)),asociados(cedula)')
         .eq('id', user.id).single();
       if (error || !data || !data.activo) { setU(null); return; }
       const rolNombre  = (data as any).roles?.nombre ?? user.rol;
       const rolLabelDB = (data as any).roles?.label  ?? undefined;
-      const dbPermisos = Array.isArray((data as any).roles?.permisos) ? (data as any).roles.permisos : [];
-      // Actualizar TODOS los campos, incluyendo nombre, email y telefono
+      // Leer permisos desde rol_permisos (tabla relacional)
+      const dbPermisos: string[] = Array.isArray((data as any).roles?.rol_permisos)
+        ? (data as any).roles.rol_permisos.map((rp: any) => rp.permiso_clave).filter(Boolean)
+        : [];
       setU({
         ...user,
         nombre:      data.nombre,
