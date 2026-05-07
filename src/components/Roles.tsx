@@ -236,9 +236,10 @@ export default function Roles({ userRole }: RolesProps) {
       const { error } = await supabase.from('roles').update({ activo: !rol.estado }).eq('id', id);
       if (error) throw error;
       setRoles(prev => prev.map(r => r.id === id ? { ...r, estado: !r.estado } : r));
-      addAuditEntry(!rol.estado ? 'ROL ACTIVADO' : 'ROL DESACTIVADO',
+      await addAuditEntry(!rol.estado ? 'ROL ACTIVADO' : 'ROL DESACTIVADO',
         `El rol "${rol.nombre}" fue ${!rol.estado ? 'activado' : 'desactivado'} por ${usuarioActualNombre} el ${new Date().toLocaleString('es-CO')}`,
         id);
+      await cargarRoles();
       toast.success(`${!rol.estado ? '✅ Rol activado' : '⏸️ Rol desactivado'}`, {
         description: `"${rol.nombre}" ha sido ${!rol.estado ? 'activado' : 'desactivado'} exitosamente`, duration: 4000,
       });
@@ -415,10 +416,12 @@ export default function Roles({ userRole }: RolesProps) {
     }
 
     setRoles(prev => prev.filter(r => r.id !== selectedItem.id));
-    addAuditEntry(
+    await addAuditEntry(
       'ROL ELIMINADO',
       `El rol "${rolActual.nombre}" fue eliminado permanentemente por ${usuarioActualNombre}`,
     );
+    // Recargar para que el historial muestre el registro de eliminación
+    await cargarRoles();
     toast.success('Rol eliminado exitosamente', {
       description: `"${rolActual.nombre}" eliminado del sistema`, duration: 4000,
     });
