@@ -5,12 +5,8 @@ import { Badge } from './ui/badge';
 import {
   PiggyBank, Wallet, CreditCard, TrendingUp,
   ArrowRight, User, Bell, Star, Gift, ChevronRight,
-  CheckCircle2, Clock, AlertCircle, Coins, BarChart3,
+  CheckCircle2, Clock, AlertCircle, Coins,
 } from 'lucide-react';
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, PieChart, Pie, Cell,
-} from 'recharts';
 import { supabase } from '../lib/supabase';
 
 interface Props {
@@ -27,15 +23,6 @@ const fmtCompact = (n: number) =>
     notation: n >= 1_000_000 ? 'compact' : 'standard',
   }).format(n);
 
-// Devuelve el label corto del mes en español
-function mesLabel(date: Date) {
-  return date.toLocaleDateString('es-CO', { month: 'short' });
-}
-
-// Devuelve la clave 'YYYY-MM' de una fecha
-function mesKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-}
 
 export default function DashboardAsociado({ userData, onNavigate }: Props) {
   const [data, setData] = useState({
@@ -47,7 +34,6 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
   });
   const [movimientos, setMovimientos] = useState<any[]>([]);
   const [creditos, setCreditos]       = useState<any[]>([]);
-  const [chartData, setChartData]     = useState<{ mes: string; total: number }[]>([]);
   const [loading, setLoading]         = useState(true);
 
   useEffect(() => {
@@ -57,13 +43,7 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
 
   async function cargar(asociadoId: string) {
     try {
-      // Fecha de inicio: hace 6 meses (día 1)
-      const inicio = new Date();
-      inicio.setMonth(inicio.getMonth() - 5);
-      inicio.setDate(1);
-      inicio.setHours(0, 0, 0, 0);
-
-      const [ahorroRes, creditoRes, movRes, movChart, referidosRes] = await Promise.all([
+      const [ahorroRes, creditoRes, movRes, referidosRes] = await Promise.all([
         // Ahorros actuales
         supabase.from('ahorros')
           .select('tipo, monto_ahorrado, estado, anulado')
@@ -83,13 +63,6 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
           .eq('asociado_id', asociadoId)
           .order('created_at', { ascending: false })
           .limit(7),
-
-        // Movimientos de los últimos 6 meses (para el gráfico)
-        supabase.from('movimientos_ahorro')
-          .select('tipo_movimiento, monto, created_at')
-          .eq('asociado_id', asociadoId)
-          .gte('created_at', inicio.toISOString())
-          .order('created_at', { ascending: true }),
 
         // Referidos
         supabase.from('asociados')
@@ -123,38 +96,6 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
         .slice(0, 5);
       setMovimientos(movsProcesados);
 
-      // ── Construir gráfico con datos reales ─────────────────────────────────
-      // Tipos de movimiento que SUMAN al saldo
-      const POSITIVOS = new Set(['abono', 'deposito', 'apertura', 'inicial', 'credito', 'ingreso']);
-
-      // Agrupar delta por mes (clave 'YYYY-MM')
-      const deltaMap: Record<string, number> = {};
-      for (const m of (movChart.data || [])) {
-        const key = (m.created_at as string).substring(0, 7);
-        const esPositivo = POSITIVOS.has((m.tipo_movimiento || '').toLowerCase());
-        const delta = esPositivo ? (m.monto || 0) : -(m.monto || 0);
-        deltaMap[key] = (deltaMap[key] || 0) + delta;
-      }
-
-      // Construir array de los últimos 6 meses con labels
-      const meses: { key: string; label: string }[] = [];
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date();
-        d.setMonth(d.getMonth() - i);
-        meses.push({ key: mesKey(d), label: mesLabel(d) });
-      }
-
-      // Reconstruir balance histórico trabajando HACIA ATRÁS desde el total actual
-      // balance_fin(mes) = totalActual  para el mes actual
-      // balance_fin(mes-1) = balance_fin(mes) - delta(mes)
-      const balanceFin: Record<string, number> = {};
-      balanceFin[meses[5].key] = totalActual;
-      for (let i = 4; i >= 0; i--) {
-        const siguienteKey = meses[i + 1].key;
-        balanceFin[meses[i].key] = Math.max(0, balanceFin[siguienteKey] - (deltaMap[siguienteKey] || 0));
-      }
-
-      setChartData(meses.map(m => ({ mes: m.label, total: Math.max(0, balanceFin[m.key]) })));
 
     } catch (e) {
       console.error('Error cargando dashboard asociado:', e);
@@ -165,10 +106,6 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
 
   const totalAhorros = data.ahorroPerm + data.ahorroVol;
 
-  const pieData = [
-    { name: 'Ahorro Permanente', value: data.ahorroPerm, color: '#10b981' },
-    { name: 'Ahorro Voluntario', value: data.ahorroVol,  color: '#3b82f6' },
-  ].filter(d => d.value > 0);
 
   const nombre = userData?.name || userData?.nombre || 'Asociado';
   const hora   = new Date().getHours();
@@ -310,99 +247,6 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
         </Card>
       </div>
 
-      {/* ── Gráficas ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-        {/* Evolución de ahorros — datos 100% reales */}
-        <Card className="lg:col-span-2 border-0 shadow-md">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-semibold text-slate-800">Evolución de ahorros</CardTitle>
-                <p className="text-xs text-slate-500 mt-0.5">Balance real de los últimos 6 meses</p>
-              </div>
-              <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <BarChart3 className="size-4 text-emerald-600" />
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {totalAhorros > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gradAhorros" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false}
-                    tickFormatter={v => v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${(v / 1_000).toFixed(0)}K` : String(v)}
-                  />
-                  <Tooltip
-                    formatter={(v: any) => [fmt(v), 'Total ahorros']}
-                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: 12 }}
-                  />
-                  <Area type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2.5}
-                    fill="url(#gradAhorros)" dot={{ fill: '#10b981', r: 3 }} activeDot={{ r: 5 }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[200px] flex flex-col items-center justify-center text-slate-400 gap-2">
-                <PiggyBank className="size-10 opacity-30" />
-                <p className="text-sm">Aún no tienes ahorros registrados</p>
-                <Button size="sm" variant="outline" className="mt-1 text-emerald-600 border-emerald-200"
-                  onClick={() => onNavigate?.('ahorro-permanente')}>
-                  Comenzar a ahorrar
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Distribución */}
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold text-slate-800">Distribución</CardTitle>
-            <p className="text-xs text-slate-500">Composición de mis ahorros</p>
-          </CardHeader>
-          <CardContent>
-            {pieData.length > 0 ? (
-              <>
-                <ResponsiveContainer width="100%" height={150}>
-                  <PieChart>
-                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={68}
-                      dataKey="value" paddingAngle={3}>
-                      {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                    </Pie>
-                    <Tooltip formatter={(v: any) => fmt(v)}
-                      contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: 12 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="space-y-2 mt-2">
-                  {pieData.map(d => (
-                    <div key={d.name} className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <div className="size-2.5 rounded-full" style={{ background: d.color }} />
-                        <span className="text-slate-600">{d.name}</span>
-                      </div>
-                      <span className="font-semibold text-slate-800">{fmtCompact(d.value)}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="h-[180px] flex flex-col items-center justify-center text-slate-400 gap-2">
-                <Wallet className="size-8 opacity-30" />
-                <p className="text-xs text-center">Sin datos para mostrar</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
 
       {/* ── Fila inferior ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
