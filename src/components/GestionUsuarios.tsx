@@ -18,6 +18,9 @@ import { rolLabel } from '../lib/permissions';
 // ── Helpers ───────────────────────────────────────────────────────────────────
 // rolLabel viene de '../lib/permissions' — no redefinir aquí
 
+/** Devuelve true si la identificación contiene alguna letra (dato inválido) */
+const tieneLetrasId = (id: string) => id ? /[a-zA-Z]/.test(id) : false;
+
 const getRolColor = (rol: string) => {
   if (rol === 'admin' || rol === 'Administrador')                   return 'bg-emerald-100 text-emerald-700';
   if (rol === 'asociado' || rol === 'Asociado')                     return 'bg-blue-100 text-blue-700';
@@ -253,7 +256,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         { data: creditos },
         { data: pedidos },
       ] = await Promise.all([
-        supabase.from('ahorro_permanente').select('id').eq('asociado_id', asociadoId).eq('estado', true).eq('anulado', false).limit(1),
+        supabase.from('ahorros').select('id').eq('asociado_id', asociadoId).eq('estado', true).eq('anulado', false).limit(1),
         supabase.from('creditos').select('id').eq('asociado_id', asociadoId).in('estado', ['activo', 'pendiente', 'aprobado']).limit(1),
         supabase.from('pedidos').select('id').eq('asociado_id', asociadoId).in('estado', ['pendiente', 'aprobado']).limit(1),
       ]);
@@ -349,7 +352,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
   const handleCreate = async () => {
     if (!formData.identificacion.trim()) { toast.error('La identificación es obligatoria'); return; }
     if (!/^\d+$/.test(formData.identificacion.trim())) { toast.error('La identificación solo debe contener números'); return; }
-    if (formData.identificacion.trim().length > 12)    { toast.error('La identificación no puede superar 12 dígitos'); return; }
+    if (formData.identificacion.trim().length > 15)    { toast.error('La identificación no puede superar 15 dígitos'); return; }
     if (!formData.username.trim())       { toast.error('El nombre de usuario es obligatorio'); return; }
     if (!formData.nombre.trim())         { toast.error('El nombre es obligatorio'); return; }
     if (!formData.email.trim())          { toast.error('El correo electrónico es obligatorio'); return; }
@@ -449,8 +452,12 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
   // ── Editar ───────────────────────────────────────────────────────────────────
   const handleOpenEdit = (usuario: any) => {
     setSelectedUsuario(usuario);
+    // Si la identificación contiene letras (dato inválido), limpiarla
+    // para obligar al admin a ingresar una identificación numérica válida.
+    const idActual = usuario.identificacion ?? '';
+    const idLimpia = tieneLetrasId(idActual) ? '' : idActual;
     setFormData({
-      identificacion: usuario.identificacion,
+      identificacion: idLimpia,
       username:       usuario.username,
       nombre:         usuario.nombre,
       email:          usuario.email,
@@ -468,7 +475,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     if (!formData.nombre.trim())         { toast.error('El nombre es obligatorio'); return; }
     if (!formData.identificacion.trim()) { toast.error('La identificación es obligatoria'); return; }
     if (!/^\d+$/.test(formData.identificacion.trim())) { toast.error('La identificación solo debe contener números'); return; }
-    if (formData.identificacion.trim().length > 12)    { toast.error('La identificación no puede superar 12 dígitos'); return; }
+    if (formData.identificacion.trim().length > 15)    { toast.error('La identificación no puede superar 15 dígitos'); return; }
     if (!formData.username.trim())       { toast.error('El nombre de usuario es obligatorio'); return; }
     if (!formData.email.trim())          { toast.error('El correo electrónico es obligatorio'); return; }
     if (formData.telefono.trim().length > 15) { toast.error('El teléfono no puede superar 15 caracteres'); return; }
@@ -568,18 +575,13 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     if (selectedUsuario.asociado_id) {
       try {
         const id = selectedUsuario.asociado_id;
-        const [creditosRes, ahorroPermRes, ahorroVolRes, pedidosRes] = await Promise.all([
+        const [creditosRes, ahorrosRes, pedidosRes] = await Promise.all([
           supabase.from('creditos').select('id')
             .eq('asociado_id', id)
             .eq('anulado', false)
             .in('estado', ['pendiente', 'aprobado', 'desembolsado', 'en_mora', 'activo'])
             .limit(1),
-          supabase.from('ahorro_permanente').select('id')
-            .eq('asociado_id', id)
-            .eq('estado', true)
-            .eq('anulado', false)
-            .limit(1),
-          supabase.from('ahorro_voluntario').select('id')
+          supabase.from('ahorros').select('id')
             .eq('asociado_id', id)
             .eq('estado', true)
             .eq('anulado', false)
@@ -591,10 +593,9 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         ]);
 
         const bloqueos: string[] = [];
-        if ((creditosRes.data?.length  ?? 0) > 0) bloqueos.push('créditos');
-        if ((ahorroPermRes.data?.length ?? 0) > 0) bloqueos.push('ahorros permanentes');
-        if ((ahorroVolRes.data?.length  ?? 0) > 0) bloqueos.push('ahorros voluntarios');
-        if ((pedidosRes.data?.length    ?? 0) > 0) bloqueos.push('pedidos');
+        if ((creditosRes.data?.length ?? 0) > 0) bloqueos.push('créditos');
+        if ((ahorrosRes.data?.length  ?? 0) > 0) bloqueos.push('ahorros activos');
+        if ((pedidosRes.data?.length  ?? 0) > 0) bloqueos.push('pedidos');
 
         if (bloqueos.length > 0) {
           toast.error('No se puede eliminar este asociado', {
@@ -804,7 +805,18 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                           </div>
                         </TableCell>
                         <TableCell>
-                          <p className="text-sm text-slate-600">{usuario.identificacion}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm text-slate-600">{usuario.identificacion}</p>
+                            {tieneLetrasId(usuario.identificacion) && (
+                              <span
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300"
+                                title="Identificación inválida: contiene letras. Edita el usuario para corregirla."
+                              >
+                                <AlertTriangle className="size-2.5" />
+                                Actualizar
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge className={getRolColor(usuario.rol)}>{usuario.rol}</Badge>
@@ -1033,13 +1045,13 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="c-identificacion">Identificación * <span className="text-xs text-slate-400 font-normal">(solo números, máx. 12)</span></Label>
+                <Label htmlFor="c-identificacion">Identificación * <span className="text-xs text-slate-400 font-normal">(solo números, máx. 15)</span></Label>
                 <Input id="c-identificacion" placeholder="1010123456"
                   inputMode="numeric"
-                  maxLength={12}
+                  maxLength={15}
                   value={formData.identificacion}
                   onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '').slice(0, 12);
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 15);
                     setFormData(prev => ({ ...prev, identificacion: val }));
                   }} />
               </div>
@@ -1140,15 +1152,25 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
             <DialogDescription>Actualiza la información del usuario</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Alerta cuando la identificación original tenía letras */}
+            {selectedUsuario && tieneLetrasId(selectedUsuario.identificacion ?? '') && (
+              <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-300 rounded-lg text-amber-800 text-sm">
+                <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-600" />
+                <span>
+                  Este usuario tenía la identificación <strong>"{selectedUsuario.identificacion}"</strong> con letras, lo cual no es válido.
+                  Por favor ingresa un número de documento correcto (solo dígitos, máx. 15).
+                </span>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="e-identificacion">Identificación * <span className="text-xs text-slate-400 font-normal">(solo números, máx. 12)</span></Label>
+                <Label htmlFor="e-identificacion">Identificación * <span className="text-xs text-slate-400 font-normal">(solo números, máx. 15)</span></Label>
                 <Input id="e-identificacion" placeholder="1010123456"
                   inputMode="numeric"
-                  maxLength={12}
+                  maxLength={15}
                   value={formData.identificacion}
                   onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '').slice(0, 12);
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 15);
                     setFormData(prev => ({ ...prev, identificacion: val }));
                   }} />
               </div>
@@ -1268,11 +1290,19 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                   </div>
                   <div>
                     <Label className="text-xs text-slate-500">Identificación</Label>
-                    <p className="text-sm font-medium text-slate-900 mt-0.5">
-                      {selectedUsuario.identificacion && !selectedUsuario.identificacion.includes('-')
-                        ? selectedUsuario.identificacion
-                        : '—'}
-                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-sm font-medium text-slate-900">
+                        {selectedUsuario.identificacion && !selectedUsuario.identificacion.includes('-')
+                          ? selectedUsuario.identificacion
+                          : '—'}
+                      </p>
+                      {tieneLetrasId(selectedUsuario.identificacion ?? '') && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300">
+                          <AlertTriangle className="size-2.5" />
+                          Requiere actualización
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <Label className="text-xs text-slate-500">Teléfono</Label>
