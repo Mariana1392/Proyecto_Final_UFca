@@ -63,6 +63,11 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
   const [isDeleteDialogOpen, setIsDeleteDialogOpen]             = useState(false);
   const [isToggleEstadoDialogOpen, setIsToggleEstadoDialogOpen] = useState(false);
   const [selectedUsuario, setSelectedUsuario]                   = useState<any>(null);
+  const [isFixIdModalOpen, setIsFixIdModalOpen]                 = useState(false);
+  const [fixIdUsuario, setFixIdUsuario]                         = useState<any>(null);
+  const [fixIdValue, setFixIdValue]                             = useState('');
+  const [fixIdError, setFixIdError]                             = useState('');
+  const [fixIdLoading, setFixIdLoading]                         = useState(false);
   const itemsPerPage = 10;
 
   const [auditoria, setAuditoria]           = useState<any[]>([]);
@@ -109,6 +114,27 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
 
     // Usuarios normales
     const ROLES_SISTEMA = ['admin', 'administrador'];
+
+    // Auto-sincronizar identificacion desde asociados cuando está vacía o tiene letras
+    const sincronizaciones: Promise<any>[] = [];
+    for (const u of (usData || [])) {
+      const idActual = u.identificacion ?? '';
+      const necesitaSync = !idActual || /[a-zA-Z]/.test(idActual);
+      if (necesitaSync && u.asociado_id) {
+        const asoc = (asociadosData || []).find((a: any) => a.id === u.asociado_id);
+        if (asoc?.cedula && /^\d+$/.test(asoc.cedula)) {
+          // Actualizar identificacion en BD usando la cedula del asociado
+          sincronizaciones.push(
+            supabase.from('usuarios')
+              .update({ identificacion: asoc.cedula })
+              .eq('id', u.id)
+              .then(() => { u.identificacion = asoc.cedula; }) // mutamos local para el mapeo
+          );
+        }
+      }
+    }
+    if (sincronizaciones.length > 0) await Promise.all(sincronizaciones);
+
     const usuariosMapeados = (usData || []).map((u: any) => {
       const rolDb = u.roles?.nombre ?? 'usuario';
       return {
@@ -658,6 +684,55 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     setSelectedUsuario(null);
   };
 
+  // ── Corregir identificación (modal rápido) ───────────────────────────────────
+  const handleOpenFixId = (usuario: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFixIdUsuario(usuario);
+    setFixIdValue('');
+    setFixIdError('');
+    setIsFixIdModalOpen(true);
+  };
+
+  const handleSaveFixId = async () => {
+    const val = fixIdValue.trim();
+    if (!val)            { setFixIdError('Ingresa el número de identificación'); return; }
+    if (!/^\d+$/.test(val)) { setFixIdError('Solo se permiten dígitos numéricos'); return; }
+    if (val.length > 15) { setFixIdError('Máximo 15 dígitos'); return; }
+    if (val.length < 5)  { setFixIdError('Mínimo 5 dígitos'); return; }
+
+    // Verificar que no exista ya ese número en otro usuario
+    if (usuarios.some(u => u.identificacion === val && u.id !== fixIdUsuario.id)) {
+      setFixIdError(`Ya existe otro usuario con la identificación "${val}"`);
+      return;
+    }
+
+    setFixIdLoading(true);
+    try {
+      const { error } = await supabase
+        .from('usuarios')
+        .update({ identificacion: val })
+        .eq('id', fixIdUsuario.id);
+      if (error) throw error;
+
+      // Sincronizar con asociados si aplica
+      if (fixIdUsuario.asociado_id) {
+        await supabase.from('asociados')
+          .update({ cedula: val })
+          .eq('id', fixIdUsuario.asociado_id);
+      }
+
+      setUsuarios(prev => prev.map(u =>
+        u.id === fixIdUsuario.id ? { ...u, identificacion: val } : u
+      ));
+      toast.success(`Identificación de "${fixIdUsuario.nombre}" actualizada correctamente`);
+      setIsFixIdModalOpen(false);
+      setFixIdUsuario(null);
+    } catch (err: any) {
+      setFixIdError('Error al guardar: ' + err.message);
+    }
+    setFixIdLoading(false);
+  };
+
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -811,14 +886,15 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                                 ? <span className="text-slate-400 italic">Sin registro</span>
                                 : usuario.identificacion}
                             </p>
-                            {(tieneLetrasId(usuario.identificacion) || !usuario.identificacion) && (
-                              <span
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300"
-                                title="Identificación pendiente. Edita el usuario para ingresarla."
+                            {esAdmin && (tieneLetrasId(usuario.identificacion) || !usuario.identificacion) && (
+                              <button
+                                onClick={(e) => handleOpenFixId(usuario, e)}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300 hover:bg-amber-200 transition-colors cursor-pointer"
+                                title="Haz clic para ingresar la identificación correcta"
                               >
                                 <AlertTriangle className="size-2.5" />
-                                Pendiente
-                              </span>
+                                Corregir
+                              </button>
                             )}
                           </div>
                         </TableCell>
@@ -1439,6 +1515,60 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Modal Corregir Identificación ── */}
+      <Dialog open={isFixIdModalOpen} onOpenChange={(open) => { if (!open) { setIsFixIdModalOpen(false); setFixIdUsuario(null); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-amber-500" />
+              Corregir identificación
+            </DialogTitle>
+            <DialogDescription>
+              Ingresa el número de documento correcto para <strong>{fixIdUsuario?.nombre}</strong>.
+              Solo se aceptan dígitos (máx. 15).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="fix-id-input">Número de identificación *</Label>
+              <Input
+                id="fix-id-input"
+                placeholder="Ej: 1023456789"
+                inputMode="numeric"
+                maxLength={15}
+                autoFocus
+                value={fixIdValue}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 15);
+                  setFixIdValue(val);
+                  setFixIdError('');
+                }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveFixId(); }}
+                className={fixIdError ? 'border-red-400 focus-visible:ring-red-200' : ''}
+              />
+              {fixIdError && (
+                <p className="text-xs text-red-500 flex items-center gap-1">
+                  <AlertTriangle className="size-3 shrink-0" />
+                  {fixIdError}
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsFixIdModalOpen(false); setFixIdUsuario(null); }}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveFixId}
+              disabled={fixIdLoading}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {fixIdLoading ? 'Guardando...' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
