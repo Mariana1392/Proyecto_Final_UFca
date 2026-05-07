@@ -209,6 +209,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       fechaHora:        new Date(r.created_at).toLocaleString('es-CO'),
       adminResponsable: r.detalle?.adminResponsable ?? '—',
       accion:           r.accion,
+      cambios:          Array.isArray(r.detalle?.cambios) ? r.detalle.cambios : [],
     }));
     setAuditoria(auditoriaFormateada);
   } catch (err: any) {
@@ -252,6 +253,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     fechaHora: string;
     adminResponsable: string;
     accion: string;
+    cambios?: { campo: string; antes: string; despues: string }[];
   }) {
     await supabase.from('auditoria').insert({
       usuario_id:  registro.usuarioId,
@@ -264,6 +266,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         estadoNuevo:      registro.estadoNuevo,
         adminResponsable: registro.adminResponsable,
         fechaHora:        registro.fechaHora,
+        cambios:          registro.cambios ?? [],
       },
     });
     setAuditoria(prev => [registro, ...prev]);
@@ -581,14 +584,29 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
             }
           : u
       ));
+      // Detectar qué campos cambiaron
+      const camposAudit: { campo: string; antes: string; despues: string }[] = [];
+      const comparar = (campo: string, antes: string, despues: string) => {
+        if ((antes ?? '').trim() !== (despues ?? '').trim())
+          camposAudit.push({ campo, antes: antes || '—', despues: despues || '—' });
+      };
+      comparar('Nombre',          selectedUsuario.nombre,         formData.nombre.trim());
+      comparar('Usuario',         selectedUsuario.username,       formData.username.trim());
+      comparar('Email',           selectedUsuario.email,          formData.email.trim());
+      comparar('Identificación',  selectedUsuario.identificacion, formData.identificacion.trim());
+      comparar('Teléfono',        selectedUsuario.telefono,       formData.telefono.trim());
+      comparar('Dirección',       selectedUsuario.direccion,      formData.direccion.trim());
+      comparar('Rol',             selectedUsuario.rol,            formData.rol);
+
       guardarAuditoria({
         usuarioId:        selectedUsuario.id,
         usuarioNombre:    formData.nombre.trim(),
-        estadoAnterior:   `Rol: ${selectedUsuario.rol}`,
-        estadoNuevo:      `Rol: ${formData.rol}`,
+        estadoAnterior:   camposAudit.length > 0 ? camposAudit.map(c => `${c.campo}: ${c.antes}`).join(' | ') : '—',
+        estadoNuevo:      camposAudit.length > 0 ? camposAudit.map(c => `${c.campo}: ${c.despues}`).join(' | ') : 'Sin cambios',
         fechaHora:        new Date().toLocaleString('es-CO'),
         adminResponsable: authUser?.nombre ?? 'Desconocido',
         accion:           'EDICIÓN',
+        cambios:          camposAudit,
       });
       toast.success(`✅ Usuario "${formData.nombre}" actualizado exitosamente`);
     } catch (err: any) {
@@ -1036,41 +1054,57 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                       <TableRow>
                         <TableHead>Usuario</TableHead>
                         <TableHead>Acción</TableHead>
-                        <TableHead>Estado anterior</TableHead>
-                        <TableHead>Estado nuevo</TableHead>
+                        <TableHead>Detalle de cambios</TableHead>
                         <TableHead>Fecha y hora</TableHead>
                         <TableHead>Admin responsable</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {audPagina.map((registro, index) => (
-                        <TableRow key={index}>
+                        <TableRow key={index} className="align-top">
                           <TableCell>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 pt-0.5">
                               <div className="p-1.5 bg-cyan-100 rounded-lg">
                                 <UserCircle className="size-3.5 text-cyan-600" />
                               </div>
                               <span className="text-sm font-medium text-slate-900">{registro.usuarioNombre}</span>
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="pt-1">
                             <Badge className={
                               registro.accion === 'ACTIVACIÓN'  ? 'bg-emerald-100 text-emerald-700' :
-                              registro.accion === 'ELIMINACIÓN' ? 'bg-red-100 text-red-700' :
+                              registro.accion === 'ELIMINACIÓN' ? 'bg-red-100 text-red-700'         :
+                              registro.accion === 'EDICIÓN'     ? 'bg-blue-100 text-blue-700'       :
                                                                    'bg-orange-100 text-orange-700'
                             }>
                               {registro.accion}
                             </Badge>
                           </TableCell>
-                          <TableCell><span className="text-sm text-slate-600">{registro.estadoAnterior}</span></TableCell>
-                          <TableCell><span className="text-sm font-medium text-slate-900">{registro.estadoNuevo}</span></TableCell>
                           <TableCell>
+                            {registro.accion === 'EDICIÓN' && Array.isArray(registro.cambios) && registro.cambios.length > 0 ? (
+                              <div className="space-y-1">
+                                {registro.cambios.map((c: any, i: number) => (
+                                  <div key={i} className="flex items-start gap-1.5 text-xs">
+                                    <span className="font-semibold text-slate-600 shrink-0 w-24">{c.campo}:</span>
+                                    <span className="text-red-500 line-through truncate max-w-[100px]" title={c.antes}>{c.antes}</span>
+                                    <span className="text-slate-400">→</span>
+                                    <span className="text-emerald-600 font-medium truncate max-w-[100px]" title={c.despues}>{c.despues}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-slate-600">
+                                {registro.accion === 'EDICIÓN' ? 'Sin cambios registrados' : registro.estadoNuevo}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="pt-1">
                             <div className="flex items-center gap-2 text-sm text-slate-700">
                               <Clock className="size-3.5 text-slate-400" />
                               {registro.fechaHora}
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="pt-1">
                             <div className="flex items-center gap-2">
                               <div className="p-1.5 bg-emerald-100 rounded-lg">
                                 <Shield className="size-3.5 text-emerald-600" />
