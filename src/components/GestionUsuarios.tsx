@@ -113,7 +113,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       const rolDb = u.roles?.nombre ?? 'usuario';
       return {
         id:               u.id,
-        identificacion:   u.identificacion || u.id.slice(0, 8),
+        identificacion:   u.identificacion || '',
         username:         u.username || u.email?.split('@')[0] || '—',
         nombre:           u.nombre,
         email:            u.email,
@@ -806,14 +806,18 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1.5">
-                            <p className="text-sm text-slate-600">{usuario.identificacion}</p>
-                            {tieneLetrasId(usuario.identificacion) && (
+                            <p className="text-sm text-slate-600">
+                              {!usuario.identificacion
+                                ? <span className="text-slate-400 italic">Sin registro</span>
+                                : usuario.identificacion}
+                            </p>
+                            {(tieneLetrasId(usuario.identificacion) || !usuario.identificacion) && (
                               <span
                                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300"
-                                title="Identificación inválida: contiene letras. Edita el usuario para corregirla."
+                                title="Identificación pendiente. Edita el usuario para ingresarla."
                               >
                                 <AlertTriangle className="size-2.5" />
-                                Actualizar
+                                Pendiente
                               </span>
                             )}
                           </div>
@@ -1152,13 +1156,16 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
             <DialogDescription>Actualiza la información del usuario</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {/* Alerta cuando la identificación original tenía letras */}
-            {selectedUsuario && tieneLetrasId(selectedUsuario.identificacion ?? '') && (
+            {/* Alerta cuando la identificación es inválida (letras) o está vacía */}
+            {selectedUsuario && (tieneLetrasId(selectedUsuario.identificacion ?? '') || !selectedUsuario.identificacion) && (
               <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-300 rounded-lg text-amber-800 text-sm">
                 <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-600" />
                 <span>
-                  Este usuario tenía la identificación <strong>"{selectedUsuario.identificacion}"</strong> con letras, lo cual no es válido.
-                  Por favor ingresa un número de documento correcto (solo dígitos, máx. 15).
+                  {tieneLetrasId(selectedUsuario.identificacion ?? '')
+                    ? <>Este usuario tenía la identificación <strong>"{selectedUsuario.identificacion}"</strong> con letras, lo cual no es válido.</>
+                    : <>Este usuario no tiene número de identificación registrado.</>
+                  }
+                  {' '}Por favor ingresa el número de documento correcto (solo dígitos, máx. 15).
                 </span>
               </div>
             )}
@@ -1296,10 +1303,10 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                           ? selectedUsuario.identificacion
                           : '—'}
                       </p>
-                      {tieneLetrasId(selectedUsuario.identificacion ?? '') && (
+                      {(tieneLetrasId(selectedUsuario.identificacion ?? '') || !selectedUsuario.identificacion) && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300">
                           <AlertTriangle className="size-2.5" />
-                          Requiere actualización
+                          Pendiente
                         </span>
                       )}
                     </div>
