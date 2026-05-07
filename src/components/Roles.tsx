@@ -76,7 +76,10 @@ export default function Roles({ userRole }: RolesProps) {
   const [isPermisosExpanded, setIsPermisosExpanded]   = useState(true);
   const itemsPerPage = 5;
 
-  const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
+  const [auditLog, setAuditLog]           = useState<AuditEntry[]>([]);
+  const [auditPage, setAuditPage]         = useState(1);
+  const [auditFiltro, setAuditFiltro]     = useState('todos');
+  const AUDIT_PER_PAGE = 5;
 
   const addAuditEntry = async (accion: string, detalle: string, registroId?: string) => {
     const entrada: AuditEntry = {
@@ -893,87 +896,141 @@ export default function Roles({ userRole }: RolesProps) {
         </Card>
 
         {/* ===== HISTORIAL DE CAMBIOS ===== */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <History className="size-5 text-blue-600" />
-                </div>
-                <div>
-                  <CardTitle>Historial de Cambios</CardTitle>
-                  <p className="text-sm text-slate-600 mt-1">
-                    Registro completo de todas las acciones realizadas en el módulo de roles
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-sm px-3 py-1">
-                  {auditLog.length} registro(s)
-                </Badge>
-                {auditLog.length > 1 && (
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setIsClearHistoryDialogOpen(true)}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="size-4 mr-1" />
-                    Limpiar historial
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {auditLog.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
-                <History className="size-12 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">No hay cambios registrados</p>
-                <p className="text-sm mt-1">Los cambios realizados aparecerán aquí automáticamente</p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                {auditLog.map((entry, index) => (
-                  <div 
-                    key={entry.id} 
-                    className="flex items-start gap-4 p-4 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
-                  >
-                    <div className="flex items-center justify-center size-10 bg-white border-2 border-blue-200 rounded-full shrink-0">
-                      <span className="text-xs font-bold text-blue-600">#{auditLog.length - index}</span>
+        {(() => {
+          const accionesUnicas = ['todos', ...Array.from(new Set(auditLog.map(e => e.accion)))];
+          const auditFiltrado  = auditFiltro === 'todos' ? auditLog : auditLog.filter(e => e.accion === auditFiltro);
+          const auditTotalPags = Math.ceil(auditFiltrado.length / AUDIT_PER_PAGE);
+          const auditPagina    = auditFiltrado.slice((auditPage - 1) * AUDIT_PER_PAGE, auditPage * AUDIT_PER_PAGE);
+          const badgeColor = (accion: string) =>
+            accion.includes('CREADO')    ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+            accion.includes('EDITADO') || accion.includes('AGREGADO') ? 'bg-blue-50 text-blue-700 border-blue-200' :
+            accion.includes('ELIMINADO') ? 'bg-red-50 text-red-700 border-red-200'   :
+            accion.includes('ACTIVADO')  ? 'bg-green-50 text-green-700 border-green-200' :
+            accion.includes('DESACTIVADO') ? 'bg-orange-50 text-orange-700 border-orange-200' :
+            'bg-slate-50 text-slate-700 border-slate-200';
+
+          return (
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <History className="size-5 text-blue-600" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-2">
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs font-semibold ${
-                            entry.accion.includes('CREADO') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                            entry.accion.includes('EDITADO') || entry.accion.includes('AGREGADO') ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                            entry.accion.includes('ELIMINADO') ? 'bg-red-50 text-red-700 border-red-200' :
-                            entry.accion.includes('ACTIVADO') ? 'bg-green-50 text-green-700 border-green-200' :
-                            entry.accion.includes('DESACTIVADO') ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                            'bg-slate-50 text-slate-700 border-slate-200'
-                          }`}
-                        >
-                          {entry.accion}
-                        </Badge>
-                        <span className="text-xs text-slate-400 flex items-center gap-1">
-                          <Clock className="size-3" />
-                          {entry.fecha}
-                        </span>
-                      </div>
-                      <p className="text-sm text-slate-700 mb-2">{entry.detalle}</p>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                        <UserCircle2 className="size-3.5" />
-                        <span>Realizado por: <span className="font-medium text-slate-700">{entry.usuario}</span></span>
-                      </div>
+                    <div>
+                      <CardTitle>Historial de Cambios</CardTitle>
+                      <p className="text-sm text-slate-500 mt-0.5">
+                        {auditFiltrado.length} de {auditLog.length} registro(s)
+                        {auditFiltro !== 'todos' && (
+                          <button onClick={() => { setAuditFiltro('todos'); setAuditPage(1); }}
+                            className="ml-2 text-blue-600 hover:underline text-xs">
+                            Ver todos
+                          </button>
+                        )}
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Filtro por tipo de acción */}
+                    <select
+                      value={auditFiltro}
+                      onChange={e => { setAuditFiltro(e.target.value); setAuditPage(1); }}
+                      className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    >
+                      {accionesUnicas.map(a => (
+                        <option key={a} value={a}>{a === 'todos' ? 'Todas las acciones' : a}</option>
+                      ))}
+                    </select>
+                    {auditLog.length > 1 && (
+                      <Button variant="outline" size="sm"
+                        onClick={() => setIsClearHistoryDialogOpen(true)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs"
+                      >
+                        <Trash2 className="size-3.5 mr-1" />
+                        Limpiar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {auditLog.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400">
+                    <History className="size-12 mx-auto mb-3 opacity-30" />
+                    <p className="font-medium">No hay cambios registrados</p>
+                    <p className="text-sm mt-1">Los cambios realizados aparecerán aquí automáticamente</p>
+                  </div>
+                ) : auditPagina.length === 0 ? (
+                  <div className="text-center py-8 text-slate-400 text-sm">
+                    No hay registros para esta acción.
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      {auditPagina.map((entry, index) => {
+                        const globalIndex = auditLog.findIndex(e => e.id === entry.id);
+                        return (
+                          <div key={entry.id}
+                            className="flex items-start gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
+                          >
+                            <div className="flex items-center justify-center size-8 bg-white border-2 border-blue-200 rounded-full shrink-0 mt-0.5">
+                              <span className="text-[10px] font-bold text-blue-600">#{auditLog.length - globalIndex}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <Badge variant="outline" className={`text-[10px] font-semibold ${badgeColor(entry.accion)}`}>
+                                  {entry.accion}
+                                </Badge>
+                                <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                                  <Clock className="size-3" />{entry.fecha}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-700 mb-1 leading-relaxed">{entry.detalle}</p>
+                              <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                                <UserCircle2 className="size-3" />
+                                <span>Por: <span className="font-medium text-slate-700">{entry.usuario}</span></span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Paginación */}
+                    {auditTotalPags > 1 && (
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+                        <p className="text-xs text-slate-500">
+                          Mostrando {(auditPage - 1) * AUDIT_PER_PAGE + 1}–{Math.min(auditPage * AUDIT_PER_PAGE, auditFiltrado.length)} de {auditFiltrado.length}
+                        </p>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setAuditPage(p => Math.max(1, p - 1))}
+                            disabled={auditPage === 1}
+                            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                          >← Anterior</button>
+                          {Array.from({ length: auditTotalPags }, (_, i) => i + 1).map(p => (
+                            <button key={p} onClick={() => setAuditPage(p)}
+                              className={`w-7 h-7 text-xs rounded-lg border transition-colors ${
+                                p === auditPage
+                                  ? 'bg-blue-600 text-white border-blue-600 font-semibold'
+                                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                              }`}
+                            >{p}</button>
+                          ))}
+                          <button
+                            onClick={() => setAuditPage(p => Math.min(auditTotalPags, p + 1))}
+                            disabled={auditPage === auditTotalPags}
+                            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                          >Siguiente →</button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
       </div>
 
       {/* ===== MODAL CREAR ROL ===== */}
