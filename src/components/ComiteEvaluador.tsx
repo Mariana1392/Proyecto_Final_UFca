@@ -153,31 +153,52 @@ export default function ComiteEvaluador() {
     try {
       const { data, error } = await supabase
         .from('solicitudes')
-        .select('*')
+        .select(`
+          *,
+          comite_evaluador (
+            id, decision, observacion, comentarios,
+            verificaciones, score_credito, evaluador_id, fecha
+          )
+        `)
         .eq('tipo', 'afiliacion')
         .order('fecha_solicitud', { ascending: false });
       if (error) throw error;
-      setSolicitudes((data || []).map((s: any) => ({
-        id:                 s.id,
-        usuario_id:         s.usuario_id           ?? null,
-        nombres:            s.datos?.nombres       ?? '',
-        apellidos:          s.datos?.apellidos     ?? '',
-        cedula:             s.datos?.cedula        ?? '',
-        tipoIdentificacion: s.datos?.tipo_identificacion ?? '',
-        telefono:           s.datos?.telefono      ?? '',
-        email:              s.datos?.email         ?? '',
-        direccion:          s.datos?.direccion     ?? '',
-        ocupacion:          s.datos?.ocupacion     ?? '',
-        ingresoMensual:     s.datos?.ingreso_mensual != null ? String(s.datos.ingreso_mensual) : '',
-        motivacion:         s.datos?.motivacion    ?? '',
-        documentos:         Array.isArray(s.datos?.documentos) ? s.datos.documentos : [],
-        urlDocumento:       s.datos?.url_documento ?? '',
-        fechaSolicitud:     s.fecha_solicitud      ?? '',
-        estado:             s.estado               ?? 'pendiente',
-        fechaResolucion:    s.fecha_resolucion     ?? '',
-        observaciones:      s.observaciones        ?? '',
-        evaluacion:         s.datos?.evaluacion    ?? null,
-      })));
+      setSolicitudes((data || []).map((s: any) => {
+        // Tomar el primer (y único) registro del comité para esta solicitud
+        const ev = Array.isArray(s.comite_evaluador) && s.comite_evaluador.length > 0
+          ? s.comite_evaluador[0]
+          : null;
+        const score = ev?.score_credito ?? 70;
+        return {
+          id:                 s.id,
+          usuario_id:         s.usuario_id                   ?? null,
+          nombres:            s.datos?.nombres               ?? '',
+          apellidos:          s.datos?.apellidos             ?? '',
+          cedula:             s.datos?.cedula                ?? '',
+          tipoIdentificacion: s.datos?.tipo_identificacion   ?? '',
+          telefono:           s.datos?.telefono              ?? '',
+          email:              s.datos?.email                 ?? '',
+          direccion:          s.datos?.direccion             ?? '',
+          ocupacion:          s.datos?.ocupacion             ?? '',
+          ingresoMensual:     s.datos?.ingreso_mensual != null ? String(s.datos.ingreso_mensual) : '',
+          motivacion:         s.datos?.motivacion            ?? '',
+          documentos:         Array.isArray(s.datos?.documentos) ? s.datos.documentos : [],
+          urlDocumento:       s.datos?.url_documento         ?? '',
+          fechaSolicitud:     s.fecha_solicitud              ?? '',
+          estado:             s.estado                       ?? 'pendiente',
+          fechaResolucion:    s.fecha_resolucion             ?? '',
+          observaciones:      s.observaciones                ?? '',
+          // Evaluación desde comite_evaluador, no desde datos jsonb
+          evaluacion: ev ? {
+            scoreCredito:      score,
+            nivelRiesgo:       score >= 75 ? 'bajo' : score >= 50 ? 'medio' : 'alto',
+            capacidadPago:     0,
+            verificaciones:    ev.verificaciones ?? { documentacion: false, ingresos: false, referencias: false, antecedentes: false },
+            comentariosComite: ev.comentarios    ?? '',
+            evaluadoPor:       'Comité Evaluador',
+          } : null,
+        };
+      }));
     } catch (err: any) {
       toast.error('Error al cargar solicitudes: ' + err.message);
     }
@@ -267,23 +288,31 @@ export default function ComiteEvaluador() {
 
   async function handleGuardarEvaluacion() {
     if (!selectedSolicitud) return;
-    const evaluacion = {
-      verificaciones,
-      comentariosComite,
-      evaluadoPor: 'Comité Evaluador',
-    };
     try {
-      // Leer datos actuales para no sobreescribir otros campos del jsonb
-      const { data: current } = await supabase
-        .from('solicitudes')
-        .select('datos')
-        .eq('id', selectedSolicitud.id)
-        .single();
+      const { data: { user } } = await supabase.auth.getUser();
+      const score = scoreCredito;
       const { error } = await supabase
-        .from('solicitudes')
-        .update({ datos: { ...(current?.datos ?? {}), evaluacion } })
-        .eq('id', selectedSolicitud.id);
+        .from('comite_evaluador')
+        .upsert({
+          solicitud_id:  selectedSolicitud.id,
+          evaluador_id:  user?.id ?? null,
+          verificaciones,
+          comentarios:   comentariosComite,
+          score_credito: score,
+          decision:      'en_evaluacion',
+          fecha:         new Date().toISOString(),
+        }, { onConflict: 'solicitud_id' });
       if (error) throw error;
+
+      const nivelRiesgo: 'bajo' | 'medio' | 'alto' = score >= 75 ? 'bajo' : score >= 50 ? 'medio' : 'alto';
+      const evaluacion = {
+        scoreCredito:      score,
+        nivelRiesgo,
+        capacidadPago:     0,
+        verificaciones,
+        comentariosComite,
+        evaluadoPor:       'Comité Evaluador',
+      };
       setSolicitudes(prev => prev.map(s =>
         s.id === selectedSolicitud.id ? { ...s, evaluacion } : s
       ));
@@ -324,7 +353,22 @@ export default function ComiteEvaluador() {
         .single();
       if (asocErr) throw asocErr;
 
-      // 3. Promover al usuario registrado al rol "asociado"
+      // 3. Registrar decisión final en comite_evaluador
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase
+        .from('comite_evaluador')
+        .upsert({
+          solicitud_id:  selectedSolicitud.id,
+          evaluador_id:  user?.id ?? null,
+          verificaciones,
+          comentarios:   comentariosComite,
+          score_credito: scoreCredito,
+          decision:      'aprobado',
+          observacion:   'Aprobada por el comité evaluador',
+          fecha:         fechaRes,
+        }, { onConflict: 'solicitud_id' });
+
+      // 4. Promover al usuario registrado al rol "asociado"
       const { data: solData } = await supabase
         .from('solicitudes')
         .select('usuario_id')
@@ -347,8 +391,9 @@ export default function ComiteEvaluador() {
         const { error: updateUserErr } = await supabase
           .from('usuarios')
           .update({
-            rol_id:      rolAsociado.id,
-            asociado_id: nuevoAsociado?.id ?? null,
+            rol_id:         rolAsociado.id,
+            asociado_id:    nuevoAsociado?.id ?? null,
+            identificacion: selectedSolicitud.cedula ?? null,
           })
           .eq('id', solData.usuario_id);
 
@@ -377,15 +422,33 @@ export default function ComiteEvaluador() {
     setRejecting(true);
     try {
       const fechaRes = new Date().toISOString();
+      const motivo   = motivoRechazo.trim();
+
+      // 1. Marcar solicitud como rechazada
       const { error } = await supabase
         .from('solicitudes')
-        .update({ estado: 'rechazada', fecha_resolucion: fechaRes, observaciones: motivoRechazo.trim() })
+        .update({ estado: 'rechazada', fecha_resolucion: fechaRes, observaciones: motivo })
         .eq('id', selectedSolicitud.id);
       if (error) throw error;
 
+      // 2. Registrar decisión en comite_evaluador
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase
+        .from('comite_evaluador')
+        .upsert({
+          solicitud_id:  selectedSolicitud.id,
+          evaluador_id:  user?.id ?? null,
+          verificaciones,
+          comentarios:   comentariosComite,
+          score_credito: scoreCredito,
+          decision:      'rechazado',
+          observacion:   motivo,
+          fecha:         fechaRes,
+        }, { onConflict: 'solicitud_id' });
+
       setSolicitudes(prev => prev.map(s =>
         s.id === selectedSolicitud.id
-          ? { ...s, estado: 'rechazada', fechaResolucion: fechaRes, observaciones: motivoRechazo.trim() }
+          ? { ...s, estado: 'rechazada', fechaResolucion: fechaRes, observaciones: motivo }
           : s
       ));
       toast.success('Solicitud rechazada y registrada en el historial.');
