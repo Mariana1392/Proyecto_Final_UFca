@@ -393,7 +393,9 @@ export default function ComiteEvaluador() {
           .update({
             rol_id:         rolAsociado.id,
             asociado_id:    nuevoAsociado?.id ?? null,
-            identificacion: selectedSolicitud.cedula ?? null,
+            identificacion: selectedSolicitud.cedula    || null,
+            telefono:       selectedSolicitud.telefono  || null,
+            direccion:      selectedSolicitud.direccion || null,
           })
           .eq('id', solData.usuario_id);
 

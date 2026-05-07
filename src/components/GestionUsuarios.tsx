@@ -99,7 +99,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       { data: asociadosData },
       { data: auditoriaData },
     ] = await Promise.all([
-      supabase.from('usuarios').select('*, roles(nombre)').order('nombre'),
+      supabase.from('usuarios').select('*, roles(nombre), asociados(telefono, cedula, direccion)').order('nombre'),
       supabase.from('roles').select('*').order('nombre'),
       supabase.from('asociados').select('id, nombre, cedula, telefono, email, estado, created_at').order('nombre'),
       supabase.from('auditoria').select('*').eq('tabla', 'usuarios').order('created_at', { ascending: false }).limit(100),
@@ -115,22 +115,38 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     // Usuarios normales
     const ROLES_SISTEMA = ['admin', 'administrador'];
 
-    // Auto-sincronizar identificacion desde asociados cuando está vacía o tiene letras
+    // Auto-sincronizar identificacion y telefono desde asociados cuando están vacíos o inválidos
     const sincronizaciones: Promise<any>[] = [];
     for (const u of (usData || [])) {
+      if (!u.asociado_id) continue;
+      const asoc = (asociadosData || []).find((a: any) => a.id === u.asociado_id);
+      if (!asoc) continue;
+
+      const updates: Record<string, string> = {};
+
+      // Identificacion vacía o con letras → tomar cedula del asociado
       const idActual = u.identificacion ?? '';
-      const necesitaSync = !idActual || /[a-zA-Z]/.test(idActual);
-      if (necesitaSync && u.asociado_id) {
-        const asoc = (asociadosData || []).find((a: any) => a.id === u.asociado_id);
-        if (asoc?.cedula && /^\d+$/.test(asoc.cedula)) {
-          // Actualizar identificacion en BD usando la cedula del asociado
-          sincronizaciones.push(
-            supabase.from('usuarios')
-              .update({ identificacion: asoc.cedula })
-              .eq('id', u.id)
-              .then(() => { u.identificacion = asoc.cedula; }) // mutamos local para el mapeo
-          );
-        }
+      if ((!idActual || /[a-zA-Z]/.test(idActual)) && asoc.cedula && /^\d+$/.test(asoc.cedula)) {
+        updates.identificacion = asoc.cedula;
+        u.identificacion = asoc.cedula;
+      }
+
+      // Teléfono vacío → tomar del asociado
+      if (!u.telefono && asoc.telefono) {
+        updates.telefono = asoc.telefono;
+        u.telefono = asoc.telefono;
+      }
+
+      // Dirección vacía → tomar del asociado
+      if (!u.direccion && asoc.direccion) {
+        updates.direccion = asoc.direccion;
+        u.direccion = asoc.direccion;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        sincronizaciones.push(
+          supabase.from('usuarios').update(updates).eq('id', u.id)
+        );
       }
     }
     if (sincronizaciones.length > 0) await Promise.all(sincronizaciones);
@@ -139,12 +155,12 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       const rolDb = u.roles?.nombre ?? 'usuario';
       return {
         id:               u.id,
-        identificacion:   u.identificacion || '',
+        identificacion:   u.identificacion || u.asociados?.cedula     || '',
         username:         u.username || u.email?.split('@')[0] || '—',
         nombre:           u.nombre,
         email:            u.email,
-        telefono:         u.telefono || '',
-        direccion:        u.direccion || '',
+        telefono:         u.telefono || u.asociados?.telefono  || '',
+        direccion:        u.direccion || u.asociados?.direccion || '',
         rol:              rolLabel(rolDb),
         rol_nombre_db:    rolDb, // nombre real en BD
         rol_id:           u.rol_id,
