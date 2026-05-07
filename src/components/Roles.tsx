@@ -404,7 +404,9 @@ export default function Roles({ userRole }: RolesProps) {
       setIsDeleteDialogOpen(false); setSelectedItem(null); return;
     }
 
-    // Proceder con la eliminación
+    // Proceder con la eliminación — primero borrar permisos relacionados
+    await supabase.from('rol_permisos').delete().eq('rol_id', selectedItem.id);
+
     const { error } = await supabase
       .from('roles')
       .delete()
@@ -415,12 +417,26 @@ export default function Roles({ userRole }: RolesProps) {
       setIsDeleteDialogOpen(false); setSelectedItem(null); return;
     }
 
+    // Verificar que realmente se eliminó (RLS puede bloquear silenciosamente)
+    const { data: verificacion } = await supabase
+      .from('roles')
+      .select('id')
+      .eq('id', selectedItem.id)
+      .maybeSingle();
+
+    if (verificacion) {
+      toast.error('No se pudo eliminar el rol', {
+        description: 'La base de datos rechazó la operación. Ejecuta en Supabase SQL Editor: ALTER TABLE roles DISABLE ROW LEVEL SECURITY;',
+        duration: 8000,
+      });
+      setIsDeleteDialogOpen(false); setSelectedItem(null); return;
+    }
+
     setRoles(prev => prev.filter(r => r.id !== selectedItem.id));
     await addAuditEntry(
       'ROL ELIMINADO',
       `El rol "${rolActual.nombre}" fue eliminado permanentemente por ${usuarioActualNombre}`,
     );
-    // Recargar para que el historial muestre el registro de eliminación
     await cargarRoles();
     toast.success('Rol eliminado exitosamente', {
       description: `"${rolActual.nombre}" eliminado del sistema`, duration: 4000,
