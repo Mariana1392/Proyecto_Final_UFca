@@ -464,7 +464,6 @@ export const dashboardApi = {
         liquidacionesPend:     rpcData.liquidacionesPend     ?? 0,
         totalCarteraCreditos:  rpcData.totalCarteraCreditos  ?? 0,
         totalInteresesMes:     rpcData.totalInteresesMes     ?? 0,
-        pedidosPendientes:     0,
       };
     }
 
@@ -510,7 +509,6 @@ export const dashboardApi = {
       totalAhorrosPerm,
       totalAhorrosVol,
       totalAhorros:          totalAhorrosPerm + totalAhorrosVol,
-      pedidosPendientes:     0,
       solicitudesPendientes: solicitudesPend  ?? 0,
       liquidacionesPend:     liquidacionesPend ?? 0,
       totalCarteraCreditos,

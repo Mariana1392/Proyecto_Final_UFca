@@ -33,7 +33,6 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
     totalCreditos:         0,
     totalCarteraCreditos:  0,
     totalInteresesMes:     0,
-    pedidosPendientes:     0,
     solicitudesPendientes: 0,
     liquidacionesPend:     0,
     proximosEventos:       0,
@@ -90,7 +89,6 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
         totalCreditos:         stats.totalCreditos,
         totalCarteraCreditos:  stats.totalCarteraCreditos,
         totalInteresesMes:     stats.totalInteresesMes,
-        pedidosPendientes:     stats.pedidosPendientes,
         solicitudesPendientes: stats.solicitudesPendientes,
         liquidacionesPend:     stats.liquidacionesPend,
         proximosEventos:       0, // tabla 'eventos' no implementada aún
