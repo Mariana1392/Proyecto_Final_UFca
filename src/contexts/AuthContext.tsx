@@ -195,5 +195,3 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth debe usarse dentro de <AuthProvider>');
   return ctx;
 }
-
-export type UserRole = 'admin' | 'asociado' | 'usuario';
