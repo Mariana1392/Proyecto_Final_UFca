@@ -23,5 +23,8 @@
     }
   },
   "include": ["src"],
+  // supabase/functions usa Deno (runtime distinto) — excluirlo evita falsos
+  // errores de TypeScript como "Cannot find name 'Deno'" en las Edge Functions
+  "exclude": ["node_modules", "supabase"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

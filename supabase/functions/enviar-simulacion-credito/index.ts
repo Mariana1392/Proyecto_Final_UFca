@@ -1,3 +1,4 @@
+// @ts-nocheck — archivo Deno (Edge Function), no Node. Los tipos de Deno no existen en el TS del proyecto.
 // Supabase Edge Function: enviar-simulacion-credito
 // Notifica al asociado que su tabla de amortización está lista en la app.
 // Deploy: supabase functions deploy enviar-simulacion-credito
