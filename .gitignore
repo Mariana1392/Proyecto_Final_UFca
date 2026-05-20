@@ -4,3 +4,6 @@ build
 dist
 .claude
 
+# Scripts SQL de base de datos
+*.sql
+
