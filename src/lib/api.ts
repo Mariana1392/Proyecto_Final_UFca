@@ -203,8 +203,9 @@ export const asociadosApi = {
     return data;
   },
 
-  async toggleEstado(id: string, estado: boolean) {
-    return asociadosApi.update(id, { estado });
+  /** Activa o desactiva un asociado. La BD almacena 'activo' / 'inactivo', no booleanos. */
+  async toggleEstado(id: string, activo: boolean) {
+    return asociadosApi.update(id, { estado: activo ? 'activo' : 'inactivo' });
   },
 
   async delete(id: string) {
