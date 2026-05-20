@@ -5,6 +5,84 @@
 // ─────────────────────────────────────────────────────────
 
 import { supabase } from './supabase';
+import type { Session } from '@supabase/supabase-js';
+
+// ═══════════════════════════════════════
+// TIPOS — basados en el schema real de Supabase
+// ═══════════════════════════════════════
+
+export interface AsociadoRow {
+  id: string;
+  nombre: string;
+  cedula: string;
+  telefono?: string | null;
+  email?: string | null;
+  direccion?: string | null;
+  ocupacion?: string | null;
+  fecha_ingreso?: string | null;
+  estado: string;
+  referido_por_id?: string | null;
+  periodo_ingreso_id?: string | null;
+  anulado: boolean;
+  motivo_anulacion?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AhorroPermanenteRow {
+  id: string;
+  asociado_id: string;
+  monto_ahorrado: number;
+  estado: string;
+  anulado: boolean;
+  motivo_anulacion?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AhorroVoluntarioRow {
+  id: string;
+  asociado_id: string;
+  monto_ahorrado: number;
+  estado: string;
+  anulado: boolean;
+  motivo_anulacion?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreditoRow {
+  id: string;
+  asociado_id: string;
+  tipo: string;
+  monto: number;
+  plazo_meses: number;
+  tasa_interes: number;
+  cuota_mensual: number;
+  saldo: number;
+  estado: string;
+  anulado: boolean;
+  motivo_anulacion?: string | null;
+  fecha_desembolso?: string | null;
+  observaciones?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExcepcionRow {
+  id: string;
+  tipo: string;
+  descripcion: string;
+  estado: string;
+  asociado_id?: string | null;
+  resuelto_por?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Helpers para inferir tipos de Insert y Update desde cada Row
+type DbInsert<T> = Omit<T, 'id' | 'created_at' | 'updated_at'>;
+type DbUpdate<T> = Partial<Omit<T, 'id' | 'created_at' | 'updated_at'>>;
 
 // ═══════════════════════════════════════
 // AUTH
@@ -40,7 +118,7 @@ export const auth = {
   },
 
   /** Escuchar cambios de sesión (para AuthContext) */
-  onAuthChange(callback: (session: any) => void) {
+  onAuthChange(callback: (session: Session | null) => void) {
     return supabase.auth.onAuthStateChange((_event, session) => {
       callback(session);
     });
@@ -104,7 +182,7 @@ export const asociadosApi = {
     return data;
   },
 
-  async create(asociado: Omit<any, 'id' | 'created_at' | 'updated_at'>) {
+  async create(asociado: DbInsert<AsociadoRow>) {
     const { data, error } = await supabase
       .from('asociados')
       .insert(asociado)
@@ -114,7 +192,7 @@ export const asociadosApi = {
     return data;
   },
 
-  async update(id: string, updates: Partial<any>) {
+  async update(id: string, updates: DbUpdate<AsociadoRow>) {
     const { data, error } = await supabase
       .from('asociados')
       .update(updates)
@@ -168,7 +246,7 @@ export const ahorroPermanenteApi = {
     return data;
   },
 
-  async create(ahorro: Omit<any, 'id' | 'created_at' | 'updated_at'>) {
+  async create(ahorro: DbInsert<AhorroPermanenteRow>) {
     const { data, error } = await supabase
       .from('ahorros_permanentes')
       .insert(ahorro)
@@ -178,7 +256,7 @@ export const ahorroPermanenteApi = {
     return data;
   },
 
-  async update(id: string, updates: Partial<any>) {
+  async update(id: string, updates: DbUpdate<AhorroPermanenteRow>) {
     const { data, error } = await supabase
       .from('ahorros_permanentes')
       .update(updates)
@@ -217,7 +295,7 @@ export const ahorroVoluntarioApi = {
     return data;
   },
 
-  async create(ahorro: Omit<any, 'id' | 'created_at' | 'updated_at'>) {
+  async create(ahorro: DbInsert<AhorroVoluntarioRow>) {
     const { data, error } = await supabase
       .from('ahorros_voluntarios')
       .insert(ahorro)
@@ -227,7 +305,7 @@ export const ahorroVoluntarioApi = {
     return data;
   },
 
-  async update(id: string, updates: Partial<any>) {
+  async update(id: string, updates: DbUpdate<AhorroVoluntarioRow>) {
     const { data, error } = await supabase
       .from('ahorros_voluntarios')
       .update(updates)
@@ -266,7 +344,7 @@ export const creditosApi = {
     return data;
   },
 
-  async create(credito: Omit<any, 'id' | 'created_at' | 'updated_at'>) {
+  async create(credito: DbInsert<CreditoRow>) {
     const { data, error } = await supabase
       .from('creditos')
       .insert(credito)
@@ -276,7 +354,7 @@ export const creditosApi = {
     return data;
   },
 
-  async update(id: string, updates: Partial<any>) {
+  async update(id: string, updates: DbUpdate<CreditoRow>) {
     const { data, error } = await supabase
       .from('creditos')
       .update(updates)
@@ -348,7 +426,7 @@ export const pagosCreditoApi = {
   }) {
     // Construir payload solo con columnas seguras (sin asociado_id para evitar
     // conflictos de tipo uuid vs text según cómo esté guardado el crédito)
-    const payload: Record<string, any> = {
+    const payload: Record<string, unknown> = {
       credito_id:     pago.credito_id,
       monto_pagado:   pago.monto_pagado,
       capital:        pago.capital,
@@ -421,7 +499,7 @@ export const excepcionesApi = {
     return data;
   },
 
-  async create(excepcion: Omit<any, 'id' | 'created_at' | 'updated_at'>) {
+  async create(excepcion: DbInsert<ExcepcionRow>) {
     const { data, error } = await supabase
       .from('excepciones')
       .insert(excepcion)
