@@ -1,4 +1,12 @@
 {
   "css.validate": false,
-  "css.lint.unknownAtRules": "ignore"
+  "css.lint.unknownAtRules": "ignore",
+
+  // ── Deno (Supabase Edge Functions) ────────────────────────────────────────
+  // Las Edge Functions corren en Deno, no en Node. VS Code necesita el
+  // Deno language server para esa carpeta — sin esto muestra falsos errores
+  // como "Cannot find name 'Deno'" y "req implicitly has type 'any'".
+  // Requiere la extensión: denoland.vscode-deno
+  "deno.enablePaths": ["supabase/functions"],
+  "deno.unstable": false
 }
