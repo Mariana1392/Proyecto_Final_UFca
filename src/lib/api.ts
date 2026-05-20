@@ -189,7 +189,7 @@ export const ahorroPermanenteApi = {
     return data;
   },
 
-  async anular(id: string, motivo: string) {
+  async anular(id: string, motivo: string): Promise<any> {
     return ahorroPermanenteApi.update(id, { anulado: true, estado: 'cerrado', motivo_anulacion: motivo });
   },
 };
@@ -238,7 +238,7 @@ export const ahorroVoluntarioApi = {
     return data;
   },
 
-  async anular(id: string, motivo: string) {
+  async anular(id: string, motivo: string): Promise<any> {
     return ahorroVoluntarioApi.update(id, { anulado: true, estado: 'retirado', motivo_anulacion: motivo });
   },
 };
@@ -287,9 +287,9 @@ export const creditosApi = {
     return data;
   },
 
-  async anular(id: string, motivo: string) {
-    // Usamos solo las columnas que siempre existen en el schema base.
-    // Sin .select().single() para evitar fallos de RLS en el SELECT posterior.
+  /** Retorna void intencionalmente: omite .select() para evitar fallos de RLS
+   *  en el SELECT posterior al UPDATE. Los callers no deben usar el valor de retorno. */
+  async anular(id: string, motivo: string): Promise<void> {
     const { error } = await supabase
       .from('creditos')
       .update({
