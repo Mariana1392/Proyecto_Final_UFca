@@ -165,13 +165,31 @@ export type PagoCredito = Timestamps & {
 
 // ── LIQUIDACIONES ─────────────────────────────────────────────────────────────
 
-/** Tabla: liquidaciones */
+/** Tabla: liquidaciones (schema post-migración JSONB→columnas) */
 export type Liquidacion = Timestamps & {
-  id:           string;
-  asociado_id:  string;   // → asociados.id
-  usuario_id?:  string;   // → usuarios.id (quien procesó)
-  tipo:         'retiro' | 'cesantias' | 'expulsion' | 'fallecimiento' | 'otro';
-  detalle:      Record<string, any>;  // jsonb: conceptos, montos, estado, etc.
+  id:                     string;
+  asociado_id:            string;    // → asociados.id
+  usuario_id?:            string;    // → usuarios.id (quien procesó)
+  tipo:                   'retiro' | 'cesantias' | 'expulsion' | 'fallecimiento' | 'otro';
+  monto_total?:           number;
+
+  // ── Columnas reales (antes vivían en detalle JSONB) ──────────
+  estado:                 string;    // 'En proceso' | 'Aprobada' | 'Pagada' | 'Rechazada'
+  fecha_corte?:           string;    // date ISO
+  fecha_liquidacion?:     string;    // date ISO, nullable
+  motivo?:                string;
+  observaciones?:         string;
+  anulado:                boolean;
+  justificacion_anulacion?: string;
+  anulado_por?:           string;    // nombre del admin que anuló
+  anulado_en?:            string;    // timestamptz ISO
+
+  // ── JSONB dedicados (datos estructurados que justifican jsonb) ──
+  conceptos:              Record<string, unknown>[];  // lista de conceptos {id, nombre, monto, tipo}
+  documentos:             Record<string, unknown>[];  // lista de docs {id, nombre, url, ...}
+
+  // ── Residual histórico (calculo, metadata) ───────────────────
+  detalle?:               Record<string, unknown>;
 };
 
 // ── SOLICITUDES DE AFILIACIÓN ─────────────────────────────────────────────────

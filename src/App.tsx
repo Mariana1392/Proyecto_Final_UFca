@@ -153,12 +153,19 @@ function AppContent() {
       case 'asociado-detalle':
         return <AsociadoDetalle asociadoId={selectedAsociadoId} onBack={() => setCurrentView('asociados')} />;
       case 'ahorro-permanente':
-        // can('ahorros') → admin: vista completa de todos los asociados
-        // can('mis_ahorros') → asociado: solo sus propios ahorros
+        // NOTA DE ARQUITECTURA: este bloque NO es una doble validación de permisos.
+        //
+        // El sidebar (Layout) ya filtra qué ítems se muestran usando VIEW_PERMISO.
+        // Este switch es routing de CONTENIDO: dado que el usuario tiene acceso
+        // a la vista 'ahorro-permanente', ¿qué componente debe ver?
+        //   • can('ahorros')     → admin: ve todos los ahorros de todos los asociados
+        //   • solo mis_ahorros   → asociado: ve solo sus propios ahorros (MisAhorros)
+        // Ambas ramas son acceso legítimo; muestran contenido diferente al mismo permiso.
         return can('ahorros')
           ? <AhorroPermanente userRole={userRole ?? undefined} userData={userData} />
           : <MisAhorros userData={userData} />;
       case 'ahorro-voluntario':
+        // Mismo patrón que ahorro-permanente — ver comentario anterior
         return can('ahorros')
           ? <AhorroVoluntario userRole={userRole ?? undefined} userData={userData} />
           : <MisAhorros userData={userData} />;

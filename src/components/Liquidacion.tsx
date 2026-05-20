@@ -423,31 +423,34 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
   }
 
   // ── Mapeador reutilizable ─────────────────────────────────────
+  // Prefiere columnas reales (post-migración); cae al JSONB detalle como
+  // fallback para filas creadas antes de la migración de schema.
   // asocMap: Record<asociado_id, { nombre, cedula }> — construido fuera del join
   function mapearFilas(rows: any[], asocMap: Record<string, { nombre: string; cedula: string }> = {}) {
     return rows.map((l: any) => {
-      const det  = (l.detalle as any) ?? {};
+      const det  = (l.detalle as any) ?? {};   // fallback pre-migración
       const asoc = asocMap[l.asociado_id] ?? { nombre: 'Sin nombre', cedula: '' };
       return {
         id:                     l.id,
         asociado:               asoc.nombre,
         cedula:                 asoc.cedula,
         asociado_id:            l.asociado_id,
-        tipo:                   l.tipo                 ?? 'retiro',
-        fechaCorte:             det.fechaCorte         ?? l.fecha ?? '',
-        fechaLiquidacion:       det.fechaLiquidacion   ?? '',
-        estado:                 det.estado             ?? 'Pendiente',
-        motivo:                 det.motivo             ?? '',
-        observaciones:          det.observaciones      ?? '',
-        conceptos:              (det.conceptos  as Concepto[]) ?? [],
-        documentos:             (det.documentos as LiqDoc[])  ?? [],
-        calculo:                det.calculo            ?? null,
-        montoFinal:             l.monto_total          ?? 0,
-        anulado:                det.anulado            ?? false,
-        justificacionAnulacion: det.justificacionAnulacion ?? '',
-        anuladoPor:             det.anuladoPor         ?? '',
-        anuladoEn:              det.anuladoEn          ?? '',
-        createdAt:              l.created_at           ?? l.fecha ?? '',
+        tipo:                   l.tipo                                ?? 'retiro',
+        // Columnas reales primero, JSONB como fallback
+        fechaCorte:             l.fecha_corte                         ?? det.fechaCorte        ?? l.fecha ?? '',
+        fechaLiquidacion:       l.fecha_liquidacion                   ?? det.fechaLiquidacion  ?? '',
+        estado:                 l.estado                              ?? det.estado            ?? 'Pendiente',
+        motivo:                 l.motivo                              ?? det.motivo            ?? '',
+        observaciones:          l.observaciones                       ?? det.observaciones     ?? '',
+        conceptos:              ((l.conceptos  ?? det.conceptos)      as Concepto[])           ?? [],
+        documentos:             ((l.documentos ?? det.documentos)     as LiqDoc[])             ?? [],
+        calculo:                det.calculo                           ?? null,
+        montoFinal:             l.monto_total                         ?? 0,
+        anulado:                l.anulado                             ?? det.anulado           ?? false,
+        justificacionAnulacion: l.justificacion_anulacion             ?? det.justificacionAnulacion ?? '',
+        anuladoPor:             l.anulado_por                         ?? det.anuladoPor        ?? '',
+        anuladoEn:              l.anulado_en                          ?? det.anuladoEn         ?? '',
+        createdAt:              l.created_at                          ?? l.fecha               ?? '',
       };
     });
   }
@@ -690,8 +693,8 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
 
   /**
    * applyFilters — sólo filtros CLIENT-SIDE que no puede hacer el servidor:
-   *   • estado          → guardado en JSONB detalle->>'estado'
-   *   • fechaCorte range → guardado en JSONB detalle->>'fechaCorte'
+   *   • estado          → columna real `estado` (post-migración desde JSONB)
+   *   • fechaCorte range → columna real `fecha_corte` (post-migración desde JSONB)
    *   • búsqueda por cédula / N° liquidación (bonus, además del nombre server-side)
    * El servidor ya filtró por: nombre, tipo, rango created_at
    */
@@ -887,23 +890,10 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
       };
       const docsActualizados = [nuevoDoc, ...docsLiquidacion];
 
-      // Guardar en detalle JSONB — sin tabla separada
-      const detalleActualizado = {
-        fechaCorte:             selectedItem.fechaCorte,
-        fechaLiquidacion:       selectedItem.fechaLiquidacion,
-        estado:                 selectedItem.estado,
-        motivo:                 selectedItem.motivo,
-        observaciones:          selectedItem.observaciones,
-        conceptos:              selectedItem.conceptos,
-        documentos:             docsActualizados,
-        anulado:                selectedItem.anulado,
-        justificacionAnulacion: selectedItem.justificacionAnulacion,
-        anuladoPor:             selectedItem.anuladoPor,
-        anuladoEn:              selectedItem.anuladoEn,
-      };
-      const { error: detErr } = await supabase.rpc('actualizar_detalle_liquidacion', {
-        p_id:      selectedItem.id,
-        p_detalle: detalleActualizado,
+      // Post-migración: actualiza solo la columna JSONB 'documentos'
+      const { error: detErr } = await supabase.rpc('actualizar_liquidacion', {
+        p_id:         selectedItem.id,
+        p_documentos: docsActualizados,
       });
       if (detErr) throw detErr;
 
@@ -931,22 +921,10 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
     if (!selectedItem?.id) return;
     try {
       const docsActualizados = docsLiquidacion.filter(d => d.id !== docId);
-      const detalleActualizado = {
-        fechaCorte:             selectedItem.fechaCorte,
-        fechaLiquidacion:       selectedItem.fechaLiquidacion,
-        estado:                 selectedItem.estado,
-        motivo:                 selectedItem.motivo,
-        observaciones:          selectedItem.observaciones,
-        conceptos:              selectedItem.conceptos,
-        documentos:             docsActualizados,
-        anulado:                selectedItem.anulado,
-        justificacionAnulacion: selectedItem.justificacionAnulacion,
-        anuladoPor:             selectedItem.anuladoPor,
-        anuladoEn:              selectedItem.anuladoEn,
-      };
-      const { error } = await supabase.rpc('actualizar_detalle_liquidacion', {
-        p_id:      selectedItem.id,
-        p_detalle: detalleActualizado,
+      // Post-migración: actualiza solo la columna JSONB 'documentos'
+      const { error } = await supabase.rpc('actualizar_liquidacion', {
+        p_id:         selectedItem.id,
+        p_documentos: docsActualizados,
       });
       if (error) throw error;
       setDocsLiquidacion(docsActualizados);
@@ -960,22 +938,10 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
   // ── Actualizar estado rápido ──────────────────────────────────
   const handleCambiarEstado = async (liq: any, nuevoEstado: string) => {
     try {
-      const detalle = {
-        fechaCorte:             liq.fechaCorte,
-        fechaLiquidacion:       liq.fechaLiquidacion,
-        estado:                 nuevoEstado,
-        motivo:                 liq.motivo,
-        observaciones:          liq.observaciones,
-        conceptos:              liq.conceptos,
-        documentos:             liq.documentos ?? [],
-        anulado:                liq.anulado,
-        justificacionAnulacion: liq.justificacionAnulacion,
-        anuladoPor:             liq.anuladoPor,
-        anuladoEn:              liq.anuladoEn,
-      };
-      const { error } = await supabase.rpc('actualizar_detalle_liquidacion', {
-        p_id:      liq.id,
-        p_detalle: detalle,
+      // Post-migración: actualiza solo la columna real 'estado', sin reemplazar el JSONB completo
+      const { error } = await supabase.rpc('actualizar_liquidacion', {
+        p_id:     liq.id,
+        p_estado: nuevoEstado,
       });
       if (error) throw error;
       setLiquidaciones(prev => prev.map(l => l.id === liq.id ? { ...l, estado: nuevoEstado } : l));
@@ -1042,22 +1008,13 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
     try {
       const admin = userData?.nombre ?? userData?.email ?? 'Administrador';
       const ahora = new Date().toISOString();
-      const detActualizado = {
-        fechaCorte:             selectedItem.fechaCorte,
-        fechaLiquidacion:       selectedItem.fechaLiquidacion,
-        estado:                 selectedItem.estado,
-        motivo:                 selectedItem.motivo,
-        observaciones:          selectedItem.observaciones,
-        conceptos:              selectedItem.conceptos,
-        documentos:             selectedItem.documentos ?? [],
-        anulado:                true,
-        justificacionAnulacion: justificacionAnulacion.trim(),
-        anuladoPor:             admin,
-        anuladoEn:              ahora,
-      };
-      const { error } = await supabase.rpc('actualizar_detalle_liquidacion', {
-        p_id:      selectedItem.id,
-        p_detalle: detActualizado,
+      // Post-migración: actualiza solo las columnas de anulación, no el JSONB completo
+      const { error } = await supabase.rpc('actualizar_liquidacion', {
+        p_id:                     selectedItem.id,
+        p_anulado:                true,
+        p_justificacion_anulacion: justificacionAnulacion.trim(),
+        p_anulado_por:            admin,
+        p_anulado_en:             ahora,
       });
       if (error) throw error;
 

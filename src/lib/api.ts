@@ -568,8 +568,9 @@ export const dashboardApi = {
       supabase.from('ahorros_permanentes').select('monto_ahorrado').eq('estado', 'activo').eq('anulado', false),
       supabase.from('ahorros_voluntarios').select('monto_ahorrado').eq('estado', 'activo').eq('anulado', false),
       supabase.from('solicitudes_asociados').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
+      // R-03: filtro sobre columna real 'estado' (post-migración JSONB→columnas)
       supabase.from('liquidaciones').select('*', { count: 'exact', head: true })
-        .not('detalle->>estado', 'in', '("Pagada","Rechazada","Borrador")'),
+        .not('estado', 'in', '("Pagada","Rechazada","Borrador")'),
       supabase.from('creditos').select('saldo').eq('anulado', false)
         .in('estado', ['activo', 'aprobado', 'desembolsado', 'en_mora']),
       supabase.from('pagos_credito').select('interes').gte('fecha_pago', inicioMes),

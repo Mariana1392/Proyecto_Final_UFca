@@ -56,7 +56,8 @@ export const TIPOS_CREDITO = [
 ] as const;
 
 // ── Estados de liquidación (etiquetas de UI) ──────────────────────────────────
-// Guardados en el campo `detalle.estado` (jsonb) de la tabla `liquidaciones`.
+// Guardados en la columna real `estado` de la tabla `liquidaciones`
+// (migrado desde detalle JSONB — ver supabase_migrar_liquidaciones_columnas.sql).
 // Solo dos estados activos:
 //   • "En proceso" → estado inicial al crear la liquidación
 //   • "Pagada"     → se asigna automáticamente al subir el comprobante de pago
