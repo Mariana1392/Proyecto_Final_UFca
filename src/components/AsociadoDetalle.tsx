@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -36,23 +36,31 @@ export default function AsociadoDetalle({ asociadoId, onBack }: AsociadoDetalleP
     try {
       setLoading(true);
 
-      // Traer asociado con todas sus relaciones en una sola consulta
-      const { data, error } = await supabase
-        .from('asociados')
-        .select(`
-          *,
-          ahorro_permanente(id, monto_ahorrado, cuota_mensual, fecha_inicio, estado),
-          ahorro_voluntario(id, monto_ahorrado, cuota_mensual, fecha_inicio, estado),
-          creditos(id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado),
-          referidos:asociados!referido_por_id(id, nombre, cedula, telefono, fecha_ingreso, estado)
-        `)
-        .eq('id', id)
-        .single();
+      // Traer asociado con todas sus relaciones + bonificacion desde configuracion (Q-04)
+      const [{ data, error }, { data: cfgData }] = await Promise.all([
+        supabase
+          .from('asociados')
+          .select(`
+            *,
+            ahorros_permanentes(id, monto_ahorrado, cuota_mensual, estado, anulado),
+            ahorros_voluntarios(id, monto_ahorrado, estado, anulado),
+            creditos(id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado),
+            referidos:asociados!referido_por_id(id, nombre, cedula, telefono, fecha_ingreso, estado)
+          `)
+          .eq('id', id)
+          .single(),
+        supabase
+          .from('configuracion')
+          .select('valor')
+          .eq('clave', 'bonificacion_referido')
+          .maybeSingle(),
+      ]);
+      const bonif = cfgData?.valor ? Number(cfgData.valor) : 50_000; // Q-04
 
       if (error) throw error;
 
-      const ahorroPerm  = (data.ahorro_permanente || []).reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
-      const ahorroVol   = (data.ahorro_voluntario  || []).reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
+      const ahorroPerm  = (data.ahorros_permanentes || []).filter((a: any) => !a.anulado).reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
+      const ahorroVol   = (data.ahorros_voluntarios || []).filter((a: any) => !a.anulado).reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
       const creditoActivo = (data.creditos || []).find((c: any) => !c.anulado && c.estado);
 
       setAsociado({
@@ -78,26 +86,17 @@ export default function AsociadoDetalle({ asociadoId, onBack }: AsociadoDetalleP
         telefono:      r.telefono || '',
         fechaReferido: r.fecha_ingreso,
         estadoReferido: r.estado ? 'Aprobado' : 'Inactivo',
-        bonificacion:  50000,
+        bonificacion:  bonif,
       })));
 
-      // Movimientos ahorros: últimos registros de ahorro permanente y voluntario
-      const movAh = [
-        ...(data.ahorro_permanente || []).map((a: any) => ({
-          id:      a.id,
-          fecha:   a.fecha_inicio,
-          tipo:    'Depósito',
-          concepto:'Ahorro permanente',
-          monto:   a.monto_ahorrado,
-        })),
-        ...(data.ahorro_voluntario || []).map((a: any) => ({
-          id:      a.id + '_v',
-          fecha:   a.fecha_inicio,
-          tipo:    'Depósito',
-          concepto:'Ahorro voluntario',
-          monto:   a.monto_ahorrado,
-        })),
-      ].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).slice(0, 5);
+      // Movimientos ahorros: registros de la tabla unificada ahorros
+      const movAh = (data.ahorros || []).map((a: any) => ({
+        id:      a.id,
+        fecha:   a.fecha_inicio,
+        tipo:    'Depósito',
+        concepto: a.tipo === 'permanente' ? 'Ahorro permanente' : 'Ahorro voluntario',
+        monto:   a.monto_ahorrado,
+      })).sort((a: any, b: any) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).slice(0, 5);
       setMovimientosAhorros(movAh);
 
       // Movimientos créditos
@@ -147,7 +146,7 @@ export default function AsociadoDetalle({ asociadoId, onBack }: AsociadoDetalleP
 
   // ── JSX original desde aquí (sin cambios) ────────────────────────────────
   return (
-    <div className="p-8 bg-slate-50 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

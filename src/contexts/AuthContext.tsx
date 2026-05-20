@@ -49,6 +49,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(cacheGet);
+  // S-04: loading = true si no hay caché, evita ventana de acceso sin autenticar
+  const [loading, setLoading] = useState(() => !cacheGet());
 
   const setU = (u: AuthUser | null) => { setUser(u); cacheSet(u); };
 
@@ -56,15 +58,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data } = await supabase
         .from('usuarios')
-        .select('id,nombre,email,username,identificacion,activo,rol_id,asociado_id,roles(nombre,label,rol_permisos(permiso_clave)),asociados(cedula)')
+        .select('id,nombre,email,username,identificacion,activo,rol_id,asociado_id,roles(nombre,label,rol_permisos(permiso_clave,activo)),asociados(cedula)')
         .eq('id', userId)
         .single();
-      if (!data || !data.activo) return;
+      if (!data || !data.activo) { setU(null); return; }
       const rolNombre  = (data as any).roles?.nombre ?? 'usuario';
       const rolLabelDB = (data as any).roles?.label  ?? undefined;
-      // Leer permisos desde rol_permisos (tabla relacional)
+      // Solo permisos activos (activo = true o null para filas antiguas sin columna)
       const dbPermisos: string[] = Array.isArray((data as any).roles?.rol_permisos)
-        ? (data as any).roles.rol_permisos.map((rp: any) => rp.permiso_clave).filter(Boolean)
+        ? (data as any).roles.rol_permisos
+            .filter((rp: any) => rp.activo !== false)
+            .map((rp: any) => rp.permiso_clave).filter(Boolean)
         : [];
       setU({
         id:          data.id,
@@ -79,13 +83,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permisos:    getPermisosEfectivos(rolNombre, dbPermisos),
         cedula:      (data as any).asociados?.cedula,
       });
-    } catch {}
+    } catch (err) {
+      // S-05: capturar errores de red / BD / token expirado — estado limpio
+      console.error('[AuthContext] Error al cargar perfil:', err);
+      setU(null);
+    } finally {
+      setLoading(false); // S-04: siempre desbloquear la app
+    }
   };
 
   useEffect(() => {
-    // Al arrancar, si Supabase tiene sesión activa (ej: tras confirmar email) y no hay caché local, cargar perfil
+    // S-04: esperar confirmación de Supabase antes de mostrar contenido
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user && !cacheGet()) cargarPerfil(session.user.id);
+      if (session?.user && !cacheGet()) {
+        cargarPerfil(session.user.id); // setLoading(false) en finally
+      } else {
+        setLoading(false); // sin sesión o ya en caché → desbloquear
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -112,14 +126,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('usuarios')
-        .select('id,nombre,email,username,identificacion,activo,rol_id,asociado_id,roles(nombre,label,rol_permisos(permiso_clave)),asociados(cedula)')
+        .select('id,nombre,email,username,identificacion,activo,rol_id,asociado_id,roles(nombre,label,rol_permisos(permiso_clave,activo)),asociados(cedula)')
         .eq('id', user.id).single();
       if (error || !data || !data.activo) { setU(null); return; }
       const rolNombre  = (data as any).roles?.nombre ?? user.rol;
       const rolLabelDB = (data as any).roles?.label  ?? undefined;
-      // Leer permisos desde rol_permisos (tabla relacional)
+      // Solo permisos activos (activo = true o null para filas antiguas sin columna)
       const dbPermisos: string[] = Array.isArray((data as any).roles?.rol_permisos)
-        ? (data as any).roles.rol_permisos.map((rp: any) => rp.permiso_clave).filter(Boolean)
+        ? (data as any).roles.rol_permisos
+            .filter((rp: any) => rp.activo !== false)
+            .map((rp: any) => rp.permiso_clave).filter(Boolean)
         : [];
       setU({
         ...user,
@@ -134,7 +150,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         asociado_id: data.asociado_id ?? null,
         cedula:      (data as any).asociados?.cedula ?? user.cedula,
       });
-    } catch {}
+    } catch (err) {
+      // S-05: capturar errores silenciosos — limpiar sesión ante cualquier fallo
+      console.error('[AuthContext] Error al recargar perfil:', err);
+      setU(null);
+    }
   };
 
   const can        = (p: string) => user?.permisos.includes(p) ?? false;
@@ -158,7 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, loading: false, isAuthenticated: !!user,
+      user, loading, isAuthenticated: !!user,
       can, isAdmin, isAsociado, isUsuario, iniciarSesion, logout, recargarPerfil,
       userRole, userData,
     }}>

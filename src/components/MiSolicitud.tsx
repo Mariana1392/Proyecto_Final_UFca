@@ -16,24 +16,7 @@ import {
 } from 'lucide-react';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
-
-// ─── tipos de identificación ────────────────────────────────────────────────
-const TIPOS_ID = [
-  { value: 'CC',  label: 'Cédula de Ciudadanía (CC)' },
-  { value: 'TI',  label: 'Tarjeta de Identidad (TI)' },
-  { value: 'CE',  label: 'Cédula de Extranjería (CE)' },
-  { value: 'PP',  label: 'Pasaporte (PP)' },
-  { value: 'NIT', label: 'NIT' },
-];
-
-// ─── Reglas de validación por tipo de ID ────────────────────────────────────
-const ID_RULES: Record<string, { soloNumeros: boolean; min: number; max: number; hint: string }> = {
-  CC:  { soloNumeros: true,  min: 6,  max: 10, hint: '6–10 dígitos numéricos' },
-  TI:  { soloNumeros: true,  min: 8,  max: 11, hint: '8–11 dígitos numéricos' },
-  CE:  { soloNumeros: false, min: 6,  max: 12, hint: '6–12 caracteres alfanuméricos' },
-  PP:  { soloNumeros: false, min: 5,  max: 12, hint: '5–12 caracteres alfanuméricos' },
-  NIT: { soloNumeros: true,  min: 9,  max: 10, hint: '9–10 dígitos (sin guion ni dígito de verificación)' },
-};
+import { TIPOS_IDENTIFICACION as TIPOS_ID, REGLAS_ID as ID_RULES } from '../lib/constants';
 
 function validarNumeroId(tipo: string, valor: string): string | null {
   const v = valor.trim();
@@ -188,8 +171,9 @@ export default function MiSolicitud() {
   const [cedula, setCedula]             = useState('');
   const [telefono, setTelefono]         = useState('');
   const [direccion, setDireccion]       = useState('');
-  const [ocupacion, setOcupacion]       = useState('');
-  const [ingresoMensual, setIngresoMensual] = useState('');
+  const [ocupacion, setOcupacion]             = useState('');
+  const [ingresoMensual, setIngresoMensual]   = useState('');
+  const [montoAhorroPropuesto, setMontoAhorroPropuesto] = useState('');
   const [motivacion, setMotivacion]     = useState('');
   // Archivos: cédula y extracto bancario (ambos opcionales)
   const [pdf1, setPdf1] = useState<File | null>(null);
@@ -209,29 +193,29 @@ export default function MiSolicitud() {
     if (!user) return;
     try {
       const { data } = await supabase
-        .from('solicitudes')
+        .from('solicitudes_asociados')
         .select('*')
         .eq('usuario_id', user.id)
-        .eq('tipo', 'afiliacion')
-        .order('fecha_solicitud', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      // Aplanar campos de datos jsonb para compatibilidad con el formulario
+      // Columnas directas — sin jsonb
       const mapped = data ? {
         id:                  data.id,
         estado:              data.estado,
         observaciones:       data.observaciones ?? '',
-        fecha_solicitud:     data.fecha_solicitud,
-        nombres:             data.datos?.nombres ?? '',
-        apellidos:           data.datos?.apellidos ?? '',
-        cedula:              data.datos?.cedula ?? '',
-        tipo_identificacion: data.datos?.tipo_identificacion ?? '',
-        telefono:            data.datos?.telefono ?? '',
-        direccion:           data.datos?.direccion ?? '',
-        ocupacion:           data.datos?.ocupacion ?? '',
-        ingreso_mensual:     data.datos?.ingreso_mensual ?? '',
-        motivacion:          data.datos?.motivacion ?? '',
-        documentos:          data.datos?.documentos ?? [],
+        fecha_solicitud:     data.fecha_solicitud ?? data.created_at ?? '',
+        nombres:             data.nombres ?? '',
+        apellidos:           data.apellidos ?? '',
+        cedula:              data.cedula ?? '',
+        tipo_identificacion: data.tipo_identificacion ?? '',
+        telefono:            data.telefono ?? '',
+        direccion:           data.direccion ?? '',
+        ocupacion:                data.ocupacion ?? '',
+        ingreso_mensual:          data.ingreso_mensual != null ? String(data.ingreso_mensual) : '',
+        monto_ahorro_propuesto:   data.monto_ahorro_propuesto != null ? String(data.monto_ahorro_propuesto) : '',
+        motivacion:          data.motivacion ?? '',
+        documentos:          Array.isArray(data.documentos) ? data.documentos : [],
       } : null;
       setSolicitud(mapped ?? null);
     } catch { /* tabla puede no existir aún */ }
@@ -321,51 +305,55 @@ export default function MiSolicitud() {
       const apellidos = partes.slice(mitad).join(' ') || nombres;
 
       // Todos los campos personales van en datos jsonb
-      const datosPayload = {
+      // Payload con columnas directas en solicitudes_asociados
+      const payload = {
         nombres,
         apellidos,
-        email:              user.email,
+        email:              user!.email,
         cedula:             cedula.trim(),
-        tipo_identificacion: tipoId,
-        telefono:           telefono.trim()       || null,
-        direccion:          direccion.trim()      || null,
-        ocupacion:          ocupacion.trim()      || null,
-        ingreso_mensual:    ingresoMensual.trim() || null,
-        motivacion:         motivacion.trim()     || null,
+        tipo_identificacion: tipoId as any,
+        telefono:           telefono.trim()  || null,
+        direccion:          direccion.trim() || null,
+        ocupacion:               ocupacion.trim() || null,
+        ingreso_mensual:         ingresoMensual         ? parseFloat(ingresoMensual)         : null,
+        monto_ahorro_propuesto:  montoAhorroPropuesto   ? parseFloat(montoAhorroPropuesto)   : null,
+        motivacion:              motivacion.trim() || null,
         documentos:         urls,
+        estado:             'pendiente',
+        usuario_id:         user!.id,
+        fecha_solicitud:    new Date().toISOString(),
       };
 
       let error: any;
 
       const guardar = async () => {
-        // Si ya tenemos el id de la solicitud → actualizar directamente
+        // Si ya existe la solicitud → actualizar
         if (solicitud?.id) {
           return supabase
-            .from('solicitudes')
-            .update({ datos: datosPayload, estado: 'pendiente' })
+            .from('solicitudes_asociados')
+            .update(payload)
             .eq('id', solicitud.id);
         }
         // Insertar nueva solicitud
-        const result = await supabase.from('solicitudes').insert({
-          tipo:            'afiliacion',
-          usuario_id:      user!.id,
-          estado:          'pendiente',
-          datos:           datosPayload,
-        });
+        const result = await supabase
+          .from('solicitudes_asociados')
+          .insert(payload)
+          .select('id')
+          .single();
         if (result.error?.code === '23505') {
-          // Conflicto — buscar si ya hay solicitud de este usuario
+          // Cédula duplicada — buscar de quién es
           const { data: existente } = await supabase
-            .from('solicitudes')
+            .from('solicitudes_asociados')
             .select('id, usuario_id')
-            .eq('tipo', 'afiliacion')
-            .filter('datos->>cedula', 'eq', cedula.trim())
+            .eq('cedula', cedula.trim())
             .maybeSingle();
           if (existente?.usuario_id && existente.usuario_id !== user!.id) {
             throw new Error('Ya existe una solicitud registrada con esta cédula por otro usuario. Verifica el número de identificación.');
           }
           if (existente?.id) {
-            return supabase.from('solicitudes')
-              .update({ datos: datosPayload, estado: 'pendiente' })
+            return supabase
+              .from('solicitudes_asociados')
+              .update(payload)
               .eq('id', existente.id);
           }
         }
@@ -416,7 +404,7 @@ export default function MiSolicitud() {
 
   function resetForm() {
     setCedula(''); setTipoId('CC'); setTelefono('');
-    setDireccion(''); setOcupacion(''); setIngresoMensual(''); setMotivacion('');
+    setDireccion(''); setOcupacion(''); setIngresoMensual(''); setMontoAhorroPropuesto(''); setMotivacion('');
     setPdf1(null); setPdf2(null);
     setCedulaError(null); setCedulaTouched(false);
     setTelefonoError(null); setIngresoError(null); setMotivacionError(null);
@@ -702,6 +690,28 @@ export default function MiSolicitud() {
                     )}
                   </div>
                 </div>
+
+                {/* Monto de ahorro propuesto */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="sol-ahorro-propuesto">
+                    Monto mensual de ahorro propuesto (COP) <span className="text-emerald-600 font-semibold">*</span>
+                  </Label>
+                  <Input
+                    id="sol-ahorro-propuesto"
+                    inputMode="numeric"
+                    placeholder="Ej: 50000"
+                    value={montoAhorroPropuesto}
+                    className={`transition-colors ${
+                      montoAhorroPropuesto && parseFloat(montoAhorroPropuesto) > 0
+                        ? 'border-emerald-400 focus-visible:ring-emerald-200 bg-emerald-50/40'
+                        : ''
+                    }`}
+                    onChange={e => setMontoAhorroPropuesto(e.target.value.replace(/[^\d.]/g, ''))}
+                  />
+                  <p className="text-xs text-slate-400">
+                    Indica cuánto propones ahorrar cada mes. El comité lo revisará al evaluar tu solicitud.
+                  </p>
+                </div>
               </div>
 
               {/* Motivación */}
@@ -920,6 +930,14 @@ export default function MiSolicitud() {
                   <div>
                     <p className="text-xs text-slate-500 font-medium">Ingreso mensual</p>
                     <p className="text-slate-800 text-sm mt-0.5">{solicitud.ingreso_mensual}</p>
+                  </div>
+                )}
+                {(solicitud as any).monto_ahorro_propuesto && (
+                  <div>
+                    <p className="text-xs text-emerald-600 font-semibold">Ahorro mensual propuesto</p>
+                    <p className="text-emerald-700 text-sm font-bold mt-0.5">
+                      ${parseFloat((solicitud as any).monto_ahorro_propuesto).toLocaleString('es-CO')} COP
+                    </p>
                   </div>
                 )}
               </div>

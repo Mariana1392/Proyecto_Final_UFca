@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -27,7 +27,8 @@ import { toast } from 'sonner';
 import MiPerfil from './MiPerfil';
 
 import { supabase } from '../lib/supabase';
-import { asociadosApi, ahorroPermanenteApi, ahorroVoluntarioApi, creditosApi, eventosApi } from '../lib/api';
+import { asociadosApi, ahorroPermanenteApi, ahorroVoluntarioApi, creditosApi } from '../lib/api';
+// A-05: eventosApi no se usa aquí — se importará desde api.unimplemented cuando se active la vista
 
 interface AsociadosProps {
   onViewDetails: (id: string) => void;
@@ -206,9 +207,9 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
         .from('asociados')
         .select(`
           *,
-          ahorros(id, monto_ahorrado, cuota_mensual, fecha_inicio, estado, anulado, tipo),
-          creditos(id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado),
-          referidos:asociados!referido_por_id(id, nombre, cedula, fecha_ingreso, estado)
+          ahorros_permanentes(id, monto_ahorrado, cuota_mensual, estado, anulado),
+          ahorros_voluntarios(id, monto_ahorrado, estado, anulado),
+          creditos(id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado)
         `)
         .order('nombre');
 
@@ -263,9 +264,9 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
         .from('asociados')
         .select(`
           *,
-          ahorros(id, monto_ahorrado, cuota_mensual, fecha_inicio, estado, anulado, tipo),
-          creditos(id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado),
-          referidos:asociados!referido_por_id(id, nombre, cedula, fecha_ingreso, estado)
+          ahorros_permanentes(id, monto_ahorrado, cuota_mensual, estado, anulado),
+          ahorros_voluntarios(id, monto_ahorrado, estado, anulado),
+          creditos(id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado)
         `)
         .order('nombre');
 
@@ -280,30 +281,29 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
         telefono: a.telefono || '',
         email: a.email || '',
         direccion: a.direccion || '',
-        modificadoPor: a.modificado_por || null,
-        fechaModificacion: a.fecha_modificacion
-          ? new Date(a.fecha_modificacion).toLocaleString('es-CO') : null,
-        fechaCambioEstado: a.fecha_cambio_estado
-          ? new Date(a.fecha_cambio_estado).toLocaleString('es-CO') : null,
         fechaIngreso: a.fecha_ingreso,
         // DB guarda 'activo'/'inactivo'/'suspendido'; internamente usamos boolean
         estado: a.estado === 'activo',
         tieneCreditos: (a.creditos || []).some((c: any) => !c.anulado && c.saldo > 0),
-        referidos: (a.referidos || []).map((r: any) => ({
-          nombre: r.nombre,
-          cedula: r.cedula,
-          fechaReferido: r.fecha_ingreso,
-          estadoReferido: r.estado === 'activo' ? 'Aprobado' : 'Inactivo',
-          bonificacion: 50000,
-        })),
-        ahorros: (a.ahorros || []).map((ah: any) => ({
-          id: ah.id,
-          tipo: ah.tipo === 'permanente' ? 'Ahorro Permanente' : 'Ahorro Voluntario',
-          monto: ah.monto_ahorrado,
-          saldo: ah.monto_ahorrado,
-          fechaInicio: ah.fecha_inicio,
-          estado: ah.anulado ? 'Anulado' : (ah.estado ? 'Activo' : 'Inactivo'),
-        })),
+        referidos: [],
+        ahorros: [
+          ...(a.ahorros_permanentes || []).map((ah: any) => ({
+            id: ah.id,
+            tipo: 'Ahorro Permanente',
+            monto: ah.monto_ahorrado,
+            saldo: ah.monto_ahorrado,
+            cuotaMensual: ah.cuota_mensual,
+            estado: ah.anulado ? 'Anulado' : (ah.estado === 'activo' ? 'Activo' : 'Inactivo'),
+          })),
+          ...(a.ahorros_voluntarios || []).map((ah: any) => ({
+            id: ah.id,
+            tipo: 'Ahorro Voluntario',
+            monto: ah.monto_ahorrado,
+            saldo: ah.monto_ahorrado,
+            cuotaMensual: null,
+            estado: ah.anulado ? 'Anulado' : (ah.estado === 'activo' ? 'Activo' : 'Inactivo'),
+          })),
+        ],
         creditos: (a.creditos || []).map((c: any) => ({
           id: c.id,
           tipo: 'Crédito',
@@ -316,7 +316,10 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
           estado: c.anulado ? 'Anulado' : (c.estado ? 'Activo' : 'Inactivo'),
         })),
         eventos: [],
-        totalAhorros: (a.ahorros || []).reduce((sum: number, ah: any) => sum + (ah.monto_ahorrado || 0), 0),
+        totalAhorros: [
+          ...(a.ahorros_permanentes || []),
+          ...(a.ahorros_voluntarios || []),
+        ].reduce((sum: number, ah: any) => sum + (ah.monto_ahorrado || 0), 0),
         totalCreditos: (a.creditos || [])
           .filter((c: any) => !c.anulado)
           .reduce((sum: number, c: any) => sum + (c.saldo || 0), 0),
@@ -328,6 +331,13 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
       // Cargar auditoría global pasando los asociados ya mapeados
       cargarAuditoriaGlobal(asociadosMapeados);
     } catch (error: any) {
+      // El error de Web Lock es transitorio (otra pestaña refrescó el token).
+      // En ese caso el cliente reintenta solo — no mostramos error al usuario.
+      if (error?.message?.includes('Lock') || error?.message?.includes('lock')) {
+        console.warn('Auth lock transitorio, reintentando...', error.message);
+        setTimeout(() => cargarAsociados(), 800);
+        return;
+      }
       toast.error('Error al cargar asociados: ' + error.message);
     } finally {
       setLoading(false);
@@ -402,9 +412,7 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
 
     try {
       const { error: estadoErr } = await supabase.from('asociados').update({
-        estado:              nuevoEstadoDB,
-        fecha_cambio_estado: new Date().toISOString(),
-        modificado_por:      adminNombre,
+        estado: nuevoEstadoDB,
       }).eq('id', id);
       if (estadoErr) throw estadoErr;
 
@@ -430,9 +438,7 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
       setAsociados(prev => prev.map(a =>
         a.id === id ? {
           ...a,
-          estado:            nuevoEstado,
-          fechaCambioEstado: fechaCambioEstado,
-          modificadoPor:     adminNombre,
+          estado: nuevoEstado,
         } : a
       ));
 
@@ -594,11 +600,9 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
 
     try {
       const { error: editErr } = await supabase.from('asociados').update({
-        telefono:           formData.telefono.trim(),
-        email:              formData.email.trim(),
-        direccion:          formData.direccion.trim(),
-        modificado_por:     adminNombreEdit,
-        fecha_modificacion: new Date().toISOString(),
+        telefono:  formData.telefono.trim(),
+        email:     formData.email.trim(),
+        direccion: formData.direccion.trim(),
       }).eq('id', selectedAsociado.id);
       if (editErr) throw editErr;
 
@@ -621,11 +625,9 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
         a.id === selectedAsociado.id
           ? {
               ...a,
-              telefono:          formData.telefono.trim(),
-              email:             formData.email.trim(),
-              direccion:         formData.direccion.trim(),
-              modificadoPor:     adminNombreEdit,
-              fechaModificacion: fechaModificacion,
+              telefono:  formData.telefono.trim(),
+              email:     formData.email.trim(),
+              direccion: formData.direccion.trim(),
             }
           : a
       ));
@@ -792,7 +794,7 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
   };
 
   return (
-    <div className="p-8 bg-slate-50 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -1123,20 +1125,7 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
                                   <Button 
                                     variant="outline" 
                                     size="sm"
-                              onClick={async () => {
-                                    // Verificar si existen pedidos asociados antes de intentar eliminar
-                                    try {
-                                      const { data: pedidos } = await supabase.from('pedidos').select('id')
-                                        .eq('asociado_id', asociado.id)
-                                        .eq('estado', 'pendiente')
-                                        .limit(1);
-                                      if (pedidos && pedidos.length > 0) {
-                                        toast.error('No se puede eliminar: el asociado tiene pedidos pendientes de entrega.');
-                                        return;
-                                      }
-                                    } catch (e) {
-                                      // Si falla, proceed con la lógica existente (pero mejor bloquear)
-                                    }
+                              onClick={() => {
                                     setSelectedAsociado(asociado);
                                     setIsDeleteDialogOpen(true);
                                   }}
@@ -1825,23 +1814,8 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
                         <Badge className={selectedAsociado.estado ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}>
                           {selectedAsociado.estado ? 'Activo' : 'Inactivo'}
                         </Badge>
-                        {selectedAsociado.fechaCambioEstado && (
-                          <span className="text-xs text-slate-400">desde {selectedAsociado.fechaCambioEstado}</span>
-                        )}
                       </div>
                     </div>
-                    {selectedAsociado.fechaModificacion && (
-                      <div className="col-span-2 pt-2 border-t border-slate-200">
-                        <Label className="text-slate-500 text-xs">Última modificación</Label>
-                        <p className="font-medium mt-1 text-sm flex items-center gap-2">
-                          <Clock className="size-3 text-slate-400" />
-                          {selectedAsociado.fechaModificacion}
-                          {selectedAsociado.modificadoPor && (
-                            <span className="text-slate-500 text-xs">— por <strong>{selectedAsociado.modificadoPor}</strong></span>
-                          )}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -1895,7 +1869,6 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
                             <div className="p-2 bg-emerald-100 rounded-lg"><DollarSign className="size-5 text-emerald-600" /></div>
                             <div>
                               <h4 className="font-semibold text-slate-900">{ahorro.tipo}</h4>
-                              <p className="text-sm text-slate-500">Apertura: {formatDate(ahorro.fechaInicio)}</p>
                             </div>
                           </div>
                           <Badge className={ahorro.estado === 'Activo' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}>{ahorro.estado}</Badge>

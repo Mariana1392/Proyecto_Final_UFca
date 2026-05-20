@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import {
   Menu, X, Home, LogIn, LogOut, Settings, Users, UserCircle,
-  TrendingUp, ShoppingCart, Package,
   BarChart3, ChevronDown, ChevronRight,
   FileText, Mail, Phone, MapPin,
   Facebook, Twitter, Instagram, Linkedin, User, UserPlus,
@@ -25,25 +24,20 @@ interface LayoutProps {
   userPermisos?: string[];
 }
 
-// Permiso requerido para cada ítem hijo del menú
-const CHILD_PERMISO: Record<string, string> = {
+// Permiso requerido para cada ítem hijo del menú.
+// Puede ser un string (permiso único) o string[] (OR: basta con tener uno).
+const CHILD_PERMISO: Record<string, string | string[]> = {
   'gestion-roles':    'roles',
   'gestion-usuarios': 'usuarios',
   'gestion-asociados':'asociados',
-  'ahorro-permanente':'ahorros',
-  'ahorro-voluntario':'ahorros',
-  'liquidacion':      'liquidacion',
+  // Asociado ve UN SOLO ítem "Mis Ahorros" (ahorro-permanente → MisAhorros muestra ambos tipos).
+  // ahorro-voluntario solo se muestra al admin (permiso 'ahorros').
+  'ahorro-permanente':['ahorros', 'mis_ahorros'],
+  'ahorro-voluntario': 'ahorros',
+  'liquidacion':      ['liquidacion', 'mi_liquidacion'],
   'comite-evaluador': 'asociados',
-  'creditos':         'creditos',
-  'referidos':        'asociados',
-  'ventas-list':      'ventas',
-  'pedidos':          'pedidos',
-  'compras-list':     'compras',
-  'productos':        'compras',
-  'categorias':       'compras',
-  'proveedores':      'compras',
-  'eventos':          'eventos',
-  'pagos-premios':    'eventos',
+  'creditos':         ['creditos', 'mis_creditos'],
+  'referidos':        ['asociados', 'mis_referidos'],
   'mediciones':       'dashboard',
   'excepciones':      'configuracion',
 };
@@ -55,19 +49,11 @@ const VIEW_TO_CHILD_ID: Record<string, string> = {
   'asociados':         'gestion-asociados',
   'asociado-detalle':  'gestion-asociados',
   'ahorro-permanente': 'ahorro-permanente',
-  'ahorro-voluntario': 'ahorro-voluntario',   // admin; asociado ya usa 'ahorro-permanente'
+  'ahorro-voluntario': 'ahorro-voluntario',
   'liquidacion':       'liquidacion',
   'comite-evaluador':  'comite-evaluador',
   'creditos':          'creditos',
   'referidos':         'referidos',
-  'eventos':           'eventos',
-  'pagos-premios':     'pagos-premios',
-  'compras':           'compras-list',
-  'productos':         'productos',
-  'categorias':        'categorias',
-  'proveedores':       'proveedores',
-  'ventas':            'ventas-list',
-  'pedidos':           'pedidos',
   'dashboard':         'mediciones',
   'excepciones':       'excepciones',
 };
@@ -82,10 +68,26 @@ interface MenuItem {
 export default function Layout({
   children, isAuthenticated, currentView, onNavigate, onLogout, userRole, userData, userPermisos = [],
 }: LayoutProps) {
-  const [sidebarOpen, setSidebarOpen]         = useState(true);
+  const [isMobile, setIsMobile]               = useState(window.innerWidth < 1024);
+  const [sidebarOpen, setSidebarOpen]         = useState(window.innerWidth >= 1024);
   const [expandedMenus, setExpandedMenus]     = useState<string[]>([]);
   const [solicitudesPendientes, setSolicitudesPendientes] = useState(0);
   const { toggleTheme, isDark } = useTheme();
+
+  // Detectar cambio de tamaño de pantalla
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setSidebarOpen(true);   // desktop → abrir siempre
+      } else {
+        setSidebarOpen(false);  // móvil  → cerrar siempre al redimensionar
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Auto-expandir el menú padre que contiene la vista activa
   useEffect(() => {
@@ -97,10 +99,7 @@ export default function Layout({
     const parentGroups: Record<string, string[]> = {
       configuracion: ['gestion-roles', 'excepciones'],
       usuarios:      ['gestion-usuarios'],
-      asociados:     ['gestion-asociados', 'ahorro-permanente', 'ahorro-voluntario', 'liquidacion', 'comite-evaluador', 'creditos', 'referidos', 'mis-ahorros'],
-      ventas:        ['ventas-list', 'pedidos'],
-      compras:       ['compras-list', 'productos', 'categorias', 'proveedores'],
-      servicios:     ['eventos', 'pagos-premios'],
+      asociados:     ['gestion-asociados', 'ahorro-permanente', 'ahorro-voluntario', 'liquidacion', 'comite-evaluador', 'creditos', 'referidos'],
     };
     const parentId = Object.entries(parentGroups).find(([, children]) => children.includes(activeChildId))?.[0];
     if (parentId) {
@@ -109,10 +108,26 @@ export default function Layout({
   }, [currentView, isAuthenticated]);
 
   useEffect(() => {
-    if (isAuthenticated && userRole === "admin") {
-      cargarSolicitudesPendientes();
+    // R-04: solo se ejecuta al autenticar/desautenticar, NO en cada cambio de vista
+    if (!isAuthenticated || userRole !== "admin") {
+      setSolicitudesPendientes(0);
+      return;
     }
-  }, [isAuthenticated, userRole, currentView]);
+    cargarSolicitudesPendientes();
+
+    // Suscripción Realtime para actualizar el badge sin polling
+    const canal = supabase
+      .channel('solicitudes_pendientes_badge')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'solicitudes_asociados',
+        filter: 'estado=eq.pendiente',
+      }, () => cargarSolicitudesPendientes())
+      .subscribe();
+
+    return () => { supabase.removeChannel(canal); };
+  }, [isAuthenticated, userRole]); // sin currentView → no repite en cada navegación
 
   async function cargarSolicitudesPendientes() {
     try {
@@ -148,60 +163,27 @@ export default function Layout({
       id: "asociados",
       label: "Asociados",
       icon: <Users className="size-5" />,
-      children: userRole === 'asociado' ? [
-        // Vista simplificada para el asociado
-        { id: "ahorro-permanente", label: "Mis Ahorros" },
-        { id: "liquidacion",       label: "Liquidación" },
-        { id: "creditos",          label: "Créditos" },
-        { id: "referidos",         label: "Referidos" },
-      ] : [
-        // Vista completa para el admin
+      // Los ítems visibles se filtran por tienePermiso() según los permisos reales de la BD
+      children: [
         { id: "gestion-asociados",  label: "Gestión de asociados" },
-        { id: "ahorro-permanente",  label: "Ahorro permanente" },
+        // Asociado → "Mis Ahorros" (un solo ítem, MisAhorros muestra permanente + voluntario)
+        // Admin    → "Ahorro permanente" + "Ahorro voluntario" (dos ítems separados)
+        { id: "ahorro-permanente",  label: userPermisos.includes('mis_ahorros') && !userPermisos.includes('ahorros') ? "Mis Ahorros" : "Ahorro permanente" },
         { id: "ahorro-voluntario",  label: "Ahorro voluntario" },
-        { id: "liquidacion",        label: "Liquidación" },
+        { id: "liquidacion",        label: userPermisos.includes('mi_liquidacion') && !userPermisos.includes('liquidacion') ? "Mi Liquidación" : "Liquidación" },
         { id: "comite-evaluador",   label: "Comité evaluador" },
-        { id: "creditos",           label: "Créditos" },
-        { id: "referidos",          label: "Referidos" },
-      ],
-    },
-    {
-      id: "ventas",
-      label: "Ventas",
-      icon: <TrendingUp className="size-5" />,
-      children: [
-        { id: "ventas-list", label: "Ventas" },
-        { id: "pedidos", label: "Pedidos" },
-      ],
-    },
-    {
-      id: "compras",
-      label: "Compras",
-      icon: <ShoppingCart className="size-5" />,
-      children: [
-        { id: "compras-list", label: "Compras" },
-        { id: "productos", label: "Productos" },
-        { id: "categorias", label: "Categorías de productos" },
-        { id: "proveedores", label: "Proveedores" },
-      ],
-    },
-    {
-      id: "servicios",
-      label: "Servicios",
-      icon: <Package className="size-5" />,
-      children: [
-        { id: "eventos", label: "Eventos" },
-        { id: "pagos-premios", label: "Pagos de premios" },
+        { id: "creditos",           label: userPermisos.includes('mis_creditos') && !userPermisos.includes('creditos') ? "Mis Créditos" : "Créditos" },
+        { id: "referidos",          label: userPermisos.includes('mis_referidos') && !userPermisos.includes('asociados') ? "Mis Referidos" : "Referidos" },
       ],
     },
   ];
 
-  // Filtrar menús según los permisos reales del usuario
-  // Cada hijo solo aparece si el usuario tiene el permiso correspondiente.
-  // El padre solo aparece si tiene al menos un hijo visible.
-  const tienePermiso = (childId: string) => {
+  // Filtrar menús según los permisos reales del usuario (lee de la BD vía userPermisos).
+  // Soporta lógica OR: si el permiso es un array, basta con tener al menos uno.
+  const tienePermiso = (childId: string): boolean => {
     const permiso = CHILD_PERMISO[childId];
     if (!permiso) return true; // sin restricción definida → visible
+    if (Array.isArray(permiso)) return permiso.some(p => userPermisos.includes(p));
     return userPermisos.includes(permiso);
   };
 
@@ -223,87 +205,72 @@ export default function Layout({
     );
   };
 
+  // Q-03: mapa id → vista en lugar de 20+ else-if en cascada
+  const MENU_VISTA: Record<string, string> = {
+    'solicitudes-asociados': 'solicitudes-asociados',
+    'gestion-roles':         'roles',
+    'roles':                 'roles',
+    'gestion-usuarios':      'usuarios',
+    'gestion-acceso':        'acceso',
+    'gestion-asociados':     'asociados',
+    'ahorro-permanente':     'ahorro-permanente',
+    'ahorro-voluntario':     'ahorro-voluntario',
+    'liquidacion':           'liquidacion',
+    'comite-evaluador':      'comite-evaluador',
+    'creditos':              'creditos',
+    'referidos':             'referidos',
+    'eventos':               'eventos',
+    'pagos-premios':         'pagos-premios',
+    'compras-list':          'compras',
+    'productos':             'productos',
+    'categorias':            'categorias',
+    'proveedores':           'proveedores',
+    'ventas-list':           'ventas',
+    'pedidos':               'pedidos',
+    'dashboard':             'dashboard',
+    'mediciones':            'dashboard',
+    'excepciones':           'excepciones',
+  };
+
   const handleMenuClick = (id: string) => {
-    if (id === "solicitudes-asociados") {
-      onNavigate("solicitudes-asociados");
-    } else if (id === "gestion-roles") {
-      onNavigate("roles");
-    } else if (id === "roles") {
-      onNavigate("roles");
-    } else if (id === "gestion-usuarios") {
-      onNavigate("usuarios");
-    } else if (id === "gestion-acceso") {
-      onNavigate("acceso");
-    } else if (id === "gestion-asociados") {
-      onNavigate("asociados");
-    } else if (id === "ahorro-permanente") {
-      onNavigate("ahorro-permanente");
-    } else if (id === "ahorro-voluntario") {
-      onNavigate("ahorro-voluntario");
-    } else if (id === "liquidacion") {
-      onNavigate("liquidacion");
-    } else if (id === "comite-evaluador") {
-      onNavigate("comite-evaluador");
-    } else if (id === "creditos") {
-      onNavigate("creditos");
-    } else if (id === "referidos") {
-      onNavigate("referidos");
-    } else if (id === "eventos") {
-      onNavigate("eventos");
-    } else if (id === "pagos-premios") {
-      onNavigate("pagos-premios");
-    } else if (id === "compras-list") {
-      onNavigate("compras");
-    } else if (id === "productos") {
-      onNavigate("productos");
-    } else if (id === "categorias") {
-      onNavigate("categorias");
-    } else if (id === "proveedores") {
-      onNavigate("proveedores");
-    } else if (id === "ventas-list") {
-      onNavigate("ventas");
-    } else if (id === "pedidos") {
-      onNavigate("pedidos");
-    } else if (id === "dashboard" || id === "mediciones") {
-      onNavigate("dashboard");
-    } else if (id === "excepciones") {
-      onNavigate("excepciones");
-    }
+    if (isMobile) setSidebarOpen(false);
+    const vista = MENU_VISTA[id];
+    if (vista) onNavigate(vista);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-50">
-        <div className="flex items-center justify-between px-6 h-16">
-          <div className="flex items-center gap-4">
+      <header className="fixed top-0 left-0 right-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 z-50">
+        <div className="flex items-center justify-between px-3 sm:px-6 h-16">
+
+          {/* Izquierda: hamburger + logo */}
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             {isAuthenticated && (
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors shrink-0"
+                aria-label="Menú"
               >
-                {sidebarOpen ? (
-                  <X className="size-5" />
-                ) : (
-                  <Menu className="size-5" />
-                )}
+                {sidebarOpen && !isMobile ? <X className="size-5" /> : <Menu className="size-5" />}
               </button>
             )}
-            <div className="flex items-center gap-3">
-              <img src={logo} alt="UFCA" className="h-11 w-11 object-contain drop-shadow-md" />
-              <div className="hidden sm:flex flex-col leading-tight">
-                <span className="text-lg font-bold text-slate-900 tracking-wide">UFCA</span>
-                <span className="text-[10px] text-emerald-600 font-medium tracking-widest uppercase">Unión Familiar de Crédito y Ahorro</span>
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <img src={logo} alt="UFCA" className="h-9 w-9 sm:h-11 sm:w-11 object-contain drop-shadow-md shrink-0" />
+              <div className="hidden sm:flex flex-col leading-tight min-w-0">
+                <span className="text-lg font-bold text-slate-900 dark:text-white tracking-wide">UFCA</span>
+                <span className="text-[10px] text-emerald-600 font-medium tracking-widest uppercase hidden md:block">Unión Familiar de Crédito y Ahorro</span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Botón tema claro/oscuro */}
+          {/* Derecha: acciones */}
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            {/* Botón tema */}
             <button
               onClick={toggleTheme}
               className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-              title={isDark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+              title={isDark ? 'Tema claro' : 'Tema oscuro'}
             >
               {isDark
                 ? <Sun className="size-5 text-[#f0c040]" />
@@ -321,96 +288,124 @@ export default function Layout({
               />
             )}
 
-            {/* Badge de Usuario y Rol */}
+            {/* Badge de Usuario y Rol — solo texto en pantallas medianas+ */}
             {isAuthenticated && userData && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg shadow-sm">
-                <UserCircle className="size-5 text-emerald-600" />
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold text-slate-900">
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg shadow-sm">
+                <UserCircle className="size-5 text-emerald-600 shrink-0" />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-semibold text-slate-900 truncate max-w-[120px]">
                     {userData.name}
                   </span>
-                  <span className="text-xs text-emerald-600">
+                  <span className="text-xs text-emerald-600 hidden md:block">
                     {userData?.rol_nombre === 'admin'    ? 'Administrador'
                      : userData?.rol_nombre === 'asociado' ? 'Asociado'
                      : userData?.rol_nombre === 'usuario'  ? 'Usuario Normal'
-                     : userData?.rol_nombre              ? userData.rol_nombre
-                     : userRole === 'admin'              ? 'Administrador'
-                     : userRole === 'asociado'           ? 'Asociado'
-                     : userRole === 'usuario'            ? 'Usuario Normal'
-                     :                                    'Usuario Normal'}
+                     : userData?.rol_nombre              ?? 'Usuario Normal'}
                   </span>
                 </div>
               </div>
             )}
+            {/* Ícono de usuario solo en xs */}
+            {isAuthenticated && userData && (
+              <div className="flex sm:hidden p-1.5">
+                <UserCircle className="size-6 text-emerald-600" />
+              </div>
+            )}
 
+            {/* Inicio */}
             <Button
               variant="ghost"
               onClick={() => onNavigate("home")}
-              className="gap-2"
+              className="gap-2 px-2 sm:px-3"
+              aria-label="Inicio"
             >
               <Home className="size-4" />
-              Inicio
+              <span className="hidden sm:inline">Inicio</span>
             </Button>
+
+            {/* Login / Logout */}
             {!isAuthenticated ? (
               <Button
                 onClick={() => onNavigate("login")}
-                className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                className="gap-2 bg-emerald-600 hover:bg-emerald-700 px-2 sm:px-4"
               >
                 <LogIn className="size-4" />
-                Login / Registro
+                <span className="hidden sm:inline">Login</span>
               </Button>
             ) : (
               <Button
                 variant="outline"
                 onClick={onLogout}
-                className="gap-2"
+                className="gap-2 px-2 sm:px-4"
+                aria-label="Cerrar sesión"
               >
                 <LogOut className="size-4" />
-                Cerrar sesión
+                <span className="hidden sm:inline">Cerrar sesión</span>
               </Button>
             )}
           </div>
         </div>
       </header>
 
+      {/* Backdrop para móvil — cierra el sidebar al tocar fuera */}
+      {isAuthenticated && sidebarOpen && isMobile && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       <div className="flex pt-16">
         {/* Sidebar */}
         {isAuthenticated && (
           <aside
-            className={`fixed left-0 top-16 bottom-0 bg-white border-r border-slate-200 transition-all duration-300 overflow-y-auto ${
-              sidebarOpen ? "w-64" : "w-0"
+            className={`fixed left-0 top-16 bottom-0 z-40 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 transition-transform duration-300 overflow-y-auto w-64 ${
+              sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
           >
-            {sidebarOpen && (
-              <nav className="p-4 space-y-1">
+            <nav className="p-4 space-y-1">
                 {/* Logo del sidebar */}
-                <div className="flex flex-col items-center gap-2 py-4 mb-3 border-b border-slate-100">
+                <div className="flex flex-col items-center gap-2 py-4 mb-3 border-b border-slate-100 dark:border-slate-700">
                   <img src={logo} alt="UFCA" className="h-20 w-20 object-contain drop-shadow-lg" />
                   <div className="text-center">
-                    <p className="text-base font-bold text-slate-900 tracking-wider">UFCA</p>
+                    <p className="text-base font-bold text-slate-900 dark:text-white tracking-wider">UFCA</p>
                     <p className="text-[10px] text-emerald-600 font-medium tracking-widest uppercase">Unión Familiar de Crédito y Ahorro</p>
                   </div>
                 </div>
 
-                {/* Sidebar simplificado para rol usuario */}
+                {/* Sidebar simplificado para rol usuario (solo portal + perfil) */}
                 {userRole === 'usuario' ? (
-                  <button
-                    onClick={() => onNavigate('mi-solicitud')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm ${
-                      currentView === 'mi-solicitud'
-                        ? 'bg-emerald-600 text-white font-semibold shadow-sm'
-                        : 'hover:bg-slate-100 text-slate-700 hover:text-slate-900'
-                    }`}
-                  >
-                    <FileText className="size-5 shrink-0" />
-                    <span>Mi Portal</span>
-                  </button>
+                  <>
+                    <button
+                      onClick={() => { if (isMobile) setSidebarOpen(false); onNavigate('mi-solicitud'); }}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm ${
+                        currentView === 'mi-solicitud'
+                          ? 'bg-emerald-600 text-white font-semibold shadow-sm'
+                          : 'hover:bg-slate-100 text-slate-700 hover:text-slate-900'
+                      }`}
+                    >
+                      <FileText className="size-5 shrink-0" />
+                      <span>Mi Portal</span>
+                    </button>
+                    <button
+                      onClick={() => { if (isMobile) setSidebarOpen(false); onNavigate('mi-perfil'); }}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm ${
+                        currentView === 'mi-perfil'
+                          ? 'bg-emerald-600 text-white font-semibold shadow-sm'
+                          : 'hover:bg-slate-100 text-slate-700 hover:text-slate-900'
+                      }`}
+                    >
+                      <User className="size-5 shrink-0" />
+                      <span>Mi Perfil</span>
+                    </button>
+                  </>
                 ) : (
                   <>
                 {/* Acceso directo al Dashboard */}
                 {isAuthenticated && (
                   <button
-                    onClick={() => onNavigate('dashboard')}
+                    onClick={() => { if (isMobile) setSidebarOpen(false); onNavigate('dashboard'); }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm ${
                       currentView === 'dashboard'
                         ? 'bg-emerald-600 text-white font-semibold shadow-sm'
@@ -425,7 +420,7 @@ export default function Layout({
                 {/* Mi Perfil — visible para admin y asociado */}
                 {isAuthenticated && (userRole === 'admin' || userRole === 'asociado') && (
                   <button
-                    onClick={() => onNavigate('mi-perfil')}
+                    onClick={() => { if (isMobile) setSidebarOpen(false); onNavigate('mi-perfil'); }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm mb-1 ${
                       currentView === 'mi-perfil'
                         ? 'bg-emerald-600 text-white font-semibold shadow-sm'
@@ -508,15 +503,14 @@ export default function Layout({
                 })}
                   </>
                 )}
-              </nav>
-            )}
+            </nav>
           </aside>
         )}
 
         {/* Main Content */}
         <main
-          className={`flex-1 transition-all duration-300 min-h-[calc(100vh-4rem)] flex flex-col ${
-            isAuthenticated && sidebarOpen ? "ml-64" : "ml-0"
+          className={`flex-1 transition-all duration-300 min-h-[calc(100vh-4rem)] flex flex-col min-w-0 ${
+            isAuthenticated && sidebarOpen && !isMobile ? 'ml-64' : 'ml-0'
           }`}
         >
           <div className="flex-1">{children}</div>

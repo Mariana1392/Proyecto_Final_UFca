@@ -15,37 +15,41 @@ import Liquidacion from './components/Liquidacion';
 import ComiteEvaluador from './components/ComiteEvaluador';
 import Creditos from './components/Creditos';
 import Referidos from './components/Referidos';
-import Eventos from './components/Eventos';
-import PagosPremios from './components/PagosPremios';
-import Compras from './components/Compras';
-import Ventas from './components/Ventas';
-import Productos from './components/Productos';
-import Categorias from './components/Categorias';
-import Proveedores from './components/Proveedores';
-import Pedidos from './components/Pedidos';
 import GestionUsuarios from './components/GestionUsuarios';
 import ExcepcionesManager from './components/ExcepcionesManager';
 import MiSolicitud from './components/MiSolicitud';
 import MiPerfil from './components/MiPerfil';
 import PerfilAdmin from './components/PerfilAdmin';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 import MisAhorros from './components/MisAhorros';
 import { VIEW_PERMISO } from './lib/permissions';
+import { businessRules } from './services/businessRules';
 import { Toaster } from 'sonner';
 
-type View = 'home' | 'login' | 'recuperar-password' | 'mi-solicitud' | 'mi-perfil' | 'dashboard' | 'roles' | 'usuarios' | 'asociados' | 'asociado-detalle' | 'ahorro-permanente' | 'ahorro-voluntario' | 'liquidacion' | 'comite-evaluador' | 'creditos' | 'referidos' | 'eventos' | 'pagos-premios' | 'compras' | 'ventas' | 'productos' | 'categorias' | 'proveedores' | 'pedidos' | 'excepciones';
+type View = 'home' | 'solicitud' | 'login' | 'recuperar-password' | 'mi-solicitud' | 'mi-perfil' | 'dashboard' | 'roles' | 'usuarios' | 'asociados' | 'asociado-detalle' | 'ahorro-permanente' | 'ahorro-voluntario' | 'liquidacion' | 'comite-evaluador' | 'creditos' | 'referidos' | 'excepciones';
 
 function AppContent() {
   const [currentView, setCurrentView]         = useState<View>('home');
   const [selectedAsociadoId, setSelectedAsociadoId] = useState<string | null>(null);
 
+  // ── Cargar configuración operativa desde BD al iniciar ────────────────────
+  useEffect(() => {
+    businessRules.loadConfigFromDB();
+  }, []);
+
   // ── Fuente única de verdad para auth y permisos ───────────────────────────
   const {
     isAuthenticated,
+    loading,
     userRole, userData, can,
     logout,
   } = useAuth();
+
+  // Helper: un usuario tiene acceso si posee AL MENOS UNO de los permisos (OR)
+  const canAny = (perm: string | string[]): boolean =>
+    Array.isArray(perm) ? perm.some(p => can(p)) : can(perm);
 
   // Permisos como array para props de Layout (backward compat)
   const userPermisos = userData?.permisos ?? [];
@@ -94,16 +98,15 @@ function AppContent() {
       'dashboard', 'mi-solicitud', 'mi-perfil',
       'roles', 'usuarios', 'asociados', 'asociado-detalle', 'ahorro-permanente',
       'ahorro-voluntario', 'liquidacion', 'comite-evaluador', 'creditos', 'referidos',
-      'eventos', 'pagos-premios', 'compras', 'ventas', 'productos', 'categorias',
-      'proveedores', 'pedidos', 'excepciones',
+      'excepciones',
     ];
     if (!isAuthenticated && rutasProtegidas.includes(currentView as View)) {
       return <Login onLogin={handleLogin} onShowRecovery={() => setCurrentView('recuperar-password')} />;
     }
 
-    // Guard de permisos: autenticado pero sin acceso al módulo
+    // Guard de permisos: autenticado pero sin acceso al módulo (soporta OR con arrays)
     const permisoRequerido = VIEW_PERMISO[currentView];
-    if (isAuthenticated && permisoRequerido && !can(permisoRequerido)) {
+    if (isAuthenticated && permisoRequerido && !canAny(permisoRequerido)) {
       return (
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center space-y-4 max-w-sm">
@@ -133,14 +136,16 @@ function AppContent() {
           : <MiPerfil userData={userData} />;
       case 'home':
         return <Hero onNavigateToDashboard={() => handleNavigate('dashboard')} onNavigateToLogin={() => handleNavigate('login')} />;
+      case 'solicitud':
+        return <Hero onNavigateToDashboard={() => handleNavigate('dashboard')} onNavigateToLogin={() => handleNavigate('login')} autoOpenForm />;
       case 'login':
         return <Login onLogin={handleLogin} onShowRecovery={() => setCurrentView('recuperar-password')} />;
       case 'recuperar-password':
         return <RecuperarPassword onBack={() => setCurrentView('login')} />;
       case 'dashboard':
-        return userRole === 'asociado'
-          ? <DashboardAsociado userData={userData} onNavigate={handleNavigate} />
-          : <Dashboard userRole={userRole ?? undefined} userData={userData} onNavigate={handleNavigate} />;
+        return can('asociados') || can('usuarios') || can('roles')
+          ? <Dashboard userRole={userRole ?? undefined} userData={userData} onNavigate={handleNavigate} />
+          : <DashboardAsociado userData={userData} onNavigate={handleNavigate} />;
       case 'roles':
         return <Roles userRole={userRole ?? undefined} />;
       case 'asociados':
@@ -148,37 +153,23 @@ function AppContent() {
       case 'asociado-detalle':
         return <AsociadoDetalle asociadoId={selectedAsociadoId} onBack={() => setCurrentView('asociados')} />;
       case 'ahorro-permanente':
-        return userRole === 'asociado'
-          ? <MisAhorros userData={userData} />
-          : <AhorroPermanente userRole={userRole ?? undefined} userData={userData} />;
+        // can('ahorros') → admin: vista completa de todos los asociados
+        // can('mis_ahorros') → asociado: solo sus propios ahorros
+        return can('ahorros')
+          ? <AhorroPermanente userRole={userRole ?? undefined} userData={userData} />
+          : <MisAhorros userData={userData} />;
       case 'ahorro-voluntario':
-        return userRole === 'asociado'
-          ? <MisAhorros userData={userData} />
-          : <AhorroVoluntario userRole={userRole ?? undefined} userData={userData} />;
+        return can('ahorros')
+          ? <AhorroVoluntario userRole={userRole ?? undefined} userData={userData} />
+          : <MisAhorros userData={userData} />;
       case 'liquidacion':
-        return <Liquidacion userRole={userRole ?? undefined} userData={userData} />;
+        return <Liquidacion userData={userData} />;
       case 'comite-evaluador':
         return <ComiteEvaluador />;
       case 'creditos':
-        return <Creditos userRole={userRole ?? undefined} userData={userData} />;
+        return <Creditos userData={userData} />;
       case 'referidos':
-        return <Referidos userRole={userRole ?? undefined} userData={userData} />;
-      case 'eventos':
-        return <Eventos userRole={userRole ?? undefined} userData={userData} />;
-      case 'pagos-premios':
-        return <PagosPremios userRole={userRole ?? undefined} />;
-      case 'compras':
-        return <Compras />;
-      case 'ventas':
-        return <Ventas />;
-      case 'productos':
-        return <Productos />;
-      case 'categorias':
-        return <Categorias />;
-      case 'proveedores':
-        return <Proveedores />;
-      case 'pedidos':
-        return <Pedidos userRole={userRole ?? undefined} />;
+        return <Referidos userData={userData} />;
       case 'usuarios':
         return <GestionUsuarios userRole={userRole ?? undefined} />;
       case 'excepciones':
@@ -187,6 +178,18 @@ function AppContent() {
         return <Hero onNavigateToDashboard={() => handleNavigate('dashboard')} onNavigateToLogin={() => handleNavigate('login')} />;
     }
   };
+
+  // U-02: mostrar spinner mientras Supabase resuelve la sesión inicial
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="size-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-slate-500">Cargando…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Layout
@@ -205,16 +208,18 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <AppContent />
-        <Toaster
-          position="top-right"
-          expand={false}
-          richColors
-          closeButton
-        />
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppContent />
+          <Toaster
+            position="top-right"
+            expand={false}
+            richColors
+            closeButton
+          />
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

@@ -23,8 +23,11 @@ export interface ReglaValidacion {
   requiereExcepcion: boolean;
 }
 
-// ── Configuración interna (parámetros operativos de la cooperativa) ───────────
-// Estos valores pueden moverse a una tabla de configuración en el futuro.
+// ── Configuración operativa de la cooperativa ────────────────────────────────
+// Los valores vienen de la tabla `configuracion` en Supabase.
+// Las claves en BD deben coincidir exactamente con las listadas en CLAVES_CONFIG.
+//
+// Para insertar los valores iniciales en BD, ejecuta supabase_seed_configuracion.sql
 
 interface ConfigParametros {
   aporteMinimo: number;
@@ -35,14 +38,80 @@ interface ConfigParametros {
   fechaCierrePeriodo?: string;
 }
 
+/** Claves exactas usadas en la tabla `configuracion` */
+const CLAVES_CONFIG = [
+  'aporte_minimo',
+  'cuotas_maximas_incumplidas',
+  'dias_mora_maximo',
+  'permitir_retiros_parciales',
+  'periodo_cerrado',
+  'fecha_cierre_periodo',
+] as const;
+
+/** Valores de emergencia — solo se usan si la BD no devuelve la clave.
+ *  Si ves estos valores en producción, revisa la tabla `configuracion`. */
+const CONFIG_DEFAULTS: ConfigParametros = {
+  aporteMinimo:                    50_000,
+  cuotasMaximasIncumplidas:        2,
+  diasMoraMaximo:                  30,
+  permitirRetirosParcialesDefecto: false,
+  periodoActualCerrado:            false,
+};
+
 class BusinessRulesEngine {
-  private config: ConfigParametros = {
-    aporteMinimo: 50_000,
-    cuotasMaximasIncumplidas: 2,
-    diasMoraMaximo: 30,
-    permitirRetirosParcialesDefecto: false,
-    periodoActualCerrado: false,
-  };
+  private config: ConfigParametros = { ...CONFIG_DEFAULTS };
+  private configCargada = false;
+
+  /**
+   * Carga los parámetros operativos desde la tabla `configuracion` en Supabase.
+   * Debe llamarse una vez al iniciar la app (App.tsx useEffect).
+   * Si la BD falla, se mantienen los valores por defecto y se avisa por consola.
+   */
+  async loadConfigFromDB(): Promise<void> {
+    const { data, error } = await supabase
+      .from('configuracion')
+      .select('clave, valor')
+      .in('clave', CLAVES_CONFIG as unknown as string[]);
+
+    if (error) {
+      console.error(
+        '[UFCA] businessRules: no se pudo cargar configuración desde BD.',
+        'Se usarán valores por defecto. Verifica la tabla `configuracion`.',
+        error.message,
+      );
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      console.warn(
+        '[UFCA] businessRules: la tabla `configuracion` no tiene las claves requeridas.',
+        'Ejecuta supabase_seed_configuracion.sql para insertarlas.',
+        'Se usarán valores por defecto.',
+      );
+      return;
+    }
+
+    const get = (clave: string): string | undefined =>
+      data.find(r => r.clave === clave)?.valor;
+
+    this.config = {
+      aporteMinimo:
+        Number(get('aporte_minimo') ?? CONFIG_DEFAULTS.aporteMinimo),
+      cuotasMaximasIncumplidas:
+        Number(get('cuotas_maximas_incumplidas') ?? CONFIG_DEFAULTS.cuotasMaximasIncumplidas),
+      diasMoraMaximo:
+        Number(get('dias_mora_maximo') ?? CONFIG_DEFAULTS.diasMoraMaximo),
+      permitirRetirosParcialesDefecto:
+        get('permitir_retiros_parciales') === 'true',
+      periodoActualCerrado:
+        get('periodo_cerrado') === 'true',
+      fechaCierrePeriodo:
+        get('fecha_cierre_periodo'),
+    };
+
+    this.configCargada = true;
+    console.info('[UFCA] businessRules: configuración cargada desde BD.', this.config);
+  }
 
   /** Actualiza la configuración en tiempo de ejecución sin recargar la app */
   updateConfig(parcial: Partial<ConfigParametros>) {
@@ -80,16 +149,31 @@ class BusinessRulesEngine {
   }
 
   /**
-   * REGLA: Un asociado no puede tener más de una cuenta activa (Supabase).
-   * Comprueba si ya existe un registro activo con ese `asociado_id`.
+   * X-01: REGLA: Un asociado no puede tener más de una cuenta activa.
+   * Busca por cédula O email (no por ID) para detectar duplicados de identidad,
+   * excluyendo el propio registro del solicitante en caso de re-validación.
    */
-  async validarAfiliacionUnica(asociadoId: string): Promise<ReglaValidacion> {
-    const { data, error } = await supabase
+  async validarAfiliacionUnica(
+    cedula: string,
+    email?: string,
+    excluirId?: string,
+  ): Promise<ReglaValidacion> {
+    // Construir filtro OR: cedula coincide O email coincide
+    const filtros = email
+      ? `cedula.eq.${cedula},email.eq.${email}`
+      : `cedula.eq.${cedula}`;
+
+    let query = supabase
       .from('asociados')
-      .select('id')
-      .eq('id', asociadoId)
+      .select('id, cedula, email')
+      .or(filtros)
       .eq('estado', 'activo')
       .limit(1);
+
+    // Si se está re-validando un registro existente, excluirlo del conteo
+    if (excluirId) query = query.neq('id', excluirId);
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('[businessRules] validarAfiliacionUnica:', error.message);
@@ -99,7 +183,7 @@ class BusinessRulesEngine {
     if (data && data.length > 0) {
       return {
         valida: false,
-        mensaje: 'El asociado ya tiene una afiliación activa. No se permite múltiples afiliaciones.',
+        mensaje: 'Ya existe un asociado activo con la misma cédula o correo electrónico.',
         tipoExcepcion: 'multiple_afiliacion',
         impacto: 'alto',
         requiereExcepcion: true,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -7,7 +7,7 @@ import { Badge } from './ui/badge';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import {
-  Search, Plus, ChevronLeft, ChevronRight, Edit, Trash2,
+  Search, Plus, ChevronLeft, ChevronRight, Edit, Trash2, Ban,
   Wallet, FileText, History, DollarSign, AlertTriangle, Calendar,
   TrendingUp, X, Target, ArrowDownCircle, ArrowUpCircle, Check,
   ClipboardList, Clock, CheckCircle2, XCircle, Send,
@@ -30,12 +30,11 @@ import { generateAhorroVoluntarioPDF, buildAhorroVoluntarioPDF } from './utils/p
 import { supabase } from '../lib/supabase';
 import { ahorroVoluntarioApi, asociadosApi } from '../lib/api';
 
+
 interface AhorroVoluntarioProps {
   userRole?: 'admin' | 'asociado' | null;
   userData?: any;
 }
-
-const FRECUENCIAS = ['Diaria', 'Semanal', 'Quincenal', 'Mensual', 'Bimestral', 'Trimestral', 'Semestral', 'Anual'];
 
 export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntarioProps) {
   // ── Filtros / paginación ──────────────────────────────────────────────────
@@ -60,11 +59,8 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
 
   // ── Formulario crear/editar ───────────────────────────────────────────────
   const [formAsociadoId, setFormAsociadoId]       = useState<string>('');
-  const [formCuotaMensual, setFormCuotaMensual]   = useState<string>('');
   const [formSaldoInicial, setFormSaldoInicial]   = useState<string>('0,0');
   const [formFechaInicio, setFormFechaInicio]     = useState<string>('');
-  const [formFrecuencia, setFormFrecuencia]       = useState<string>('Mensual');
-  const [formMontoObjetivo, setFormMontoObjetivo] = useState<string>('');
 
   // ── Autocompletado buscador principal ────────────────────────────────────
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
@@ -102,6 +98,11 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
   const [asociadosDisponibles, setAsociadosDisponibles] = useState<any[]>([]);
   const [loading, setLoading]                     = useState(true);
 
+  // ── Mínimo configurable (cargado desde configuracion) ────────────────────
+  const [montoMinimo, setMontoMinimo]                 = useState(50_000);
+  const [isConfirmSaldoBajoVolOpen, setIsConfirmSaldoBajoVolOpen] = useState(false);
+  const [isConfirmMovBajoVolOpen,   setIsConfirmMovBajoVolOpen]   = useState(false);
+
   // ── Solicitudes (admin) ───────────────────────────────────────────────────
   const [solicitudesVol, setSolicitudesVol]           = useState<any[]>([]);
   const [isRechazarVolOpen, setIsRechazarVolOpen]     = useState(false);
@@ -135,13 +136,22 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
   async function cargarDatos() {
     try {
       setLoading(true);
-      const [{ data, error }, asociadosData] = await Promise.all([
+      const [{ data, error }, asociadosData, configMinimo] = await Promise.all([
         supabase
-          .from('ahorro_voluntario')
+          .from('ahorros_voluntarios')
           .select('*, asociados(nombre, cedula)')
           .order('created_at', { ascending: false }),
         asociadosApi.getAll(),
+        supabase
+          .from('configuracion')
+          .select('valor')
+          .eq('clave', 'cuota_ahorro_voluntario')
+          .maybeSingle(),
       ]);
+      if (!configMinimo.error && configMinimo.data) {
+        const v = parseFloat(configMinimo.data.valor);
+        if (!isNaN(v) && v > 0) setMontoMinimo(v);
+      }
       if (error) throw error;
 
       const mapeados = (data || []).map((a: any) => ({
@@ -150,10 +160,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
         cedula:          a.asociados?.cedula  ?? '',
         asociado_id:     a.asociado_id,
         montoAhorrado:   a.monto_ahorrado,
-        cuotaMensual:    a.cuota_mensual,
-        fechaInicio:     a.fecha_inicio,
-        frecuencia:      a.frecuencia_ahorro  ?? 'Mensual',
-        montoObjetivo:   a.monto_objetivo     ?? 0,
+        fechaInicio:     a.created_at?.split('T')[0] ?? '',
         estado:          a.estado,
         anulado:         a.anulado,
         motivoAnulacion: a.motivo_anulacion || '',
@@ -161,38 +168,19 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
       }));
 
       setAhorros(mapeados);
-      setAsociadosDisponibles(asociadosData || []);
 
-      // Solicitudes y aportes pendientes (admin)
+      // Excluir del selector a los asociados que ya tienen ahorro voluntario activo
+      const idsConAhorro = new Set(
+        mapeados.filter(a => a.estado === 'activo' && !a.anulado).map(a => a.asociado_id)
+      );
+      setAsociadosDisponibles(
+        (asociadosData || []).filter((a: any) => !idsConAhorro.has(a.id))
+      );
+
+      // Solicitudes y aportes: tablas zombie eliminadas — limpiar estado
       if (userRole === 'admin') {
-        const [{ data: sols }, { data: aportes }] = await Promise.all([
-          supabase
-            .from('solicitudes')
-            .select('*, asociados(nombre, cedula)')
-            .eq('tipo', 'ahorro_voluntario')
-            .order('created_at', { ascending: false }),
-          supabase
-            .from('solicitudes')
-            .select('*, asociados(nombre, cedula)')
-            .eq('tipo', 'aporte_voluntario')
-            .order('created_at', { ascending: false }),
-        ]);
-        // Aplanar datos jsonb para compatibilidad con la UI
-        setSolicitudesVol((sols || []).map((s: any) => ({
-          ...s,
-          nombre_plan:    s.datos?.nombre_plan,
-          frecuencia:     s.datos?.frecuencia,
-          monto_inicial:  s.datos?.monto_inicial,
-          monto_objetivo: s.datos?.monto_objetivo,
-          nota_asociado:  s.datos?.nota_asociado,
-        })));
-        setAportesPendientesVol((aportes || []).map((ap: any) => ({
-          ...ap,
-          tipo_ahorro: 'voluntario',
-          fecha_pago:  ap.datos?.fecha_pago,
-          medio_pago:  ap.datos?.medio_pago,
-          nota:        ap.datos?.nota,
-        })));
+        setSolicitudesVol([]);
+        setAportesPendientesVol([]);
       }
     } catch (err: any) {
       toast.error('Error al cargar ahorros voluntarios: ' + err.message);
@@ -214,8 +202,8 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
       a.id.toLowerCase().includes(term);
     const matchEstado =
       !filterEstado ||
-      (filterEstado === 'activo'   && a.estado === true) ||
-      (filterEstado === 'inactivo' && a.estado === false);
+      (filterEstado === 'activo'   && a.estado === 'activo') ||
+      (filterEstado === 'inactivo' && a.estado === 'inactivo');
     const matchFechaInicio = !filterFechaInicio || a.fechaInicio >= filterFechaInicio;
     const matchFechaFin    = !filterFechaFin    || a.fechaInicio <= filterFechaFin;
     return matchSearch && matchEstado && matchFechaInicio && matchFechaFin;
@@ -266,10 +254,6 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
   const parseCurrencyInput = (v: string): number =>
     parseFloat(v.replace(/\./g, '').replace(',', '.')) || 0;
 
-  const handleCuotaMensualChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setFormCuotaMensual(e.target.value.replace(/[^\d.,]/g, ''));
-  const handleCuotaMensualBlur = () =>
-    formCuotaMensual && setFormCuotaMensual(formatCurrencyInput(parseCurrencyInput(formCuotaMensual).toString()));
   const handleSaldoInicialChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setFormSaldoInicial(e.target.value.replace(/[^\d.,]/g, ''));
   const handleSaldoInicialBlur = () =>
@@ -302,36 +286,22 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
     setIsDetailDialogOpen(true);
     setLoadingMovimientos(true);
     try {
-      const [movsResult, histResult] = await Promise.all([
-        supabase
-          .from('movimientos_ahorro_voluntario')
-          .select('*')
-          .eq('ahorro_id', ahorro.id)
-          .order('fecha_movimiento', { ascending: false }),
-        supabase
-          .from('historial_modificaciones_ahorro_voluntario')
-          .select('*')
-          .eq('ahorro_id', ahorro.id)
-          .order('fecha_cambio', { ascending: false }),
-      ]);
+      const movsResult = await supabase
+        .from('pagos_ahorro_voluntario')
+        .select('*')
+        .eq('ahorro_voluntario_id', ahorro.id)
+        .order('fecha_pago', { ascending: false });
 
       if (!movsResult.error) {
         setMovimientosDetalle(movsResult.data || []);
-        const ultimoActivo = (movsResult.data || []).filter((m: any) => !m.anulado)[0];
-        if (ultimoActivo) {
-          setAhorros(prev => prev.map(a =>
-            a.id === ahorro.id ? { ...a, montoAhorrado: ultimoActivo.saldo_nuevo } : a
-          ));
-          setSelectedItem((prev: any) => ({ ...prev, montoAhorrado: ultimoActivo.saldo_nuevo }));
-        }
       }
-      if (!histResult.error) setHistorialCambios(histResult.data || []);
+      setHistorialCambios([]);
     } catch { /* sin datos */ }
     setLoadingMovimientos(false);
   };
 
   // ── Mes fiscal helpers ────────────────────────────────────────────────────
-  const MONTO_MINIMO_VOLUNTARIO = 50_000;
+  // montoMinimo se carga desde configuracion (ver cargarDatos) — fallback 50.000
 
   const getMesFiscal = () => {
     const hoy = new Date();
@@ -349,7 +319,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
   };
 
   // ── Registrar movimiento (depósito / retiro) ──────────────────────────────
-  const handleRegistrarMovimiento = async () => {
+  const handleRegistrarMovimiento = () => {
     const monto = parseCurrencyInput(formMovMonto);
     if (!monto || monto <= 0) { toast.error('El monto debe ser mayor a cero'); return; }
     if (!formMovFecha)        { toast.error('Selecciona la fecha del movimiento'); return; }
@@ -357,11 +327,8 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
 
     // ── Reglas del negocio para depósitos voluntarios ─────────────────────
     if (formMovTipo === 'Depósito') {
-      if (monto < MONTO_MINIMO_VOLUNTARIO) {
-        toast.error('Monto mínimo no alcanzado', {
-          description: `El depósito mínimo al ahorro voluntario es ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(MONTO_MINIMO_VOLUNTARIO)}.`,
-          duration: 6000,
-        });
+      if (monto < montoMinimo) {
+        setIsConfirmMovBajoVolOpen(true);
         return;
       }
       // Validar que la fecha esté dentro del mes fiscal (día 1 al 30)
@@ -375,11 +342,16 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
       }
     }
 
+    ejecutarRegistrarMovimiento();
+  };
+
+  const ejecutarRegistrarMovimiento = async () => {
+    const monto = parseCurrencyInput(formMovMonto); // re-parsear fuera del scope del guard
     setSavingMovimiento(true);
     try {
       // Leer saldo real desde BD
       const { data: dbAhorro } = await supabase
-        .from('ahorro_voluntario')
+        .from('ahorros_voluntarios')
         .select('monto_ahorrado')
         .eq('id', selectedItem.id)
         .single();
@@ -395,25 +367,21 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
         ? saldoAnterior - monto
         : saldoAnterior + monto;
 
-      // Insertar movimiento
+      // Insertar pago
       const { error: movErr } = await supabase
-        .from('movimientos_ahorro_voluntario')
+        .from('pagos_ahorro_voluntario')
         .insert({
-          ahorro_id:        selectedItem.id,
-          asociado_id:      selectedItem.asociado_id,
-          tipo_movimiento:  formMovTipo,
+          ahorro_voluntario_id: selectedItem.id,
+          asociado_id:          selectedItem.asociado_id,
+          fecha_pago:           formMovFecha,
           monto,
-          saldo_anterior:   saldoAnterior,
-          saldo_nuevo:      saldoNuevo,
-          fecha_movimiento: formMovFecha,
-          descripcion:      formMovDesc.trim() || null,
-          metodo_pago:      formMovMetodo.trim() || null,
+          observacion:          formMovDesc.trim() || null,
         });
       if (movErr) throw movErr;
 
-      // Actualizar saldo en ahorro_voluntario
+      // Actualizar saldo en ahorros_voluntarios
       const { data: updData, error: updErr } = await supabase
-        .from('ahorro_voluntario')
+        .from('ahorros_voluntarios')
         .update({ monto_ahorrado: saldoNuevo })
         .eq('id', selectedItem.id)
         .select('monto_ahorrado')
@@ -426,12 +394,12 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
         a.id === selectedItem.id ? { ...a, montoAhorrado: saldoConfirmado } : a
       ));
 
-      // Recargar movimientos
+      // Recargar pagos
       const { data: movs } = await supabase
-        .from('movimientos_ahorro_voluntario')
+        .from('pagos_ahorro_voluntario')
         .select('*')
-        .eq('ahorro_id', selectedItem.id)
-        .order('fecha_movimiento', { ascending: false });
+        .eq('ahorro_voluntario_id', selectedItem.id)
+        .order('fecha_pago', { ascending: false });
       setMovimientosDetalle(movs || []);
 
       toast.success(`${formMovTipo} registrado exitosamente`, {
@@ -450,15 +418,32 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
   const handleToggleEstado = async (id: string) => {
     const ahorro = ahorros.find(a => a.id === id);
     if (!ahorro) return;
+    if (!justificacionAnulacion.trim()) {
+      toast.error('La justificación es obligatoria');
+      return;
+    }
+    const justificacion = justificacionAnulacion.trim();
+    const desactivando  = ahorro.estado === 'activo';
     try {
-      await ahorroVoluntarioApi.update(id, { estado: !ahorro.estado });
-      setAhorros(prev => prev.map(a => a.id === id ? { ...a, estado: !a.estado } : a));
-      toast.success(`Ahorro de "${ahorro.asociado}" ${!ahorro.estado ? 'activado' : 'desactivado'} exitosamente`);
+      const nuevoEstado = desactivando ? 'inactivo' : 'activo';
+      await ahorroVoluntarioApi.update(id, { estado: nuevoEstado });
+      setAhorros(prev => prev.map(a => a.id === id ? { ...a, estado: nuevoEstado } : a));
+      await supabase.from('notificaciones').insert({
+        asociado_id: ahorro.asociado_id,
+        titulo:      desactivando ? '⚠️ Ahorro voluntario desactivado' : '✅ Ahorro voluntario activado',
+        mensaje:     desactivando
+          ? `Tu ahorro voluntario ha sido desactivado. Motivo: ${justificacion}`
+          : `Tu ahorro voluntario ha sido reactivado. Motivo: ${justificacion}`,
+        tipo:  desactivando ? 'ahorro_inactivado' : 'ahorro_activado',
+        leida: false,
+      });
+      toast.success(`Ahorro de "${ahorro.asociado}" ${nuevoEstado === 'activo' ? 'activado' : 'desactivado'} exitosamente`);
     } catch (err: any) {
       toast.error('Error al cambiar estado: ' + err.message);
     }
     setIsToggleEstadoDialogOpen(false);
     setSelectedItem(null);
+    setJustificacionAnulacion('');
   };
 
   // ── Anular ────────────────────────────────────────────────────────────────
@@ -485,20 +470,8 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
         tipo:        'anulacion',
       });
 
-      // Registrar en historial de modificaciones
-      await supabase.from('historial_modificaciones_ahorro_voluntario').insert({
-        ahorro_id:           selectedItem.id,
-        asociado_id:         selectedItem.asociado_id,
-        usuario_id:          userData?.id || null,
-        usuario_nombre:      usuarioNombre,
-        campos_modificados:  `ANULACIÓN DEL REGISTRO — Motivo: ${justificacion}`,
-        cuota_anterior:      selectedItem.cuotaMensual,
-        saldo_anterior:      selectedItem.montoAhorrado,
-        frecuencia_anterior: selectedItem.frecuencia,
-      });
-
       setAhorros(prev => prev.map(a =>
-        a.id === selectedItem.id ? { ...a, anulado: true, estado: false, motivoAnulacion: justificacion } : a
+        a.id === selectedItem.id ? { ...a, anulado: true, estado: 'inactivo', motivoAnulacion: justificacion } : a
       ));
       toast.success(`Ahorro de "${selectedItem.asociado}" anulado exitosamente`);
     } catch (err: any) {
@@ -510,75 +483,56 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
   };
 
   // ── Guardar (crear / editar) ──────────────────────────────────────────────
-  const handleSaveAhorro = async () => {
+  const handleSaveAhorro = async (forzar = false) => {
     if (!formAsociadoId) { toast.error('❌ Error de validación', { description: 'Selecciona un asociado' }); return; }
-    const cuota = parseCurrencyInput(formCuotaMensual);
-    if (!cuota || cuota <= 0) { toast.error('❌ Error de validación', { description: 'La cuota debe ser mayor a cero' }); return; }
     const saldo = parseCurrencyInput(formSaldoInicial);
-    if (!formFechaInicio) { toast.error('❌ Error de validación', { description: 'Selecciona una fecha de inicio' }); return; }
+
+    // Advertencia si saldo inicial es mayor a 0 pero menor al mínimo
+    if (!selectedItem && !forzar && saldo > 0 && saldo < montoMinimo) {
+      setIsConfirmSaldoBajoVolOpen(true);
+      return;
+    }
 
     const asociado = asociadosDisponibles.find(a => a.id === formAsociadoId);
-    const montoObjetivo = formMontoObjetivo ? parseCurrencyInput(formMontoObjetivo) : null;
+
+    // Al CREAR: verificar que el asociado no tenga ya un ahorro voluntario activo
+    if (!selectedItem) {
+      const { data: existente } = await supabase
+        .from('ahorros_voluntarios')
+        .select('id')
+        .eq('asociado_id', formAsociadoId)
+        .eq('estado', 'activo')
+        .eq('anulado', false)
+        .limit(1);
+      if (existente && existente.length > 0) {
+        toast.error('El asociado ya tiene un ahorro voluntario activo', {
+          description: 'No se puede crear otro hasta que el actual sea liquidado en la fecha de corte.',
+        });
+        return;
+      }
+    }
 
     try {
       if (selectedItem) {
         // Capturar valores anteriores ANTES de actualizar
-        const prevCuota      = selectedItem.cuotaMensual;
-        const prevSaldo      = selectedItem.montoAhorrado;
-        const prevFecha      = selectedItem.fechaInicio;
-        const prevFrecuencia = selectedItem.frecuencia || 'Mensual';
-        const prevObjetivo   = selectedItem.montoObjetivo || null;
+        const prevSaldo = selectedItem.montoAhorrado;
 
         await ahorroVoluntarioApi.update(selectedItem.id, {
-          cuota_mensual:    cuota,
-          monto_ahorrado:   saldo,
-          fecha_inicio:     formFechaInicio,
-          frecuencia_ahorro: formFrecuencia,
-          monto_objetivo:   montoObjetivo,
+          monto_ahorrado: saldo,
         });
 
         // Detectar qué campos cambiaron
         const camposModificados: string[] = [];
-        if (prevCuota !== cuota)           camposModificados.push('Cuota mensual');
-        if (prevSaldo !== saldo)           camposModificados.push('Saldo');
-        if (prevFecha !== formFechaInicio) camposModificados.push('Fecha de inicio');
-        if (prevFrecuencia !== formFrecuencia) camposModificados.push('Frecuencia');
-        if ((prevObjetivo ?? 0) !== (montoObjetivo ?? 0)) camposModificados.push('Monto objetivo');
+        if (prevSaldo !== saldo) camposModificados.push('Saldo');
 
         const usuarioNombre = userData?.name || userData?.nombre || userData?.email || 'Administrador';
         const fechaCambio   = new Date().toISOString();
 
-        // Registrar en historial de modificaciones
-        await supabase.from('historial_modificaciones_ahorro_voluntario').insert({
-          ahorro_id:           selectedItem.id,
-          asociado_id:         selectedItem.asociado_id,
-          usuario_id:          userData?.id || null,
-          usuario_nombre:      usuarioNombre,
-          fecha_cambio:        fechaCambio,
-          cuota_anterior:      prevCuota,
-          frecuencia_anterior: prevFrecuencia,
-          objetivo_anterior:   prevObjetivo,
-          saldo_anterior:      prevSaldo,
-          fecha_inicio_anterior: prevFecha,
-          cuota_nueva:         cuota,
-          frecuencia_nueva:    formFrecuencia,
-          objetivo_nuevo:      montoObjetivo,
-          saldo_nuevo:         saldo,
-          fecha_inicio_nueva:  formFechaInicio,
-          campos_modificados:  camposModificados.join(', ') || 'Sin cambios detectados',
-        });
-
-        // Enviar notificación al asociado
+        // Enviar notificación al asociado si hubo cambios
         if (camposModificados.length > 0) {
           const lineasCambios = [];
-          if (prevCuota !== cuota)
-            lineasCambios.push(`• Cuota: ${formatCurrency(prevCuota)} → ${formatCurrency(cuota)}`);
-          if (prevFrecuencia !== formFrecuencia)
-            lineasCambios.push(`• Frecuencia: ${prevFrecuencia} → ${formFrecuencia}`);
-          if ((prevObjetivo ?? 0) !== (montoObjetivo ?? 0))
-            lineasCambios.push(`• Monto objetivo: ${prevObjetivo ? formatCurrency(prevObjetivo) : 'Sin meta'} → ${montoObjetivo ? formatCurrency(montoObjetivo) : 'Sin meta'}`);
-          if (prevFecha !== formFechaInicio)
-            lineasCambios.push(`• Fecha de inicio: ${prevFecha} → ${formFechaInicio}`);
+          if (prevSaldo !== saldo)
+            lineasCambios.push(`• Saldo: ${formatCurrency(prevSaldo)} → ${formatCurrency(saldo)}`);
 
           await supabase.from('notificaciones').insert({
             asociado_id: selectedItem.asociado_id,
@@ -590,7 +544,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
 
         setAhorros(prev => prev.map(a =>
           a.id === selectedItem.id
-            ? { ...a, cuotaMensual: cuota, montoAhorrado: saldo, fechaInicio: formFechaInicio, frecuencia: formFrecuencia, montoObjetivo: montoObjetivo ?? 0 }
+            ? { ...a, montoAhorrado: saldo }
             : a
         ));
         toast.success('✅ Ahorro voluntario actualizado', {
@@ -599,53 +553,55 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
             : `Ahorro de "${asociado?.nombre}" sin cambios`,
         });
       } else {
+        // Obtener período activo (requerido por ahorros_voluntarios)
+        const { data: periodo } = await supabase
+          .from('periodos')
+          .select('id')
+          .eq('estado', 'activo')
+          .order('fecha_inicio', { ascending: false })
+          .limit(1)
+          .single();
+        if (!periodo) throw new Error('No hay período activo');
+
         const nuevo = await ahorroVoluntarioApi.create({
-          asociado_id:      formAsociadoId,
-          cuota_mensual:    cuota,
-          monto_ahorrado:   saldo,
-          fecha_inicio:     formFechaInicio,
-          frecuencia_ahorro: formFrecuencia,
-          monto_objetivo:   montoObjetivo,
-          estado:           true,
-          anulado:          false,
+          asociado_id:    formAsociadoId,
+          periodo_id:     periodo.id,
+          monto_ahorrado: saldo,
+          estado:         'activo',
+          anulado:        false,
         });
 
-        // Registrar saldo inicial como movimiento de apertura
+        // Registrar saldo inicial como pago de apertura
         if (saldo > 0) {
           const { error: movErr } = await supabase
-            .from('movimientos_ahorro_voluntario')
+            .from('pagos_ahorro_voluntario')
             .insert({
-              ahorro_id:        nuevo.id,
-              asociado_id:      formAsociadoId,
-              tipo_movimiento:  'Depósito',
-              monto:            saldo,
-              saldo_anterior:   0,
-              saldo_nuevo:      saldo,
-              fecha_movimiento: formFechaInicio,
-              descripcion:      'Saldo inicial al abrir el plan',
+              ahorro_voluntario_id: nuevo.id,
+              asociado_id:          formAsociadoId,
+              fecha_pago:           formFechaInicio || new Date().toISOString().split('T')[0],
+              monto:                saldo,
+              observacion:          'Saldo inicial al abrir el plan',
             });
           if (movErr) toast.error('Ahorro creado, pero error al registrar saldo inicial: ' + movErr.message);
         }
 
+        const nowIso = new Date().toISOString();
         setAhorros(prev => [{
-          id: nuevo.id,
-          asociado:       asociado?.nombre ?? '',
-          cedula:         asociado?.cedula ?? '',
-          asociado_id:    formAsociadoId,
-          montoAhorrado:  saldo,
-          cuotaMensual:   cuota,
-          fechaInicio:    formFechaInicio,
-          frecuencia:     formFrecuencia,
-          montoObjetivo:  montoObjetivo ?? 0,
-          estado:         true,
-          anulado:        false,
+          id:              nuevo.id,
+          asociado:        asociado?.nombre ?? '',
+          cedula:          asociado?.cedula ?? '',
+          asociado_id:     formAsociadoId,
+          montoAhorrado:   saldo,
+          fechaInicio:     nowIso.split('T')[0],
+          estado:          'activo',
+          anulado:         false,
           motivoAnulacion: '',
-          createdAt:      new Date().toISOString(),
+          createdAt:       nowIso,
         }, ...prev]);
         toast.success('✅ Ahorro voluntario registrado', {
           description: saldo > 0
-            ? `Saldo inicial: ${formatCurrency(saldo)} | Cuota: ${formatCurrency(cuota)} | Frecuencia: ${formFrecuencia}`
-            : `Cuota: ${formatCurrency(cuota)} | Frecuencia: ${formFrecuencia}`,
+            ? `Saldo inicial: ${formatCurrency(saldo)}`
+            : 'Ahorro creado sin saldo inicial',
         });
       }
     } catch (err: any) {
@@ -654,8 +610,8 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
 
     setIsCreateDialogOpen(false);
     setSelectedItem(null);
-    setFormAsociadoId(''); setFormCuotaMensual(''); setFormSaldoInicial('0,0');
-    setFormFechaInicio(''); setFormFrecuencia('Mensual'); setFormMontoObjetivo('');
+    setFormAsociadoId(''); setFormSaldoInicial('0,0');
+    setFormFechaInicio('');
     setAutocompleteSearch('');
   };
 
@@ -664,25 +620,27 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
     const formatC = (v: number) =>
       new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v);
     try {
-      const nuevo = await ahorroVoluntarioApi.create({
-        asociado_id:       sol.asociado_id,
-        cuota_mensual:     sol.monto_inicial ?? 0,
-        monto_ahorrado:    sol.monto_inicial ?? 0,
-        monto_objetivo:    sol.monto_objetivo ?? null,
-        fecha_inicio:      new Date().toISOString().split('T')[0],
-        frecuencia_ahorro: sol.frecuencia ?? 'Mensual',
-        estado:            true,
-        anulado:           false,
-      });
+      // Obtener período activo
+      const { data: periodo } = await supabase
+        .from('periodos')
+        .select('id')
+        .eq('estado', 'activo')
+        .order('fecha_inicio', { ascending: false })
+        .limit(1)
+        .single();
+      if (!periodo) throw new Error('No hay período activo');
 
-      await supabase
-        .from('solicitudes')
-        .update({ estado: 'aprobada', fecha_resolucion: new Date().toISOString() })
-        .eq('id', sol.id);
+      const nuevo = await ahorroVoluntarioApi.create({
+        asociado_id:    sol.asociado_id,
+        periodo_id:     periodo.id,
+        monto_ahorrado: sol.monto_inicial ?? 0,
+        estado:         'activo',
+        anulado:        false,
+      });
 
       await supabase.from('notificaciones').insert({
         titulo:      '✅ Solicitud de ahorro voluntario aprobada',
-        mensaje:     `Tu plan "${sol.nombre_plan ?? 'de ahorro voluntario'}" fue aprobado con frecuencia ${sol.frecuencia ?? 'Mensual'}.`,
+        mensaje:     `Tu plan de ahorro voluntario fue aprobado.`,
         tipo:        'ahorro_aprobado',
         leida:       false,
         asociado_id: sol.asociado_id,
@@ -693,20 +651,18 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
       );
 
       // Agregar inmediatamente al listado de ahorros activos
+      const nowIso = new Date().toISOString();
       setAhorros(prev => [{
         id:              nuevo.id,
-        asociado:        sol.asociados?.nombre   ?? '',
-        cedula:          sol.asociados?.cedula   ?? '',
+        asociado:        sol.asociados?.nombre ?? '',
+        cedula:          sol.asociados?.cedula ?? '',
         asociado_id:     sol.asociado_id,
-        montoAhorrado:   sol.monto_inicial       ?? 0,
-        cuotaMensual:    sol.monto_inicial       ?? 0,
-        fechaInicio:     new Date().toISOString().split('T')[0],
-        frecuencia:      sol.frecuencia          ?? 'Mensual',
-        montoObjetivo:   sol.monto_objetivo      ?? 0,
-        estado:          true,
+        montoAhorrado:   sol.monto_inicial     ?? 0,
+        fechaInicio:     nowIso.split('T')[0],
+        estado:          'activo',
         anulado:         false,
         motivoAnulacion: '',
-        createdAt:       new Date().toISOString(),
+        createdAt:       nowIso,
       }, ...prev]);
 
       toast.success(`✅ Plan aprobado para ${sol.asociados?.nombre ?? 'el asociado'}`);
@@ -721,14 +677,9 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
     if (!notaRechazoVol.trim()) { toast.error('Escribe el motivo del rechazo'); return; }
     setSavingSolVol(true);
     try {
-      await supabase
-        .from('solicitudes')
-        .update({ estado: 'rechazada', nota_admin: notaRechazoVol.trim(), fecha_resolucion: new Date().toISOString() })
-        .eq('id', solVolSeleccionada.id);
-
       await supabase.from('notificaciones').insert({
         titulo:      '❌ Solicitud de ahorro voluntario rechazada',
-        mensaje:     `Tu solicitud "${solVolSeleccionada.nombre_plan ?? 'de ahorro voluntario'}" fue rechazada. Motivo: ${notaRechazoVol.trim()}`,
+        mensaje:     `Tu solicitud de ahorro voluntario fue rechazada. Motivo: ${notaRechazoVol.trim()}`,
         tipo:        'ahorro_rechazado',
         leida:       false,
         asociado_id: solVolSeleccionada.asociado_id,
@@ -752,7 +703,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
   const handleConfirmarAporteVol = async (ap: any) => {
     try {
       const { data: dbAhorro } = await supabase
-        .from('ahorro_voluntario')
+        .from('ahorros_voluntarios')
         .select('monto_ahorrado')
         .eq('id', ap.ahorro_id)
         .single();
@@ -760,28 +711,20 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
       const saldoNuevo    = saldoAnterior + ap.monto;
 
       const { error: movErr } = await supabase
-        .from('movimientos_ahorro_voluntario')
+        .from('pagos_ahorro_voluntario')
         .insert({
-          ahorro_id:        ap.ahorro_id,
-          asociado_id:      ap.asociado_id,
-          tipo_movimiento:  'Depósito',
-          monto:            ap.monto,
-          saldo_anterior:   saldoAnterior,
-          saldo_nuevo:      saldoNuevo,
-          fecha_movimiento: ap.fecha_pago,
-          descripcion:      `${ap.medio_pago}${ap.nota ? ' — ' + ap.nota : ''}`,
+          ahorro_voluntario_id: ap.ahorro_id,
+          asociado_id:          ap.asociado_id,
+          fecha_pago:           ap.fecha_pago,
+          monto:                ap.monto,
+          observacion:          `${ap.medio_pago ?? ''}${ap.nota ? ' — ' + ap.nota : ''}` || null,
         });
       if (movErr) throw movErr;
 
       await supabase
-        .from('ahorro_voluntario')
+        .from('ahorros_voluntarios')
         .update({ monto_ahorrado: saldoNuevo })
         .eq('id', ap.ahorro_id);
-
-      await supabase
-        .from('solicitudes')
-        .update({ estado: 'aprobada', fecha_resolucion: new Date().toISOString() })
-        .eq('id', ap.id);
 
       await supabase.from('notificaciones').insert({
         titulo:      '✅ Aporte voluntario confirmado',
@@ -812,15 +755,6 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
     if (!notaRechazoAporteVol.trim()) { toast.error('Escribe el motivo del rechazo'); return; }
     setSavingAporteVol(true);
     try {
-      await supabase
-        .from('solicitudes')
-        .update({
-          estado:           'rechazada',
-          nota_admin:       notaRechazoAporteVol.trim(),
-          fecha_resolucion: new Date().toISOString(),
-        })
-        .eq('id', aporteVolSeleccionado.id);
-
       await supabase.from('notificaciones').insert({
         titulo:      '❌ Aporte voluntario no confirmado',
         mensaje:     `Tu reporte de aporte de ${formatCurrency(aporteVolSeleccionado.monto)} no fue confirmado. Motivo: ${notaRechazoAporteVol.trim()}`,
@@ -856,7 +790,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
 
   const renderEmptyState = (isAnulados: boolean) => (
     <TableRow>
-      <TableCell colSpan={8} className="py-16">
+      <TableCell colSpan={6} className="py-16">
         <div className="flex flex-col items-center justify-center text-center">
           <Wallet className="size-10 text-slate-300 mb-3" />
           {isAnulados ? (
@@ -890,9 +824,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
             <TableHead>Asociado</TableHead>
             <TableHead>Cédula</TableHead>
             <TableHead>Monto ahorrado</TableHead>
-            <TableHead>Frecuencia</TableHead>
-            <TableHead>Cuota</TableHead>
-            <TableHead>Fecha inicio</TableHead>
+            <TableHead>Fecha registro</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
@@ -902,73 +834,49 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
             ahorrosList.map((ahorro) => (
               <TableRow
                 key={ahorro.id}
-                className={`cursor-pointer hover:bg-slate-50 transition-colors ${!ahorro.estado && !ahorro.anulado ? 'opacity-75' : ''}`}
+                className={`cursor-pointer hover:bg-slate-50 transition-colors ${ahorro.estado !== 'activo' && !ahorro.anulado ? 'opacity-75' : ''}`}
                 onClick={() => handleOpenDetail(ahorro)}
               >
                 <TableCell>
                   <div className="flex items-center gap-2">
-                    <div className={`p-2 rounded-lg ${isAnulados ? 'bg-slate-100' : ahorro.estado ? 'bg-purple-100' : 'bg-yellow-50'}`}>
-                      <Wallet className={`size-4 ${isAnulados ? 'text-slate-600' : ahorro.estado ? 'text-purple-600' : 'text-yellow-500'}`} />
+                    <div className={`p-2 rounded-lg ${isAnulados ? 'bg-slate-100' : ahorro.estado === 'activo' ? 'bg-purple-100' : 'bg-yellow-50'}`}>
+                      <Wallet className={`size-4 ${isAnulados ? 'text-slate-600' : ahorro.estado === 'activo' ? 'text-purple-600' : 'text-yellow-500'}`} />
                     </div>
                     <div>
                       <p className="text-slate-900">{ahorro.asociado}</p>
-                      {ahorro.montoObjetivo > 0 && (
-                        <p className="text-xs text-purple-500 flex items-center gap-1">
-                          <Target className="size-3" /> Meta: {formatCurrency(ahorro.montoObjetivo)}
-                        </p>
-                      )}
                     </div>
                   </div>
                 </TableCell>
                 <TableCell><p className="text-slate-600">{ahorro.cedula}</p></TableCell>
                 <TableCell>
-                  <div>
-                    <p className="text-slate-900 font-medium">{formatCurrency(ahorro.montoAhorrado)}</p>
-                    {ahorro.montoObjetivo > 0 && (
-                      <div className="w-24 bg-slate-200 rounded-full h-1.5 mt-1">
-                        <div
-                          className="bg-purple-500 h-1.5 rounded-full"
-                          style={{ width: `${Math.min(100, (ahorro.montoAhorrado / ahorro.montoObjetivo) * 100)}%` }}
-                        />
-                      </div>
-                    )}
-                  </div>
+                  <p className="text-slate-900 font-medium">{formatCurrency(ahorro.montoAhorrado)}</p>
                 </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="text-purple-700 border-purple-200 bg-purple-50 text-xs">
-                    {ahorro.frecuencia}
-                  </Badge>
-                </TableCell>
-                <TableCell><p className="text-slate-600">{formatCurrency(ahorro.cuotaMensual)}</p></TableCell>
                 <TableCell><p className="text-slate-600">{ahorro.fechaInicio}</p></TableCell>
                 <TableCell>
                   {isAnulados ? (
                     <Badge variant="secondary" className="bg-red-100 text-red-700">Anulado</Badge>
                   ) : userRole === 'admin' ? (
                     <Switch
-                      checked={ahorro.estado}
+                      checked={ahorro.estado === 'activo'}
                       onCheckedChange={() => { setSelectedItem(ahorro); setIsToggleEstadoDialogOpen(true); }}
                       onClick={(e) => e.stopPropagation()}
                     />
                   ) : (
-                    <Badge variant={ahorro.estado ? 'default' : 'secondary'} className={ahorro.estado ? 'bg-emerald-600' : ''}>
-                      {ahorro.estado ? 'Activo' : 'Inactivo'}
+                    <Badge variant={ahorro.estado === 'activo' ? 'default' : 'secondary'} className={ahorro.estado === 'activo' ? 'bg-emerald-600' : ''}>
+                      {ahorro.estado === 'activo' ? 'Activo' : 'Inactivo'}
                     </Badge>
                   )}
                 </TableCell>
                 <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex gap-2 justify-end">
-                    {!isAnulados && userRole === 'admin' && (
+                    {!isAnulados && userRole === 'admin' && ahorro.estado === 'activo' && (
                       <>
                         <Button variant="outline" size="sm" title="Editar" onClick={() => {
                           setSelectedItem(ahorro);
                           setFormAsociadoId(ahorro.asociado_id);
                           setAutocompleteSearch(`${ahorro.asociado}  ·  ${ahorro.cedula}`);
-                          setFormCuotaMensual(formatCurrencyInput(ahorro.cuotaMensual.toString()));
                           setFormSaldoInicial(ahorro.montoAhorrado.toString().replace(/\./g, ','));
                           setFormFechaInicio(ahorro.fechaInicio);
-                          setFormFrecuencia(ahorro.frecuencia || 'Mensual');
-                          setFormMontoObjetivo(ahorro.montoObjetivo > 0 ? ahorro.montoObjetivo.toString() : '');
                           setIsCreateDialogOpen(true);
                         }}>
                           <Edit className="size-4" />
@@ -978,7 +886,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                           setJustificacionAnulacion('');
                           setIsDeleteDialogOpen(true);
                         }}>
-                          <Trash2 className="size-4 text-amber-600" />
+                          <Ban className="size-4 text-red-600" />
                         </Button>
                       </>
                     )}
@@ -992,9 +900,9 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                           asociado:          ahorro.asociado,
                           cedula:            ahorro.cedula,
                           montoTotal:        ahorro.montoAhorrado,
-                          ultimoAporte:      ahorro.cuotaMensual,
+                          ultimoAporte:      ahorro.montoAhorrado,
                           fechaUltimoAporte: ahorro.fechaInicio,
-                          totalAportes:      Math.floor(ahorro.montoAhorrado / (ahorro.cuotaMensual || 1)),
+                          totalAportes:      1,
                           estado:            ahorro.estado,
                         };
                         const result = buildAhorroVoluntarioPDF(pdfData);
@@ -1047,15 +955,14 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
     </div>
   );
 
-  // ─── Resumen de movimientos ────────────────────────────────────────────────
-  const movActivos     = movimientosDetalle.filter(m => !m.anulado);
-  const totalDepositado = movActivos.filter(m => m.tipo_movimiento === 'Depósito' || m.tipo_movimiento === 'Apertura').reduce((s, m) => s + m.monto, 0);
-  const totalRetirado   = movActivos.filter(m => m.tipo_movimiento === 'Retiro').reduce((s, m) => s + m.monto, 0);
-  const saldoRealMov    = movActivos.sort((a, b) => new Date(b.fecha_movimiento).getTime() - new Date(a.fecha_movimiento).getTime())[0]?.saldo_nuevo
-                          ?? selectedItem?.montoAhorrado ?? 0;
+  // ─── Resumen de pagos ─────────────────────────────────────────────────────
+  const movActivos      = movimientosDetalle;
+  const totalDepositado = movActivos.reduce((s, m) => s + (m.monto ?? 0), 0);
+  const totalRetirado   = 0;
+  const saldoRealMov    = selectedItem?.montoAhorrado ?? 0;
 
   return (
-    <div className="p-8 bg-slate-50 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* ── Encabezado ── */}
@@ -1069,8 +976,8 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
           {userRole === 'admin' && (
             <Button className="gap-2 bg-purple-600 hover:bg-purple-700" onClick={() => {
               setSelectedItem(null);
-              setFormAsociadoId(''); setFormCuotaMensual(''); setFormSaldoInicial('0,0');
-              setFormFechaInicio(''); setFormFrecuencia('Mensual'); setFormMontoObjetivo('');
+              setFormAsociadoId(''); setFormSaldoInicial('0,0');
+              setFormFechaInicio('');
               setAutocompleteSearch('');
               setIsCreateDialogOpen(true);
             }}>
@@ -1469,52 +1376,6 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
               )}
             </div>
 
-            {/* ── Frecuencia de ahorro + Cuota ── */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="frecuencia">Frecuencia de ahorro <span className="text-red-500">*</span></Label>
-                <Select value={formFrecuencia} onValueChange={setFormFrecuencia}>
-                  <SelectTrigger id="frecuencia">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FRECUENCIAS.map(f => (
-                      <SelectItem key={f} value={f}>{f}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cuota">Cuota por {formFrecuencia.toLowerCase()} <span className="text-red-500">*</span></Label>
-                <Input
-                  id="cuota"
-                  type="text"
-                  placeholder="50.000,0"
-                  value={formCuotaMensual}
-                  onChange={handleCuotaMensualChange}
-                  onBlur={handleCuotaMensualBlur}
-                />
-              </div>
-            </div>
-
-            {/* ── Monto objetivo (opcional) ── */}
-            <div className="space-y-2">
-              <Label htmlFor="objetivo" className="flex items-center gap-2">
-                <Target className="size-4 text-purple-500" />
-                Monto objetivo
-                <span className="text-xs text-slate-400 font-normal">(opcional)</span>
-              </Label>
-              <Input
-                id="objetivo"
-                type="text"
-                placeholder="Ej: 2.000.000,0"
-                value={formMontoObjetivo}
-                onChange={(e) => setFormMontoObjetivo(e.target.value.replace(/[^\d.,]/g, ''))}
-                onBlur={() => formMontoObjetivo && setFormMontoObjetivo(formatCurrencyInput(parseCurrencyInput(formMontoObjetivo).toString()))}
-              />
-              <p className="text-xs text-slate-400">Meta de ahorro que desea alcanzar el asociado</p>
-            </div>
-
             {/* ── Saldo inicial + Fecha ── */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -1530,7 +1391,13 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
               </div>
               <div className="space-y-2">
                 <Label htmlFor="fecha">Fecha de inicio <span className="text-red-500">*</span></Label>
-                <Input id="fecha" type="date" value={formFechaInicio} onChange={(e) => setFormFechaInicio(e.target.value)} />
+                <Input
+                  id="fecha"
+                  type="date"
+                  value={formFechaInicio}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setFormFechaInicio(e.target.value)}
+                />
               </div>
             </div>
           </div>
@@ -1601,39 +1468,9 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                     <p className="text-purple-700 font-bold text-lg">{formatCurrency(selectedItem.montoAhorrado)}</p>
                   </div>
                   <div>
-                    <Label className="text-slate-500 text-xs">Frecuencia de ahorro</Label>
-                    <Badge variant="outline" className="mt-1 text-purple-700 border-purple-200 bg-purple-50">
-                      {selectedItem.frecuencia || 'Mensual'}
-                    </Badge>
-                  </div>
-                  <div>
-                    <Label className="text-slate-500 text-xs">Cuota por {(selectedItem.frecuencia || 'Mensual').toLowerCase()}</Label>
-                    <p className="text-slate-900">{formatCurrency(selectedItem.cuotaMensual)}</p>
-                  </div>
-                  <div>
-                    <Label className="text-slate-500 text-xs">Fecha de inicio</Label>
+                    <Label className="text-slate-500 text-xs">Fecha de registro</Label>
                     <p className="text-slate-900">{selectedItem.fechaInicio}</p>
                   </div>
-                  {selectedItem.montoObjetivo > 0 && (
-                    <div className="col-span-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Target className="size-4 text-purple-600" />
-                          <Label className="text-purple-700 text-xs font-semibold">Monto objetivo</Label>
-                        </div>
-                        <span className="text-purple-700 font-bold">{formatCurrency(selectedItem.montoObjetivo)}</span>
-                      </div>
-                      <div className="w-full bg-purple-200 rounded-full h-2">
-                        <div
-                          className="bg-purple-600 h-2 rounded-full transition-all"
-                          style={{ width: `${Math.min(100, (selectedItem.montoAhorrado / selectedItem.montoObjetivo) * 100)}%` }}
-                        />
-                      </div>
-                      <p className="text-xs text-purple-600 mt-1 text-right">
-                        {((selectedItem.montoAhorrado / selectedItem.montoObjetivo) * 100).toFixed(1)}% alcanzado
-                      </p>
-                    </div>
-                  )}
                   {selectedItem.motivoAnulacion && (
                     <div className="col-span-2 p-3 bg-red-50 border border-red-200 rounded-lg">
                       <Label className="text-red-600 text-xs">Motivo de anulación</Label>
@@ -1690,60 +1527,42 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                 ) : movimientosDetalle.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 text-center">
                     <History className="size-10 text-slate-300 mb-3" />
-                    <p className="text-slate-500">No hay transacciones registradas</p>
-                    <p className="text-xs text-slate-400 mt-1">Los depósitos y retiros aparecerán aquí</p>
+                    <p className="text-slate-500">No hay pagos registrados</p>
+                    <p className="text-xs text-slate-400 mt-1">Los depósitos aparecerán aquí</p>
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                     {movimientosDetalle.map((mov) => (
                       <div
                         key={mov.id}
-                        className={`flex items-center justify-between p-3 rounded-lg border ${
-                          mov.anulado ? 'bg-slate-50 border-slate-200 opacity-60' :
-                          mov.tipo_movimiento === 'Depósito' ? 'bg-white border-emerald-100' :
-                          mov.tipo_movimiento === 'Retiro'   ? 'bg-white border-red-100' :
-                          mov.tipo_movimiento === 'Interés'  ? 'bg-white border-blue-100' :
-                          'bg-white border-slate-100'
-                        }`}
+                        className="flex items-center justify-between p-3 rounded-lg border bg-white border-emerald-100"
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-full ${
-                            mov.tipo_movimiento === 'Depósito' ? 'bg-emerald-100' :
-                            mov.tipo_movimiento === 'Retiro'   ? 'bg-red-100' :
-                            mov.tipo_movimiento === 'Interés'  ? 'bg-blue-100' : 'bg-slate-100'
-                          }`}>
-                            {mov.tipo_movimiento === 'Retiro'
-                              ? <ArrowUpCircle className="size-3 text-red-600" />
-                              : mov.tipo_movimiento === 'Interés'
-                              ? <TrendingUp className="size-3 text-blue-600" />
-                              : <ArrowDownCircle className="size-3 text-emerald-600" />
-                            }
+                          <div className="p-2 rounded-full bg-emerald-100">
+                            <ArrowDownCircle className="size-3 text-emerald-600" />
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-slate-700">{mov.tipo_movimiento}</p>
-                              {mov.anulado && <Badge variant="secondary" className="text-xs px-1 py-0 bg-slate-200 text-slate-500">Anulado</Badge>}
+                              <p className="text-sm font-medium text-slate-700">Depósito</p>
                             </div>
                             <p className="text-xs text-slate-400">
                               <Calendar className="size-3 inline mr-1" />
-                              {mov.fecha_movimiento}
-                              {mov.metodo_pago ? ` · ${mov.metodo_pago}` : ''}
-                              {mov.descripcion ? ` · ${mov.descripcion}` : ''}
+                              {mov.fecha_pago}
+                              {mov.observacion ? ` · ${mov.observacion}` : ''}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className={`text-sm font-semibold ${mov.tipo_movimiento === 'Retiro' ? 'text-red-600' : 'text-emerald-600'}`}>
-                            {mov.tipo_movimiento === 'Retiro' ? '−' : '+'}{formatCurrency(mov.monto)}
+                          <p className="text-sm font-semibold text-emerald-600">
+                            +{formatCurrency(mov.monto)}
                           </p>
-                          <p className="text-xs text-slate-400">Saldo: {formatCurrency(mov.saldo_nuevo)}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* Resumen de transacciones */}
+                {/* Resumen de pagos */}
                 {movimientosDetalle.length > 0 && (
                   <div className="pt-3 border-t border-slate-100 space-y-1.5">
                     <div className="flex justify-between text-sm">
@@ -1751,11 +1570,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                       <span className="font-semibold text-emerald-700">{formatCurrency(totalDepositado)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Total retirado:</span>
-                      <span className="font-semibold text-red-600">{formatCurrency(totalRetirado)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Total transacciones:</span>
+                      <span className="text-slate-500">Total pagos:</span>
                       <span className="font-semibold text-slate-700">{movimientosDetalle.length}</span>
                     </div>
                     <div className="flex justify-between text-sm font-bold border-t border-slate-200 pt-1 mt-1">
@@ -1781,6 +1596,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+
                     {historialCambios.map((h, idx) => (
                       <div key={h.id ?? idx} className={`rounded-lg border p-3 space-y-2 ${
                         h.campos_modificados?.startsWith('ANULACIÓN')
@@ -1887,10 +1703,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                   Asociado: <span className="font-semibold">{selectedItem.asociado}</span>
                   {' — '}Saldo disponible:{' '}
                   <span className="font-semibold text-purple-700">
-                    {formatCurrency(
-                      movActivos.sort((a, b) => new Date(b.fecha_movimiento).getTime() - new Date(a.fecha_movimiento).getTime())[0]?.saldo_nuevo
-                      ?? selectedItem.montoAhorrado
-                    )}
+                    {formatCurrency(selectedItem.montoAhorrado)}
                   </span>
                 </>
               )}
@@ -1911,7 +1724,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                     </span>
                   </p>
                   <p className="text-xs text-blue-700">
-                    Mínimo por depósito: <strong>{formatCurrency(MONTO_MINIMO_VOLUNTARIO)}</strong>
+                    Mínimo por depósito: <strong>{formatCurrency(montoMinimo)}</strong>
                     {' · '}La fecha debe estar entre el día 1 y el día {diaFin} del mes en curso.
                   </p>
                 </div>
@@ -1924,7 +1737,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                   Monto <span className="text-red-500">*</span>
                   {formMovTipo === 'Depósito' && (
                     <span className="ml-1 text-xs text-blue-600 font-normal">
-                      (mín. {formatCurrency(MONTO_MINIMO_VOLUNTARIO)})
+                      (mín. {formatCurrency(montoMinimo)})
                     </span>
                   )}
                 </Label>
@@ -2023,8 +1836,8 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                     <span className="font-semibold text-red-700">{selectedItem ? formatCurrency(selectedItem.montoAhorrado) : ''}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Frecuencia:</span>
-                    <span className="text-slate-700">{selectedItem?.frecuencia}</span>
+                    <span className="text-slate-500">Fecha de registro:</span>
+                    <span className="text-slate-700">{selectedItem?.fechaInicio}</span>
                   </div>
                 </div>
                 <p className="text-xs text-red-600 font-medium">⚠ Esta acción no se puede deshacer.</p>
@@ -2059,7 +1872,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
       {/* ── Cambiar estado ───────────────────────────────────────────────────── */}
       <AlertDialog open={isToggleEstadoDialogOpen} onOpenChange={(open) => {
         setIsToggleEstadoDialogOpen(open);
-        if (!open) setSelectedItem(null);
+        if (!open) { setSelectedItem(null); setJustificacionAnulacion(''); }
       }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -2069,13 +1882,106 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
               <span className="font-semibold">"{selectedItem?.asociado}"</span>.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2 px-1 pb-2">
+            <Label className={`font-medium ${selectedItem?.estado ? 'text-yellow-700' : 'text-emerald-700'}`}>
+              Motivo <span className="text-red-500">*</span>
+            </Label>
+            <Textarea
+              placeholder={selectedItem?.estado ? 'Motivo de la desactivación...' : 'Motivo de la reactivación...'}
+              value={justificacionAnulacion}
+              onChange={(e) => setJustificacionAnulacion(e.target.value)}
+              rows={2}
+              className={selectedItem?.estado
+                ? 'border-yellow-300 focus-visible:ring-yellow-400'
+                : 'border-emerald-300 focus-visible:ring-emerald-400'}
+            />
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSelectedItem(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setSelectedItem(null); setJustificacionAnulacion(''); }}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => handleToggleEstado(selectedItem?.id)}
+              disabled={!justificacionAnulacion.trim()}
               className={selectedItem?.estado ? 'bg-orange-600 hover:bg-orange-700' : 'bg-emerald-600 hover:bg-emerald-700'}
             >
               {selectedItem?.estado ? 'Desactivar' : 'Activar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Advertencia: saldo inicial menor al mínimo ────────────────────── */}
+      <AlertDialog open={isConfirmSaldoBajoVolOpen} onOpenChange={setIsConfirmSaldoBajoVolOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-amber-500" />
+              Aporte por debajo del mínimo
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-slate-600">
+                <p>
+                  El monto ingresado es{' '}
+                  <span className="font-semibold text-red-600">
+                    {formatCurrency(parseCurrencyInput(formSaldoInicial))}
+                  </span>
+                  , que está <span className="font-semibold">por debajo del mínimo obligatorio</span> de{' '}
+                  <span className="font-semibold text-emerald-700">{formatCurrency(montoMinimo)}</span>.
+                </p>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 text-xs font-medium">
+                  ⚠️ Registrar un aporte inferior al mínimo puede generar inconsistencias en el historial del asociado y afectar los cálculos del período.
+                </div>
+                <p>Como administrador, puede continuar si existe una justificación válida (pago parcial acordado, abono, etc.).</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsConfirmSaldoBajoVolOpen(false)}>
+              Cancelar — corregir monto
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+              onClick={() => { setIsConfirmSaldoBajoVolOpen(false); handleSaveAhorro(true); }}
+            >
+              Sí, registrar de todas formas
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Advertencia: depósito menor al mínimo ─────────────────────────── */}
+      <AlertDialog open={isConfirmMovBajoVolOpen} onOpenChange={setIsConfirmMovBajoVolOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-amber-500" />
+              Aporte por debajo del mínimo
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-slate-600">
+                <p>
+                  El monto ingresado es{' '}
+                  <span className="font-semibold text-red-600">
+                    {formatCurrency(parseCurrencyInput(formMovMonto))}
+                  </span>
+                  , que está <span className="font-semibold">por debajo del mínimo obligatorio</span> de{' '}
+                  <span className="font-semibold text-emerald-700">{formatCurrency(montoMinimo)}</span>.
+                </p>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 text-xs font-medium">
+                  ⚠️ Registrar un aporte inferior al mínimo puede generar inconsistencias en el historial del asociado y afectar los cálculos del período.
+                </div>
+                <p>Como administrador, puede continuar si existe una justificación válida (pago parcial acordado, abono, etc.).</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsConfirmMovBajoVolOpen(false)}>
+              Cancelar — corregir monto
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+              onClick={() => { setIsConfirmMovBajoVolOpen(false); ejecutarRegistrarMovimiento(); }}
+            >
+              Sí, registrar de todas formas
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

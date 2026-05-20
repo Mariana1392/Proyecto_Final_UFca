@@ -66,18 +66,21 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
         throw authError;
       }
 
-      // 3. Una sola query con todo: usuario + rol + asociado (joins de Supabase)
+      // 3. Una sola query con todo: usuario + rol (con permisos desde rol_permisos) + asociado
       const { data: perfil, error: perfilError } = await supabase
         .from('usuarios')
         .select(`
-          id, nombre, email, username, identificacion, activo, rol_id, asociado_id,
-          roles(nombre, label, permisos),
-          asociados(cedula, telefono)
+          id, nombre, email, username, activo, rol_id, asociado_id,
+          roles!rol_id(nombre, label, rol_permisos(permiso_clave, activo)),
+          asociados!asociado_id(cedula, telefono)
         `)
         .eq('id', authData.user.id)
         .single();
 
-      if (perfilError || !perfil) throw new Error('Usuario no encontrado en el sistema.');
+      if (perfilError || !perfil) {
+        console.error('[Login] perfilError:', perfilError);
+        throw new Error(perfilError?.message ?? 'Usuario no encontrado en el sistema.');
+      }
       if (!perfil.activo) { await supabase.auth.signOut(); throw new Error('Tu cuenta está desactivada. Contacta al administrador.'); }
 
       // Verificar que el email haya sido confirmado (protege contra emails falsos)
@@ -90,8 +93,14 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
 
       const rolNombre   = (perfil as any).roles?.nombre   ?? 'usuario';
       const rolLabelDB  = (perfil as any).roles?.label    ?? undefined;
-      const rolPermisos = Array.isArray((perfil as any).roles?.permisos) ? (perfil as any).roles.permisos : [];
-      const cedula      = (perfil as any).asociados?.cedula ?? perfil.identificacion ?? '';
+      // Permisos vienen de rol_permisos (tabla relacional) — nunca de columna hardcodeada
+      const rolPermisos: string[] = Array.isArray((perfil as any).roles?.rol_permisos)
+        ? (perfil as any).roles.rol_permisos
+            .filter((rp: any) => rp.activo !== false)   // ignorar permisos quitados (activo=false)
+            .map((rp: any) => rp.permiso_clave)
+            .filter(Boolean)
+        : [];
+      const cedula      = (perfil as any).asociados?.cedula ?? '';
       const telefono    = (perfil as any).asociados?.telefono ?? '';
       const role: 'admin' | 'asociado' | 'usuario' =
         rolNombre === 'admin' ? 'admin'
@@ -185,21 +194,9 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
         return;
       }
 
-      // Obtener rol "usuario" de la BD (usuario normal, aún no asociado)
-      const { data: rolData } = await supabase
-        .from('roles')
-        .select('id,nombre,permisos')
-        .eq('nombre', 'usuario')
-        .limit(1);
-
-      // Insertar en tabla usuarios
-      await supabase.from('usuarios').insert({
-        id:     data.user!.id,
-        nombre: registerName.trim(),
-        email:  registerEmail.trim(),
-        rol_id: rolData?.[0]?.id ?? null,
-        activo: true,
-      });
+      // El trigger PostgreSQL `on_auth_user_created` en Supabase
+      // se encarga automáticamente de insertar el usuario en la tabla `usuarios`
+      // con el rol "usuario". El cliente nunca toca rol_id. (S-02, S-03)
 
       // Siempre mostrar la pantalla de confirmación de email,
       // sin importar si Supabase tiene Auto Confirm activado.
@@ -361,7 +358,7 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
       </div>
 
       {/* ── Panel derecho: formulario ── */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-slate-50">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-slate-50">
         <div className="w-full max-w-md">
 
           {/* Logo móvil */}
@@ -437,10 +434,8 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-sm">
-                      <label className="flex items-center gap-2 text-slate-500 cursor-pointer">
-                        <input type="checkbox" className="rounded border-slate-300 text-[#054030] focus:ring-[#054030]"/>
-                        Recordarme
-                      </label>
+                      {/* S-11: checkbox "Recordarme" eliminado — sin implementación de persistencia real */}
+                      <span />
                       <button type="button" onClick={() => onShowRecovery?.()}
                         className="text-[#054030] font-semibold hover:underline text-sm">
                         ¿Olvidaste tu contraseña?

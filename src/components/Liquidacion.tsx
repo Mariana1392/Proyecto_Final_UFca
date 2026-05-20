@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -28,12 +28,13 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/supabase';
 import { asociadosApi } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
+import { TIPOS_LIQUIDACION as TIPOS_LIQ, ESTADOS_LIQUIDACION as ESTADOS_LIQ } from '../lib/constants';
 
 // ══════════════════════════════════════════════════════════════
 // TYPES
 // ══════════════════════════════════════════════════════════════
 interface LiquidacionProps {
-  userRole?: 'admin' | 'asociado' | null;
   userData?: any;
 }
 
@@ -46,11 +47,11 @@ interface Concepto {
 
 interface LiqDoc {
   id: string;
-  liquidacion_id: string;
   nombre: string;
   url: string;
   tipo_archivo: string;
-  subido_por: string;
+  subido_por: string | null;        // UUID del usuario que subió
+  subido_por_nombre?: string | null; // nombre legible (guardado al momento de subir)
   created_at: string;
 }
 
@@ -62,36 +63,12 @@ interface AuditEntry {
   created_at: string;
 }
 
-interface DatosCalculo {
-  salarioMensual: number;
-  fechaIngreso: string;
-  fechaCorte: string;
-  diasVacPendientes: number;
-  tipo: 'retiro' | 'cesantias';
-  ahorroPermanente: number;
-  ahorroVoluntario: number;
-  creditoPendiente: number;
-}
+// DatosCalculo eliminado — la natillera no liquida prestaciones laborales
 
 // ══════════════════════════════════════════════════════════════
 // CONSTANTS
 // ══════════════════════════════════════════════════════════════
-const TIPOS_LIQ = [
-  { value: 'retiro',        label: 'Retiro voluntario' },
-  { value: 'cesantias',     label: 'Cesantías' },
-  { value: 'expulsion',     label: 'Expulsión' },
-  { value: 'fallecimiento', label: 'Fallecimiento' },
-  { value: 'otro',          label: 'Otro' },
-];
-
-const ESTADOS_LIQ = [
-  { value: 'Borrador',   color: 'bg-slate-100 text-slate-600 border-slate-200' },
-  { value: 'Pendiente',  color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-  { value: 'En proceso', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  { value: 'Aprobada',   color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  { value: 'Pagada',     color: 'bg-green-100 text-green-700 border-green-200' },
-  { value: 'Rechazada',  color: 'bg-red-100 text-red-700 border-red-200' },
-];
+// TIPOS_LIQ y ESTADOS_LIQ vienen de src/lib/constants.ts
 
 // ══════════════════════════════════════════════════════════════
 // HELPERS
@@ -107,104 +84,7 @@ const getEstadoBadge = (estado: string, anulado?: boolean) => {
 
 const numLiq = (id: string) => `LIQ-${String(id).substring(0, 8).toUpperCase()}`;
 
-/** Calcula días en notación colombiana (año=360, mes=30) */
-function diasColombinos(inicio: Date, fin: Date): number {
-  const y1 = inicio.getFullYear(), m1 = inicio.getMonth() + 1, d1 = Math.min(inicio.getDate(), 30);
-  const y2 = fin.getFullYear(),   m2 = fin.getMonth() + 1,   d2 = Math.min(fin.getDate(), 30);
-  return (y2 - y1) * 360 + (m2 - m1) * 30 + (d2 - d1);
-}
-
-/** Días transcurridos en el semestre actual hasta la fecha de corte */
-function diasSemestreActual(ingreso: Date, corte: Date): number {
-  const mes = corte.getMonth(); // 0-indexed
-  const inicioSemestre = new Date(corte.getFullYear(), mes < 6 ? 0 : 6, 1);
-  const desde = ingreso > inicioSemestre ? ingreso : inicioSemestre;
-  return Math.max(0, diasColombinos(desde, corte));
-}
-
-// ══════════════════════════════════════════════════════════════
-// CALCULADORA COLOMBIANA (CST)
-// ══════════════════════════════════════════════════════════════
-/**
- * Reglas aplicadas:
- * - Cesantías:           (salario × días) / 360           [Art. 249 CST]
- * - Intereses cesantías: cesantías × 12% × (días/360)     [Ley 52/1975]
- * - Prima servicios:     (salario × días semestre) / 360  [Art. 306 CST]
- * - Vacaciones prop.:    (salario / 720) × días           [Art. 186 CST]
- * - Salario pendiente:   (salario / 30) × día del mes
- * - Días = notación colombiana (año=360, mes=30)
- */
-function calcularLiquidacionCO(datos: DatosCalculo): { conceptos: Concepto[]; resumen: Record<string, number> } {
-  const ingreso = new Date(datos.fechaIngreso + 'T00:00:00');
-  const corte   = new Date(datos.fechaCorte   + 'T00:00:00');
-
-  if (isNaN(ingreso.getTime()) || isNaN(corte.getTime()) || corte <= ingreso) {
-    return { conceptos: [], resumen: {} };
-  }
-
-  const dias     = diasColombinos(ingreso, corte);
-  const salDiario = datos.salarioMensual / 30;
-
-  const conceptos: Concepto[] = [];
-  const resumen: Record<string, number> = {};
-  let nextId = 1;
-
-  const add = (nombre: string, monto: number, tipo: 'credito' | 'debito') => {
-    const rounded = Math.round(monto);
-    if (rounded === 0) return;
-    conceptos.push({ id: nextId++, nombre, monto: String(rounded), tipo });
-    resumen[nombre] = rounded;
-  };
-
-  if (datos.tipo === 'retiro') {
-    // ── 1. Salario pendiente del mes ─────────────────────────────────────
-    const diaCorte = Math.min(corte.getDate(), 30);
-    add('Salario pendiente del mes', salDiario * diaCorte, 'credito');
-
-    // ── 2. Cesantías (Art. 249 CST) ──────────────────────────────────────
-    const cesantias = (datos.salarioMensual * dias) / 360;
-    add('Cesantías (Art. 249 CST)', cesantias, 'credito');
-
-    // ── 3. Intereses de cesantías (Ley 52/1975 — 12% anual) ─────────────
-    const intCesantias = cesantias * 0.12 * (Math.min(dias, 360) / 360);
-    add('Intereses de cesantías 12% (Ley 52/1975)', intCesantias, 'credito');
-
-    // ── 4. Prima de servicios (Art. 306 CST) ─────────────────────────────
-    const diasSem = diasSemestreActual(ingreso, corte);
-    const prima   = (datos.salarioMensual * diasSem) / 360;
-    add('Prima de servicios (Art. 306 CST)', prima, 'credito');
-
-    // ── 5. Vacaciones proporcionales (Art. 186 CST) ───────────────────────
-    const vacProp = (datos.salarioMensual / 720) * dias;
-    add('Vacaciones proporcionales (Art. 186 CST)', vacProp, 'credito');
-
-    // ── 6. Días de vacaciones pendientes (si aplica) ──────────────────────
-    if (datos.diasVacPendientes > 0) {
-      add(`Vacaciones pendientes no disfrutadas (${datos.diasVacPendientes} días)`, salDiario * datos.diasVacPendientes, 'credito');
-    }
-
-    // ── 7. Ahorros del fondo ──────────────────────────────────────────────
-    if (datos.ahorroPermanente > 0) add('Ahorro permanente acumulado', datos.ahorroPermanente, 'credito');
-    if (datos.ahorroVoluntario  > 0) add('Ahorro voluntario acumulado',  datos.ahorroVoluntario,  'credito');
-
-    // ── 8. Deducciones ────────────────────────────────────────────────────
-    if (datos.creditoPendiente > 0) add('Saldo de crédito pendiente', datos.creditoPendiente, 'debito');
-
-  } else if (datos.tipo === 'cesantias') {
-    // Retiro parcial de cesantías (para vivienda o educación, Art. 256 CST)
-    const cesantias = (datos.salarioMensual * dias) / 360;
-    add('Cesantías acumuladas (Art. 249 CST)', cesantias, 'credito');
-
-    const intCesantias = cesantias * 0.12 * (Math.min(dias, 360) / 360);
-    add('Intereses de cesantías 12% (Ley 52/1975)', intCesantias, 'credito');
-
-    if (datos.ahorroPermanente > 0) add('Ahorro permanente acumulado', datos.ahorroPermanente, 'credito');
-    if (datos.ahorroVoluntario  > 0) add('Ahorro voluntario acumulado',  datos.ahorroVoluntario,  'credito');
-    if (datos.creditoPendiente  > 0) add('Saldo de crédito pendiente',   datos.creditoPendiente,  'debito');
-  }
-
-  return { conceptos, resumen };
-}
+// Funciones CST eliminadas — la natillera no liquida prestaciones laborales
 
 // ══════════════════════════════════════════════════════════════
 // PDF GENERATOR
@@ -342,7 +222,11 @@ function generateLiquidacionPDF(liq: any): boolean {
 // ══════════════════════════════════════════════════════════════
 // COMPONENT
 // ══════════════════════════════════════════════════════════════
-export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
+export default function Liquidacion({ userData }: LiquidacionProps) {
+  const { can } = useAuth();
+  // can('liquidacion') = permiso de admin (vista completa de todos)
+  // can('mi_liquidacion') sin can('liquidacion') = solo vista propia del asociado
+  const esVistaPropia = !can('liquidacion');
 
   // ── Data ─────────────────────────────────────────────────────
   const [liquidaciones, setLiquidaciones]               = useState<any[]>([]);
@@ -393,27 +277,25 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
   const [formTipo, setFormTipo]                   = useState('retiro');
   const [formFechaCorte, setFormFechaCorte]       = useState('');
   const [formFechaLiq, setFormFechaLiq]           = useState('');
-  const [formEstado, setFormEstado]               = useState('Borrador');
+  const [formEstado, setFormEstado]               = useState('En proceso');
   const [formMotivo, setFormMotivo]               = useState('');
   const [formObservaciones, setFormObservaciones] = useState('');
   const acRef                                     = useRef<HTMLDivElement>(null);
 
-  // ── Create form: calculadora ──────────────────────────────────
-  const [formSalario, setFormSalario]               = useState('');
-  const [formFechaIngreso, setFormFechaIngreso]     = useState('');
-  const [formDiasVac, setFormDiasVac]               = useState('0');
+  // ── Create form: saldos del asociado ─────────────────────────
   const [formAhorroPerm, setFormAhorroPerm]         = useState('');
   const [formAhorroVol, setFormAhorroVol]           = useState('');
   const [formCreditoPend, setFormCreditoPend]       = useState('');
-  const [calculando, setCalculando]                 = useState(false);
-  const [calculoHecho, setCalculoHecho]             = useState(false);
+  const [formUtilidades, setFormUtilidades]         = useState('');
+  const [generando, setGenerando]                   = useState(false);
+  const [conceptosGenerados, setConceptosGenerados] = useState(false);
   const [datosAsocLoading, setDatosAsocLoading]     = useState(false);
 
+  // ── Create form: paso activo del stepper ──────────────────────
+  const [formStep, setFormStep]                     = useState<1|2|3>(1);
+
   // ── Create form: conceptos ────────────────────────────────────
-  const [formConceptos, setFormConceptos] = useState<Concepto[]>([
-    { id: 1, nombre: 'Ahorro permanente',       monto: '', tipo: 'credito' },
-    { id: 2, nombre: 'Saldo crédito pendiente', monto: '', tipo: 'debito'  },
-  ]);
+  const [formConceptos, setFormConceptos] = useState<Concepto[]>([]);
 
   // ── Create form: archivo ──────────────────────────────────────
   const [formArchivoFile, setFormArchivoFile] = useState<File | null>(null);
@@ -557,7 +439,8 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
         estado:                 det.estado             ?? 'Pendiente',
         motivo:                 det.motivo             ?? '',
         observaciones:          det.observaciones      ?? '',
-        conceptos:              (det.conceptos as Concepto[]) ?? [],
+        conceptos:              (det.conceptos  as Concepto[]) ?? [],
+        documentos:             (det.documentos as LiqDoc[])  ?? [],
         calculo:                det.calculo            ?? null,
         montoFinal:             l.monto_total          ?? 0,
         anulado:                det.anulado            ?? false,
@@ -574,11 +457,11 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
     return Object.fromEntries(lista.map((a: any) => [a.id, { nombre: a.nombre ?? '', cedula: a.cedula ?? '' }]));
   }
 
-  // ── Load data — bifurcado por rol ────────────────────────────
+  // ── Load data — bifurcado por permiso ───────────────────────
   async function cargarDatos() {
     setLoading(true);
     try {
-      if (userRole === 'asociado') {
+      if (esVistaPropia) {
         // ── ASOCIADO: solo carga SUS liquidaciones desde el servidor ──
         // userData.asociado_id  → UUID en tabla asociados (el que está en liquidaciones.asociado_id)
         // userData.id           → UUID de auth.users (distinto al anterior)
@@ -626,17 +509,21 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
   }
 
   async function cargarDocumentos(liqId: string) {
+    // Los documentos se guardan en detalle.documentos (JSONB) de liquidaciones.
+    // No se requiere tabla separada — leemos directamente de la fila ya cargada.
     setLoadingDocs(true);
     try {
       const { data, error } = await supabase
-        .from('liquidacion_documentos')
-        .select('*')
-        .eq('liquidacion_id', liqId)
-        .order('created_at', { ascending: false });
+        .from('liquidaciones')
+        .select('detalle')
+        .eq('id', liqId)
+        .single();
       if (error) throw error;
-      setDocsLiquidacion(data || []);
+      const det  = (data?.detalle as any) ?? {};
+      const docs = (det.documentos as LiqDoc[]) ?? [];
+      setDocsLiquidacion([...docs].sort((a, b) => b.created_at.localeCompare(a.created_at)));
     } catch {
-      setDocsLiquidacion([]); // Tabla puede no existir aún — fallo silencioso
+      setDocsLiquidacion([]);
     } finally {
       setLoadingDocs(false);
     }
@@ -685,14 +572,14 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
   async function cargarDatosAsociado(id: string) {
     setDatosAsocLoading(true);
     try {
-      const [apRes, avRes, crRes] = await Promise.all([
-        supabase.from('ahorro_permanente').select('monto_ahorrado').eq('asociado_id', id).eq('anulado', false),
-        supabase.from('ahorro_voluntario').select('monto_ahorrado').eq('asociado_id', id).eq('anulado', false),
+      const [ahPermRes, ahVolRes, crRes] = await Promise.all([
+        supabase.from('ahorros_permanentes').select('monto_ahorrado').eq('asociado_id', id).eq('anulado', false),
+        supabase.from('ahorros_voluntarios').select('saldo').eq('asociado_id', id).eq('anulado', false),
         supabase.from('creditos').select('saldo').eq('asociado_id', id).in('estado', ['activo', 'pendiente', 'aprobado', 'desembolsado', 'en_mora']).eq('anulado', false),
       ]);
-      const totAP = (apRes.data || []).reduce((s: number, r: any) => s + (r.monto_ahorrado || 0), 0);
-      const totAV = (avRes.data || []).reduce((s: number, r: any) => s + (r.monto_ahorrado || 0), 0);
-      const totCr = (crRes.data || []).reduce((s: number, r: any) => s + (r.saldo || 0), 0);
+      const totAP = (ahPermRes.data || []).reduce((s: number, r: any) => s + (Number(r.monto_ahorrado) || 0), 0);
+      const totAV = (ahVolRes.data  || []).reduce((s: number, r: any) => s + (Number(r.saldo)          || 0), 0);
+      const totCr = (crRes.data     || []).reduce((s: number, r: any) => s + (Number(r.saldo)          || 0), 0);
       setFormAhorroPerm(totAP > 0 ? String(Math.round(totAP)) : '');
       setFormAhorroVol(totAV  > 0 ? String(Math.round(totAV))  : '');
       setFormCreditoPend(totCr > 0 ? String(Math.round(totCr)) : '');
@@ -703,52 +590,96 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
     }
   }
 
-  // ── Calculadora ───────────────────────────────────────────────
-  const handleCalcular = () => {
-    const salario = parseFloat(formSalario.replace(/[^\d.]/g, ''));
-    if (!salario || salario <= 0) {
-      toast.error('Ingresa el salario mensual base');
-      return;
+  // ── Generar conceptos para natillera ─────────────────────────
+  const handleGenerarConceptos = async (): Promise<boolean> => {
+    if (!formAsociadoId) { toast.error('Selecciona un asociado primero'); return false; }
+    if (!formFechaCorte) { toast.error('Ingresa la fecha de corte'); return false; }
+
+    setGenerando(true);
+    try {
+      const fechaCorteDate  = new Date(formFechaCorte + 'T00:00:00');
+      const mesCorte        = fechaCorteDate.getMonth(); // 0-indexed: 10=nov, 11=dic
+      const aplicaUtilidades = mesCorte >= 10;
+
+      // Consultar utilidades del fondo solo si aplica
+      let utilidadesAsociado = parseFloat(formUtilidades) || 0;
+      if (aplicaUtilidades && !formUtilidades) {
+        const [moraRes, interesRes, asocCountRes] = await Promise.all([
+          supabase.from('pagos_ahorro_permanente').select('monto_mora').gt('monto_mora', 0),
+          supabase.from('pagos_credito').select('interes').gt('interes', 0),
+          supabase.from('asociados').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
+        ]);
+        const totalMora    = ((moraRes.data    || []) as any[]).reduce((s, r) => s + (Number(r.monto_mora) || 0), 0);
+        const totalInteres = ((interesRes.data || []) as any[]).reduce((s, r) => s + (Number(r.interes)   || 0), 0);
+        const count        = (asocCountRes as any).count ?? 1;
+        utilidadesAsociado = count > 0 ? Math.round((totalMora + totalInteres) / count) : 0;
+        if (utilidadesAsociado > 0) setFormUtilidades(String(utilidadesAsociado));
+      }
+
+      const ap  = parseFloat(formAhorroPerm)  || 0;
+      const av  = parseFloat(formAhorroVol)   || 0;
+      const cr  = parseFloat(formCreditoPend) || 0;
+      const util = parseFloat(formUtilidades) || utilidadesAsociado;
+
+      const nuevosConceptos: Concepto[] = [];
+      let nextId = 1;
+      if (ap  > 0) nuevosConceptos.push({ id: nextId++, nombre: 'Ahorro permanente acumulado', monto: String(Math.round(ap)),   tipo: 'credito' });
+      if (av  > 0) nuevosConceptos.push({ id: nextId++, nombre: 'Ahorro voluntario acumulado', monto: String(Math.round(av)),   tipo: 'credito' });
+      if (util > 0) nuevosConceptos.push({ id: nextId++, nombre: `Utilidades del fondo (${mesCorte === 10 ? 'noviembre' : 'diciembre'} ${fechaCorteDate.getFullYear()})`, monto: String(Math.round(util)), tipo: 'credito' });
+      if (cr  > 0) nuevosConceptos.push({ id: nextId++, nombre: 'Saldo de crédito pendiente',  monto: String(Math.round(cr)),   tipo: 'debito'  });
+
+      if (nuevosConceptos.length === 0) {
+        toast.error('No hay saldos para este asociado. Puedes agregar los conceptos manualmente.');
+        setGenerando(false);
+        // Avanzamos igual para que el usuario pueda agregar conceptos manualmente
+        return true;
+      }
+
+      setFormConceptos(nuevosConceptos);
+      setConceptosGenerados(true);
+      const msgUtil = aplicaUtilidades && util > 0
+        ? ` · Utilidades: ${fmtCOP(util)}`
+        : !aplicaUtilidades ? ' · Sin utilidades (aplica solo en nov/dic)' : '';
+      toast.success(`${nuevosConceptos.length} conceptos generados${msgUtil}`);
+      return true;
+    } catch (err: any) {
+      toast.error('Error al generar conceptos: ' + err.message);
+      return false;
+    } finally {
+      setGenerando(false);
     }
-    if (!formFechaIngreso) {
-      toast.error('Ingresa la fecha de ingreso del asociado');
-      return;
-    }
-    if (!formFechaCorte) {
-      toast.error('Ingresa la fecha de corte (campo habilitado en esta pestaña)');
-      return;
-    }
-    if (formFechaIngreso >= formFechaCorte) {
-      toast.error('La fecha de ingreso debe ser anterior a la fecha de corte');
-      return;
-    }
-    if (!['retiro','cesantias'].includes(formTipo)) {
-      toast.info('La calculadora aplica solo para Retiro voluntario y Cesantías. Ingresa los conceptos manualmente en la pestaña Conceptos.');
+  };
+
+  // ── Navegación del stepper ────────────────────────────────────
+  const irAPaso2 = async () => {
+    if (!formAsociadoId) { toast.error('Selecciona un asociado'); return; }
+    if (!formFechaCorte) { toast.error('Ingresa la fecha de corte'); return; }
+
+    // Validar que el asociado no tenga créditos con saldo activo
+    const { data: credActivos } = await supabase
+      .from('creditos')
+      .select('id, monto, saldo, estado')
+      .eq('asociado_id', formAsociadoId)
+      .in('estado', ['desembolsado', 'en_mora'])
+      .eq('anulado', false)
+      .gt('saldo', 0);
+
+    if (credActivos && credActivos.length > 0) {
+      const totalDeuda = credActivos.reduce((s: number, c: any) => s + (Number(c.saldo) || 0), 0);
+      toast.error(
+        `El asociado tiene ${credActivos.length} crédito(s) activo(s) con saldo pendiente de $${totalDeuda.toLocaleString('es-CO')}. ` +
+        `Debe cancelar sus deudas antes de liquidar.`,
+        { duration: 6000 }
+      );
       return;
     }
 
-    setCalculando(true);
-    setTimeout(() => {
-      const datos: DatosCalculo = {
-        salarioMensual:   salario,
-        fechaIngreso:     formFechaIngreso,
-        fechaCorte:       formFechaCorte,
-        diasVacPendientes: parseInt(formDiasVac) || 0,
-        tipo:             formTipo as 'retiro' | 'cesantias',
-        ahorroPermanente: parseFloat(formAhorroPerm.replace(/[^\d.]/g, '')) || 0,
-        ahorroVoluntario:  parseFloat(formAhorroVol.replace(/[^\d.]/g,''))  || 0,
-        creditoPendiente:  parseFloat(formCreditoPend.replace(/[^\d.]/g,'')) || 0,
-      };
-      const { conceptos } = calcularLiquidacionCO(datos);
-      if (conceptos.length === 0) {
-        toast.error('No se pudo calcular. Verifica que la fecha de corte sea posterior a la de ingreso.');
-        setCalculando(false); return;
-      }
-      setFormConceptos(conceptos);
-      setCalculoHecho(true);
-      setCalculando(false);
-      toast.success(`${conceptos.length} conceptos calculados según legislación colombiana`);
-    }, 400);
+    setFormStep(2);
+  };
+
+  const irAPaso3 = async () => {
+    const ok = await handleGenerarConceptos();
+    if (ok) setFormStep(3);
   };
 
   // ── Computed ──────────────────────────────────────────────────
@@ -802,7 +733,7 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
   const totalPagAn      = Math.ceil(anuladas.length / itemsPerPage);
   const montoTotal      = todasActivas.reduce((s, l) => s + (l.montoFinal??0), 0);
   const cantPagadas     = todasActivas.filter(l => l.estado === 'Pagada').length;
-  const cantPendientes  = todasActivas.filter(l => l.estado === 'Pendiente' || l.estado === 'En proceso').length;
+  const cantPendientes  = todasActivas.filter(l => l.estado === 'En proceso').length;
 
   // ── Autocomplete asociados ────────────────────────────────────
   const acSuggestions = asociadosDisponibles
@@ -813,10 +744,9 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
     setFormAsociadoId(a.id);
     setFormAsocSearch(`${a.nombre}  ·  ${a.cedula}`);
     setShowAcomplete(false);
-    // Precargar datos financieros
+    setConceptosGenerados(false);
+    setFormConceptos([]);
     cargarDatosAsociado(a.id);
-    // Si la fecha de ingreso existe en el registro del asociado, precargarla
-    if (a.fecha_ingreso) setFormFechaIngreso(a.fecha_ingreso);
   };
 
   const addConcepto    = () => setFormConceptos(p => [...p, { id: Date.now(), nombre: '', monto: '', tipo: 'credito' }]);
@@ -835,15 +765,12 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
   const resetForm = () => {
     setFormAsociadoId(''); setFormAsocSearch('');
     setFormTipo('retiro'); setFormFechaCorte(''); setFormFechaLiq('');
-    setFormEstado('Pendiente'); setFormMotivo(''); setFormObservaciones('');
-    setFormSalario(''); setFormFechaIngreso(''); setFormDiasVac('0');
-    setFormAhorroPerm(''); setFormAhorroVol(''); setFormCreditoPend('');
-    setCalculoHecho(false);
-    setFormConceptos([
-      { id: 1, nombre: 'Ahorro permanente',       monto: '', tipo: 'credito' },
-      { id: 2, nombre: 'Saldo crédito pendiente', monto: '', tipo: 'debito'  },
-    ]);
+    setFormEstado('En proceso'); setFormMotivo(''); setFormObservaciones('');
+    setFormAhorroPerm(''); setFormAhorroVol(''); setFormCreditoPend(''); setFormUtilidades('');
+    setConceptosGenerados(false);
+    setFormConceptos([]);
     setFormArchivoFile(null);
+    setFormStep(1);
     if (fileRef.current) fileRef.current.value = '';
   };
 
@@ -868,22 +795,26 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
 
     setSaving(true);
     try {
-      // Datos del cálculo si se usó la calculadora
-      const calculoGuardado = calculoHecho ? {
-        salarioMensual:   parseFloat(formSalario.replace(/[^\d.]/g,'')),
-        fechaIngreso:     formFechaIngreso,
-        diasVacPendientes: parseInt(formDiasVac) || 0,
-      } : null;
+      // Si hay archivo, construir el doc para incluirlo en el detalle
+      const docInicial: LiqDoc[] = urlFinal ? [{
+        id:                crypto.randomUUID(),
+        nombre:            formArchivoFile!.name,
+        url:               urlFinal,
+        tipo_archivo:      (formArchivoFile!.name.split('.').pop() ?? 'pdf').toLowerCase(),
+        subido_por:        userData?.id ?? null,
+        subido_por_nombre: userData?.name ?? userData?.nombre ?? 'Administrador',
+        created_at:        new Date().toISOString(),
+      }] : [];
 
       const detalle = {
-        fechaCorte:      formFechaCorte,
+        fechaCorte:       formFechaCorte,
         fechaLiquidacion: formFechaLiq || null,
-        estado:          formEstado,
-        motivo:          formMotivo.trim()        || null,
-        observaciones:   formObservaciones.trim() || null,
-        conceptos:       formConceptos,
-        calculo:         calculoGuardado,
-        anulado:         false,
+        estado:           formEstado,
+        motivo:           formMotivo.trim()        || null,
+        observaciones:    formObservaciones.trim() || null,
+        conceptos:        formConceptos,
+        documentos:       docInicial,
+        anulado:          false,
       };
 
       // Usamos RPC para evitar problemas con el schema cache de PostgREST
@@ -896,18 +827,6 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
       });
       if (error) throw error;
       const nueva = { id: nuevaId as string };
-
-      // Si hay archivo inicial, registrarlo en liquidacion_documentos
-      if (urlFinal && nueva?.id) {
-        const ext = formArchivoFile!.name.split('.').pop()?.toLowerCase() ?? 'pdf';
-        await supabase.from('liquidacion_documentos').insert({
-          liquidacion_id: nueva.id,
-          nombre: formArchivoFile!.name,
-          url: urlFinal,
-          tipo_archivo: ext,
-          subido_por: userData?.nombre ?? userData?.email ?? 'Administrador',
-        });
-      }
 
       const asociado = asociadosDisponibles.find(a => a.id === formAsociadoId);
       setLiquidaciones(prev => [{
@@ -922,7 +841,6 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
         motivo:         formMotivo.trim(),
         observaciones:  formObservaciones.trim(),
         conceptos:      formConceptos,
-        calculo:        calculoGuardado,
         montoFinal:     montoCalculado,
         anulado:        false,
         justificacionAnulacion: '', anuladoPor: '', anuladoEn: '',
@@ -957,17 +875,47 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
       if (upErr) throw new Error('Error al subir: ' + upErr.message);
       const { data: urlData } = supabase.storage.from('liquidaciones-documentos').getPublicUrl(path);
 
-      const { data: docData, error: docErr } = await supabase.from('liquidacion_documentos').insert({
-        liquidacion_id: selectedItem.id,
-        nombre:         uploadDocNombre.trim(),
-        url:            urlData.publicUrl,
-        tipo_archivo:   ext.toLowerCase(),
-        subido_por:     userData?.nombre ?? userData?.email ?? 'Administrador',
-      }).select().single();
-      if (docErr) throw docErr;
+      // Construir el nuevo doc y agregarlo al array existente en detalle
+      const nuevoDoc: LiqDoc = {
+        id:                crypto.randomUUID(),
+        nombre:            uploadDocNombre.trim(),
+        url:               urlData.publicUrl,
+        tipo_archivo:      ext.toLowerCase(),
+        subido_por:        userData?.id ?? null,
+        subido_por_nombre: userData?.name ?? userData?.nombre ?? 'Administrador',
+        created_at:        new Date().toISOString(),
+      };
+      const docsActualizados = [nuevoDoc, ...docsLiquidacion];
 
-      setDocsLiquidacion(prev => [docData, ...prev]);
-      toast.success('Documento subido exitosamente');
+      // Guardar en detalle JSONB — sin tabla separada
+      const detalleActualizado = {
+        fechaCorte:             selectedItem.fechaCorte,
+        fechaLiquidacion:       selectedItem.fechaLiquidacion,
+        estado:                 selectedItem.estado,
+        motivo:                 selectedItem.motivo,
+        observaciones:          selectedItem.observaciones,
+        conceptos:              selectedItem.conceptos,
+        documentos:             docsActualizados,
+        anulado:                selectedItem.anulado,
+        justificacionAnulacion: selectedItem.justificacionAnulacion,
+        anuladoPor:             selectedItem.anuladoPor,
+        anuladoEn:              selectedItem.anuladoEn,
+      };
+      const { error: detErr } = await supabase.rpc('actualizar_detalle_liquidacion', {
+        p_id:      selectedItem.id,
+        p_detalle: detalleActualizado,
+      });
+      if (detErr) throw detErr;
+
+      setDocsLiquidacion(docsActualizados);
+      setSelectedItem((prev: any) => ({ ...prev, documentos: docsActualizados }));
+
+      // ── Si la liquidación está "En proceso" → marcar como "Pagada" automáticamente ──
+      if (selectedItem?.estado === 'En proceso') {
+        await handleCambiarEstado({ ...selectedItem, documentos: docsActualizados }, 'Pagada');
+      }
+
+      toast.success('Comprobante subido — liquidación marcada como Pagada');
       setIsUploadDocOpen(false);
       setUploadDocFile(null);
       setUploadDocNombre('');
@@ -980,10 +928,29 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
   };
 
   const handleDeleteDoc = async (docId: string) => {
+    if (!selectedItem?.id) return;
     try {
-      const { error } = await supabase.from('liquidacion_documentos').delete().eq('id', docId);
+      const docsActualizados = docsLiquidacion.filter(d => d.id !== docId);
+      const detalleActualizado = {
+        fechaCorte:             selectedItem.fechaCorte,
+        fechaLiquidacion:       selectedItem.fechaLiquidacion,
+        estado:                 selectedItem.estado,
+        motivo:                 selectedItem.motivo,
+        observaciones:          selectedItem.observaciones,
+        conceptos:              selectedItem.conceptos,
+        documentos:             docsActualizados,
+        anulado:                selectedItem.anulado,
+        justificacionAnulacion: selectedItem.justificacionAnulacion,
+        anuladoPor:             selectedItem.anuladoPor,
+        anuladoEn:              selectedItem.anuladoEn,
+      };
+      const { error } = await supabase.rpc('actualizar_detalle_liquidacion', {
+        p_id:      selectedItem.id,
+        p_detalle: detalleActualizado,
+      });
       if (error) throw error;
-      setDocsLiquidacion(prev => prev.filter(d => d.id !== docId));
+      setDocsLiquidacion(docsActualizados);
+      setSelectedItem((prev: any) => ({ ...prev, documentos: docsActualizados }));
       toast.success('Documento eliminado');
     } catch (err: any) {
       toast.error('Error al eliminar documento: ' + err.message);
@@ -993,7 +960,6 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
   // ── Actualizar estado rápido ──────────────────────────────────
   const handleCambiarEstado = async (liq: any, nuevoEstado: string) => {
     try {
-      const detActualizado = { ...liq, estado: nuevoEstado, fechaCorte: liq.fechaCorte, conceptos: liq.conceptos };
       const detalle = {
         fechaCorte:             liq.fechaCorte,
         fechaLiquidacion:       liq.fechaLiquidacion,
@@ -1001,7 +967,7 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
         motivo:                 liq.motivo,
         observaciones:          liq.observaciones,
         conceptos:              liq.conceptos,
-        calculo:                liq.calculo,
+        documentos:             liq.documentos ?? [],
         anulado:                liq.anulado,
         justificacionAnulacion: liq.justificacionAnulacion,
         anuladoPor:             liq.anuladoPor,
@@ -1034,14 +1000,12 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
             // Marcar asociado como liquidado
             supabase.from('asociados').update({
               estado: 'inactivo',
-              fecha_cambio_estado: new Date().toISOString(),
-              modificado_por: userData?.nombre ?? 'Administrador',
             }).eq('id', liq.asociado_id),
-            // Cerrar cuentas de ahorro permanente
-            supabase.from('ahorro_permanente').update({ estado: false })
+            // Cerrar ahorros permanentes
+            supabase.from('ahorros_permanentes').update({ estado: 'cerrado' })
               .eq('asociado_id', liq.asociado_id).eq('anulado', false),
-            // Cerrar cuentas de ahorro voluntario
-            supabase.from('ahorro_voluntario').update({ estado: false })
+            // Cerrar ahorros voluntarios
+            supabase.from('ahorros_voluntarios').update({ estado: 'cerrado' })
               .eq('asociado_id', liq.asociado_id).eq('anulado', false),
           ]);
         } catch { /* cierre de productos no crítico */ }
@@ -1085,7 +1049,7 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
         motivo:                 selectedItem.motivo,
         observaciones:          selectedItem.observaciones,
         conceptos:              selectedItem.conceptos,
-        calculo:                selectedItem.calculo,
+        documentos:             selectedItem.documentos ?? [],
         anulado:                true,
         justificacionAnulacion: justificacionAnulacion.trim(),
         anuladoPor:             admin,
@@ -1260,7 +1224,7 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
                 <div className="rounded-xl border border-blue-200 overflow-hidden">
                   <div className="bg-blue-600 px-4 py-2.5 flex items-center gap-2">
                     <Calculator className="size-4 text-blue-100" />
-                    <p className="text-xs font-semibold text-white uppercase tracking-wider">Datos del cálculo — Legislación colombiana (CST)</p>
+                    <p className="text-xs font-semibold text-white uppercase tracking-wider">Datos del cálculo — Saldos natillera</p>
                   </div>
                   <div className="bg-blue-50 p-4 grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                     <div className="bg-white rounded-lg p-2.5 border border-blue-100">
@@ -1329,7 +1293,7 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
               )}
 
               {/* ── Cambio de estado (solo admin, no anulada) ── */}
-              {userRole === 'admin' && !si.anulado && (
+              {!esVistaPropia && !si.anulado && (
                 <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
                   <p className="text-xs font-semibold text-slate-600 whitespace-nowrap flex items-center gap-1">
                     <CheckCircle2 className="size-3.5 text-emerald-500" /> Cambiar estado:
@@ -1496,7 +1460,7 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
 
             {/* ══════════════ TAB 3 — DOCUMENTOS ══════════════ */}
             <TabsContent value="documentos" className="pt-4 space-y-3">
-              {userRole === 'admin' && !si.anulado && (
+              {!esVistaPropia && !si.anulado && (
                 <div className="flex justify-end">
                   <Button size="sm" className="gap-2 bg-emerald-600 hover:bg-emerald-700"
                     onClick={() => { setUploadDocNombre(''); setUploadDocFile(null); setIsUploadDocOpen(true); }}>
@@ -1512,7 +1476,7 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
                 <div className="flex flex-col items-center py-10 text-slate-400 gap-2">
                   <Paperclip className="size-8 text-slate-300" />
                   <p className="text-sm font-medium text-slate-600">Sin documentos adjuntos</p>
-                  {userRole === 'admin'
+                  {!esVistaPropia
                     ? <p className="text-xs text-slate-400">Sube documentos de soporte usando el botón de arriba.</p>
                     : <p className="text-xs text-slate-400">El administrador puede adjuntar documentos a esta liquidación.</p>
                   }
@@ -1529,7 +1493,7 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-slate-800 truncate">{doc.nombre}</p>
                             <p className="text-xs text-slate-400">
-                              {doc.subido_por} · {new Date(doc.created_at).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' })}
+                              {doc.usuarios?.nombre ?? (doc as any).subido_por_nombre ?? 'Administrador'} · {new Date(doc.created_at).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' })}
                             </p>
                           </div>
                         </div>
@@ -1544,7 +1508,7 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
                               <Download className="size-3.5" />
                             </Button>
                           </a>
-                          {userRole === 'admin' && (
+                          {!esVistaPropia && (
                             <Button variant="outline" size="sm" className="h-7 text-red-500 border-red-200 hover:bg-red-50"
                               onClick={() => handleDeleteDoc(doc.id)}>
                               <Trash2 className="size-3.5" />
@@ -1569,7 +1533,7 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
                 <Download className="size-4" /> Descargar PDF
               </Button>
             )}
-            {userRole === 'admin' && si && !si.anulado && (
+            {!esVistaPropia && si && !si.anulado && (
               <Button variant="outline" className="gap-2 border-red-200 text-red-600 hover:bg-red-50"
                 onClick={() => { setIsDetailOpen(false); setJustificacionAnulacion(''); setIsAnularOpen(true); }}>
                 <Trash2 className="size-4" /> Anular
@@ -1943,13 +1907,13 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
   );
 
   const hayFiltros = searchTerm || filterEstado || filterTipo || filterDesde || filterHasta || filterRegDesde || filterRegHasta;
-  if (userRole === 'asociado') return renderVistaAsociado();
+  if (esVistaPropia) return renderVistaAsociado();
 
   // ══════════════════════════════════════════════════════════════
   // MAIN RENDER (ADMIN)
   // ══════════════════════════════════════════════════════════════
   return (
-    <div className="p-8 bg-slate-50 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* Header */}
@@ -2171,282 +2135,363 @@ export default function Liquidacion({ userRole, userData }: LiquidacionProps) {
               <FileCog className="size-5 text-emerald-600" /> Nueva liquidación
             </DialogTitle>
             <DialogDescription>
-              Registra una liquidación. Usa la calculadora para calcular automáticamente los conceptos según la legislación colombiana (CST).
+              Registra la liquidación de un asociado. Completa la información básica, revisa los saldos y ajusta los conceptos antes de guardar.
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs defaultValue="basico" className="w-full">
-            <TabsList className="grid grid-cols-3 w-full">
-              <TabsTrigger value="basico"      className="text-xs">1. Básico</TabsTrigger>
-              <TabsTrigger value="calculadora" className="text-xs">2. Calculadora</TabsTrigger>
-              <TabsTrigger value="conceptos"   className="text-xs">3. Conceptos ({formConceptos.length})</TabsTrigger>
-            </TabsList>
-
-            {/* ── Tab 1: Básico ── */}
-            <TabsContent value="basico" className="space-y-4 pt-4">
-              {/* Asociado */}
-              <div className="space-y-2" ref={acRef}>
-                <Label>Asociado *</Label>
-                <div className="relative">
-                  <Input
-                    placeholder="Buscar por nombre o cédula..."
-                    value={formAsocSearch} autoComplete="off"
-                    onChange={e => { setFormAsocSearch(e.target.value); setFormAsociadoId(''); setShowAcomplete(true); setCalculoHecho(false); }}
-                    onFocus={() => setShowAcomplete(true)}
-                  />
-                  {showAcomplete && acSuggestions.length > 0 && (
-                    <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-52 overflow-y-auto">
-                      {acSuggestions.map(a => (
-                        <div key={a.id} className="px-3 py-2.5 hover:bg-emerald-50 cursor-pointer text-sm border-b border-slate-50 last:border-0"
-                          onMouseDown={() => handleSelectAsociado(a)}>
-                          <p className="font-medium text-slate-900">{a.nombre}</p>
-                          <p className="text-xs text-slate-400">C.C. {a.cedula}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+          {/* ── Stepper header ── */}
+          <div className="flex items-start gap-0 mt-2">
+            {([
+              { n: 1 as const, label: 'Información' },
+              { n: 2 as const, label: 'Saldos' },
+              { n: 3 as const, label: 'Conceptos' },
+            ] as { n: 1|2|3; label: string }[]).map((s, i) => (
+              <div key={s.n} className="flex items-center flex-1">
+                <div className="flex flex-col items-center gap-1 min-w-[56px]">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors ${
+                    formStep > s.n
+                      ? 'bg-emerald-600 border-emerald-600 text-white'
+                      : formStep === s.n
+                        ? 'bg-white border-emerald-600 text-emerald-700'
+                        : 'bg-white border-slate-300 text-slate-400'
+                  }`}>
+                    {formStep > s.n ? <Check className="size-3.5" /> : s.n}
+                  </div>
+                  <span className={`text-[10px] font-medium whitespace-nowrap ${formStep >= s.n ? 'text-emerald-700' : 'text-slate-400'}`}>
+                    {s.label}
+                  </span>
                 </div>
-                {formAsociadoId && <p className="text-xs text-emerald-600 flex items-center gap-1"><CheckCircle2 className="size-3.5" />Asociado seleccionado {datosAsocLoading && '· Cargando datos financieros…'}</p>}
+                {i < 2 && (
+                  <div className={`flex-1 h-0.5 mb-4 mx-1 rounded transition-colors ${formStep > s.n ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                )}
               </div>
+            ))}
+          </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Tipo de liquidación *</Label>
-                  <Select value={formTipo} onValueChange={v => { setFormTipo(v); setCalculoHecho(false); }}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{TIPOS_LIQ.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Estado inicial *</Label>
-                  <Select value={formEstado} onValueChange={setFormEstado}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{ESTADOS_LIQ.map(e => <SelectItem key={e.value} value={e.value}>{e.value}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-              </div>
+          <div className="mt-4 space-y-4">
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Fecha de corte *</Label>
-                  <Input type="date" value={formFechaCorte} onChange={e => { setFormFechaCorte(e.target.value); setCalculoHecho(false); }} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-slate-500">Fecha de liquidación <span className="text-xs">(opcional)</span></Label>
-                  <Input type="date" value={formFechaLiq} onChange={e => setFormFechaLiq(e.target.value)} />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Motivo <span className="text-xs text-slate-400">(opcional)</span></Label>
-                <Input placeholder="Ej: Retiro voluntario — carta radicada 12/01/2025" value={formMotivo} onChange={e => setFormMotivo(e.target.value)} />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Observaciones <span className="text-xs text-slate-400">(opcional)</span></Label>
-                <Textarea rows={2} placeholder="Notas adicionales..." value={formObservaciones} onChange={e => setFormObservaciones(e.target.value)} />
-              </div>
-
-              {/* Archivo inicial */}
-              <div className="space-y-2">
-                <Label>Documento de soporte inicial <span className="text-xs text-slate-400">(PDF, imagen o Word — máx. 10 MB)</span></Label>
-                <div
-                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${dragOver ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-emerald-300'}`}
-                  onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFileSelect(f); }}
-                  onClick={() => fileRef.current?.click()}
-                >
-                  {formArchivoFile ? (
-                    <div className="flex items-center justify-center gap-2 text-emerald-700">
-                      <FileText className="size-4" />
-                      <span className="text-sm font-medium">{formArchivoFile.name}</span>
-                      <button type="button" onClick={e => { e.stopPropagation(); setFormArchivoFile(null); if (fileRef.current) fileRef.current.value = ''; }}>
-                        <X className="size-4 text-slate-400 hover:text-red-500" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="text-slate-400">
-                      <Upload className="size-6 mx-auto mb-1" />
-                      <p className="text-xs">Arrastra un archivo o haz clic para seleccionar</p>
-                    </div>
-                  )}
-                </div>
-                <input ref={fileRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
-              </div>
-            </TabsContent>
-
-            {/* ── Tab 2: Calculadora ── */}
-            <TabsContent value="calculadora" className="space-y-4 pt-4">
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
-                <Info className="size-4 text-blue-500 shrink-0 mt-0.5" />
-                <div className="text-xs text-blue-800 space-y-1">
-                  <p className="font-semibold">Calculadora según Legislación Colombiana (CST)</p>
-                  <p>Aplica para tipos <strong>Retiro voluntario</strong> y <strong>Cesantías</strong>. Incluye:</p>
-                  <ul className="ml-3 space-y-0.5 list-disc">
-                    <li>Salario pendiente del mes</li>
-                    <li>Cesantías (Art. 249 CST): <code className="bg-blue-100 px-1 rounded">(salario × días) / 360</code></li>
-                    <li>Intereses de cesantías 12% anual (Ley 52/1975)</li>
-                    <li>Prima de servicios (Art. 306 CST)</li>
-                    <li>Vacaciones proporcionales (Art. 186 CST): <code className="bg-blue-100 px-1 rounded">salario / 720 × días</code></li>
-                    <li>Ahorros y deducciones del fondo</li>
-                  </ul>
-                  <p className="text-blue-600">Los días se calculan en notación colombiana (año=360, mes=30).</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Salario mensual base (COP) *</Label>
-                  <Input placeholder="Ej: 1300000" value={formSalario}
-                    onChange={e => { setFormSalario(e.target.value); setCalculoHecho(false); }} />
-                  <p className="text-xs text-slate-400">SMMLV 2025: $1.423.500</p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Fecha de ingreso *</Label>
-                  <Input type="date" value={formFechaIngreso}
-                    onChange={e => { setFormFechaIngreso(e.target.value); setCalculoHecho(false); }} />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Días de vacaciones pendientes no disfrutadas</Label>
-                  <Input type="number" min="0" max="60" placeholder="0" value={formDiasVac}
-                    onChange={e => setFormDiasVac(e.target.value)} />
-                  <p className="text-xs text-slate-400">Solo si hay días causados no tomados</p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    Fecha de corte *
-                    {!formFechaCorte && (
-                      <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">Requerida</span>
+            {/* ══ PASO 1: Información básica ══ */}
+            {formStep === 1 && (
+              <div className="space-y-4">
+                {/* Asociado */}
+                <div className="space-y-2" ref={acRef}>
+                  <Label>Asociado *</Label>
+                  <div className="relative">
+                    <Input
+                      placeholder="Buscar por nombre o cédula..."
+                      value={formAsocSearch} autoComplete="off"
+                      onChange={e => { setFormAsocSearch(e.target.value); setFormAsociadoId(''); setShowAcomplete(true); }}
+                      onFocus={() => setShowAcomplete(true)}
+                    />
+                    {showAcomplete && acSuggestions.length > 0 && (
+                      <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-52 overflow-y-auto">
+                        {acSuggestions.map(a => (
+                          <div key={a.id} className="px-3 py-2.5 hover:bg-emerald-50 cursor-pointer text-sm border-b border-slate-50 last:border-0"
+                            onMouseDown={() => handleSelectAsociado(a)}>
+                            <p className="font-medium text-slate-900">{a.nombre}</p>
+                            <p className="text-xs text-slate-400">C.C. {a.cedula}</p>
+                          </div>
+                        ))}
+                      </div>
                     )}
-                  </Label>
-                  <Input
-                    type="date"
-                    value={formFechaCorte}
-                    onChange={e => { setFormFechaCorte(e.target.value); setCalculoHecho(false); }}
-                    className={!formFechaCorte ? 'border-amber-300 focus:border-amber-500' : ''}
-                  />
-                  <p className="text-[10px] text-slate-400">También se puede configurar en la pestaña Básico</p>
+                  </div>
+                  {formAsociadoId && (
+                    <p className="text-xs text-emerald-600 flex items-center gap-1">
+                      <CheckCircle2 className="size-3.5" />
+                      Asociado seleccionado
+                      {datosAsocLoading && ' · Cargando saldos financieros…'}
+                    </p>
+                  )}
                 </div>
-              </div>
 
-              {/* Datos del fondo (precargados o ingresables) */}
-              <div className="border border-slate-200 rounded-lg p-4 space-y-3">
-                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Saldos en el fondo {datosAsocLoading && <span className="text-emerald-500">(cargando…)</span>}</p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-xs">Ahorro permanente (COP)</Label>
-                    <Input placeholder="0" value={formAhorroPerm} onChange={e => setFormAhorroPerm(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Ahorro voluntario (COP)</Label>
-                    <Input placeholder="0" value={formAhorroVol} onChange={e => setFormAhorroVol(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Saldo crédito pendiente (COP)</Label>
-                    <Input placeholder="0" value={formCreditoPend} onChange={e => setFormCreditoPend(e.target.value)} />
-                  </div>
-                </div>
-                <p className="text-xs text-slate-400">Los valores se precargaron automáticamente al seleccionar el asociado. Puedes ajustarlos manualmente.</p>
-              </div>
-
-              <Button
-                className="w-full gap-2 bg-blue-600 hover:bg-blue-700"
-                onClick={handleCalcular}
-                disabled={calculando}
-              >
-                {calculando ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> : <Calculator className="size-4" />}
-                {calculando ? 'Calculando…' : 'Calcular conceptos automáticamente'}
-              </Button>
-
-              {calculoHecho && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2">
-                  <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-                  <div>
-                    <p className="text-sm font-semibold text-emerald-800">Cálculo completado</p>
-                    <p className="text-xs text-emerald-600">Los conceptos se cargaron en la pestaña "3. Conceptos". Puedes ajustarlos manualmente.</p>
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-
-            {/* ── Tab 3: Conceptos ── */}
-            <TabsContent value="conceptos" className="space-y-3 pt-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-500">Ajusta los conceptos antes de guardar. Los valores precalculados son editables.</p>
-                <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={addConcepto}>
-                  <Plus className="size-3" /> Agregar concepto
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {formConceptos.map(c => (
-                  <div key={c.id} className={`grid grid-cols-[1fr,auto,130px,auto] gap-2 items-center p-2 rounded-lg border ${c.tipo === 'credito' ? 'border-emerald-100 bg-emerald-50/30' : 'border-red-100 bg-red-50/30'}`}>
-                    <Input
-                      placeholder="Nombre del concepto"
-                      value={c.nombre}
-                      onChange={e => updateConcepto(c.id, 'nombre', e.target.value)}
-                      className="h-8 text-sm"
-                    />
-                    <Select value={c.tipo} onValueChange={v => updateConcepto(c.id, 'tipo', v)}>
-                      <SelectTrigger className="h-8 w-28 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="credito" className="text-xs text-emerald-700">Crédito (+)</SelectItem>
-                        <SelectItem value="debito"  className="text-xs text-red-700">Débito (−)</SelectItem>
-                      </SelectContent>
+                    <Label>Tipo de liquidación *</Label>
+                    <Select value={formTipo} onValueChange={v => setFormTipo(v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{TIPOS_LIQ.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                     </Select>
-                    <Input
-                      placeholder="Monto COP"
-                      value={c.monto}
-                      onChange={e => updateConcepto(c.id, 'monto', e.target.value.replace(/[^\d.]/g, ''))}
-                      className="h-8 text-sm text-right"
-                    />
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => removeConcepto(c.id)}>
-                      <X className="size-4" />
-                    </Button>
                   </div>
-                ))}
+                  <div className="space-y-2">
+                    <Label>Estado</Label>
+                    <div className="flex items-center h-9 px-3 rounded-md border border-slate-200 bg-slate-50 gap-2">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                        En proceso
+                      </span>
+                      <span className="text-xs text-slate-400">Se marca como <strong>Pagada</strong> al subir el comprobante</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Fecha de corte *</Label>
+                    <Input type="date" value={formFechaCorte} onChange={e => setFormFechaCorte(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-500">Fecha de liquidación <span className="text-xs">(opcional)</span></Label>
+                    <Input type="date" value={formFechaLiq} min={new Date().toISOString().split('T')[0]} onChange={e => setFormFechaLiq(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Motivo <span className="text-xs text-slate-400">(opcional)</span></Label>
+                  <Input placeholder="Ej: Retiro voluntario — carta radicada 12/01/2025" value={formMotivo} onChange={e => setFormMotivo(e.target.value)} />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Observaciones <span className="text-xs text-slate-400">(opcional)</span></Label>
+                  <Textarea rows={2} placeholder="Notas adicionales..." value={formObservaciones} onChange={e => setFormObservaciones(e.target.value)} />
+                </div>
+
+                {/* Archivo inicial */}
+                <div className="space-y-2">
+                  <Label>Documento de soporte inicial <span className="text-xs text-slate-400">(PDF, imagen o Word — máx. 10 MB)</span></Label>
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${dragOver ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-emerald-300'}`}
+                    onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFileSelect(f); }}
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    {formArchivoFile ? (
+                      <div className="flex items-center justify-center gap-2 text-emerald-700">
+                        <FileText className="size-4" />
+                        <span className="text-sm font-medium">{formArchivoFile.name}</span>
+                        <button type="button" onClick={e => { e.stopPropagation(); setFormArchivoFile(null); if (fileRef.current) fileRef.current.value = ''; }}>
+                          <X className="size-4 text-slate-400 hover:text-red-500" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-slate-400">
+                        <Upload className="size-6 mx-auto mb-1" />
+                        <p className="text-xs">Arrastra un archivo o haz clic para seleccionar</p>
+                      </div>
+                    )}
+                  </div>
+                  <input ref={fileRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
+                </div>
+
+                {/* Botones de navegación */}
+                <div className="pt-3 border-t border-slate-100 flex justify-between">
+                  <Button variant="outline" onClick={() => { setIsCreateOpen(false); resetForm(); }}>Cancelar</Button>
+                  <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={irAPaso2}>
+                    Siguiente → Saldos
+                  </Button>
+                </div>
               </div>
+            )}
 
-              {/* Resumen */}
-              <div className="border-t border-slate-200 pt-3 grid grid-cols-3 gap-3 text-center">
-                <div className="p-3 bg-emerald-50 rounded-lg">
-                  <p className="text-xs text-slate-400">Total créditos</p>
-                  <p className="font-bold text-emerald-700">+{fmtCOP(formConceptos.filter(c=>c.tipo==='credito').reduce((s,c)=>s+(parseFloat(c.monto)||0),0))}</p>
+            {/* ══ PASO 2: Saldos del asociado ══ */}
+            {formStep === 2 && (
+              <div className="space-y-4">
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-2">
+                  <Info className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="text-xs text-emerald-800 space-y-1">
+                    <p className="font-semibold">Saldos del socio — cargados automáticamente</p>
+                    <p>Verifica los valores y ajústalos si es necesario antes de continuar.</p>
+                    <ul className="ml-3 space-y-0.5 list-disc">
+                      <li><strong>Créditos (+):</strong> Ahorro permanente · Ahorro voluntario · Utilidades (solo nov/dic)</li>
+                      <li><strong>Débitos (−):</strong> Saldo de crédito pendiente</li>
+                    </ul>
+                  </div>
                 </div>
-                <div className="p-3 bg-red-50 rounded-lg">
-                  <p className="text-xs text-slate-400">Total débitos</p>
-                  <p className="font-bold text-red-600">−{fmtCOP(formConceptos.filter(c=>c.tipo==='debito').reduce((s,c)=>s+Math.abs(parseFloat(c.monto)||0),0))}</p>
+
+                {datosAsocLoading && (
+                  <div className="flex items-center gap-2 text-sm text-emerald-600 py-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-500" />
+                    Cargando saldos financieros del asociado…
+                  </div>
+                )}
+
+                {/* Saldos del asociado */}
+                <div className="border border-slate-200 rounded-lg p-4 space-y-4">
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Saldos del socio</p>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-emerald-700 font-semibold">Ahorro permanente (COP) <span className="text-emerald-500">crédito (+)</span></Label>
+                      <Input
+                        placeholder="0"
+                        value={formAhorroPerm}
+                        onChange={e => { setFormAhorroPerm(e.target.value.replace(/[^\d.]/g,'')); setConceptosGenerados(false); }}
+                        className="border-emerald-200 focus:border-emerald-400"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-emerald-700 font-semibold">Ahorro voluntario (COP) <span className="text-emerald-500">crédito (+)</span></Label>
+                      <Input
+                        placeholder="0"
+                        value={formAhorroVol}
+                        onChange={e => { setFormAhorroVol(e.target.value.replace(/[^\d.]/g,'')); setConceptosGenerados(false); }}
+                        className="border-emerald-200 focus:border-emerald-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-slate-600 font-semibold">
+                        Utilidades del fondo (COP) <span className="text-slate-400">crédito (+)</span>
+                      </Label>
+                      <Input
+                        placeholder={formFechaCorte && new Date(formFechaCorte + 'T00:00:00').getMonth() >= 10 ? 'Se calcula automáticamente' : 'No aplica (solo nov/dic)'}
+                        value={formUtilidades}
+                        disabled={!!formFechaCorte && new Date(formFechaCorte + 'T00:00:00').getMonth() < 10}
+                        onChange={e => { setFormUtilidades(e.target.value.replace(/[^\d.]/g,'')); setConceptosGenerados(false); }}
+                        className="border-slate-200"
+                      />
+                      <p className="text-[10px] text-slate-400">
+                        {formFechaCorte && new Date(formFechaCorte + 'T00:00:00').getMonth() < 10
+                          ? '⚠ El asociado se retira antes de noviembre — no tiene derecho a utilidades'
+                          : 'Se calculará como (Σ intereses mora + Σ intereses crédito) ÷ N° socios activos'}
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-red-700 font-semibold">Saldo crédito pendiente (COP) <span className="text-red-400">débito (−)</span></Label>
+                      <Input
+                        placeholder="0"
+                        value={formCreditoPend}
+                        onChange={e => { setFormCreditoPend(e.target.value.replace(/[^\d.]/g,'')); setConceptosGenerados(false); }}
+                        className="border-red-200 focus:border-red-400"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className={`p-3 rounded-lg ${montoCalculado >= 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
-                  <p className="text-xs text-slate-400">Monto final</p>
-                  <p className={`font-bold text-lg ${montoCalculado >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{fmtCOP(montoCalculado)}</p>
+
+                {/* Resumen previo */}
+                {(formAhorroPerm || formAhorroVol || formCreditoPend) && (
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-100">
+                      <p className="text-[10px] text-slate-400 mb-1">Total créditos</p>
+                      <p className="text-sm font-bold text-emerald-700">
+                        +{fmtCOP((parseFloat(formAhorroPerm)||0) + (parseFloat(formAhorroVol)||0) + (parseFloat(formUtilidades)||0))}
+                      </p>
+                    </div>
+                    <div className="p-2 bg-red-50 rounded-lg border border-red-100">
+                      <p className="text-[10px] text-slate-400 mb-1">Total débitos</p>
+                      <p className="text-sm font-bold text-red-600">−{fmtCOP(parseFloat(formCreditoPend)||0)}</p>
+                    </div>
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-200">
+                      <p className="text-[10px] text-slate-400 mb-1">Monto estimado</p>
+                      <p className="text-sm font-bold text-slate-700">
+                        {fmtCOP(
+                          (parseFloat(formAhorroPerm)||0) + (parseFloat(formAhorroVol)||0) +
+                          (parseFloat(formUtilidades)||0) - (parseFloat(formCreditoPend)||0)
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Botones de navegación */}
+                <div className="pt-3 border-t border-slate-100 flex justify-between">
+                  <Button variant="outline" className="gap-1" onClick={() => setFormStep(1)}>
+                    ← Anterior
+                  </Button>
+                  <Button
+                    className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                    onClick={irAPaso3}
+                    disabled={generando}
+                  >
+                    {generando
+                      ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Generando…</>
+                      : 'Siguiente → Conceptos'}
+                  </Button>
                 </div>
               </div>
+            )}
 
-              {montoCalculado <= 0 && formConceptos.length > 0 && (
-                <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-xs text-amber-700">
-                  <AlertTriangle className="size-3.5 shrink-0" />
-                  El monto final debe ser mayor a cero para guardar la liquidación.
+            {/* ══ PASO 3: Conceptos finales ══ */}
+            {formStep === 3 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-slate-500">Revisa y ajusta los conceptos antes de registrar. Son editables.</p>
+                  <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={addConcepto}>
+                    <Plus className="size-3" /> Agregar concepto
+                  </Button>
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
 
-          <DialogFooter className="mt-4 pt-4 border-t border-slate-100">
-            <Button variant="outline" onClick={() => { setIsCreateOpen(false); resetForm(); }}>Cancelar</Button>
-            <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={handleSave} disabled={saving}>
-              {saving ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> : <Check className="size-4" />}
-              {saving ? 'Guardando…' : 'Registrar liquidación'}
-            </Button>
-          </DialogFooter>
+                {formConceptos.length === 0 && (
+                  <div className="p-4 text-center text-sm text-slate-400 border border-dashed border-slate-200 rounded-lg">
+                    No hay conceptos aún. Usa el botón <strong>Agregar concepto</strong> para añadirlos manualmente.
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {formConceptos.map(c => (
+                    <div key={c.id} className={`grid grid-cols-[1fr,auto,130px,auto] gap-2 items-center p-2 rounded-lg border ${c.tipo === 'credito' ? 'border-emerald-100 bg-emerald-50/30' : 'border-red-100 bg-red-50/30'}`}>
+                      <Input
+                        placeholder="Nombre del concepto"
+                        value={c.nombre}
+                        onChange={e => updateConcepto(c.id, 'nombre', e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                      <Select value={c.tipo} onValueChange={v => updateConcepto(c.id, 'tipo', v)}>
+                        <SelectTrigger className="h-8 w-28 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="credito" className="text-xs text-emerald-700">Crédito (+)</SelectItem>
+                          <SelectItem value="debito"  className="text-xs text-red-700">Débito (−)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        placeholder="Monto COP"
+                        value={c.monto}
+                        onChange={e => updateConcepto(c.id, 'monto', e.target.value.replace(/[^\d.]/g, ''))}
+                        className="h-8 text-sm text-right"
+                      />
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => removeConcepto(c.id)}>
+                        <X className="size-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Resumen */}
+                <div className="border-t border-slate-200 pt-3 grid grid-cols-3 gap-3 text-center">
+                  <div className="p-3 bg-emerald-50 rounded-lg">
+                    <p className="text-xs text-slate-400">Total créditos</p>
+                    <p className="font-bold text-emerald-700">+{fmtCOP(formConceptos.filter(c=>c.tipo==='credito').reduce((s,c)=>s+(parseFloat(c.monto)||0),0))}</p>
+                  </div>
+                  <div className="p-3 bg-red-50 rounded-lg">
+                    <p className="text-xs text-slate-400">Total débitos</p>
+                    <p className="font-bold text-red-600">−{fmtCOP(formConceptos.filter(c=>c.tipo==='debito').reduce((s,c)=>s+Math.abs(parseFloat(c.monto)||0),0))}</p>
+                  </div>
+                  <div className={`p-3 rounded-lg ${montoCalculado >= 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                    <p className="text-xs text-slate-400">Monto final</p>
+                    <p className={`font-bold text-lg ${montoCalculado >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{fmtCOP(montoCalculado)}</p>
+                  </div>
+                </div>
+
+                {montoCalculado <= 0 && formConceptos.length > 0 && (
+                  <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-xs text-amber-700">
+                    <AlertTriangle className="size-3.5 shrink-0" />
+                    El monto final debe ser mayor a cero para guardar la liquidación.
+                  </div>
+                )}
+
+                {/* Botones de navegación — último paso */}
+                <div className="pt-3 border-t border-slate-100 flex justify-between">
+                  <Button variant="outline" className="gap-1" onClick={() => setFormStep(2)}>
+                    ← Anterior
+                  </Button>
+                  <Button
+                    className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                    onClick={handleSave}
+                    disabled={saving}
+                  >
+                    {saving
+                      ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Guardando…</>
+                      : <><Check className="size-4" /> Registrar liquidación</>}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 

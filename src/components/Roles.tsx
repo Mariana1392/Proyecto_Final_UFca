@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import {
   Search, Filter, Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   Edit, Trash2, Shield, UserCircle2, Check, X, ClipboardList,
-  Lock, Unlock, AlertTriangle, Info, History, Settings, Clock, ShieldPlus, ShieldMinus
+  Lock, Unlock, AlertTriangle, Info, History, Settings, Clock, ShieldPlus, ShieldMinus,
+  MinusCircle, RotateCcw
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
@@ -82,22 +83,22 @@ export default function Roles({ userRole }: RolesProps) {
   const AUDIT_PER_PAGE = 5;
 
   const addAuditEntry = async (accion: string, detalle: string, registroId?: string) => {
-    const entrada: AuditEntry = {
-      id: String(Date.now()), accion, detalle,
-      fecha: new Date().toLocaleString('es-CO'), usuario: usuarioActualNombre,
-    };
-    setAuditLog(prev => [entrada, ...prev]);
-
-    // Persistir en Supabase
-    await supabase.from('auditoria').insert({
+    // Persistir en BD primero, luego actualizar estado local con el ID real
+    const { data, error } = await supabase.from('auditoria').insert({
       usuario_id:  usuarioActualId,
       accion,
       tabla:       'roles',
       registro_id: registroId ?? null,
       detalle:     { descripcion: detalle, usuario: usuarioActualNombre },
-    }).then(({ error }) => {
-      if (error) console.warn('Error al guardar auditoría:', error.message);
-    });
+    }).select('id').single();
+
+    if (error) console.warn('Error al guardar auditoría:', error.message);
+
+    const entrada: AuditEntry = {
+      id: data?.id ?? String(Date.now()), accion, detalle,
+      fecha: new Date().toLocaleString('es-CO'), usuario: usuarioActualNombre,
+    };
+    setAuditLog(prev => [entrada, ...prev]);
   };
 
   // ── Catálogo de permisos cargado desde la BD ─────────────────────────────
@@ -126,7 +127,7 @@ export default function Roles({ userRole }: RolesProps) {
         { data: permisosData },
       ] = await Promise.all([
         supabase.from('roles')
-          .select('id, nombre, label, descripcion, activo, es_sistema, created_at, rol_permisos(permiso_clave)')
+          .select('id, nombre, label, descripcion, activo, es_sistema, created_at, rol_permisos(permiso_clave, activo)')
           .order('label, nombre'),
         supabase.from('usuarios').select('rol_id').eq('activo', true),
         supabase.from('auditoria').select('*')
@@ -152,12 +153,21 @@ export default function Roles({ userRole }: RolesProps) {
         if (u.rol_id) conteoMap[u.rol_id] = (conteoMap[u.rol_id] || 0) + 1;
       });
 
-      // Mapear roles — permisos desde rol_permisos (tabla relacional)
+      // Mapear roles — distinguir tres estados por permiso
       const mapeados = (data || []).map((r: any) => {
-        const permisosRaw: string[] = Array.isArray(r.rol_permisos)
-          ? r.rol_permisos.map((rp: any) => rp.permiso_clave).filter(Boolean)
+        const todasLasFilas: { clave: string; activo: boolean }[] = Array.isArray(r.rol_permisos)
+          ? r.rol_permisos
+              .filter((rp: any) => rp.permiso_clave)
+              .map((rp: any) => ({ clave: rp.permiso_clave as string, activo: rp.activo !== false }))
           : [];
-        // Construir mapa clave→boolean usando el catálogo dinámico
+
+        // Activos: activo = true en rol_permisos
+        const permisosRaw: string[] = todasLasFilas.filter(f => f.activo).map(f => f.clave);
+
+        // Quitados: activo = false en rol_permisos (fueron asignados y se quitaron)
+        const permisosQuitados: string[] = todasLasFilas.filter(f => !f.activo).map(f => f.clave);
+
+        // Mapa clave → boolean para compatibilidad (true = activo, false = quitado o nunca asignado)
         const permisos = Object.fromEntries(
           catalogoPermisos.map(p => [p.clave, permisosRaw.includes(p.clave)])
         ) as Record<string, boolean>;
@@ -168,7 +178,8 @@ export default function Roles({ userRole }: RolesProps) {
           nombre_db:        r.nombre,
           descripcion:      r.descripcion ?? '',
           permisos,
-          permisosClaves:   permisosRaw, // array puro para referencias rápidas
+          permisosClaves:   permisosRaw,    // solo activos
+          permisosQuitados,                 // quitados (activo=false en BD)
           cantidadUsuarios: conteoMap[r.id] ?? 0,
           estado:           r.activo ?? true,
           esSistema:        r.es_sistema === true || ['admin', 'administrador', 'asociado', 'usuario'].includes(r.nombre),
@@ -335,6 +346,14 @@ export default function Roles({ userRole }: RolesProps) {
     const permisosActivos = Object.values(formData.permisos).filter(v => v).length;
     if (permisosActivos === 0) { setResultMessage('El rol debe tener al menos un permiso.'); setIsErrorDialogOpen(true); return; }
 
+    // B4: verificar permisos mínimos obligatorios
+    const faltanMinimos = PERMISOS_MINIMOS.filter(m => !formData.permisos[m]);
+    if (faltanMinimos.length > 0) {
+      const labels = faltanMinimos.map(m => permisosDisponibles.find(p => p.clave === m)?.label ?? m).join(', ');
+      setResultMessage(`El rol debe incluir los permisos mínimos obligatorios: ${labels}`);
+      setIsErrorDialogOpen(true); return;
+    }
+
     const snapId = selectedItem.id;
     const clavesSeleccionadas = permisosToArray(formData.permisos);
     try {
@@ -345,13 +364,15 @@ export default function Roles({ userRole }: RolesProps) {
       const { error } = await supabase.from('roles').update(updatePayload).eq('id', snapId);
       if (error) throw error;
 
-      // 2. Reemplazar permisos en rol_permisos: borrar todos y reinsertar
-      const { error: delError } = await supabase.from('rol_permisos').delete().eq('rol_id', snapId);
-      if (delError) throw delError;
-      if (clavesSeleccionadas.length > 0) {
-        const inserts = clavesSeleccionadas.map(clave => ({ rol_id: snapId, permiso_clave: clave }));
-        const { error: permError } = await supabase.from('rol_permisos').insert(inserts);
-        if (permError) throw permError;
+      // 2. Reemplazar permisos en rol_permisos (B3: solo si no es rol de sistema)
+      if (!selectedItem.esSistema) {
+        const { error: delError } = await supabase.from('rol_permisos').delete().eq('rol_id', snapId);
+        if (delError) throw delError;
+        if (clavesSeleccionadas.length > 0) {
+          const inserts = clavesSeleccionadas.map(clave => ({ rol_id: snapId, permiso_clave: clave }));
+          const { error: permError } = await supabase.from('rol_permisos').insert(inserts);
+          if (permError) throw permError;
+        }
       }
 
       // 3. Recargar desde BD y reflejar en selectedItem
@@ -407,8 +428,12 @@ export default function Roles({ userRole }: RolesProps) {
       setIsDeleteDialogOpen(false); setSelectedItem(null); return;
     }
 
-    // Proceder con la eliminación — primero borrar permisos relacionados
-    await supabase.from('rol_permisos').delete().eq('rol_id', selectedItem.id);
+    // Proceder con la eliminación — primero borrar permisos relacionados (B2: capturar error)
+    const { error: permDelError } = await supabase.from('rol_permisos').delete().eq('rol_id', selectedItem.id);
+    if (permDelError) {
+      toast.error('Error al eliminar permisos del rol: ' + permDelError.message);
+      setIsDeleteDialogOpen(false); setSelectedItem(null); return;
+    }
 
     const { error } = await supabase
       .from('roles')
@@ -479,14 +504,11 @@ export default function Roles({ userRole }: RolesProps) {
     setIsConfirmAddDialogOpen(false);
     setPermisosToAdd([]);
     try {
-      // Insertar nuevos permisos en rol_permisos (solo los que no existen ya)
-      const porAgregar = snapAdd.filter(c => !snapClaves.includes(c));
-      if (porAgregar.length === 0) {
-        toast.error('Esos permisos ya están asignados al rol.');
-        return;
-      }
-      const inserts = porAgregar.map(clave => ({ rol_id: snapId, permiso_clave: clave }));
-      const { error } = await supabase.from('rol_permisos').insert(inserts);
+      // Upsert en rol_permisos: si ya existe el registro (aunque esté inactivo), lo reactiva (activo=true)
+      // Si no existe, lo inserta nuevo. Así se puede volver a agregar un permiso que fue quitado.
+      const inserts = snapAdd.map(clave => ({ rol_id: snapId, permiso_clave: clave, activo: true }));
+      const { error } = await supabase.from('rol_permisos')
+        .upsert(inserts, { onConflict: 'rol_id,permiso_clave' });
       if (error) throw error;
 
       // Recargar desde BD y reflejar en selectedItem
@@ -542,9 +564,9 @@ export default function Roles({ userRole }: RolesProps) {
     setIsRemovePermisoDialogOpen(false);
     setPermisosToRemove([]);
     try {
-      // Eliminar permisos de rol_permisos
+      // Desactivar permisos (activo = false) — no se elimina de BD, solo se quita del rol
       const { error } = await supabase.from('rol_permisos')
-        .delete()
+        .update({ activo: false })
         .eq('rol_id', snapId)
         .in('permiso_clave', snapRemove);
       if (error) throw error;
@@ -556,11 +578,11 @@ export default function Roles({ userRole }: RolesProps) {
 
       const labels = snapRemove.map(k => permisosDisponibles.find(p => p.clave === k)?.label ?? k).join(', ');
       addAuditEntry(
-        'PERMISO(S) ELIMINADO(S)',
-        `Se eliminaron ${snapRemove.length} permiso(s) de "${snapNombre}": ${labels} — por ${usuarioActualNombre}`,
+        'PERMISO(S) QUITADO(S)',
+        `Se quitaron ${snapRemove.length} permiso(s) de "${snapNombre}": ${labels} — por ${usuarioActualNombre}`,
         snapId,
       );
-      toast.success(`🗑️ ${snapRemove.length} permiso(s) eliminado(s)`, { duration: 4000 });
+      toast.success(`${snapRemove.length} permiso(s) quitado(s) del rol`, { duration: 4000 });
     } catch (err: any) {
       toast.error('Error al eliminar permisos: ' + err.message);
     }
@@ -595,13 +617,9 @@ export default function Roles({ userRole }: RolesProps) {
       console.warn('No se pudo limpiar auditoría en BD:', err.message);
     }
 
-    // Dejar solo un registro que indique que se limpió
-    const entradaReset: AuditEntry = {
-      id: String(Date.now()), accion: 'HISTORIAL LIMPIADO',
-      detalle: 'El historial fue limpiado manualmente por el Administrador',
-      fecha: new Date().toLocaleString('es-CO'), usuario: usuarioActualNombre,
-    };
-    setAuditLog([entradaReset]);
+    // B6: persistir entrada de limpieza en BD y recargar historial desde BD
+    await addAuditEntry('HISTORIAL LIMPIADO', `El historial fue limpiado manualmente por ${usuarioActualNombre}`);
+    await cargarRoles();
     setIsClearHistoryDialogOpen(false);
     toast.success('🧹 Historial limpiado exitosamente', { duration: 4000 });
   };
@@ -619,7 +637,7 @@ export default function Roles({ userRole }: RolesProps) {
 
   // ── JSX original desde aquí (sin cambios) ────────────────────────────────
   return (
-    <div className="p-8 bg-slate-50 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -818,7 +836,7 @@ export default function Roles({ userRole }: RolesProps) {
                                     setPermisosToRemove([]);
                                     setIsRemoveSelectDialogOpen(true);
                                   }}
-                                  title={getPermisosActivosCount(rol.permisos) <= 1 ? 'Debe conservar al menos un permiso' : 'Eliminar permiso'}
+                                  title={getPermisosActivosCount(rol.permisos) <= 1 ? 'Debe conservar al menos un permiso' : 'Quitar permiso del rol'}
                                   disabled={getPermisosActivosCount(rol.permisos) <= 1}
                                   className={getPermisosActivosCount(rol.permisos) <= 1 ? 'opacity-40 cursor-not-allowed' : 'text-orange-600 hover:bg-orange-50 hover:border-orange-300'}
                                 >
@@ -1376,7 +1394,7 @@ export default function Roles({ userRole }: RolesProps) {
                     <p className="text-sm text-slate-500">
                       {getPermisosActivosCount(selectedItem.permisos)} de {getTotalPermisosAplicables()} permisos activos
                       {permisosToRemove.length > 0 && (
-                        <span className="ml-2 text-red-600 font-medium">· {permisosToRemove.length} seleccionado(s) para eliminar</span>
+                        <span className="ml-2 text-amber-600 font-medium">· {permisosToRemove.length} seleccionado(s) para quitar</span>
                       )}
                     </p>
                   </div>
@@ -1416,6 +1434,11 @@ export default function Roles({ userRole }: RolesProps) {
                       <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
                         {getPermisosActivosCount(selectedItem.permisos)} activos
                       </Badge>
+                      {(selectedItem.permisosQuitados ?? []).length > 0 && (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                          {selectedItem.permisosQuitados!.length} quitado{selectedItem.permisosQuitados!.length !== 1 ? 's' : ''}
+                        </Badge>
+                      )}
                     </div>
                     {isPermisosExpanded ? (
                       <ChevronUp className="size-5 text-slate-400" />
@@ -1426,24 +1449,33 @@ export default function Roles({ userRole }: RolesProps) {
 
                   {isPermisosExpanded && (
                     <div className="divide-y divide-slate-100">
-                      {/* Todos los permisos del catálogo — activos primero */}
+                      {/* Todos los permisos del catálogo — activos → quitados → no asignados */}
                       {[...permisosDisponibles].sort((a, b) => {
-                        const aActivo = selectedItem.permisos[a.clave] ? 1 : 0;
-                        const bActivo = selectedItem.permisos[b.clave] ? 1 : 0;
-                        return bActivo - aActivo;
+                        const score = (clave: string) => {
+                          if (selectedItem.permisos[clave]) return 2;                          // Activo
+                          if ((selectedItem.permisosQuitados ?? []).includes(clave)) return 1; // Quitado
+                          return 0;                                                             // No asignado
+                        };
+                        return score(b.clave) - score(a.clave);
                       }).map((permiso) => {
                         const activo      = !!selectedItem.permisos[permiso.clave];
+                        const quitado     = !activo && (selectedItem.permisosQuitados ?? []).includes(permiso.clave);
                         const seleccionado = permisosToRemove.includes(permiso.clave);
                         const esMinimo    = PERMISOS_MINIMOS.includes(permiso.clave);
+
+                        /* ── colores de fila ── */
+                        const rowClass = seleccionado
+                          ? 'bg-red-50 border-l-2 border-red-400'
+                          : activo
+                            ? 'bg-emerald-50/50 hover:bg-emerald-50'
+                            : quitado
+                              ? 'bg-amber-50/40 hover:bg-amber-50'
+                              : 'bg-white hover:bg-slate-50';
 
                         return (
                           <div
                             key={permiso.clave}
-                            className={`flex items-center justify-between p-4 transition-colors ${
-                              seleccionado
-                                ? 'bg-red-50 border-l-2 border-red-400'
-                                : activo ? 'bg-emerald-50/50 hover:bg-emerald-50' : 'bg-white hover:bg-slate-50'
-                            }`}
+                            className={`flex items-center justify-between p-4 transition-colors ${rowClass}`}
                           >
                             <div className="flex items-center gap-3">
                               {activo ? (
@@ -1452,16 +1484,24 @@ export default function Roles({ userRole }: RolesProps) {
                                   onCheckedChange={() => handleTogglePermisoToRemove(permiso.clave)}
                                   className="border-slate-300 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
                                 />
+                              ) : quitado ? (
+                                /* ícono "fue quitado" */
+                                <div className="p-2 rounded-lg bg-amber-100">
+                                  <MinusCircle className="size-4 text-amber-500" />
+                                </div>
                               ) : (
+                                /* ícono "nunca asignado" */
                                 <div className="p-2 rounded-lg bg-slate-100">
-                                  <X className="size-4 text-slate-400" />
+                                  <X className="size-4 text-slate-300" />
                                 </div>
                               )}
                               <div>
                                 <div className="flex items-center gap-2">
                                   <p className={`text-sm font-medium ${
                                     seleccionado ? 'text-red-700 line-through' :
-                                    activo ? 'text-emerald-900' : 'text-slate-600'
+                                    activo       ? 'text-emerald-900' :
+                                    quitado      ? 'text-amber-800'   :
+                                                   'text-slate-400'
                                   }`}>
                                     {permiso.label}
                                   </p>
@@ -1472,12 +1512,18 @@ export default function Roles({ userRole }: RolesProps) {
                                   )}
                                 </div>
                                 {permiso.descripcion && (
-                                  <p className={`text-xs ${seleccionado ? 'text-red-500' : activo ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                  <p className={`text-xs ${
+                                    seleccionado ? 'text-red-500'    :
+                                    activo       ? 'text-emerald-600':
+                                    quitado      ? 'text-amber-600'  :
+                                                   'text-slate-300'
+                                  }`}>
                                     {permiso.descripcion}
                                   </p>
                                 )}
                               </div>
                             </div>
+
                             <div className="flex items-center gap-2">
                               {activo ? (
                                 <>
@@ -1490,13 +1536,36 @@ export default function Roles({ userRole }: RolesProps) {
                                     variant="ghost" size="sm"
                                     className={`h-8 w-8 p-0 ${seleccionado ? 'text-red-600 bg-red-100 hover:bg-red-200' : 'text-red-400 hover:text-red-700 hover:bg-red-50'}`}
                                     onClick={() => handleTogglePermisoToRemove(permiso.clave)}
-                                    title={seleccionado ? 'Quitar selección' : 'Seleccionar para eliminar'}
+                                    title={seleccionado ? 'Quitar selección' : 'Seleccionar para quitar'}
                                   >
                                     <Trash2 className="size-4" />
                                   </Button>
                                 </>
+                              ) : quitado ? (
+                                /* Estado QUITADO: badge ámbar + botón para reactivar */
+                                <>
+                                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
+                                    Quitado
+                                  </Badge>
+                                  <Button
+                                    variant="ghost" size="sm"
+                                    className="h-8 w-8 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-100"
+                                    title="Reactivar: abre el diálogo de agregar con este permiso pre-seleccionado"
+                                    onClick={() => {
+                                      setPermisosToAdd(prev =>
+                                        prev.includes(permiso.clave) ? prev : [...prev, permiso.clave]
+                                      );
+                                      setIsAddPermisosDialogOpen(true);
+                                    }}
+                                  >
+                                    <RotateCcw className="size-4" />
+                                  </Button>
+                                </>
                               ) : (
-                                <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200">Inactivo</Badge>
+                                /* Estado NO ASIGNADO: solo badge gris sutil */
+                                <Badge variant="outline" className="bg-slate-50 text-slate-400 border-slate-200">
+                                  No asignado
+                                </Badge>
                               )}
                             </div>
                           </div>
@@ -1659,14 +1728,14 @@ export default function Roles({ userRole }: RolesProps) {
               Eliminar Permisos del Rol
             </DialogTitle>
             <DialogDescription>
-              Selecciona los permisos que deseas eliminar de <strong>"{selectedItem?.nombre}"</strong>. Debes conservar al menos un permiso activo.
+              Selecciona los permisos que deseas quitar de <strong>"{selectedItem?.nombre}"</strong>. Debes conservar al menos un permiso activo. Los permisos quitados se pueden volver a agregar.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-3 max-h-80 overflow-y-auto">
             {selectedItem && permisosDisponibles.filter(p => selectedItem.permisos[p.clave]).length === 0 ? (
               <div className="text-center py-8 text-slate-400">
                 <ShieldMinus className="size-10 mx-auto mb-2 text-slate-300" />
-                <p>Este rol no tiene permisos activos para eliminar</p>
+                <p>Este rol no tiene permisos activos para quitar</p>
               </div>
             ) : (
               permisosDisponibles
@@ -1730,7 +1799,7 @@ export default function Roles({ userRole }: RolesProps) {
           {permisosToRemove.length === 0 && (
             <p className="text-sm text-amber-600 flex items-center gap-1">
               <AlertTriangle className="size-3" />
-              Selecciona al menos un permiso para eliminar
+              Selecciona al menos un permiso para quitar
             </p>
           )}
           <DialogFooter>
@@ -1804,24 +1873,28 @@ export default function Roles({ userRole }: RolesProps) {
       }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-red-700">
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-700">
               <Trash2 className="size-5" />
-              ¿Eliminar {permisosToRemove.length === 1 ? 'este permiso' : `estos ${permisosToRemove.length} permisos`}?
+              ¿Quitar {permisosToRemove.length === 1 ? 'este permiso' : `estos ${permisosToRemove.length} permisos`}?
             </AlertDialogTitle>
             {/* div en lugar de AlertDialogDescription para evitar <div> dentro de <p> (HTML inválido) */}
             <div className="text-muted-foreground text-sm space-y-3">
               <p>
-                Estás a punto de eliminar los siguientes permisos del rol <strong className="text-slate-900">"{selectedItem?.nombre}"</strong>.
+                Los siguientes permisos serán quitados del rol <strong className="text-slate-900">"{selectedItem?.nombre}"</strong>.
                 Los usuarios con este rol perderán acceso a los módulos correspondientes.
               </p>
+              <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-amber-800 text-xs">
+                ℹ️ El permiso <strong>no se borrará de la base de datos</strong> — solo se desactiva para este rol.
+                Puedes volver a agregarlo en cualquier momento.
+              </div>
               <div className="space-y-1.5">
                 {permisosToRemove.map(k => {
                   const cfg = permisosDisponibles.find(p => p.clave === k);
                   return (
-                    <div key={k} className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-1.5">
+                    <div key={k} className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
                       <Trash2 className="size-3.5 shrink-0" />
                       <span className="font-medium">{cfg?.label}</span>
-                      {cfg?.descripcion && <span className="text-red-400">— {cfg.descripcion}</span>}
+                      {cfg?.descripcion && <span className="text-amber-500">— {cfg.descripcion}</span>}
                     </div>
                   );
                 })}
@@ -1832,9 +1905,9 @@ export default function Roles({ userRole }: RolesProps) {
             <AlertDialogCancel onClick={() => setPermisosToRemove([])}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmRemovePermiso}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-amber-600 hover:bg-amber-700"
             >
-              Eliminar {permisosToRemove.length === 1 ? 'permiso' : `${permisosToRemove.length} permisos`}
+              Quitar {permisosToRemove.length === 1 ? 'permiso' : `${permisosToRemove.length} permisos`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -3,28 +3,31 @@
 //
 // Regla: NUNCA comparar roles como strings dispersos en componentes.
 //        Usa can() del AuthContext o usePermissions().
+//
+// Los permisos SIEMPRE vienen de la BD (tabla rol_permisos).
+// Si la BD no devuelve permisos, el usuario queda sin acceso — nunca se simula.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Permisos disponibles en el sistema (usa estas constantes, no strings libres) */
+/** Claves de permisos disponibles en el sistema — deben coincidir exactamente con la tabla `permisos` en BD */
 export const PERM = {
-  // ── Módulos ─────────────────────────────────────────────────────────────────
+  // ── Módulos de administración (vista completa) ───────────────────────────────
   DASHBOARD:     'dashboard',
   ROLES:         'roles',
   USUARIOS:      'usuarios',
   ASOCIADOS:     'asociados',
   AHORROS:       'ahorros',
   CREDITOS:      'creditos',
-  EVENTOS:       'eventos',
-  COMPRAS:       'compras',
-  VENTAS:        'ventas',
   LIQUIDACION:   'liquidacion',
   CONFIGURACION: 'configuracion',
 
+  // ── Módulos de asociado (vista propia filtrada) ──────────────────────────────
+  MIS_AHORROS:    'mis_ahorros',
+  MIS_CREDITOS:   'mis_creditos',
+  MI_LIQUIDACION: 'mi_liquidacion',
+  MIS_REFERIDOS:  'mis_referidos',
+
   // ── Usuario normal (pendiente de ser asociado) ───────────────────────────────
   SOLICITUD_ASOCIACION: 'solicitud_asociacion',
-
-  // ── Pedidos (acceso para asociados a sus propios pedidos) ────────────────────
-  PEDIDOS: 'pedidos',
 
   // ── Acciones sobre usuarios ──────────────────────────────────────────────────
   CREAR_USUARIO:    'crear_usuario',
@@ -41,55 +44,26 @@ export const PERM = {
 export type Permission = typeof PERM[keyof typeof PERM];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Permisos BASE por nombre de rol (exactamente como están en la BD).
-// Si el rol no está en este mapa, se usan los permisos de 'asociado'.
-// Los permisos extra guardados en roles.permisos de la BD se SUMAN a estos.
-// ─────────────────────────────────────────────────────────────────────────────
-export const ROL_PERMISOS: Record<string, Permission[]> = {
-  admin: [
-    PERM.DASHBOARD, PERM.ROLES, PERM.USUARIOS, PERM.ASOCIADOS,
-    PERM.AHORROS, PERM.CREDITOS, PERM.EVENTOS, PERM.COMPRAS,
-    PERM.VENTAS, PERM.LIQUIDACION, PERM.CONFIGURACION, PERM.PEDIDOS,
-    PERM.CREAR_USUARIO, PERM.EDITAR_USUARIO, PERM.ELIMINAR_USUARIO,
-    PERM.VER_AUDITORIA,
-    PERM.CREAR_ASOCIADO, PERM.EDITAR_ASOCIADO, PERM.ELIMINAR_ASOCIADO,
-  ],
-  asociado: [
-    PERM.DASHBOARD, PERM.AHORROS, PERM.CREDITOS,
-    PERM.EVENTOS, PERM.LIQUIDACION, PERM.PEDIDOS,
-  ],
-  // Usuario registrado que aún no es asociado: solo puede ver su portal de solicitud
-  usuario: [
-    PERM.SOLICITUD_ASOCIACION,
-  ],
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Vista → permiso requerido para acceder
 // Centralizado aquí para no repetirlo en App.tsx ni en cada componente.
+// Vistas con array: accesible si el usuario tiene AL MENOS UNO (OR)
 // ─────────────────────────────────────────────────────────────────────────────
-export const VIEW_PERMISO: Record<string, string> = {
-  'mi-solicitud':     PERM.SOLICITUD_ASOCIACION,
-  dashboard:          PERM.DASHBOARD,
-  roles:              PERM.ROLES,
-  usuarios:           PERM.USUARIOS,
-  asociados:          PERM.ASOCIADOS,
-  'asociado-detalle': PERM.ASOCIADOS,
-  'ahorro-permanente':PERM.AHORROS,
-  'ahorro-voluntario':PERM.AHORROS,
-  liquidacion:        PERM.LIQUIDACION,
-  'comite-evaluador': PERM.ASOCIADOS,
-  creditos:           PERM.CREDITOS,
-  referidos:          PERM.ASOCIADOS,
-  compras:            PERM.COMPRAS,
-  ventas:             PERM.VENTAS,
-  productos:          PERM.COMPRAS,
-  categorias:         PERM.COMPRAS,
-  proveedores:        PERM.COMPRAS,
-  eventos:            PERM.EVENTOS,
-  'pagos-premios':    PERM.EVENTOS,
-  pedidos:            PERM.PEDIDOS,
-  excepciones:        PERM.CONFIGURACION,
+export const VIEW_PERMISO: Record<string, string | string[]> = {
+  'mi-solicitud':      PERM.SOLICITUD_ASOCIACION,
+  dashboard:           PERM.DASHBOARD,
+  roles:               PERM.ROLES,
+  usuarios:            PERM.USUARIOS,
+  asociados:           PERM.ASOCIADOS,
+  'asociado-detalle':  PERM.ASOCIADOS,
+  'ahorro-permanente': [PERM.AHORROS, PERM.MIS_AHORROS],
+  'ahorro-voluntario': [PERM.AHORROS, PERM.MIS_AHORROS],
+  liquidacion:         [PERM.LIQUIDACION, PERM.MI_LIQUIDACION],
+  'comite-evaluador':  PERM.ASOCIADOS,
+  creditos:            [PERM.CREDITOS, PERM.MIS_CREDITOS],
+  referidos:           [PERM.ASOCIADOS, PERM.MIS_REFERIDOS],
+  excepciones:         PERM.CONFIGURACION,
+  // A-07: mi-perfil requiere estar autenticado (cualquier permiso activo)
+  'mi-perfil':         [PERM.DASHBOARD, PERM.MIS_AHORROS, PERM.SOLICITUD_ASOCIACION],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,20 +71,31 @@ export const VIEW_PERMISO: Record<string, string> = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Combina los permisos base del rol con los permisos extra guardados en BD.
- * @param rolNombre  nombre del rol tal como está en la tabla `roles` (ej: 'admin')
- * @param dbPermisos permisos adicionales guardados en roles.permisos (puede ser [])
+ * Devuelve los permisos efectivos del usuario.
+ *
+ * Fuente ÚNICA de verdad: tabla `rol_permisos` en la BD.
+ * Si la BD no devuelve permisos, retorna array vacío — el usuario no accede a nada.
+ * NUNCA se simulan permisos con datos del código.
+ *
+ * @param dbPermisos permisos leídos de rol_permisos via AuthContext / Login
  */
 export function getPermisosEfectivos(
-  rolNombre: string,
+  _rolNombre: string,
   dbPermisos: string[] = [],
 ): string[] {
-  const base = ROL_PERMISOS[rolNombre] ?? ROL_PERMISOS.asociado;
-  // Merge sin duplicados
-  return Array.from(new Set([...base, ...dbPermisos]));
+  if (dbPermisos.length === 0) {
+    // La BD no devolvió permisos — puede ser un rol sin configurar o error de BD.
+    // Se retorna array vacío: el usuario verá "Sin acceso" en todos los módulos.
+    // Revisar tabla rol_permisos en Supabase para este rol.
+    console.error('[UFCA] No se encontraron permisos en BD para este usuario. Verifica la tabla rol_permisos.');
+    return [];
+  }
+
+  // Permisos exactamente como los define la BD — sin agregar ni quitar nada.
+  return Array.from(new Set(dbPermisos));
 }
 
-/** Convierte nombre de rol de BD al label visible en UI */
+/** Convierte nombre de rol de BD al label visible en UI (usa roles.label de BD de preferencia) */
 export function rolLabel(nombreDB: string): string {
   if (nombreDB === 'admin')    return 'Administrador';
   if (nombreDB === 'asociado') return 'Asociado';

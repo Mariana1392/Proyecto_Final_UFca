@@ -63,10 +63,10 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
       { data: creds },
       { data: refs },
     ] = await Promise.all([
-      supabase.from('ahorros').select('id, monto_ahorrado, cuota_mensual, fecha_inicio, estado, tipo').eq('asociado_id', base.id).eq('anulado', false).eq('tipo', 'permanente').eq('estado', true),
-      supabase.from('ahorros').select('id, monto_ahorrado, cuota_mensual, fecha_inicio, estado, tipo').eq('asociado_id', base.id).eq('anulado', false).eq('tipo', 'voluntario').eq('estado', true),
-      supabase.from('creditos').select('id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado').eq('asociado_id', base.id),
-      supabase.from('asociados').select('id, nombre, cedula, telefono, fecha_ingreso, estado').eq('referido_por_id', base.id),
+      supabase.from('ahorros_permanentes').select('id, monto_ahorrado, cuota_mensual, estado, anulado').eq('asociado_id', base.id).eq('anulado', false).eq('estado', 'activo'),
+      supabase.from('ahorros_voluntarios').select('id, monto_ahorrado, estado, anulado').eq('asociado_id', base.id).eq('anulado', false).eq('estado', 'activo'),
+      supabase.from('creditos').select('id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado, tasa_interes').eq('asociado_id', base.id),
+      supabase.from('asociados').select('id, nombre, cedula, telefono, fecha_ingreso, estado').eq('referido_por_id', base.id).order('fecha_ingreso', { ascending: false }),
     ]);
 
     return {
@@ -137,7 +137,7 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
       cuotaMensual:     c.cuota_mensual,
       plazo:            c.plazo_meses,
       cuotasPagadas:    Math.round((c.monto - c.saldo) / (c.cuota_mensual || 1)),
-      tasaInteres:      1.8,
+      tasaInteres:      c.tasa_interes ?? 0,   // viene de la BD, no hardcodeado
       fechaDesembolso:  c.fecha_desembolso,
       estado:           c.anulado ? 'Anulado' : c.estado ? 'Activo' : 'Liquidado',
     })));
@@ -150,7 +150,7 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
         cuota:         a.cuota_mensual,
         ultimoAporte:  a.fecha_inicio,
         fechaApertura: a.fecha_inicio,
-        estado:        a.estado ? 'Activo' : 'Inactivo',
+        estado:        a.estado === 'activo' ? 'Activo' : 'Inactivo',
       })),
       ...(data.ahorro_voluntario || []).map((a: any) => ({
         id:            `AHV-${a.id.slice(0, 6).toUpperCase()}`,
@@ -159,7 +159,7 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
         cuota:         0,
         ultimoAporte:  a.fecha_inicio,
         fechaApertura: a.fecha_inicio,
-        estado:        a.estado ? 'Activo' : 'Inactivo',
+        estado:        a.estado === 'activo' ? 'Activo' : 'Inactivo',
       })),
     ]);
 
@@ -168,7 +168,7 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
       cedula:        r.cedula,
       telefono:      r.telefono || '—',
       fechaReferido: r.fecha_ingreso,
-      estado:        r.estado ? 'Aprobado' : 'Pendiente',
+      estado:        r.estado === 'activo' ? 'Aprobado' : 'Pendiente',
     })));
 
     setLoading(false);
@@ -205,7 +205,6 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
         email:     formData.email.trim(),
         telefono:  formData.telefono.trim(),
         direccion: formData.direccion.trim(),
-        fecha_modificacion: new Date().toISOString(),
       };
 
       const { error: errAsoc } = await supabase.from('asociados').update(payload).eq('id', idFinal);

@@ -1070,7 +1070,7 @@ export const generateCarteraPDF = (datos: {
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text('1. RESUMEN GENERAL DE CARTERA', 20, yPos);
+    doc.text('1. RESUMEN GENERAL', 20, yPos);
     yPos += 7;
 
     // Cartera = suma de montos. Cuota mensual = lo que ingresa cada mes.
@@ -1084,11 +1084,11 @@ export const generateCarteraPDF = (datos: {
     const kpis: [string, string][] = [
       ['Créditos activos',                    `${creditos.length}`],
       ['Créditos anulados',                   `${creditosAnulados.length}`],
-      ['Cartera total (suma de montos)',       formatCurrency(totalCartera)],
+      ['Saldo total (suma de montos)',          formatCurrency(totalCartera)],
       ['Monto promedio por crédito',          formatCurrency(promedioMonto)],
       ['Recaudo mensual total (suma cuotas)', formatCurrency(totalCuotaMensual)],
       ['Cuota mensual promedio',              formatCurrency(promedioCuota)],
-      ['% Cuota / Cartera (recuperación mensual)', `${pctRecuperacion}%`],
+      ['% Recuperación mensual', `${pctRecuperacion}%`],
       ['Tasa de interés promedio EA',
         tasaPromedio > 0 ? `${tasaPromedio.toFixed(2)}%` : 'Sin tasa registrada'],
       ['Plazo promedio',
@@ -1178,7 +1178,7 @@ export const generateCarteraPDF = (datos: {
           : 'N/A'],
       ['Créditos en proceso (pendiente + en revisión)', `${pendientes + enRevision}`],
       ['Créditos productivos (aprobados + desembolsados)', `${aprobados + desembolsados}`],
-      ['Velocidad de recuperación mensual', `${pctRecuperacion}% de la cartera por mes`],
+      ['Velocidad de recuperación mensual', `${pctRecuperacion}% mensual`],
     ];
 
     autoTable(doc, {
@@ -1395,7 +1395,7 @@ export const generateAhorroPermanentePDF = (ahorro: any) => {
       ['Cédula:',           ahorro.cedula         || 'N/A'],
       ['Fecha de inicio:',  ahorro.fechaAfiliacion || 'N/A'],
       ['Cuota mensual:',    formatCurrency(ahorro.aporteActual || 0)],
-      ['Estado del plan:',  ahorro.estado ? 'Activo' : 'Inactivo'],
+      ['Estado del plan:',  (ahorro.estado === true || ahorro.estado === 'activo') ? 'Activo' : 'Inactivo'],
     ];
 
     ahorroInfo.forEach(([label, value]) => {
@@ -1551,7 +1551,7 @@ export const generateAhorroVoluntarioPDF = (ahorro: any) => {
     const ahorroInfo = [
       ['Asociado:', ahorro.asociado || 'N/A'],
       ['Cédula:', ahorro.cedula || 'N/A'],
-      ['Estado del ahorro:', ahorro.estado ? 'Activo' : 'Inactivo'],
+      ['Estado del ahorro:', (ahorro.estado === true || ahorro.estado === 'activo') ? 'Activo' : 'Inactivo'],
     ];
     
     ahorroInfo.forEach(([label, value]) => {
@@ -1671,7 +1671,7 @@ export const buildAhorroVoluntarioPDF = (ahorro: any): {
     const ahorroInfo = [
       ['Asociado:', ahorro.asociado || 'N/A'],
       ['Cédula:', ahorro.cedula || 'N/A'],
-      ['Estado del ahorro:', ahorro.estado ? 'Activo' : 'Inactivo'],
+      ['Estado del ahorro:', (ahorro.estado === true || ahorro.estado === 'activo') ? 'Activo' : 'Inactivo'],
     ];
 
     ahorroInfo.forEach(([label, value]) => {

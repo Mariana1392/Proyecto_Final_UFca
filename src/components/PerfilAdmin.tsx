@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -53,7 +53,7 @@ export default function PerfilAdmin() {
     ] = await Promise.all([
       supabase.from('usuarios').select('*', { count: 'exact', head: true }),
       supabase.from('asociados').select('*', { count: 'exact', head: true }),
-      supabase.from('solicitudes').select('*', { count: 'exact', head: true }).eq('tipo', 'afiliacion').eq('estado', 'pendiente'),
+      supabase.from('solicitudes_asociados').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
     ]);
     setStats({
       totalUsuarios:        totalUsuarios  ?? 0,
@@ -101,7 +101,7 @@ export default function PerfilAdmin() {
   }
 
   return (
-    <div className="p-8 bg-slate-50 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen">
       <div className="max-w-4xl mx-auto space-y-6">
 
         {/* Header */}

@@ -1,4 +1,4 @@
-// src/lib/api.ts
+﻿// src/lib/api.ts
 // ─────────────────────────────────────────────────────────
 // Funciones de acceso a datos para cada módulo de UFCA
 // Reemplaza los useState con datos mock en cada componente
@@ -52,13 +52,46 @@ export const auth = {
 // ═══════════════════════════════════════
 
 export const asociadosApi = {
+  /** @deprecated Carga toda la tabla — usar getPaginated() en vistas de lista (R-02) */
   async getAll() {
+    // R-05: columnas específicas para listas — omite campos pesados (direccion, motivacion, etc.)
     const { data, error } = await supabase
       .from('asociados')
-      .select('*')
+      .select('id,nombre,cedula,telefono,email,fecha_ingreso,estado,referido_por_id,created_at')
       .order('nombre');
     if (error) throw error;
     return data;
+  },
+
+  /**
+   * R-02: Versión paginada — no descarga toda la tabla.
+   * @param page      Página actual (base 0)
+   * @param pageSize  Registros por página (default 20)
+   * @param search    Texto para filtrar por nombre o cédula
+   * @param estado    Filtro por estado ('activo' | 'inactivo' | undefined = todos)
+   */
+  async getPaginated(
+    page     = 0,
+    pageSize = 20,
+    search   = '',
+    estado?: string,
+  ) {
+    let query = supabase
+      .from('asociados')
+      .select('id,nombre,cedula,telefono,email,fecha_ingreso,estado,referido_por_id', { count: 'exact' })
+      .order('nombre')
+      .range(page * pageSize, (page + 1) * pageSize - 1);
+
+    if (search.trim()) {
+      query = query.or(`nombre.ilike.%${search.trim()}%,cedula.ilike.%${search.trim()}%`);
+    }
+    if (estado) {
+      query = query.eq('estado', estado);
+    }
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+    return { data: data ?? [], total: count ?? 0, page, pageSize };
   },
 
   async getById(id: string) {
@@ -104,10 +137,11 @@ export const asociadosApi = {
   async getReferidos(asociadoId: string) {
     const { data, error } = await supabase
       .from('asociados')
-      .select('*')
-      .eq('referido_por_id', asociadoId);
+      .select('id, nombre, cedula, telefono, fecha_ingreso, estado')
+      .eq('referido_por_id', asociadoId)
+      .order('fecha_ingreso', { ascending: false });
     if (error) throw error;
-    return data;
+    return data ?? [];
   },
 };
 
@@ -118,7 +152,7 @@ export const asociadosApi = {
 export const ahorroPermanenteApi = {
   async getAll() {
     const { data, error } = await supabase
-      .from('ahorro_permanente')
+      .from('ahorros_permanentes')
       .select('*, asociados(nombre, cedula)')
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -127,7 +161,7 @@ export const ahorroPermanenteApi = {
 
   async getByAsociado(asociadoId: string) {
     const { data, error } = await supabase
-      .from('ahorro_permanente')
+      .from('ahorros_permanentes')
       .select('*')
       .eq('asociado_id', asociadoId);
     if (error) throw error;
@@ -136,7 +170,7 @@ export const ahorroPermanenteApi = {
 
   async create(ahorro: Omit<any, 'id' | 'created_at' | 'updated_at'>) {
     const { data, error } = await supabase
-      .from('ahorro_permanente')
+      .from('ahorros_permanentes')
       .insert(ahorro)
       .select('*, asociados(nombre, cedula)')
       .single();
@@ -146,7 +180,7 @@ export const ahorroPermanenteApi = {
 
   async update(id: string, updates: Partial<any>) {
     const { data, error } = await supabase
-      .from('ahorro_permanente')
+      .from('ahorros_permanentes')
       .update(updates)
       .eq('id', id)
       .select()
@@ -156,7 +190,7 @@ export const ahorroPermanenteApi = {
   },
 
   async anular(id: string, motivo: string) {
-    return ahorroPermanenteApi.update(id, { anulado: true, estado: false, motivo_anulacion: motivo });
+    return ahorroPermanenteApi.update(id, { anulado: true, estado: 'cerrado', motivo_anulacion: motivo });
   },
 };
 
@@ -167,7 +201,7 @@ export const ahorroPermanenteApi = {
 export const ahorroVoluntarioApi = {
   async getAll() {
     const { data, error } = await supabase
-      .from('ahorro_voluntario')
+      .from('ahorros_voluntarios')
       .select('*, asociados(nombre, cedula)')
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -176,7 +210,7 @@ export const ahorroVoluntarioApi = {
 
   async getByAsociado(asociadoId: string) {
     const { data, error } = await supabase
-      .from('ahorro_voluntario')
+      .from('ahorros_voluntarios')
       .select('*')
       .eq('asociado_id', asociadoId);
     if (error) throw error;
@@ -185,7 +219,7 @@ export const ahorroVoluntarioApi = {
 
   async create(ahorro: Omit<any, 'id' | 'created_at' | 'updated_at'>) {
     const { data, error } = await supabase
-      .from('ahorro_voluntario')
+      .from('ahorros_voluntarios')
       .insert(ahorro)
       .select('*, asociados(nombre, cedula)')
       .single();
@@ -195,7 +229,7 @@ export const ahorroVoluntarioApi = {
 
   async update(id: string, updates: Partial<any>) {
     const { data, error } = await supabase
-      .from('ahorro_voluntario')
+      .from('ahorros_voluntarios')
       .update(updates)
       .eq('id', id)
       .select()
@@ -205,7 +239,7 @@ export const ahorroVoluntarioApi = {
   },
 
   async anular(id: string, motivo: string) {
-    return ahorroVoluntarioApi.update(id, { anulado: true, estado: false, motivo_anulacion: motivo });
+    return ahorroVoluntarioApi.update(id, { anulado: true, estado: 'retirado', motivo_anulacion: motivo });
   },
 };
 
@@ -289,7 +323,7 @@ export const pagosCreditoApi = {
   async getByCredito(creditoId: string) {
     const { data, error } = await supabase
       .from('pagos_credito')
-      .select('*')
+      .select('*, usuarios!registrado_por(nombre)')
       .eq('credito_id', creditoId)
       .order('fecha_pago', { ascending: false });
     if (error) throw error;
@@ -309,7 +343,7 @@ export const pagosCreditoApi = {
     fecha_pago:      string;
     metodo_pago:     string;
     observacion?:    string;
-    registrado_por:  string;
+    registrado_por:  string | null;
     url_comprobante?: string;
   }) {
     // Construir payload solo con columnas seguras (sin asociado_id para evitar
@@ -345,434 +379,24 @@ export const pagosCreditoApi = {
       p_url_comprobante: pago.url_comprobante ?? null,
     });
 
-    if (!rpcError && rpcData) return rpcData;
-
-    // ── Fallback: inserción directa + actualización (requiere permisos RLS) ──
-    const { data, error } = await supabase
-      .from('pagos_credito')
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
-
-    const updatePayload: any = { saldo: Math.max(0, pago.saldo_despues) };
-    if (pago.saldo_despues <= 0) {
-      updatePayload.estado               = 'pagado';
-      updatePayload.fecha_estado_cambio  = new Date().toISOString();
-      updatePayload.motivo_estado_cambio = 'Crédito pagado en su totalidad';
-    }
-    // Actualizar saldo — si RLS lo bloquea fuerza igual el saldo local
-    await supabase.from('creditos').update(updatePayload).eq('id', pago.credito_id);
-
-    return data;
-  },
-};
-
-// ═══════════════════════════════════════
-// PRODUCTOS
-// ═══════════════════════════════════════
-
-export const productosApi = {
-  async getAll() {
-    const { data, error } = await supabase
-      .from('productos')
-      .select('*, categorias(nombre), proveedores(nombre)')
-      .order('nombre');
-    if (error) throw error;
-    return data;
-  },
-
-  async create(producto: Omit<any, 'id' | 'created_at' | 'updated_at'>) {
-    const { data, error } = await supabase
-      .from('productos')
-      .insert(producto)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
-  },
-
-  async update(id: string, updates: Partial<any>) {
-    const { data, error } = await supabase
-      .from('productos')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
-  },
-
-  async delete(id: string) {
-    const { error } = await supabase.from('productos').delete().eq('id', id);
-    if (error) throw error;
-  },
-};
-
-// ═══════════════════════════════════════
-// CATEGORÍAS
-// ═══════════════════════════════════════
-
-export const categoriasApi = {
-  async getAll() {
-    const { data, error } = await supabase
-      .from('categorias')
-      .select('*')
-      .order('nombre');
-    if (error) throw error;
-    return data;
-  },
-
-  async create(categoria: Omit<any, 'id' | 'created_at' | 'updated_at'>) {
-    const { data, error } = await supabase
-      .from('categorias')
-      .insert(categoria)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
-  },
-
-  async update(id: string, updates: Partial<any>) {
-    const { data, error } = await supabase
-      .from('categorias')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
-  },
-
-  async delete(id: string) {
-    const { error } = await supabase.from('categorias').delete().eq('id', id);
-    if (error) throw error;
-  },
-};
-
-// ═══════════════════════════════════════
-// PROVEEDORES
-// ═══════════════════════════════════════
-
-export const proveedoresApi = {
-  async getAll() {
-    const { data, error } = await supabase
-      .from('proveedores')
-      .select('*')
-      .order('nombre');
-    if (error) throw error;
-    return data;
-  },
-
-  async create(proveedor: Omit<any, 'id' | 'created_at' | 'updated_at'>) {
-    const { data, error } = await supabase
-      .from('proveedores')
-      .insert(proveedor)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
-  },
-
-  async update(id: string, updates: Partial<any>) {
-    const { data, error } = await supabase
-      .from('proveedores')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
-  },
-
-  async delete(id: string) {
-    const { error } = await supabase.from('proveedores').delete().eq('id', id);
-    if (error) throw error;
-  },
-};
-
-// ═══════════════════════════════════════
-// VENTAS
-// ═══════════════════════════════════════
-
-export const ventasApi = {
-  async getAll() {
-    const { data, error } = await supabase
-      .from('ventas')
-      .select('*, asociados(nombre), ventas_detalle(*, productos(nombre))')
-      .order('fecha', { ascending: false });
-    if (error) throw error;
-    return data;
-  },
-
-  async create(venta: any, detalle: any[]) {
-    // Insertar venta principal
-    const { data: ventaData, error: ventaError } = await supabase
-      .from('ventas')
-      .insert(venta)
-      .select()
-      .single();
-    if (ventaError) throw ventaError;
-
-    // Insertar detalle con el id de la venta
-    const detalleConId = detalle.map(d => ({ ...d, venta_id: ventaData.id }));
-    const { error: detalleError } = await supabase
-      .from('ventas_detalle')
-      .insert(detalleConId);
-    if (detalleError) throw detalleError;
-
-    return ventaData;
-  },
-
-  async anular(id: string, motivo: string, anuladoPor: string) {
-    const { data, error } = await supabase
-      .from('ventas')
-      .update({
-        estado:           'anulada',
-        motivo_anulacion: motivo,
-        anulado_at:       new Date().toISOString(),
-        anulado_por:      anuladoPor,
-      })
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
-  },
-};
-
-// ═══════════════════════════════════════
-// COMPRAS
-// ═══════════════════════════════════════
-
-export const comprasApi = {
-  async getAll() {
-    const { data, error } = await supabase
-      .from('compras')
-      .select('*, proveedores(nombre), compras_detalle(*, productos(nombre))')
-      .order('fecha', { ascending: false });
-    if (error) throw error;
-    return data;
-  },
-
-  async create(compra: any, detalle: any[]) {
-    const { data: compraData, error: compraError } = await supabase
-      .from('compras')
-      .insert(compra)
-      .select()
-      .single();
-    if (compraError) throw compraError;
-
-    const detalleConId = detalle.map(d => ({ ...d, compra_id: compraData.id }));
-    const { error: detalleError } = await supabase
-      .from('compras_detalle')
-      .insert(detalleConId);
-    if (detalleError) throw detalleError;
-
-    return compraData;
-  },
-
-  async update(id: string, updates: Partial<any>) {
-    const { data, error } = await supabase
-      .from('compras')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
-  },
-};
-
-// ═══════════════════════════════════════
-// PEDIDOS
-// ═══════════════════════════════════════
-
-export const pedidosApi = {
-  async getAll() {
-    const { data, error } = await supabase
-      .from('pedidos')
-      .select('*, asociados(nombre, cedula), pedidos_detalle(*, productos(nombre))')
-      .order('fecha', { ascending: false });
-    if (error) throw error;
-    return data;
-  },
-
-  async getByAsociado(asociadoId: string) {
-    const { data, error } = await supabase
-      .from('pedidos')
-      .select('*, pedidos_detalle(*, productos(nombre))')
-      .eq('asociado_id', asociadoId);
-    if (error) throw error;
-    return data;
-  },
-
-  async create(pedido: any, detalle: any[]) {
-    const { data: pedidoData, error: pedidoError } = await supabase
-      .from('pedidos')
-      .insert(pedido)
-      .select()
-      .single();
-    if (pedidoError) throw pedidoError;
-
-    const detalleConId = detalle.map(d => ({ ...d, pedido_id: pedidoData.id }));
-    const { error: detalleError } = await supabase
-      .from('pedidos_detalle')
-      .insert(detalleConId);
-    if (detalleError) throw detalleError;
-
-    return pedidoData;
-  },
-
-  async updateEstado(id: string, estado: string) {
-    const { data, error } = await supabase
-      .from('pedidos')
-      .update({ estado })
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-
-    // Si el estado queda en pagado, registrar automáticamente una venta
-    try {
-      if (typeof estado === 'string' && estado === 'pagado') {
-        const { data: pedidoWithDet, error: pedDetErr } = await supabase
-          .from('pedidos')
-          .select('*, pedidos_detalle(*, productos(nombre))')
-          .eq('id', id)
-          .maybeSingle();
-
-        if (!pedidoWithDet || pedDetErr) {
-          // No hay datos suficientes para generar la venta; salir sin error crítico
-          return data;
-        }
-
-        // Crear venta — usando los campos reales de la tabla ventas
-        const ventaPayload: any = {
-          asociado_id: pedidoWithDet.asociado_id ?? null,
-          evento_id:   pedidoWithDet.evento_id   ?? null,
-          fecha:       new Date().toISOString().split('T')[0],
-          subtotal:    pedidoWithDet.total ?? 0,
-          descuento:   0,
-          total:       pedidoWithDet.total ?? 0,
-          estado:      'completada',
-          metodo_pago: null,
-          notas:       `Generada automáticamente desde pedido PED-${id.slice(0, 8).toUpperCase()}${pedidoWithDet.notas ? ` · ${pedidoWithDet.notas}` : ''}`,
-        };
-
-        const { data: ventaData, error: ventaErr } = await supabase
-          .from('ventas')
-          .insert(ventaPayload)
-          .select()
-          .single();
-
-        if (ventaErr) throw new Error('Error al crear venta: ' + ventaErr.message);
-
-        // Insertar detalles de la venta
-        const detalles = (pedidoWithDet.pedidos_detalle || []).map((d: any) => ({
-          venta_id:        ventaData.id,
-          producto_id:     d.producto_id,
-          cantidad:        d.cantidad ?? 0,
-          precio_unitario: d.precio_unitario ?? 0,
-          subtotal:        d.subtotal ?? (d.cantidad ?? 0) * (d.precio_unitario ?? 0),
-        }));
-        if (detalles.length > 0) {
-          const { error: detErr } = await supabase.from('ventas_detalle').insert(detalles);
-          if (detErr) throw new Error('Error al crear detalle de venta: ' + detErr.message);
-        }
-      }
-    } catch (err: any) {
-      // Relanzar para que el componente muestre el error al usuario
-      throw err;
+    // S-08: sin fallback — las operaciones financieras deben ser atómicas en el RPC.
+    // Si el RPC falla, propagar el error; nunca bypassear RLS con inserciones directas.
+    if (rpcError || !rpcData) {
+      throw rpcError ?? new Error(
+        'No se pudo registrar el pago. Verifique que el procedimiento `registrar_pago_credito` esté creado en Supabase.'
+      );
     }
 
-    return data;
+    return rpcData;
   },
 };
 
 // ═══════════════════════════════════════
-// EVENTOS
+// A-05: MÓDULOS NO IMPLEMENTADOS
+// Movidos a src/lib/api.unimplemented.ts
+// Importar desde allí cuando se activen las vistas correspondientes
 // ═══════════════════════════════════════
-
-export const eventosApi = {
-  async getAll() {
-    const { data, error } = await supabase
-      .from('eventos')
-      .select('*, eventos_inscritos(count)')
-      .order('fecha', { ascending: true });
-    if (error) throw error;
-    return data;
-  },
-
-  async create(evento: Omit<any, 'id' | 'created_at' | 'updated_at'>) {
-    // Intentar con RPC SECURITY DEFINER (bypasea RLS e inscribe asociados automáticamente)
-    const { data: rpcData, error: rpcError } = await supabase.rpc('crear_evento_con_inscritos', {
-      p_titulo:      evento.titulo,
-      p_descripcion: evento.descripcion ?? '',
-      p_fecha:       evento.fecha,
-      p_lugar:       evento.lugar ?? '',
-      p_capacidad:   evento.capacidad ?? 0,
-      p_estado:      evento.estado ?? 'programado',
-    });
-
-    if (!rpcError && rpcData) return rpcData;
-
-    // Fallback: insert directo + inscribir asociados manualmente
-    const { data, error } = await supabase
-      .from('eventos')
-      .insert(evento)
-      .select()
-      .single();
-    if (error) throw error;
-
-    // Inscribir todos los asociados activos al evento recién creado
-    const { data: asociados } = await supabase
-      .from('asociados')
-      .select('id')
-      .eq('estado', true)
-      .eq('anulado', false);
-
-    if (asociados && asociados.length > 0) {
-      const inscritos = asociados.map((a: any) => ({
-        evento_id:   data.id,
-        asociado_id: a.id,
-      }));
-      await supabase.from('eventos_inscritos').insert(inscritos);
-    }
-
-    return data;
-  },
-
-  async update(id: string, updates: Partial<any>) {
-    const { data, error } = await supabase
-      .from('eventos')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
-  },
-
-  async inscribir(eventoId: string, asociadoId: string) {
-    const { data, error } = await supabase
-      .from('eventos_inscritos')
-      .insert({ evento_id: eventoId, asociado_id: asociadoId })
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
-  },
-
-  async desinscribir(eventoId: string, asociadoId: string) {
-    const { error } = await supabase
-      .from('eventos_inscritos')
-      .delete()
-      .eq('evento_id', eventoId)
-      .eq('asociado_id', asociadoId);
-    if (error) throw error;
-  },
-};
+export { productosApi, categoriasApi, proveedoresApi, ventasApi, comprasApi, pedidosApi, eventosApi } from './api.unimplemented';
 
 // ═══════════════════════════════════════
 // EXCEPCIONES
@@ -825,7 +449,27 @@ export const excepcionesApi = {
 
 export const dashboardApi = {
   async getStats() {
-    // Inicio del mes actual para intereses
+    // R-01: intentar con RPC (1 query server-side) en lugar de 9 queries + JS reduce
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_dashboard_stats');
+
+    if (!rpcError && rpcData) {
+      return {
+        totalAsociados:        rpcData.totalAsociados        ?? 0,
+        totalUsuarios:         rpcData.totalUsuarios         ?? 0,
+        totalCreditos:         rpcData.totalCreditos         ?? 0,
+        totalAhorrosPerm:      rpcData.totalAhorrosPerm      ?? 0,
+        totalAhorrosVol:       rpcData.totalAhorrosVol       ?? 0,
+        totalAhorros:          rpcData.totalAhorros          ?? 0,
+        solicitudesPendientes: rpcData.solicitudesPendientes ?? 0,
+        liquidacionesPend:     rpcData.liquidacionesPend     ?? 0,
+        totalCarteraCreditos:  rpcData.totalCarteraCreditos  ?? 0,
+        totalInteresesMes:     rpcData.totalInteresesMes     ?? 0,
+        pedidosPendientes:     0,
+      };
+    }
+
+    // Fallback: queries individuales si el RPC aún no está creado en Supabase
+    console.warn('[dashboardApi] RPC get_dashboard_stats no disponible, usando fallback. Ejecutar supabase_rpc_dashboard_stats.sql');
     const hoy = new Date();
     const inicioMes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
 
@@ -835,36 +479,22 @@ export const dashboardApi = {
       { count: totalCreditos },
       { data: ahorrosPerm },
       { data: ahorrosVol },
-      { count: totalPedidos },
       { count: solicitudesPend },
       { count: liquidacionesPend },
       { data: carteraData },
       { data: interesesData },
     ] = await Promise.all([
-      // Asociados activos (estado es string 'activo')
       supabase.from('asociados').select('*', { count: 'exact', head: true }).eq('estado', 'activo'),
-      // Usuarios con cuenta activa
       supabase.from('usuarios').select('*', { count: 'exact', head: true }).eq('activo', true),
-      // Créditos activos (no anulados, en estados productivos)
       supabase.from('creditos').select('*', { count: 'exact', head: true })
-        .eq('anulado', false)
-        .in('estado', ['activo', 'aprobado', 'desembolsado', 'en_mora']),
-      // Suma de ahorros permanentes activos
-      supabase.from('ahorro_permanente').select('monto_ahorrado').eq('estado', true).eq('anulado', false),
-      // Suma de ahorros voluntarios activos
-      supabase.from('ahorro_voluntario').select('monto_ahorrado').eq('estado', true).eq('anulado', false),
-      // Pedidos pendientes
-      supabase.from('pedidos').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
-      // Solicitudes de asociación pendientes
-      supabase.from('solicitudes').select('*', { count: 'exact', head: true }).eq('tipo', 'afiliacion').eq('estado', 'pendiente'),
-      // Liquidaciones en proceso (no pagadas ni rechazadas)
+        .eq('anulado', false).in('estado', ['activo', 'aprobado', 'desembolsado', 'en_mora']),
+      supabase.from('ahorros_permanentes').select('monto_ahorrado').eq('estado', 'activo').eq('anulado', false),
+      supabase.from('ahorros_voluntarios').select('monto_ahorrado').eq('estado', 'activo').eq('anulado', false),
+      supabase.from('solicitudes_asociados').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
       supabase.from('liquidaciones').select('*', { count: 'exact', head: true })
         .not('detalle->>estado', 'in', '("Pagada","Rechazada","Borrador")'),
-      // Cartera activa: saldo total que los asociados deben al negocio
-      supabase.from('creditos').select('saldo')
-        .eq('anulado', false)
+      supabase.from('creditos').select('saldo').eq('anulado', false)
         .in('estado', ['activo', 'aprobado', 'desembolsado', 'en_mora']),
-      // Intereses cobrados este mes
       supabase.from('pagos_credito').select('interes').gte('fecha_pago', inicioMes),
     ]);
 
@@ -874,14 +504,14 @@ export const dashboardApi = {
     const totalInteresesMes    = interesesData?.reduce((s, p) => s + (p.interes || 0), 0) ?? 0;
 
     return {
-      totalAsociados:        totalAsociados  ?? 0,
-      totalUsuarios:         totalUsuarios   ?? 0,
-      totalCreditos:         totalCreditos   ?? 0,
+      totalAsociados:        totalAsociados   ?? 0,
+      totalUsuarios:         totalUsuarios    ?? 0,
+      totalCreditos:         totalCreditos    ?? 0,
       totalAhorrosPerm,
       totalAhorrosVol,
       totalAhorros:          totalAhorrosPerm + totalAhorrosVol,
-      pedidosPendientes:     totalPedidos    ?? 0,
-      solicitudesPendientes: solicitudesPend ?? 0,
+      pedidosPendientes:     0,
+      solicitudesPendientes: solicitudesPend  ?? 0,
       liquidacionesPend:     liquidacionesPend ?? 0,
       totalCarteraCreditos,
       totalInteresesMes,

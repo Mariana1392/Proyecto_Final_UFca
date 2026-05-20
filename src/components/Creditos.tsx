@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -12,7 +12,7 @@ import {
   DollarSign, Clock, Check, X, Link, TrendingUp, Wallet, Users, Activity,
   Upload, Paperclip, ExternalLink, BarChart2, Download, PieChart,
   CreditCard as CreditCardIcon, Banknote, History, CheckCircle2,
-  ShieldAlert, Receipt, Table2,
+  ShieldAlert, Receipt, Table2, Landmark, XCircle,
 } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -31,9 +31,10 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/supabase';
 import { creditosApi, asociadosApi, pagosCreditoApi } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
+import { TIPOS_CREDITO } from '../lib/constants';
 
 interface CreditosProps {
-  userRole?: 'admin' | 'asociado' | null;
   userData?: any;
 }
 
@@ -49,12 +50,7 @@ const ESTADOS_APROBACION = [
   { value: 'rechazado',    label: 'Rechazado',    color: 'bg-slate-100 text-slate-600 border-slate-200' },
 ];
 
-const TIPOS_CREDITO = [
-  { value: 'libre_inversion', label: 'Libre inversión' },
-  { value: 'educacion',       label: 'Educación' },
-  { value: 'vivienda',        label: 'Vivienda' },
-  { value: 'calamidad',       label: 'Calamidad' },
-];
+// TIPOS_CREDITO viene de src/lib/constants.ts
 
 const getEstadoBadge = (estado: string) => {
   const e = ESTADOS_APROBACION.find(e => e.value === estado);
@@ -231,12 +227,14 @@ const descargarPDFAmortizacion = (
   doc.save(`${nombreArchivo}.pdf`);
 };
 
-export default function Creditos({ userRole, userData }: CreditosProps) {
+export default function Creditos({ userData }: CreditosProps) {
+  const { can, user } = useAuth();
   // ── Paginación / búsqueda ─────────────────────────────────────────────────
   const [searchTerm, setSearchTerm]               = useState('');
   const [filterEstado, setFilterEstado]           = useState('');
   const [currentPage, setCurrentPage]             = useState(1);
   const [currentPageAnulados, setCurrentPageAnulados] = useState(1);
+  const [currentPageRechazados, setCurrentPageRechazados] = useState(1);
   const itemsPerPage = 10;
 
   // ── Diálogos ──────────────────────────────────────────────────────────────
@@ -335,6 +333,17 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
   // ── Autocompletado buscador principal ─────────────────────────────────────
   const [showSearchSugg, setShowSearchSugg]         = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // ── Desembolso ────────────────────────────────────────────────────────────
+  const [isDesembolsoOpen, setIsDesembolsoOpen]       = useState(false);
+  const [desembolsoFecha, setDesembolsoFecha]         = useState('');
+  const [desembolsoReferencia, setDesembolsoReferencia] = useState('');
+  const [desembolsoArchivo, setDesembolsoArchivo]     = useState<File | null>(null);
+  const [guardandoDesembolso, setGuardandoDesembolso] = useState(false);
+  // Banco (solicitud asociado)
+  const [solBanco, setSolBanco]               = useState('');
+  const [solTipoCuenta, setSolTipoCuenta]     = useState('ahorros');
+  const [solNumeroCuenta, setSolNumeroCuenta] = useState('');
 
   // ── Filtros exclusivos para vista asociado ────────────────────────────────
   const [asocSearch, setAsocSearch]         = useState('');
@@ -439,8 +448,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
           asociado:             c.asociados?.nombre ?? 'Sin nombre',
           cedula:               c.asociados?.cedula ?? '',
           asociado_id:          c.asociado_id,
-          // la BD usa tipo_credito, no tipo
-          tipo:                 c.tipo_credito ?? c.tipo ?? 'libre_inversion',
+          tipo:                 c.tipo ?? 'libre_inversion',
           monto:                c.monto,
           tasaInteres:          c.tasa_interes ?? 0,
           plazo:                c.plazo_meses,
@@ -451,12 +459,10 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
           estadoAprobacion:     estadoAprobacion,
           // la BD usa observaciones, no descripcion_soporte
           descripcionSoporte:   c.observaciones ?? c.descripcion_soporte ?? '',
-          urlDocumento:         c.url_documento ?? '',
+          urlDocumento:         c.url_comprobante_solicitud ?? '',
           estado:               c.estado,
           anulado:              c.anulado,
           motivoAnulacion:      c.motivo_anulacion ?? '',
-          editadoPor:           c.editado_por ?? '',
-          editadoEn:            c.editado_en  ?? '',
           fechaEstadoCambio:    c.fecha_estado_cambio ?? '',
           motivoEstadoCambio:   c.motivo_estado_cambio ?? '',
           createdAt:            c.created_at,
@@ -470,34 +476,9 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
       setCreditosSimulacion(simulaciones);
       setAsociadosDisponibles(asociadosData || []);
 
-      // ── Cargar solicitudes de crédito desde tabla unificada ─────────────
-      const { data: solData } = await supabase
-        .from('solicitudes')
-        .select('*, asociados(nombre, cedula)')
-        .eq('tipo', 'credito')
-        .order('created_at', { ascending: false });
-
-      const solMapeadas = (solData ?? []).map((s: any) => ({
-        id:               s.id,
-        asociadoId:       s.asociado_id,
-        asociado:         s.asociados?.nombre ?? 'Sin nombre',
-        cedula:           s.asociados?.cedula ?? '',
-        tipoCreditoLabel: TIPOS_CREDITO.find(t => t.value === s.datos?.tipo_credito)?.label ?? s.datos?.tipo_credito ?? '—',
-        tipoCredito:      s.datos?.tipo_credito ?? 'libre_inversion',
-        monto:            s.monto,
-        plazoMeses:       s.datos?.plazo_meses,
-        tasaInteres:      s.datos?.tasa_interes ?? 0,
-        destino:          s.datos?.destino ?? '',
-        observaciones:    s.datos?.observaciones ?? s.observaciones ?? '',
-        estado:           s.estado ?? 'pendiente',
-        notaAdmin:        s.nota_admin ?? '',
-        createdAt:        s.created_at,
-        reviewedAt:       s.fecha_resolucion,
-      }));
-
-      // Admin ve todas; asociado ve solo las suyas (por cedula)
-      setSolicitudesCredito(solMapeadas.filter((s: any) => s.estado === 'pendiente'));
-      setMisSolicitudes(solMapeadas.filter((s: any) => s.cedula === userData?.cedula));
+      // solicitudes_credito table does not exist — solicitudes are creditos with estado='pendiente'
+      setSolicitudesCredito([]);
+      setMisSolicitudes([]);
 
     } catch (err: any) {
       toast.error('Error al cargar créditos: ' + err.message);
@@ -520,14 +501,16 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
   );
 
   // ── Filtros / paginación ──────────────────────────────────────────────────
-  const creditosBase = userRole === 'asociado'
+  // can('creditos') = permiso de admin; sin él → vista propia del asociado
+  const esVistaPropia = !can('creditos');
+  const creditosBase = esVistaPropia
     ? creditos.filter(c =>
-        !c.anulado && (
+        !c.anulado && c.estadoAprobacion !== 'rechazado' && (
           (userData?.asociado_id && c.asociado_id === userData.asociado_id) ||
           (userData?.cedula && c.cedula === userData.cedula)
         )
       )
-    : creditos.filter(c => !c.anulado);
+    : creditos.filter(c => !c.anulado && c.estadoAprobacion !== 'rechazado');
 
   const filteredCreditos = creditosBase.filter(c => {
     const term = searchTerm.toLowerCase();
@@ -536,7 +519,22 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
     return matchSearch && matchEstado;
   });
 
-  const creditosAnulados = userRole === 'asociado'
+  // ── Créditos rechazados ───────────────────────────────────────────────────
+  const creditosRechazados = esVistaPropia
+    ? creditos.filter(c =>
+        !c.anulado && c.estadoAprobacion === 'rechazado' && (
+          (userData?.asociado_id && c.asociado_id === userData.asociado_id) ||
+          (userData?.cedula && c.cedula === userData.cedula)
+        )
+      )
+    : creditos.filter(c => !c.anulado && c.estadoAprobacion === 'rechazado');
+
+  const filteredRechazados = creditosRechazados.filter(c => {
+    const term = searchTerm.toLowerCase();
+    return !term || c.asociado.toLowerCase().includes(term) || c.cedula.includes(searchTerm);
+  });
+
+  const creditosAnulados = esVistaPropia
     ? creditos.filter(c =>
         c.anulado && (
           (userData?.asociado_id && c.asociado_id === userData.asociado_id) ||
@@ -557,6 +555,10 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
   const totalPagesAn   = Math.ceil(filteredAnulados.length / itemsPerPage);
   const startIndexAn   = (currentPageAnulados - 1) * itemsPerPage;
   const currentAnulados = filteredAnulados.slice(startIndexAn, startIndexAn + itemsPerPage);
+
+  const totalPagesRec  = Math.ceil(filteredRechazados.length / itemsPerPage);
+  const startIndexRec  = (currentPageRechazados - 1) * itemsPerPage;
+  const currentRechazados = filteredRechazados.slice(startIndexRec, startIndexRec + itemsPerPage);
 
   // ── Resumen de cartera ────────────────────────────────────────────────────
   const carteraActivos = creditosBase;
@@ -725,20 +727,16 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
       // ── Detectar cambio de estado ─────────────────────────────────────────
       const estadoCambio = selectedItem && formEstadoAprobacion !== formEstadoOriginal;
 
-      // Nombres exactos de columnas según el esquema de Supabase:
-      // tipo_credito, tasa_interes, plazo_meses, cuota_mensual, fecha_desembolso,
-      // estado (no estado_aprobacion), observaciones (no descripcion_soporte),
-      // url_documento, editado_por, editado_en, fecha_estado_cambio, motivo_estado_cambio
       const payload: Record<string, any> = {
-        tipo_credito:     formTipo,
+        tipo:                        formTipo,
         monto,
-        tasa_interes:     tasa,
-        plazo_meses:      plazo,
-        cuota_mensual:    cuota,
-        fecha_desembolso: formFecha,
-        estado:           formEstadoAprobacion,
-        observaciones:    formDescSoporte.trim() || null,
-        url_documento:    urlFinal,
+        tasa_interes:                tasa,
+        plazo_meses:                 plazo,
+        cuota_mensual:               cuota,
+        fecha_desembolso:            formFecha,
+        estado:                      formEstadoAprobacion,
+        observaciones:               formDescSoporte.trim() || null,
+        url_comprobante_solicitud:   urlFinal,
       };
 
       // Si el estado cambia, registrar fecha efectiva y motivo
@@ -748,15 +746,13 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
       }
 
       if (selectedItem) {
-        // ── Incluir auditoría en la edición ──────────────────────────────────
-        const payloadEdit = { ...payload, editado_por: adminNombre, editado_en: ahora };
+        const payloadEdit = { ...payload };
         await creditosApi.update(selectedItem.id, payloadEdit);
         setCreditos(prev => prev.map(c =>
           c.id === selectedItem.id ? {
             ...c, tipo: formTipo, monto, tasaInteres: tasa, plazo, cuotaMensual: cuota,
             fechaDesembolso: formFecha, estadoAprobacion: formEstadoAprobacion,
             descripcionSoporte: formDescSoporte, urlDocumento: urlFinal ?? '',
-            editadoPor: adminNombre, editadoEn: ahora,
             fechaEstadoCambio:  estadoCambio ? (formFechaEstado || ahora) : c.fechaEstadoCambio,
             motivoEstadoCambio: estadoCambio ? formMotivoEstado.trim() : c.motivoEstadoCambio,
           } : c
@@ -831,7 +827,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
       // Guardar crédito en estado 'simulacion' (no registrado aún)
       const nuevo = await creditosApi.create({
         asociado_id:      formAsociadoId,
-        tipo_credito:     formTipo,
+        tipo:             formTipo,
         monto,
         tasa_interes:     tasa,
         plazo_meses:      plazo,
@@ -919,21 +915,20 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
       if (rpcError) {
         // Fallback: update directo si el RPC aún no existe en la BD
         const { error: updateError } = await supabase.from('creditos').update({
-          estado:               'activo',
+          estado:               'aprobado',
           saldo:                simSeleccionada.monto,
-          fecha_desembolso:     new Date().toISOString().split('T')[0],
           fecha_estado_cambio:  new Date().toISOString(),
-          motivo_estado_cambio: 'Crédito confirmado y activado por el asociado',
+          motivo_estado_cambio: 'Crédito confirmado por el asociado — pendiente de desembolso',
           anulado:              false,
         }).eq('id', simSeleccionada.id);
 
         if (updateError) throw updateError;
       }
 
-      // Notificación al admin (sin columnas opcionales que podrían no existir)
+      // Notificación al admin
       supabase.from('notificaciones').insert({
-        titulo:     '✅ Crédito activo — confirmado por asociado',
-        mensaje:    `${simSeleccionada.asociado} confirmó el crédito por ${formatCurrency(simSeleccionada.monto)} a ${simSeleccionada.plazo} meses. Ya está ACTIVO.`,
+        titulo:     '✅ Crédito aprobado — confirmado por asociado',
+        mensaje:    `${simSeleccionada.asociado} confirmó el crédito por ${formatCurrency(simSeleccionada.monto)} a ${simSeleccionada.plazo} meses. Estado: APROBADO, pendiente de desembolso.`,
         tipo:       'credito_activo',
         leida:      false,
         para_admin: true,
@@ -943,8 +938,8 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
       const asocId = simSeleccionada.asociadoId ?? simSeleccionada.asociado_id;
       if (asocId) {
         supabase.from('notificaciones').insert({
-          titulo:      '🎉 Tu crédito ha sido activado',
-          mensaje:     `Tu crédito por ${formatCurrency(simSeleccionada.monto)} a ${simSeleccionada.plazo} meses ha quedado registrado y activo.`,
+          titulo:      '🎉 Tu crédito ha sido aprobado',
+          mensaje:     `Tu crédito por ${formatCurrency(simSeleccionada.monto)} a ${simSeleccionada.plazo} meses ha sido aprobado y está pendiente de desembolso.`,
           tipo:        'credito_activo',
           leida:       false,
           para_admin:  false,
@@ -952,12 +947,12 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
         }).then(() => {}).catch(() => {});
       }
 
-      toast.success('🎉 ¡Crédito activado! Ya aparece en Gestión de Créditos.');
+      toast.success('🎉 ¡Crédito aprobado! Ya aparece en Gestión de Créditos pendiente de desembolso.');
       setIsConfirmSimOpen(false);
       setSimSeleccionada(null);
       await cargarDatos();
     } catch (err: any) {
-      toast.error('Error al activar el crédito: ' + err.message);
+      toast.error('Error al aprobar el crédito: ' + err.message);
     } finally {
       setConfirmandoSim(false);
     }
@@ -1118,7 +1113,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
       p.saldo_antes ?? 0,
       p.saldo_despues ?? 0,
       p.metodo_pago ?? '',
-      p.registrado_por ?? '',
+      p.usuarios?.nombre ?? p.registrado_por ?? '',
       p.observacion ?? '',
     ]);
     const csv = [headers, ...rows]
@@ -1210,7 +1205,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
         fecha_pago:      pagoFecha,
         metodo_pago:     pagoMetodo,
         observacion:     pagoObservacion.trim() || undefined,
-        registrado_por:  nombrePagador,
+        registrado_por:  user?.id ?? null,
         url_comprobante: urlComprobante,
       });
 
@@ -1265,52 +1260,69 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
 
     setSavingSolicitud(true);
     try {
+      // Get active periodo_id
+      const { data: periodoData } = await supabase
+        .from('periodos')
+        .select('id')
+        .eq('estado', 'activo')
+        .maybeSingle();
+      const periodoId = periodoData?.id ?? null;
+
+      const tasa  = parseFloat(solTasa) || 0;
+      const cuota = calcularCuota(monto, tasa, plazo);
+
       const { data, error } = await supabase
-        .from('solicitudes')
+        .from('creditos')
         .insert({
-          tipo:        'credito',
-          asociado_id: userData?.asociado_id ?? userData?.id,
+          asociado_id:   userData?.asociado_id,
+          tipo:          solTipo,
           monto,
-          estado:      'pendiente',
-          datos: {
-            tipo_credito: solTipo,
-            plazo_meses:  plazo,
-            tasa_interes: parseFloat(solTasa) || 0,
-            destino:      solDestino.trim(),
-            observaciones: solObs.trim() || null,
-          },
+          plazo_meses:   plazo,
+          tasa_interes:  tasa,
+          cuota_mensual: cuota,
+          saldo:         monto,
+          estado:        'pendiente',
+          observaciones: (solDestino.trim() + (solObs.trim() ? '\n' + solObs.trim() : '')) || null,
+          anulado:       false,
+          periodo_id:    periodoId,
         })
         .select('*, asociados(nombre, cedula)')
         .single();
 
       if (error) throw error;
 
-      const nueva = {
-        id:          data.id,
-        asociadoId:  data.asociado_id,
-        asociado:    data.asociados?.nombre ?? userData?.nombre ?? '',
-        cedula:      data.asociados?.cedula ?? userData?.cedula ?? '',
-        tipoCreditoLabel: TIPOS_CREDITO.find(t => t.value === data.datos?.tipo_credito)?.label ?? data.datos?.tipo_credito,
-        tipoCredito: data.datos?.tipo_credito,
-        monto:       data.monto,
-        plazoMeses:  data.datos?.plazo_meses,
-        tasaInteres: data.datos?.tasa_interes ?? 0,
-        destino:     data.datos?.destino ?? '',
-        observaciones: data.datos?.observaciones ?? '',
-        estado:      'pendiente',
-        notaAdmin:   '',
-        createdAt:   data.created_at,
-        reviewedAt:  null,
+      const nuevaCred = {
+        id:                 data.id,
+        asociado:           data.asociados?.nombre ?? userData?.nombre ?? '',
+        cedula:             data.asociados?.cedula ?? userData?.cedula ?? '',
+        asociado_id:        data.asociado_id,
+        tipo:               data.tipo,
+        monto:              data.monto,
+        tasaInteres:        data.tasa_interes ?? 0,
+        plazo:              data.plazo_meses,
+        cuotaMensual:       data.cuota_mensual,
+        saldo:              data.saldo,
+        fechaDesembolso:    null,
+        estadoAprobacion:   'pendiente',
+        descripcionSoporte: data.observaciones ?? '',
+        urlDocumento:       '',
+        estado:             'pendiente',
+        anulado:            false,
+        motivoAnulacion:    '',
+        fechaEstadoCambio:  '',
+        motivoEstadoCambio: '',
+        createdAt:          data.created_at,
       };
-      setMisSolicitudes(prev => [nueva, ...prev]);
+      setCreditos(prev => [nuevaCred, ...prev]);
 
       // Notificar al admin de la nueva solicitud
       supabase.from('notificaciones').insert({
-        titulo:     '📋 Nueva solicitud de crédito',
-        mensaje:    `${userData?.nombre ?? 'Un asociado'} solicitó un crédito por ${formatCurrency(monto)} a ${plazo} meses (${TIPOS_CREDITO.find(t => t.value === solTipo)?.label ?? solTipo}). Destino: ${solDestino.trim()}.`,
-        tipo:       'solicitud_credito',
-        leida:      false,
-        para_admin: true,
+        titulo:      '📋 Nueva solicitud de crédito',
+        mensaje:     `${userData?.nombre ?? 'Un asociado'} solicitó un crédito por ${formatCurrency(monto)} a ${plazo} meses (${TIPOS_CREDITO.find(t => t.value === solTipo)?.label ?? solTipo}). Destino: ${solDestino.trim()}.`,
+        tipo:        'solicitud_credito',
+        leida:       false,
+        para_admin:  true,
+        asociado_id: userData?.asociado_id,
       }).then(() => {}).catch(() => {});
 
       toast.success('✅ Solicitud enviada al administrador', {
@@ -1333,67 +1345,37 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
       const tasa    = sol.tasaInteres || 0;
       const cuota   = calcularCuota(sol.monto, tasa, sol.plazoMeses);
 
-      // Crear el crédito real
+      // Aprobar el crédito (ya existe en creditos con estado='pendiente')
       const { data: creditoData, error: creditoErr } = await supabase
         .from('creditos')
-        .insert({
-          asociado_id:     sol.asociadoId,
-          tipo_credito:    sol.tipoCredito,
-          monto:           sol.monto,
-          tasa_interes:    tasa,
-          plazo_meses:     sol.plazoMeses,
-          cuota_mensual:   cuota,
-          saldo:           sol.monto,
-          estado:          'aprobado',
-          anulado:         false,
-          observaciones:   sol.destino || sol.observaciones || null,
+        .update({
+          estado:              'aprobado',
+          fecha_estado_cambio: ahora,
+          motivo_estado_cambio: 'Aprobado por administrador',
         })
+        .eq('id', sol.id)
         .select()
         .single();
 
       if (creditoErr) throw creditoErr;
 
-      // Marcar solicitud como aprobada
-      await supabase
-        .from('solicitudes')
-        .update({ estado: 'aprobada', fecha_resolucion: ahora, nota_admin: 'Solicitud aprobada' })
-        .eq('id', sol.id);
-
       // Notificar al asociado
       await supabase.from('notificaciones').insert({
-        usuario_id: sol.asociadoId,
-        tipo:       'solicitud_credito',
-        titulo:     '✅ Solicitud de crédito aprobada',
-        mensaje:    `Tu solicitud de crédito por ${formatCurrency(sol.monto)} (${sol.tipoCreditoLabel}) fue aprobada. El crédito ha sido creado en tu cuenta.`,
-        leida:      false,
+        asociado_id: sol.asociadoId,
+        tipo:        'solicitud_credito',
+        titulo:      '✅ Solicitud de crédito aprobada',
+        mensaje:     `Tu solicitud de crédito por ${formatCurrency(sol.monto)} fue aprobada.`,
+        leida:       false,
+        credito_id:  creditoData.id,
       });
 
-      // Actualizar estado local
+      // Actualizar estado local: mover de pendiente a aprobado
       setSolicitudesCredito(prev => prev.filter(s => s.id !== sol.id));
-      setCreditos(prev => [{
-        id:                 creditoData.id,
-        asociado:           sol.asociado,
-        cedula:             sol.cedula,
-        asociado_id:        sol.asociadoId,
-        tipo:               sol.tipoCredito,
-        monto:              sol.monto,
-        tasaInteres:        tasa,
-        plazo:              sol.plazoMeses,
-        cuotaMensual:       cuota,
-        saldo:              sol.monto,
-        fechaDesembolso:    null,
-        estadoAprobacion:   'aprobado',
-        descripcionSoporte: sol.observaciones,
-        urlDocumento:       '',
-        estado:             'aprobado',
-        anulado:            false,
-        motivoAnulacion:    '',
-        editadoPor:         '',
-        editadoEn:          '',
-        fechaEstadoCambio:  ahora,
-        motivoEstadoCambio: 'Aprobado desde solicitud',
-        createdAt:          ahora,
-      }, ...prev]);
+      setCreditos(prev => prev.map(c =>
+        c.id === sol.id
+          ? { ...c, estado: 'aprobado', estadoAprobacion: 'aprobado', fechaEstadoCambio: ahora, motivoEstadoCambio: 'Aprobado por administrador' }
+          : c
+      ));
 
       toast.success(`✅ Solicitud de ${sol.asociado} aprobada`, {
         description: `Crédito de ${formatCurrency(sol.monto)} creado y listo para desembolso.`,
@@ -1411,16 +1393,20 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
     try {
       const ahora = new Date().toISOString();
       await supabase
-        .from('solicitudes')
-        .update({ estado: 'rechazada', fecha_resolucion: ahora, nota_admin: notaRechazoSol.trim() })
+        .from('creditos')
+        .update({
+          estado:               'rechazado',
+          fecha_estado_cambio:  ahora,
+          motivo_estado_cambio: notaRechazoSol.trim(),
+        })
         .eq('id', solicitudSeleccionada.id);
 
       await supabase.from('notificaciones').insert({
-        usuario_id: solicitudSeleccionada.asociadoId,
-        tipo:       'solicitud_credito',
-        titulo:     '❌ Solicitud de crédito rechazada',
-        mensaje:    `Tu solicitud de crédito por ${formatCurrency(solicitudSeleccionada.monto)} fue rechazada. Motivo: ${notaRechazoSol.trim()}`,
-        leida:      false,
+        asociado_id: solicitudSeleccionada.asociadoId,
+        tipo:        'solicitud_credito',
+        titulo:      '❌ Solicitud de crédito rechazada',
+        mensaje:     `Tu solicitud de crédito por ${formatCurrency(solicitudSeleccionada.monto)} fue rechazada. Motivo: ${notaRechazoSol.trim()}`,
+        leida:       false,
       });
 
       setSolicitudesCredito(prev => prev.filter(s => s.id !== solicitudSeleccionada.id));
@@ -1432,6 +1418,71 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
       toast.error('Error al rechazar la solicitud: ' + err.message);
     } finally {
       setSavingRechazarSol(false);
+    }
+  };
+
+  // ── Registrar desembolso (admin) ──────────────────────────────────────────
+  const handleRegistrarDesembolso = async () => {
+    if (!selectedItem) return;
+    if (!desembolsoFecha) { toast.error('Selecciona la fecha de desembolso'); return; }
+    setGuardandoDesembolso(true);
+    try {
+      // Subir comprobante al bucket privado 'comprobantes'
+      let comprobantePath: string | null = null;
+      if (desembolsoArchivo) {
+        const ext  = desembolsoArchivo.name.split('.').pop() ?? 'bin';
+        const path = `${selectedItem.id}/${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from('comprobantes')
+          .upload(path, desembolsoArchivo, { upsert: false });
+        if (upErr) throw new Error('Error al subir comprobante: ' + upErr.message);
+        comprobantePath = path;
+      }
+
+      const { error } = await supabase.from('creditos').update({
+        fecha_desembolso:     desembolsoFecha,
+        estado:               'desembolsado',
+        fecha_estado_cambio:  new Date().toISOString(),
+        motivo_estado_cambio: 'Desembolso registrado por administrador',
+      }).eq('id', selectedItem.id);
+
+      if (error) throw error;
+
+      // Notificar al asociado
+      supabase.from('notificaciones').insert({
+        titulo:     '💰 Tu crédito ha sido desembolsado',
+        mensaje:    `Tu crédito por ${formatCurrency(selectedItem.monto)} fue desembolsado el ${desembolsoFecha}${desembolsoReferencia ? `. Ref: ${desembolsoReferencia}` : ''}${comprobantePath ? '. Puedes ver el comprobante en Mis Créditos.' : ''}.`,
+        tipo:       'credito_desembolsado',
+        leida:      false,
+        para_admin: false,
+        asociado_id: selectedItem.asociado_id,
+      }).then(() => {}).catch(() => {});
+
+      toast.success('✅ Desembolso registrado correctamente', {
+        description: `${selectedItem.asociado} · ${formatCurrency(selectedItem.monto)} · ${desembolsoFecha}`,
+      });
+      setIsDesembolsoOpen(false);
+      setDesembolsoFecha('');
+      setDesembolsoReferencia('');
+      setDesembolsoArchivo(null);
+      await cargarDatos();
+    } catch (err: any) {
+      toast.error('Error al registrar desembolso: ' + err.message);
+    } finally {
+      setGuardandoDesembolso(false);
+    }
+  };
+
+  // ── Obtener URL firmada del comprobante (bucket privado) ──────────────────
+  const handleVerComprobante = async (path: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('comprobantes')
+        .createSignedUrl(path, 3600); // 1 hora de validez
+      if (error) throw error;
+      window.open(data.signedUrl, '_blank');
+    } catch (err: any) {
+      toast.error('No se pudo abrir el comprobante: ' + err.message);
     }
   };
 
@@ -2217,7 +2268,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
       {/* ── Dialog solicitar crédito (asociado) ── */}
       <Dialog open={isSolicitudDialogOpen} onOpenChange={(open) => {
         setIsSolicitudDialogOpen(open);
-        if (!open) { setSolMonto(''); setSolTipo('libre_inversion'); setSolPlazo(''); setSolTasa(''); setSolDestino(''); setSolObs(''); }
+        if (!open) { setSolMonto(''); setSolTipo('libre_inversion'); setSolPlazo(''); setSolTasa(''); setSolDestino(''); setSolObs(''); setSolBanco(''); setSolTipoCuenta('ahorros'); setSolNumeroCuenta(''); }
       }}>
         <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto">
           <DialogHeader>
@@ -2344,6 +2395,36 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
             <div className="space-y-1.5">
               <Label>Observaciones adicionales</Label>
               <Textarea placeholder="Información adicional para el administrador..." value={solObs} onChange={(e) => setSolObs(e.target.value)} rows={3} />
+            </div>
+
+            {/* Datos bancarios para desembolso */}
+            <div className="space-y-3 pt-1">
+              <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2 border-t border-slate-100 pt-3">
+                <Landmark className="size-4 text-indigo-500" />
+                Datos bancarios para desembolso
+              </h4>
+              <p className="text-[11px] text-slate-400 -mt-1">Si el crédito es aprobado, el dinero se transferirá a esta cuenta.</p>
+              <div className="space-y-1.5">
+                <Label>Banco <span className="text-red-500">*</span></Label>
+                <Input placeholder="Ej. Bancolombia, Nequi, Davivienda…" value={solBanco} onChange={(e) => setSolBanco(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Tipo de cuenta <span className="text-red-500">*</span></Label>
+                  <Select value={solTipoCuenta} onValueChange={setSolTipoCuenta}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ahorros">Ahorros</SelectItem>
+                      <SelectItem value="corriente">Corriente</SelectItem>
+                      <SelectItem value="digital">Digital / Billetera</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Número de cuenta <span className="text-red-500">*</span></Label>
+                  <Input placeholder="Ej. 1234567890" value={solNumeroCuenta} onChange={(e) => setSolNumeroCuenta(e.target.value.replace(/\D/g, ''))} />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -2757,6 +2838,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                     )}
                   </TabsContent>
                 </Tabs>
+
               </div>
             );
           })()}
@@ -3107,8 +3189,8 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
     </div>
   );
 
-  // ── Ruta exclusiva para el rol asociado ──────────────────────────────────
-  if (userRole === 'asociado') return renderVistaAsociado();
+  // ── Ruta exclusiva para la vista propia del asociado ─────────────────────
+  if (esVistaPropia) return renderVistaAsociado();
 
   const renderTable = (list: any[], isAnulados = false) => (
     <div className="rounded-lg border border-slate-200 overflow-hidden">
@@ -3194,7 +3276,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
               </TableCell>
               <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                 <div className="flex gap-1.5 justify-end">
-                  {!isAnulados && userRole === 'asociado' && c.saldo > 0 && (
+                  {!isAnulados && esVistaPropia && c.saldo > 0 && (
                     <Button
                       size="sm"
                       className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -3204,8 +3286,24 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                       <Banknote className="size-3.5" /> Pagar
                     </Button>
                   )}
-                  {!isAnulados && userRole === 'admin' && (
+                  {!isAnulados && !esVistaPropia && (
                     <>
+                      {c.estadoAprobacion === 'aprobado' && (
+                        <Button
+                          variant="outline" size="sm"
+                          title="Registrar desembolso"
+                          className="hover:bg-indigo-50 border-indigo-200"
+                          onClick={() => {
+                            setSelectedItem(c);
+                            setDesembolsoFecha(new Date().toISOString().split('T')[0]);
+                            setDesembolsoReferencia('');
+                            setDesembolsoArchivo(null);
+                            setIsDesembolsoOpen(true);
+                          }}
+                        >
+                          <Landmark className="size-4 text-indigo-600" />
+                        </Button>
+                      )}
                       <Button variant="outline" size="sm" title="Editar"
                         onClick={() => handleOpenCreate(c)}>
                         <Edit className="size-4" />
@@ -3216,7 +3314,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                       </Button>
                     </>
                   )}
-                  {isAnulados && userRole === 'admin' && (
+                  {isAnulados && !esVistaPropia && (
                     <Button
                       variant="outline" size="sm"
                       title="Eliminar definitivamente"
@@ -3261,7 +3359,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
   );
 
   return (
-    <div className="p-8 bg-slate-50 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* ── Encabezado ── */}
@@ -3269,10 +3367,10 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
           <div>
             <h1 className="text-slate-900 mb-2">Gestión de Créditos</h1>
             <p className="text-slate-600">
-              {userRole === 'asociado' ? 'Consulta tus créditos' : 'Administra los créditos de los asociados'}
+              {esVistaPropia ? 'Consulta tus créditos' : 'Administra los créditos de los asociados'}
             </p>
           </div>
-          {userRole === 'admin' && (
+          {!esVistaPropia && (
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -3325,7 +3423,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                    Cartera total
+                    Saldo total
                   </p>
                   <p className="text-2xl font-bold text-indigo-700">
                     {formatCurrency(totalCartera)}
@@ -3395,41 +3493,6 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
             </CardContent>
           </Card>
 
-          {/* Card 4 — Indicadores de condiciones */}
-          <Card className="border-0 shadow-sm bg-white">
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                    Condiciones promedio
-                  </p>
-                  <p className="text-2xl font-bold text-orange-700">
-                    {tasaPromedio > 0 ? `${tasaPromedio.toFixed(2)}% EA` : 'Sin tasa'}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1">Tasa de interés promedio</p>
-                </div>
-                <div className="p-3 rounded-xl bg-orange-50">
-                  <TrendingUp className="size-5 text-orange-600" />
-                </div>
-              </div>
-              <div className="mt-4 space-y-1.5 text-xs text-slate-500">
-                <div className="flex justify-between">
-                  <span>Plazo promedio</span>
-                  <span className="font-semibold text-slate-700">
-                    {plazoPromedio > 0 ? `${plazoPromedio} meses` : '—'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Cuota promedio</span>
-                  <span className="font-semibold text-slate-700">
-                    {carteraActivos.length > 0
-                      ? formatCurrency(Math.round(totalCuotaMensual / carteraActivos.length))
-                      : '—'}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
         </div>
 
@@ -3498,9 +3561,12 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="activos">
-              <TabsList className="grid w-full grid-cols-3 mb-4">
+              <TabsList className="grid w-full grid-cols-5 mb-4">
                 <TabsTrigger value="activos" className="gap-2">
                   <CreditCard className="size-4" /> Activos ({filteredCreditos.length})
+                </TabsTrigger>
+                <TabsTrigger value="rechazados" className="gap-2">
+                  <XCircle className="size-4" /> Rechazados ({filteredRechazados.length})
                 </TabsTrigger>
                 <TabsTrigger value="anulados" className="gap-2">
                   <FileText className="size-4" /> Anulados ({filteredAnulados.length})
@@ -3525,6 +3591,22 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
               <TabsContent value="activos" className="space-y-3">
                 {renderTable(currentList)}
                 {filteredCreditos.length > 0 && renderPagination(totalPages, currentPage, setCurrentPage, filteredCreditos.length, startIndex)}
+              </TabsContent>
+              <TabsContent value="rechazados" className="space-y-3">
+                {filteredRechazados.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-3">
+                    <div className="p-4 bg-slate-100 rounded-full">
+                      <XCircle className="size-8 text-slate-300" />
+                    </div>
+                    <p className="font-semibold text-slate-500">Sin créditos rechazados</p>
+                    <p className="text-sm">Los créditos con estado rechazado aparecerán aquí.</p>
+                  </div>
+                ) : (
+                  <>
+                    {renderTable(currentRechazados)}
+                    {filteredRechazados.length > 0 && renderPagination(totalPagesRec, currentPageRechazados, setCurrentPageRechazados, filteredRechazados.length, startIndexRec)}
+                  </>
+                )}
               </TabsContent>
               <TabsContent value="anulados" className="space-y-3">
                 {renderTable(currentAnulados, true)}
@@ -3582,6 +3664,12 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                                   <p className="text-xs text-slate-500">
                                     <span className="font-semibold">Observaciones:</span> {sol.observaciones}
                                   </p>
+                                )}
+                                {sol.banco && (
+                                  <div className="flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1.5 mt-1">
+                                    <Landmark className="size-3.5 shrink-0 text-indigo-500" />
+                                    <span><strong>Cuenta destino:</strong> {sol.banco} · {sol.tipoCuenta} · {sol.numeroCuenta}</span>
+                                  </div>
                                 )}
                                 <p className="text-[11px] text-slate-400">
                                   Solicitado: {new Date(sol.createdAt).toLocaleString('es-CO', {
@@ -3684,6 +3772,26 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
             </DialogDescription>
           </DialogHeader>
 
+          {/* Banner de solo lectura cuando el crédito ya fue desembolsado o pagado */}
+          {selectedItem && ['desembolsado', 'pagado'].includes(selectedItem.estadoAprobacion) && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg mb-2">
+              <AlertTriangle className="size-5 text-amber-600 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800">
+                  Crédito en estado "{selectedItem.estadoAprobacion === 'desembolsado' ? 'Desembolsado' : 'Pagado'}" — solo lectura
+                </p>
+                <p className="text-xs text-amber-700">
+                  {selectedItem.estadoAprobacion === 'desembolsado'
+                    ? 'El dinero ya fue entregado al asociado. No se puede modificar ningún campo financiero.'
+                    : 'Este crédito ya fue cancelado en su totalidad. No se pueden realizar cambios.'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {(() => {
+            const bloqueado = !!(selectedItem && ['desembolsado', 'pagado'].includes(selectedItem.estadoAprobacion));
+            return (
           <div className="space-y-5 py-2">
 
             {/* ── Sección: Asociado ── */}
@@ -3732,7 +3840,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                 <Label htmlFor="tipo-credito" className="flex items-center gap-1.5">
                   <CreditCard className="size-3.5 text-indigo-500" /> Tipo de crédito <span className="text-red-500">*</span>
                 </Label>
-                <Select value={formTipo} onValueChange={setFormTipo}>
+                <Select value={formTipo} onValueChange={setFormTipo} disabled={bloqueado}>
                   <SelectTrigger id="tipo-credito">
                     <SelectValue placeholder="Selecciona el tipo" />
                   </SelectTrigger>
@@ -3751,6 +3859,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                   <Input id="monto" type="text" placeholder="5.000.000"
                     value={formMonto}
                     onChange={(e) => setFormMonto(e.target.value.replace(/[^\d.]/g, ''))}
+                    disabled={bloqueado}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -3761,6 +3870,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                     placeholder="12.5"
                     value={formTasa}
                     onChange={(e) => setFormTasa(e.target.value)}
+                    disabled={bloqueado}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -3770,6 +3880,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                   <Input id="plazo" type="number" min="1" max="360" placeholder="36"
                     value={formPlazo}
                     onChange={(e) => setFormPlazo(e.target.value)}
+                    disabled={bloqueado}
                   />
                 </div>
               </div>
@@ -3795,38 +3906,43 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                     <Calendar className="size-3.5 text-slate-500" /> Fecha de desembolso <span className="text-red-500">*</span>
                   </Label>
                   <Input id="fecha" type="date" value={formFecha}
-                    onChange={(e) => setFormFecha(e.target.value)} />
+                    onChange={(e) => setFormFecha(e.target.value)}
+                    disabled={bloqueado} />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5">
-                    <Check className="size-3.5 text-emerald-500" /> Estado de aprobación <span className="text-red-500">*</span>
+                    <Check className="size-3.5 text-emerald-500" /> Estado
                   </Label>
-                  <Select
-                    value={formEstadoAprobacion}
-                    onValueChange={(v) => {
-                      setFormEstadoAprobacion(v);
-                      // Pre-rellenar fecha efectiva con hoy si aún está vacía
-                      if (!formFechaEstado) {
-                        setFormFechaEstado(new Date().toISOString().split('T')[0]);
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ESTADOS_APROBACION
-                        .filter(e => selectedItem
-                          // Edición: mostrar todos los estados
-                          ? true
-                          // Creación: ocultar estados que no aplican al momento de registrar
-                          : !['desembolsado', 'rechazado', 'pagado', 'en_mora', 'aprobado', 'simulacion'].includes(e.value)
-                        )
-                        .map(e => (
-                          <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                  {selectedItem ? (
+                    /* Edición: selector completo para el admin */
+                    <Select
+                      value={formEstadoAprobacion}
+                      onValueChange={(v) => {
+                        setFormEstadoAprobacion(v);
+                        if (!formFechaEstado) {
+                          setFormFechaEstado(new Date().toISOString().split('T')[0]);
+                        }
+                      }}
+                      disabled={bloqueado}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {ESTADOS_APROBACION
+                          .filter(e => ['pendiente', 'aprobado', 'desembolsado', 'rechazado', 'en_mora', 'pagado'].includes(e.value))
+                          .map(e => (
+                            <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    /* Nuevo crédito: siempre empieza en Pendiente */
+                    <div className="flex items-center h-9 px-3 rounded-md border border-slate-200 bg-slate-50 gap-2">
+                      <Badge variant="outline" className="bg-yellow-100 text-yellow-700 border-yellow-200 text-xs font-medium">
+                        Pendiente
+                      </Badge>
+                      <span className="text-xs text-slate-400">Cambia a <strong>Aprobado</strong> cuando el asociado confirme</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -3858,6 +3974,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                         value={formFechaEstado}
                         onChange={(e) => setFormFechaEstado(e.target.value)}
                         className="text-sm"
+                        disabled={bloqueado}
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -3872,6 +3989,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                         value={formMotivoEstado}
                         onChange={(e) => setFormMotivoEstado(e.target.value)}
                         className="text-sm"
+                        disabled={bloqueado}
                       />
                     </div>
                   </div>
@@ -3897,6 +4015,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                   rows={3}
                   value={formDescSoporte}
                   onChange={(e) => setFormDescSoporte(e.target.value)}
+                  disabled={bloqueado}
                 />
               </div>
 
@@ -3923,7 +4042,12 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                 />
 
                 {/* ¿Ya hay archivo nuevo seleccionado? */}
-                {formArchivoFile ? (
+                {bloqueado ? (
+                  <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-400">
+                    <Paperclip className="size-4" />
+                    No se pueden adjuntar archivos en este estado
+                  </div>
+                ) : formArchivoFile ? (
                   <div className="flex items-center gap-3 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg">
                     <div className="p-2 bg-emerald-100 rounded-lg shrink-0">
                       <FileText className="size-4 text-emerald-600" />
@@ -4041,10 +4165,11 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
               </div>
             </div>
           </div>
+          ); })()}
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => { setIsCreateDialogOpen(false); setSelectedItem(null); }}>
-              Cancelar
+              {selectedItem && ['desembolsado', 'pagado'].includes(selectedItem.estadoAprobacion) ? 'Cerrar' : 'Cancelar'}
             </Button>
             {/* Solo mostrar "Ver simulación" cuando es un crédito nuevo */}
             {!selectedItem && (
@@ -4058,9 +4183,12 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                 Ver simulación primero
               </Button>
             )}
-            <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleSaveCredito} disabled={saving}>
-              {saving ? 'Guardando...' : selectedItem ? 'Actualizar crédito' : 'Registrar directamente'}
-            </Button>
+            {/* Ocultar botón guardar si el crédito está bloqueado */}
+            {!(selectedItem && ['desembolsado', 'pagado'].includes(selectedItem.estadoAprobacion)) && (
+              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleSaveCredito} disabled={saving}>
+                {saving ? 'Guardando...' : selectedItem ? 'Actualizar crédito' : 'Registrar directamente'}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -5008,19 +5136,36 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                     </div>
                   </TabsContent>
                 </Tabs>
+
               </div>
             );
           })()}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>Cerrar</Button>
-            {selectedItem && !selectedItem.anulado && userRole === 'admin' && (
-              <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => {
-                setIsDetailDialogOpen(false);
-                handleOpenCreate(selectedItem);
-              }}>
-                <Edit className="size-4 mr-1.5" /> Editar crédito
-              </Button>
+            {selectedItem && !selectedItem.anulado && !esVistaPropia && (
+              <>
+                {selectedItem.estadoAprobacion === 'aprobado' && !selectedItem.fechaDesembolso && (
+                  <Button
+                    className="gap-2 bg-indigo-600 hover:bg-indigo-700"
+                    onClick={() => {
+                      setIsDetailDialogOpen(false);
+                      setDesembolsoFecha(new Date().toISOString().split('T')[0]);
+                      setDesembolsoReferencia('');
+                      setDesembolsoArchivo(null);
+                      setIsDesembolsoOpen(true);
+                    }}
+                  >
+                    <Landmark className="size-4" /> Registrar desembolso
+                  </Button>
+                )}
+                <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => {
+                  setIsDetailDialogOpen(false);
+                  handleOpenCreate(selectedItem);
+                }}>
+                  <Edit className="size-4 mr-1.5" /> Editar crédito
+                </Button>
+              </>
             )}
           </DialogFooter>
         </DialogContent>
@@ -5632,7 +5777,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
       {/* ════════════════════════════════════════════════════════════════════ */}
       <Dialog open={isSolicitudDialogOpen} onOpenChange={(open) => {
         setIsSolicitudDialogOpen(open);
-        if (!open) { setSolMonto(''); setSolTipo('libre_inversion'); setSolPlazo(''); setSolTasa(''); setSolDestino(''); setSolObs(''); }
+        if (!open) { setSolMonto(''); setSolTipo('libre_inversion'); setSolPlazo(''); setSolTasa(''); setSolDestino(''); setSolObs(''); setSolBanco(''); setSolTipoCuenta('ahorros'); setSolNumeroCuenta(''); }
       }}>
         <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto">
           <DialogHeader>
@@ -5783,6 +5928,36 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                 rows={3}
               />
             </div>
+
+            {/* Datos bancarios para desembolso */}
+            <div className="space-y-3 pt-1">
+              <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2 border-t border-slate-100 pt-3">
+                <Landmark className="size-4 text-indigo-500" />
+                Datos bancarios para desembolso
+              </h4>
+              <p className="text-[11px] text-slate-400 -mt-1">Si el crédito es aprobado, el dinero se transferirá a esta cuenta.</p>
+              <div className="space-y-1.5">
+                <Label>Banco <span className="text-red-500">*</span></Label>
+                <Input placeholder="Ej. Bancolombia, Nequi, Davivienda…" value={solBanco} onChange={(e) => setSolBanco(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Tipo de cuenta <span className="text-red-500">*</span></Label>
+                  <Select value={solTipoCuenta} onValueChange={setSolTipoCuenta}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ahorros">Ahorros</SelectItem>
+                      <SelectItem value="corriente">Corriente</SelectItem>
+                      <SelectItem value="digital">Digital / Billetera</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Número de cuenta <span className="text-red-500">*</span></Label>
+                  <Input placeholder="Ej. 1234567890" value={solNumeroCuenta} onChange={(e) => setSolNumeroCuenta(e.target.value.replace(/\D/g, ''))} />
+                </div>
+              </div>
+            </div>
           </div>
 
           <DialogFooter>
@@ -5848,6 +6023,115 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
       </AlertDialog>
 
       {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ── Registrar desembolso ────────────────────────────────────────── */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      <Dialog open={isDesembolsoOpen} onOpenChange={(open) => {
+        setIsDesembolsoOpen(open);
+        if (!open) { setDesembolsoFecha(''); setDesembolsoReferencia(''); setDesembolsoArchivo(null); }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Landmark className="size-5 text-indigo-600" /> Registrar desembolso
+            </DialogTitle>
+            <DialogDescription>
+              {selectedItem && `${selectedItem.asociado} · ${formatCurrency(selectedItem.monto)}`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Fecha de desembolso */}
+            <div className="space-y-1.5">
+              <Label htmlFor="desembolso-fecha">
+                Fecha de desembolso <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="desembolso-fecha"
+                type="date"
+                value={desembolsoFecha}
+                onChange={(e) => setDesembolsoFecha(e.target.value)}
+              />
+            </div>
+
+            {/* Referencia */}
+            <div className="space-y-1.5">
+              <Label htmlFor="desembolso-ref">
+                Referencia de transferencia <span className="text-xs text-slate-400 font-normal">(opcional)</span>
+              </Label>
+              <Input
+                id="desembolso-ref"
+                placeholder="Ej. REF123456789"
+                value={desembolsoReferencia}
+                onChange={(e) => setDesembolsoReferencia(e.target.value)}
+              />
+            </div>
+
+            {/* Comprobante */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <Upload className="size-3.5 text-slate-400" />
+                Comprobante de transferencia <span className="text-xs text-slate-400 font-normal">(opcional)</span>
+              </Label>
+              <div
+                className={`relative flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-5 cursor-pointer transition-colors ${
+                  desembolsoArchivo
+                    ? 'border-emerald-400 bg-emerald-50'
+                    : 'border-indigo-300 bg-indigo-50 hover:bg-indigo-100'
+                }`}
+                onClick={() => document.getElementById('desembolso-file-input')?.click()}
+              >
+                <input
+                  id="desembolso-file-input"
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    if (f && f.size > 5 * 1024 * 1024) {
+                      toast.error('El archivo supera los 5 MB permitidos');
+                      return;
+                    }
+                    setDesembolsoArchivo(f);
+                  }}
+                />
+                {desembolsoArchivo ? (
+                  <>
+                    <CheckCircle2 className="size-6 text-emerald-500" />
+                    <p className="text-sm font-medium text-emerald-700 text-center break-all">{desembolsoArchivo.name}</p>
+                    <p className="text-xs text-slate-500">{(desembolsoArchivo.size / 1024).toFixed(0)} KB · haz clic para cambiar</p>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="size-6 text-indigo-400" />
+                    <p className="text-sm font-medium text-indigo-700">Haz clic para adjuntar el comprobante</p>
+                    <p className="text-xs text-slate-500">PDF, JPG o PNG · máx. 5 MB</p>
+                  </>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                <AlertTriangle className="size-3 text-slate-300" />
+                El comprobante se guardará de forma segura. Solo visible para el asociado y el admin.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDesembolsoOpen(false)}>Cancelar</Button>
+            <Button
+              className="gap-2 bg-indigo-600 hover:bg-indigo-700"
+              disabled={guardandoDesembolso || !desembolsoFecha}
+              onClick={handleRegistrarDesembolso}
+            >
+              {guardandoDesembolso
+                ? <><div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white" /> Guardando...</>
+                : <><Landmark className="size-4" /> Registrar desembolso</>
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
       {/* ── Diálogo: Informe de desempeño de cartera ────────────────────── */}
       {/* ════════════════════════════════════════════════════════════════════ */}
       <Dialog open={isInformeDialogOpen} onOpenChange={setIsInformeDialogOpen}>
@@ -5855,7 +6139,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BarChart2 className="size-5 text-emerald-600" />
-              Informe de desempeño de cartera
+              Informe de desempeño
             </DialogTitle>
             <DialogDescription>
               Vista previa del informe · {new Date().toLocaleDateString('es-CO', {
@@ -5892,14 +6176,14 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                       <Wallet className="size-4 text-indigo-600" />
                     </div>
                     <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">
-                      1. Resumen general de cartera
+                      1. Resumen general
                     </p>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {[
                       { label: 'Créditos activos',       value: `${carteraActivos.length}`,          color: 'bg-blue-50 border-blue-100',    text: 'text-blue-700' },
                       { label: 'Créditos anulados',      value: `${creditosAnulados.length}`,         color: 'bg-red-50 border-red-100',      text: 'text-red-700' },
-                      { label: 'Cartera total',          value: formatCurrency(totalCartera),         color: 'bg-indigo-50 border-indigo-100', text: 'text-indigo-700' },
+                      { label: 'Saldo total',            value: formatCurrency(totalCartera),         color: 'bg-indigo-50 border-indigo-100', text: 'text-indigo-700' },
                       { label: 'Recaudo mensual',        value: formatCurrency(totalCuotaMensual),    color: 'bg-emerald-50 border-emerald-100', text: 'text-emerald-700' },
                       { label: 'Monto promedio',         value: formatCurrency(promedioMonto),        color: 'bg-slate-50 border-slate-200',  text: 'text-slate-700' },
                       { label: 'Cuota promedio',         value: formatCurrency(promedioCuota),        color: 'bg-slate-50 border-slate-200',  text: 'text-slate-700' },
@@ -5914,7 +6198,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                   <div className="mt-3 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
                     <div className="flex justify-between text-xs text-slate-600 mb-1.5">
                       <span className="font-semibold">Velocidad de recuperación mensual</span>
-                      <span className="font-bold text-emerald-700">{pctRecuperacion}% de la cartera por mes</span>
+                      <span className="font-bold text-emerald-700">{pctRecuperacion}% mensual</span>
                     </div>
                     <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
                       <div
@@ -5923,7 +6207,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                       />
                     </div>
                     <p className="text-[10px] text-slate-400 mt-1">
-                      Cada mes se recauda el {pctRecuperacion}% del capital total de la cartera
+                      Cada mes se recauda el {pctRecuperacion}% del capital total
                     </p>
                   </div>
                 </div>
@@ -5945,7 +6229,7 @@ export default function Creditos({ userRole, userData }: CreditosProps) {
                           <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Estado</th>
                           <th className="text-center px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Cant.</th>
                           <th className="text-center px-3 py-2 text-xs font-semibold text-slate-500 uppercase">% del total</th>
-                          <th className="text-right px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Monto (cartera)</th>
+                          <th className="text-right px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Monto</th>
                           <th className="text-right px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Cuota mensual</th>
                         </tr>
                       </thead>

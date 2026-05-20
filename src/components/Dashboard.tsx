@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import {
   Users, PiggyBank, Wallet, CreditCard, ShoppingCart, Calendar,
-  ArrowRight, UserPlus, CheckCircle, ClipboardList, TrendingUp, Landmark,
+  ArrowRight, UserPlus, CheckCircle, ClipboardList, TrendingUp, Landmark, LogIn, FileText,
 } from 'lucide-react';
 import {
   BarChart, Bar, PieChart, Pie, Cell,
@@ -41,22 +42,34 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
   const [allCreditosData, setAllCreditosData] = useState<any[]>([]);
   const [pieData,       setPieData]       = useState<any[]>([]);
   const [loadingStats,  setLoadingStats]  = useState(true);
+  const [showAccesoModal, setShowAccesoModal] = useState(false);
+  // R-03: ref para debounce — evita disparar N queries por cambios rápidos en Realtime
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const recargarDashboard = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      cargarDatosGraficas();
+      cargarStatsAdmin();
+    }, 600); // agrupa cambios rápidos en una sola recarga
+  }, []);
 
   useEffect(() => {
     if (userRole === 'admin') {
       cargarStatsAdmin();
       cargarDatosGraficas();
 
-      // Suscripción en tiempo real: actualiza la gráfica de créditos cuando hay cambios
+      // R-03: suscripción con debounce — antes disparaba ~11 queries por evento
       const canal = supabase
         .channel('dashboard-creditos')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'creditos' }, () => {
-          cargarDatosGraficas();
-          cargarStatsAdmin();
-        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'creditos' }, recargarDashboard)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pagos_credito' }, recargarDashboard)
         .subscribe();
 
-      return () => { supabase.removeChannel(canal); };
+      return () => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        supabase.removeChannel(canal);
+      };
     } else if (userRole === 'asociado' && userData?.cedula) {
       cargarStatsAsociado(userData.cedula);
     } else {
@@ -66,14 +79,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
 
   async function cargarStatsAdmin() {
     try {
-      const [stats, { count: eventos }] = await Promise.all([
-        dashboardApi.getStats(),
-        supabase
-          .from('eventos')
-          .select('*', { count: 'exact', head: true })
-          .in('estado', ['programado', 'en_curso'])
-          .gte('fecha', new Date().toISOString().split('T')[0]),
-      ]);
+      const stats = await dashboardApi.getStats();
 
       setLiveStats({
         totalAsociados:        stats.totalAsociados,
@@ -87,7 +93,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
         pedidosPendientes:     stats.pedidosPendientes,
         solicitudesPendientes: stats.solicitudesPendientes,
         liquidacionesPend:     stats.liquidacionesPend,
-        proximosEventos:       eventos ?? 0,
+        proximosEventos:       0, // tabla 'eventos' no implementada aún
       });
     } catch (err) {
       console.error('Error cargando stats:', err);
@@ -104,20 +110,22 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
       desde.setDate(1);
       const desdeStr = desde.toISOString().split('T')[0];
 
-      const [{ data: movsPerm }, { data: movsVol }, { data: credsMes }] = await Promise.all([
-        supabase.from('movimientos_ahorro_permanente')
-          .select('fecha_movimiento, monto')
-          .gte('fecha_movimiento', desdeStr)
-          .eq('tipo_movimiento', 'Aporte'),
-        supabase.from('movimientos_ahorro_voluntario')
-          .select('fecha_movimiento, monto')
-          .gte('fecha_movimiento', desdeStr)
-          .in('tipo_movimiento', ['Depósito', 'Aporte']),
+      const [{ data: pagosPerm }, { data: pagosVol }, { data: credsMes }] = await Promise.all([
+        // Pagos ahorro permanente del período
+        supabase.from('pagos_ahorro_permanente')
+          .select('fecha_pago, monto_total_pagado')
+          .gte('fecha_pago', desdeStr),
+        // Pagos ahorro voluntario del período
+        supabase.from('pagos_ahorro_voluntario')
+          .select('fecha_pago, monto')
+          .gte('fecha_pago', desdeStr),
         supabase.from('creditos')
           .select('created_at, monto')
           .gte('created_at', desdeStr + 'T00:00:00')
           .neq('anulado', true),
       ]);
+      const movsPerm = pagosPerm || [];
+      const movsVol  = pagosVol  || [];
 
       // Construir array de 6 meses
       const meses: { key: string; mes: string; permanente: number; voluntario: number; creditos: number }[] = [];
@@ -129,12 +137,12 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
         meses.push({ key, mes: mes.charAt(0).toUpperCase() + mes.slice(1, 3), permanente: 0, voluntario: 0, creditos: 0 });
       }
 
-      (movsPerm || []).forEach((m: any) => {
-        const entry = meses.find(x => x.key === m.fecha_movimiento?.substring(0, 7));
-        if (entry) entry.permanente += m.monto || 0;
+      movsPerm.forEach((m: any) => {
+        const entry = meses.find(x => x.key === m.fecha_pago?.substring(0, 7));
+        if (entry) entry.permanente += m.monto_total_pagado || 0;
       });
-      (movsVol || []).forEach((m: any) => {
-        const entry = meses.find(x => x.key === m.fecha_movimiento?.substring(0, 7));
+      movsVol.forEach((m: any) => {
+        const entry = meses.find(x => x.key === m.fecha_pago?.substring(0, 7));
         if (entry) entry.voluntario += m.monto || 0;
       });
       (credsMes || []).forEach((c: any) => {
@@ -190,21 +198,31 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
 
   async function cargarStatsAsociado(cedula: string) {
     try {
-      const { data: asociado } = await supabase
+      // B-05: 'ahorros' no existe — las tablas reales son ahorros_permanentes y ahorros_voluntarios
+      const { data: asoc } = await supabase
         .from('asociados')
-        .select('ahorro_permanente(monto_ahorrado), ahorro_voluntario(monto_ahorrado), creditos(id, anulado, estado)')
+        .select('id, creditos(id, anulado, estado)')
         .eq('cedula', cedula)
         .single();
 
-      const ahorroPerm  = (asociado?.ahorro_permanente || []).reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
-      const ahorroVol   = (asociado?.ahorro_voluntario  || []).reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
-      const credActivos = (asociado?.creditos || []).filter((c: any) => !c.anulado && ['activo','desembolsado','en_mora'].includes(c.estado)).length;
+      if (!asoc) return;
 
-      const { count: eventos } = await supabase
-        .from('eventos')
-        .select('*', { count: 'exact', head: true })
-        .in('estado', ['programado', 'en_curso'])
-        .gte('fecha', new Date().toISOString().split('T')[0]);
+      const [permRes, volRes] = await Promise.all([
+        supabase.from('ahorros_permanentes')
+          .select('monto_ahorrado')
+          .eq('asociado_id', asoc.id)
+          .eq('anulado', false)
+          .eq('estado', 'activo'),
+        supabase.from('ahorros_voluntarios')
+          .select('monto_ahorrado')
+          .eq('asociado_id', asoc.id)
+          .eq('anulado', false)
+          .eq('estado', 'activo'),
+      ]);
+
+      const ahorroPerm  = (permRes.data || []).reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
+      const ahorroVol   = (volRes.data  || []).reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
+      const credActivos = (asoc.creditos || []).filter((c: any) => !c.anulado && ['activo','desembolsado','en_mora'].includes(c.estado)).length;
 
       setLiveStats(prev => ({
         ...prev,
@@ -212,7 +230,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
         totalAhorrosVol:  ahorroVol,
         totalAhorros:     ahorroPerm + ahorroVol,
         totalCreditos:    credActivos,
-        proximosEventos:  eventos ?? 0,
+        proximosEventos:  0, // tabla 'eventos' no implementada aún
       }));
     } catch (err) {
       console.error('Error cargando stats asociado:', err);
@@ -272,10 +290,9 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
 
   // ── Tarjetas asociado ─────────────────────────────────────────────────────
   const asociadoStats = [
-    { title: 'Ahorro permanente', value: fmtCOP(liveStats.totalAhorrosPerm), sub: 'Tu saldo actual', icon: PiggyBank, color: 'emerald' },
-    { title: 'Ahorro voluntario', value: fmtCOP(liveStats.totalAhorrosVol),  sub: 'Tu saldo actual', icon: Wallet,    color: 'blue' },
-    { title: 'Créditos activos',  value: String(liveStats.totalCreditos),    sub: 'En curso',         icon: CreditCard,color: 'amber' },
-    { title: 'Próximos eventos',  value: String(liveStats.proximosEventos),  sub: 'Este mes',         icon: Calendar,  color: 'cyan' },
+    { title: 'Ahorro permanente', value: fmtCOP(liveStats.totalAhorrosPerm), sub: 'Tu saldo actual', icon: PiggyBank,  color: 'emerald' },
+    { title: 'Ahorro voluntario', value: fmtCOP(liveStats.totalAhorrosVol),  sub: 'Tu saldo actual', icon: Wallet,     color: 'blue'    },
+    { title: 'Créditos activos',  value: String(liveStats.totalCreditos),    sub: 'En curso',        icon: CreditCard, color: 'amber'   },
   ];
 
   const stats = userRole === 'asociado' ? asociadoStats : adminStats;
@@ -301,7 +318,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
 
   // ── JSX ──────────────────────────────────────────────────────────────────
   return (
-    <div className="p-8 space-y-6 bg-slate-50 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-slate-50 dark:bg-slate-900 min-h-screen">
 
       {/* Banner "Hazte Asociado" — solo visitantes */}
       {!userData && (
@@ -316,14 +333,14 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
               </div>
               <p className="text-emerald-50 text-lg mb-4">Forma parte de nuestra familia y disfruta de todos los beneficios</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                {['Ahorros con intereses competitivos','Créditos con bajas tasas','Eventos exclusivos','Beneficios especiales'].map(b => (
+                {['Ahorros con intereses competitivos','Créditos con bajas tasas','Beneficios especiales','Solidaridad y cooperación'].map(b => (
                   <div key={b} className="flex items-center gap-2">
                     <CheckCircle className="size-5 text-emerald-200" />
                     <span className="text-emerald-50">{b}</span>
                   </div>
                 ))}
               </div>
-              <Button size="lg" className="bg-white text-emerald-600 hover:bg-emerald-50 shadow-lg gap-2" onClick={() => onNavigate?.('login')}>
+              <Button size="lg" className="bg-white text-emerald-600 hover:bg-emerald-50 shadow-lg gap-2" onClick={() => setShowAccesoModal(true)}>
                 <UserPlus className="size-5" />Hazte Asociado<ArrowRight className="size-4" />
               </Button>
             </div>
@@ -345,6 +362,48 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
         </div>
       )}
 
+      {/* ── Modal de acceso: "Ya tengo cuenta" vs "Soy nuevo" ─────────────── */}
+      <Dialog open={showAccesoModal} onOpenChange={setShowAccesoModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-slate-900">¡Bienvenido a UFCA!</DialogTitle>
+            <DialogDescription className="text-slate-500">
+              ¿Cómo quieres continuar?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            {/* Opción 1 — Ya tengo cuenta */}
+            <button
+              onClick={() => { setShowAccesoModal(false); onNavigate?.('login'); }}
+              className="group flex flex-col items-center gap-3 p-6 rounded-2xl border-2 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50 transition-all text-center"
+            >
+              <div className="p-3 bg-slate-100 group-hover:bg-emerald-100 rounded-full transition-colors">
+                <LogIn className="size-7 text-slate-600 group-hover:text-emerald-700 transition-colors" />
+              </div>
+              <div>
+                <p className="font-semibold text-slate-900 text-sm">Ya tengo cuenta</p>
+                <p className="text-xs text-slate-500 mt-1">Iniciar sesión</p>
+              </div>
+            </button>
+
+            {/* Opción 2 — Soy nuevo */}
+            <button
+              onClick={() => { setShowAccesoModal(false); onNavigate?.('solicitud'); }}
+              className="group flex flex-col items-center gap-3 p-6 rounded-2xl border-2 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50 transition-all text-center"
+            >
+              <div className="p-3 bg-slate-100 group-hover:bg-emerald-100 rounded-full transition-colors">
+                <FileText className="size-7 text-slate-600 group-hover:text-emerald-700 transition-colors" />
+              </div>
+              <div>
+                <p className="font-semibold text-slate-900 text-sm">Soy nuevo</p>
+                <p className="text-xs text-slate-500 mt-1">Solicitar afiliación</p>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Encabezado */}
       <div className="flex items-center justify-between">
         <div>
@@ -360,7 +419,13 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
             <p className="text-slate-600 mt-1">Vista general del sistema UFCA</p>
           )}
         </div>
-        <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => onNavigate?.('reportes')}>
+        {/* U-01: vista 'reportes' aún no existe — botón deshabilitado hasta implementarla */}
+        <Button
+          className="gap-2"
+          variant="outline"
+          disabled
+          title="Módulo de reportes — Próximamente"
+        >
           <ArrowRight className="size-4" />Ver Reportes
         </Button>
       </div>

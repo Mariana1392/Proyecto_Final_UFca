@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -99,7 +99,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       { data: asociadosData },
       { data: auditoriaData },
     ] = await Promise.all([
-      supabase.from('usuarios').select('*, roles(nombre), asociados(telefono, cedula, direccion)').order('nombre'),
+      supabase.from('usuarios').select('*, roles(nombre, es_sistema), asociados!asociado_id(telefono, cedula, direccion)').order('nombre'),
       supabase.from('roles').select('*').order('nombre'),
       supabase.from('asociados').select('id, nombre, cedula, telefono, email, estado, created_at').order('nombre'),
       supabase.from('auditoria').select('*').eq('tabla', 'usuarios').order('created_at', { ascending: false }).limit(100),
@@ -111,9 +111,6 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     const asociadosYaVinculados = new Set(
       (usData || []).map((u: any) => u.asociado_id).filter(Boolean)
     );
-
-    // Usuarios normales
-    const ROLES_SISTEMA = ['admin', 'administrador'];
 
     // Auto-sincronizar identificacion y telefono desde asociados cuando están vacíos o inválidos
     const sincronizaciones: Promise<any>[] = [];
@@ -129,18 +126,6 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       if ((!idActual || /[a-zA-Z]/.test(idActual)) && asoc.cedula && /^\d+$/.test(asoc.cedula)) {
         updates.identificacion = asoc.cedula;
         u.identificacion = asoc.cedula;
-      }
-
-      // Teléfono vacío → tomar del asociado
-      if (!u.telefono && asoc.telefono) {
-        updates.telefono = asoc.telefono;
-        u.telefono = asoc.telefono;
-      }
-
-      // Dirección vacía → tomar del asociado
-      if (!u.direccion && asoc.direccion) {
-        updates.direccion = asoc.direccion;
-        u.direccion = asoc.direccion;
       }
 
       if (Object.keys(updates).length > 0) {
@@ -173,7 +158,8 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         fechaModificacion: u.updated_at?.split('T')[0] ?? '—',
         soloLectura:      false,
         // Usuario de sistema: no se puede modificar ni eliminar
-        esSistema:        ROLES_SISTEMA.includes(rolDb),
+        // Usa el campo `es_sistema` de la tabla `roles` — nunca hardcodeado
+        esSistema:        u.roles?.es_sistema ?? false,
       };
     });
 
@@ -191,7 +177,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         rol_id:         null,
         asociado_id:    a.id,
         ultimoAcceso:   '—',
-        estado:         a.estado ?? true,
+        estado:         a.estado === 'activo',
         fechaCreacion:    a.created_at?.split('T')[0] ?? '—',
       fechaModificacion: a.created_at?.split('T')[0] ?? '—',
         soloLectura:    true,  // bloquea editar/eliminar
@@ -299,17 +285,14 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       const [
         { data: ahorros },
         { data: creditos },
-        { data: pedidos },
       ] = await Promise.all([
-        supabase.from('ahorros').select('id').eq('asociado_id', asociadoId).eq('estado', true).eq('anulado', false).limit(1),
+        supabase.from('ahorros_permanentes').select('id').eq('asociado_id', asociadoId).eq('estado', 'activo').eq('anulado', false).limit(1),
         supabase.from('creditos').select('id').eq('asociado_id', asociadoId).in('estado', ['activo', 'pendiente', 'aprobado']).limit(1),
-        supabase.from('pedidos').select('id').eq('asociado_id', asociadoId).in('estado', ['pendiente', 'aprobado']).limit(1),
       ]);
 
       const procesos: string[] = [];
       if (ahorros && ahorros.length > 0)  procesos.push('ahorros permanentes activos');
       if (creditos && creditos.length > 0) procesos.push('créditos activos o pendientes');
-      if (pedidos  && pedidos.length > 0)  procesos.push('pedidos pendientes');
 
       if (procesos.length > 0) {
         toast.error(`No se puede desactivar a "${usuario?.nombre}"`, {
@@ -331,9 +314,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
           await supabase
             .from('asociados')
             .update({
-              estado:              nuevoEstado ? 'activo' : 'inactivo',
-              fecha_cambio_estado: new Date().toISOString(),
-              modificado_por:      authUser?.nombre ?? 'Administrador',
+              estado: nuevoEstado ? 'activo' : 'inactivo',
             })
             .eq('id', usuario.asociado_id);
         } catch {
@@ -464,8 +445,6 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         email:          formData.email.trim(),
         username:       formData.username.trim().toLowerCase(),
         identificacion: formData.identificacion.trim(),
-        telefono:       formData.telefono.trim(),
-        direccion:      formData.direccion.trim(),
         rol_id:         rolSeleccionado?.id,
         activo:         true,
         ...(asociadoId ? { asociado_id: asociadoId } : {}),
@@ -549,8 +528,6 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
           email:          formData.email.trim(),
           username:       formData.username.trim().toLowerCase(),
           identificacion: formData.identificacion.trim(),
-          telefono:       formData.telefono.trim(),
-          direccion:      formData.direccion.trim(),
           rol_id:         rolSeleccionado?.id,
         })
         .eq('id', selectedUsuario.id);
@@ -559,13 +536,11 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       // Sincronizar datos hacia la tabla asociados si el usuario tiene asociado vinculado
       if (selectedUsuario.asociado_id) {
         await supabase.from('asociados').update({
-          nombre:             formData.nombre.trim(),
-          email:              formData.email.trim(),
-          cedula:             formData.identificacion.trim(),
-          telefono:           formData.telefono.trim(),
-          direccion:          formData.direccion.trim(),
-          fecha_modificacion: new Date().toISOString(),
-          modificado_por:     authUser?.nombre ?? 'Administrador',
+          nombre:    formData.nombre.trim(),
+          email:     formData.email.trim(),
+          cedula:    formData.identificacion.trim(),
+          telefono:  formData.telefono.trim(),
+          direccion: formData.direccion.trim(),
         }).eq('id', selectedUsuario.asociado_id);
       }
 
@@ -635,27 +610,22 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     if (selectedUsuario.asociado_id) {
       try {
         const id = selectedUsuario.asociado_id;
-        const [creditosRes, ahorrosRes, pedidosRes] = await Promise.all([
+        const [creditosRes, ahorrosRes] = await Promise.all([
           supabase.from('creditos').select('id')
             .eq('asociado_id', id)
             .eq('anulado', false)
             .in('estado', ['pendiente', 'aprobado', 'desembolsado', 'en_mora', 'activo'])
             .limit(1),
-          supabase.from('ahorros').select('id')
+          supabase.from('ahorros_permanentes').select('id')
             .eq('asociado_id', id)
-            .eq('estado', true)
+            .eq('estado', 'activo')
             .eq('anulado', false)
-            .limit(1),
-          supabase.from('pedidos').select('id')
-            .eq('asociado_id', id)
-            .eq('estado', 'pendiente')
             .limit(1),
         ]);
 
         const bloqueos: string[] = [];
         if ((creditosRes.data?.length ?? 0) > 0) bloqueos.push('créditos');
         if ((ahorrosRes.data?.length  ?? 0) > 0) bloqueos.push('ahorros activos');
-        if ((pedidosRes.data?.length  ?? 0) > 0) bloqueos.push('pedidos');
 
         if (bloqueos.length > 0) {
           toast.error('No se puede eliminar este asociado', {
@@ -781,7 +751,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
 
   // ── JSX ──────────────────────────────────────────────────────────────────────
   return (
-    <div className="p-8 bg-slate-50 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* Header */}
@@ -865,7 +835,6 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                     <TableHead>Usuario</TableHead>
                     <TableHead>Identificación</TableHead>
                     <TableHead>Rol</TableHead>
-                    <TableHead>Último acceso</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
@@ -873,7 +842,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                 <TableBody>
                   {usuarios.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-12">
+                      <TableCell colSpan={5} className="text-center py-12">
                         <div className="flex flex-col items-center gap-3 text-slate-500">
                           <UserCircle className="size-16 text-slate-300" />
                           <div>
@@ -885,7 +854,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                     </TableRow>
                   ) : currentUsuarios.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-12">
+                      <TableCell colSpan={5} className="text-center py-12">
                         <div className="flex flex-col items-center gap-3 text-slate-500">
                           <Search className="size-12 text-slate-300" />
                           <div>
@@ -934,9 +903,6 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                         </TableCell>
                         <TableCell>
                           <Badge className={getRolColor(usuario.rol)}>{usuario.rol}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <p className="text-slate-600 text-sm">{usuario.ultimoAcceso}</p>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-2">

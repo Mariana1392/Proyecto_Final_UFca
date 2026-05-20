@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import { CheckCircle, Sparkles, Target, Trophy, UserPlus, Users, X, Shield, UserCircle2, Award, Calendar, MapPin, Clock, PiggyBank, CreditCard, TrendingUp, Upload, FileText, ImageIcon, Briefcase, Trash2, AlertCircle } from 'lucide-react';
@@ -145,15 +145,23 @@ function FileZone({ config, file, onSelect }: FileZoneProps) {
 interface HeroProps {
   onNavigateToDashboard: () => void;
   onNavigateToLogin: () => void;
+  autoOpenForm?: boolean;
 }
 
-export default function Hero({ onNavigateToDashboard, onNavigateToLogin }: HeroProps) {
+export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpenForm }: HeroProps) {
   const [showSolicitudModal, setShowSolicitudModal] = useState(false);
+
+  // Si viene desde Dashboard con "Soy nuevo", saltamos directo al form
+  useEffect(() => {
+    if (autoOpenForm) setShowSolicitudModal(true);
+  }, [autoOpenForm]);
+
   const [submitting, setSubmitting] = useState(false);
   const [uploadingDocs, setUploadingDocs] = useState(false);
   const [formData, setFormData] = useState({
     nombres: '', apellidos: '', cedula: '', telefono: '',
-    email: '', direccion: '', ocupacion: '', ingresoMensual: '', motivacion: '',
+    email: '', direccion: '', ocupacion: '', ingresoMensual: '',
+    cuotaAhorroMensual: '', motivacion: '',
   });
   const [documentos, setDocumentos] = useState<{
     cedula: File | null;
@@ -242,10 +250,9 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin }: HeroP
     try {
       // ── 0. Verificar cédula duplicada ANTES de subir documentos ──────────
       const { data: existente } = await supabase
-        .from('solicitudes')
+        .from('solicitudes_asociados')
         .select('id, estado')
-        .eq('tipo', 'afiliacion')
-        .filter('datos->>cedula', 'eq', formData.cedula.trim())
+        .eq('cedula', formData.cedula.trim())
         .maybeSingle();
 
       if (existente) {
@@ -271,21 +278,30 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin }: HeroP
       ]);
       setUploadingDocs(false);
 
-      // ── 2. Guardar solicitud en la BD ────────────────────────────────────
-      const { error } = await supabase.from('solicitudes').insert({
-        tipo:   'afiliacion',
-        estado: 'pendiente',
-        datos: {
-          nombres:         formData.nombres.trim(),
-          apellidos:       formData.apellidos.trim(),
-          cedula:          formData.cedula.trim(),
-          telefono:        formData.telefono.trim(),
-          email:           formData.email.trim(),
-          direccion:       formData.direccion.trim(),
-          ocupacion:       formData.ocupacion.trim(),
-          ingreso_mensual: formData.ingresoMensual,
-          motivacion:      formData.motivacion.trim(),
-        },
+      // ── 2. Validación anti-spam server-side antes de insertar (S-06) ────────
+      const { error: rpcError } = await supabase.rpc('validar_solicitud_asociacion', {
+        p_cedula:   formData.cedula.trim(),
+        p_nombres:  `${formData.nombres.trim()} ${formData.apellidos.trim()}`,
+        p_email:    formData.email.trim(),
+        p_telefono: formData.telefono.trim() || null,
+      });
+      // Si la RPC aún no está creada en Supabase, continúa igual (modo degradado)
+      if (rpcError && !rpcError.message?.includes('Could not find')) throw rpcError;
+
+      // ── 3. Guardar solicitud completa en solicitudes_asociados ────────────
+      const { error } = await supabase.from('solicitudes_asociados').insert({
+        nombres:         formData.nombres.trim(),
+        apellidos:       formData.apellidos.trim(),
+        cedula:          formData.cedula.trim(),
+        telefono:        formData.telefono.trim()  || null,
+        email:           formData.email.trim()     || null,
+        direccion:       formData.direccion.trim() || null,
+        ocupacion:       formData.ocupacion.trim() || null,
+        ingreso_mensual:        formData.ingresoMensual     ? parseFloat(formData.ingresoMensual)     : null,
+        cuota_ahorro_propuesta: formData.cuotaAhorroMensual ? parseFloat(formData.cuotaAhorroMensual) : null,
+        motivacion:             formData.motivacion.trim() || null,
+        estado:                 'pendiente',
+        documentos:             [],
       });
       if (error) throw error;
 
@@ -302,7 +318,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin }: HeroP
       toast.success('¡Solicitud enviada exitosamente!', {
         description: 'El comité evaluador revisará tus documentos y te notificará el resultado.',
       });
-      setFormData({ nombres:'', apellidos:'', cedula:'', telefono:'', email:'', direccion:'', ocupacion:'', ingresoMensual:'', motivacion:'' });
+      setFormData({ nombres:'', apellidos:'', cedula:'', telefono:'', email:'', direccion:'', ocupacion:'', ingresoMensual:'', cuotaAhorroMensual:'', motivacion:'' });
       setDocumentos({ cedula: null, cartaLaboral: null, fotografia: null });
       setShowSolicitudModal(false);
 
@@ -339,6 +355,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin }: HeroP
   // JSX original sin cambios desde aquí
   return (
     <div className="min-h-[calc(100vh-4rem)]">
+
       {/* Modal de Solicitud */}
       {showSolicitudModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -463,10 +480,64 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin }: HeroP
                     <Input
                       id="ingresoMensual"
                       name="ingresoMensual"
+                      type="number"
+                      min="0"
                       value={formData.ingresoMensual}
                       onChange={handleInputChange}
-                      placeholder="$1,000"
+                      placeholder="Ej: 2000000"
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Propuesta de Ahorro Permanente */}
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                  <div className="size-6 bg-emerald-100 rounded-full flex items-center justify-center">
+                    <span className="text-emerald-700 text-sm">3</span>
+                  </div>
+                  Propuesta de Ahorro
+                </h3>
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
+                  <div className="flex items-start gap-2">
+                    <PiggyBank className="size-5 text-emerald-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-900">
+                        Ahorro Permanente Mensual
+                      </p>
+                      <p className="text-xs text-emerald-700 mt-0.5">
+                        Al ser aceptado, este será tu aporte mensual obligatorio al fondo.
+                        El comité evaluador revisará tu propuesta según tu capacidad de pago.
+                        El mínimo del sistema es <strong>$100.000</strong>.
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="cuotaAhorroMensual" className="text-emerald-900">
+                      ¿Cuánto deseas ahorrar mensualmente? <span className="text-slate-400 font-normal">(opcional)</span>
+                    </Label>
+                    <Input
+                      id="cuotaAhorroMensual"
+                      name="cuotaAhorroMensual"
+                      type="number"
+                      min="0"
+                      value={formData.cuotaAhorroMensual}
+                      onChange={handleInputChange}
+                      placeholder="Ej: 150000"
+                      className="mt-1 bg-white border-emerald-300 focus:border-emerald-500"
+                    />
+                    {formData.cuotaAhorroMensual && Number(formData.cuotaAhorroMensual) < 100000 && (
+                      <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                        <AlertCircle className="size-3 shrink-0" />
+                        El monto propuesto es menor al mínimo ($100.000). El comité evaluará tu caso.
+                      </p>
+                    )}
+                    {formData.cuotaAhorroMensual && Number(formData.cuotaAhorroMensual) >= 100000 && (
+                      <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
+                        <CheckCircle className="size-3 shrink-0" />
+                        Propuesta válida. El comité confirmará el monto al aprobar tu solicitud.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -475,7 +546,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin }: HeroP
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                   <div className="size-6 bg-emerald-100 rounded-full flex items-center justify-center">
-                    <span className="text-emerald-700 text-sm">3</span>
+                    <span className="text-emerald-700 text-sm">4</span>
                   </div>
                   Motivación
                 </h3>
@@ -496,7 +567,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin }: HeroP
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-1 flex items-center gap-2">
                   <div className="size-6 bg-emerald-100 rounded-full flex items-center justify-center">
-                    <span className="text-emerald-700 text-sm">4</span>
+                    <span className="text-emerald-700 text-sm">5</span>
                   </div>
                   Documentos para el Comité Evaluador
                 </h3>

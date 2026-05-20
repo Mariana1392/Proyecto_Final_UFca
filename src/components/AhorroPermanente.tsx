@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, Fragment } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -7,10 +7,10 @@ import { Badge } from './ui/badge';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import {
-  Search, Plus, Eye, ChevronLeft, ChevronRight, Edit, Trash2,
+  Search, Plus, Eye, ChevronLeft, ChevronRight, Edit, Trash2, Ban,
   PiggyBank, Check, X, FileText, Calendar, TrendingUp, History,
   AlertTriangle, DollarSign, ClipboardList, Clock, CheckCircle2,
-  XCircle, Send,
+  XCircle, Send, Loader2, ChevronDown,
 } from 'lucide-react';
 import { Textarea } from './ui/textarea';
 import {
@@ -61,10 +61,14 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
   const [pdfRangeFin, setPdfRangeFin]             = useState('');
   const [ahorroPdfSelected, setAhorroPdfSelected] = useState<any>(null);
   const [isAporteDialogOpen, setIsAporteDialogOpen] = useState(false);
-  const [formAporteMonto, setFormAporteMonto]     = useState('');
-  const [formAporteFecha, setFormAporteFecha]     = useState('');
-  const [formAporteDesc, setFormAporteDesc]       = useState('');
+  const [formAporteMonto, setFormAporteMonto]       = useState('');
+  const [formAporteFecha, setFormAporteFecha]       = useState('');
+  const [formAporteDesc, setFormAporteDesc]         = useState('');
+  const [formAportePeriodoId, setFormAportePeriodoId] = useState('');
+  const [periodos, setPeriodos]                     = useState<any[]>([]);
   const [isConfirmEditDialogOpen, setIsConfirmEditDialogOpen] = useState(false);
+  const [isConfirmSaldoBajoOpen,  setIsConfirmSaldoBajoOpen]  = useState(false);
+  const [isConfirmAporteBajoOpen, setIsConfirmAporteBajoOpen] = useState(false);
   const [formObservaciones, setFormObservaciones]             = useState<string>('');
   const [editHasMovimientos, setEditHasMovimientos]           = useState<boolean>(false);
   const [loadingEditMovs, setLoadingEditMovs]                 = useState<boolean>(false);
@@ -88,23 +92,39 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
   const [asociadosDisponibles, setAsociadosDisponibles] = useState<any[]>([]);
   const [loading, setLoading]                     = useState(true);
 
+  // ── Auditoría desplegable ─────────────────────────────────────────────────
+  const [expandedAhorroId, setExpandedAhorroId]       = useState<string | null>(null);
+  const [auditoriaPorAhorro, setAuditoriaPorAhorro]   = useState<Record<string, any[]>>({});
+  const [loadingAuditoria, setLoadingAuditoria]       = useState<string | null>(null);
+
+
   useEffect(() => { cargarDatos(); }, []);
 
   async function cargarDatos() {
     try {
       setLoading(true);
-      const [{ data, error }, asociadosData, configData] = await Promise.all([
+      const [{ data, error }, asociadosData, configData, periodosData] = await Promise.all([
         supabase
-          .from('ahorro_permanente')
+          .from('ahorros_permanentes')
           .select('*, asociados(nombre, cedula)')
           .order('created_at', { ascending: false }),
         asociadosApi.getAll(),
         supabase
           .from('configuracion')
           .select('valor')
-          .eq('id', 'monto_obligatorio_ahorro_permanente')
-          .single(),
+          .eq('clave', 'cuota_ahorro_permanente')
+          .maybeSingle(),
+        supabase
+          .from('periodos')
+          .select('id, nombre, estado, fecha_inicio, fecha_fin')
+          .order('fecha_inicio', { ascending: false }),
       ]);
+      if (!periodosData.error && periodosData.data) {
+        setPeriodos(periodosData.data);
+        // Pre-seleccionar el período activo
+        const activo = periodosData.data.find((p: any) => p.estado === 'activo');
+        if (activo) setFormAportePeriodoId(activo.id);
+      }
       if (error) throw error;
       if (!configData.error && configData.data) {
         const monto = parseFloat(configData.data.valor);
@@ -114,15 +134,16 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
         }
       }
 
+
       const mapeados = (data || []).map((a: any) => ({
         id:            a.id,
         asociado:      a.asociados?.nombre  ?? 'Sin nombre',
         cedula:        a.asociados?.cedula  ?? '',
         asociado_id:   a.asociado_id,
-        montoAhorrado: a.monto_ahorrado,
+        montoAhorrado: Number(a.monto_ahorrado) || 0,
         cuotaMensual:  a.cuota_mensual,
-        fechaInicio:   a.fecha_inicio,
-        estado:        a.estado === true,
+        fechaInicio:   a.created_at?.split('T')[0] ?? '',
+        estado:        a.estado === 'activo',
         anulado:       a.anulado,
         motivoAnulacion: a.motivo_anulacion || '',
         observaciones: a.observaciones || '',
@@ -130,35 +151,17 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
       }));
 
       setAhorros(mapeados);
-      setAsociadosDisponibles(asociadosData || []);
 
-      // ── Cargar solicitudes y aportes (solo admin) ──────────────────────
-      if (userRole === 'admin') {
-        const [{ data: sols }, { data: aportes }] = await Promise.all([
-          supabase
-            .from('solicitudes')
-            .select('*, asociados(nombre, cedula)')
-            .eq('tipo', 'ahorro_permanente')
-            .order('created_at', { ascending: false }),
-          supabase
-            .from('solicitudes')
-            .select('*, asociados(nombre, cedula)')
-            .eq('tipo', 'aporte_permanente')
-            .order('created_at', { ascending: false }),
-        ]);
-        // Aplanar datos jsonb para compatibilidad con la UI
-        setSolicitudes((sols || []).map((s: any) => ({
-          ...s,
-          nota_asociado: s.datos?.nota_asociado,
-        })));
-        setAportesPendientes((aportes || []).map((ap: any) => ({
-          ...ap,
-          tipo_ahorro: 'permanente',
-          fecha_pago:  ap.datos?.fecha_pago,
-          medio_pago:  ap.datos?.medio_pago,
-          nota:        ap.datos?.nota,
-        })));
-      }
+      // Excluir del selector a los asociados que ya tienen ahorro permanente activo
+      const idsConAhorro = new Set(
+        mapeados.filter(a => a.estado === true && !a.anulado).map(a => a.asociado_id)
+      );
+      setAsociadosDisponibles(
+        (asociadosData || []).filter((a: any) => !idsConAhorro.has(a.id))
+      );
+
+      // solicitudes_ahorro y solicitudes_aporte no existen en el esquema actual
+      // Las solicitudes y aportes se gestionan directamente desde ahorros_permanentes y pagos_ahorro_permanente
     } catch (err: any) {
       toast.error('Error al cargar ahorros: ' + err.message);
     } finally {
@@ -227,10 +230,23 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
     setFormCuotaMensual(e.target.value.replace(/[^\d.,]/g, ''));
   const handleCuotaMensualBlur    = () =>
     formCuotaMensual && setFormCuotaMensual(formatCurrencyInput(parseCurrencyInput(formCuotaMensual).toString()));
-  const handleSaldoInicialChange  = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setFormSaldoInicial(e.target.value.replace(/[^\d.,]/g, ''));
-  const handleSaldoInicialBlur    = () =>
-    formSaldoInicial && setFormSaldoInicial(formatCurrencyInput(parseCurrencyInput(formSaldoInicial).toString()));
+  const [saldoInicialError, setSaldoInicialError] = useState<string>('');
+
+  const handleSaldoInicialChange  = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/[^\d.,]/g, '');
+    setFormSaldoInicial(raw);
+    const num = parseFloat(raw.replace(/\./g, '').replace(',', '.')) || 0;
+    if (num > 0 && num < montoObligatorio) {
+      setSaldoInicialError(
+        `El saldo inicial debe ser igual o mayor a ${montoObligatorio.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}`
+      );
+    } else {
+      setSaldoInicialError('');
+    }
+  };
+  const handleSaldoInicialBlur    = () => {
+    if (formSaldoInicial) setFormSaldoInicial(formatCurrencyInput(parseCurrencyInput(formSaldoInicial).toString()));
+  };
 
   const handleOpenCreateDialog = async (item?: any) => {
     if (item) {
@@ -240,14 +256,14 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
       setFormSaldoInicial(item.montoAhorrado.toString().replace(/\./g, ','));
       setFormFechaInicio(item.fechaInicio);
       setFormObservaciones(item.observaciones || '');
-      // Verificar si ya hay movimientos (determina si fecha_inicio es editable)
+      // Verificar si ya hay pagos registrados (determina si la fecha de inicio es editable)
       setLoadingEditMovs(true);
       setIsCreateDialogOpen(true);
       try {
         const { count } = await supabase
-          .from('movimientos_ahorro_permanente')
+          .from('pagos_ahorro_permanente')
           .select('id', { count: 'exact', head: true })
-          .eq('ahorro_id', item.id);
+          .eq('ahorro_permanente_id', item.id);
         setEditHasMovimientos((count ?? 0) > 0);
       } catch {
         setEditHasMovimientos(true); // En caso de error, tratar como si hubiera movimientos (más seguro)
@@ -274,10 +290,10 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
     setLoadingMovimientos(true);
     try {
       const { data, error } = await supabase
-        .from('movimientos_ahorro_permanente')
-        .select('*')
-        .eq('ahorro_id', ahorro.id)
-        .order('fecha_movimiento', { ascending: false });
+        .from('pagos_ahorro_permanente')
+        .select('*, periodos(nombre)')
+        .eq('ahorro_permanente_id', ahorro.id)
+        .order('fecha_pago', { ascending: false });
       if (!error && data) {
         setMovimientosDetalle(data);
         // Sincronizar saldo real en la lista
@@ -294,28 +310,64 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
     setLoadingMovimientos(false);
   };
 
+  // ── Auditoría: carga lazy por ahorro ─────────────────────────────────────
+  const cargarAuditoria = async (ahorroId: string) => {
+    if (expandedAhorroId === ahorroId) { setExpandedAhorroId(null); return; }
+    if (auditoriaPorAhorro[ahorroId]) { setExpandedAhorroId(ahorroId); return; }
+    setLoadingAuditoria(ahorroId);
+    const { data } = await supabase
+      .from('pagos_ahorro_permanente')
+      .select('*')
+      .eq('ahorro_permanente_id', ahorroId)
+      .order('created_at', { ascending: false });
+    setAuditoriaPorAhorro(prev => ({ ...prev, [ahorroId]: data ?? [] }));
+    setExpandedAhorroId(ahorroId);
+    setLoadingAuditoria(null);
+  };
+
+  const invalidarAuditoria = (ahorroId: string) =>
+    setAuditoriaPorAhorro(prev => { const n = { ...prev }; delete n[ahorroId]; return n; });
+
+  // ── Helpers compartidos ───────────────────────────────────────────────────
+  // registrarAjuste eliminado — movimientos_ahorro no existe en el esquema.
+  // Los cambios de estado quedan auditados vía updated_at en ahorros_permanentes.
+
+  const notificarAsociado = (asociadoId: string, titulo: string, mensaje: string, tipo: string) =>
+    supabase.from('notificaciones').insert({ titulo, mensaje, tipo, leida: false, asociado_id: asociadoId });
+
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleToggleEstado = async () => {
     if (!selectedItem) return;
+    const justificacion = justificacionAnulacion.trim();
+    if (!justificacion) {
+      toast.error('La justificación es obligatoria');
+      return;
+    }
     try {
+      const { id, asociado_id, asociado, montoAhorrado } = selectedItem;
       if (nuevoEstadoSeleccionado === 'anulado') {
-        if (!justificacionAnulacion.trim()) {
-          toast.error('La justificación es obligatoria para anular');
-          return;
-        }
-        await ahorroPermanenteApi.anular(selectedItem.id, justificacionAnulacion.trim());
+        await ahorroPermanenteApi.anular(id, justificacion);
         setAhorros(prev => prev.map(a =>
-          a.id === selectedItem.id ? { ...a, anulado: true, estado: false, motivoAnulacion: justificacionAnulacion.trim() } : a
+          a.id === id ? { ...a, anulado: true, estado: false, motivoAnulacion: justificacion } : a
         ));
-        toast.success(`Ahorro de "${selectedItem.asociado}" anulado exitosamente`);
+        await notificarAsociado(asociado_id, '❌ Ahorro permanente anulado',
+          `Tu ahorro permanente ha sido anulado. Motivo: ${justificacion}`, 'ahorro_anulado');
+        toast.success(`Ahorro de "${asociado}" anulado`);
       } else {
         const esActivo = nuevoEstadoSeleccionado === 'activo';
-        await ahorroPermanenteApi.update(selectedItem.id, { estado: esActivo });
-        setAhorros(prev => prev.map(a =>
-          a.id === selectedItem.id ? { ...a, estado: esActivo } : a
-        ));
-        toast.success(`Ahorro de "${selectedItem.asociado}" ${esActivo ? 'activado' : 'desactivado'} exitosamente`);
+        await ahorroPermanenteApi.update(id, { estado: esActivo ? 'activo' : 'inactivo' });
+        setAhorros(prev => prev.map(a => a.id === id ? { ...a, estado: esActivo } : a));
+        await notificarAsociado(
+          asociado_id,
+          esActivo ? '✅ Ahorro permanente activado' : '⚠️ Ahorro permanente desactivado',
+          esActivo
+            ? `Tu ahorro permanente ha sido reactivado. Motivo: ${justificacion}`
+            : `Tu ahorro permanente ha sido desactivado. Motivo: ${justificacion}`,
+          esActivo ? 'ahorro_activado' : 'ahorro_inactivado'
+        );
+        toast.success(`Ahorro de "${asociado}" ${esActivo ? 'activado' : 'desactivado'}`);
       }
+      invalidarAuditoria(selectedItem.id);
     } catch (err: any) {
       toast.error('Error al cambiar estado: ' + err.message);
     }
@@ -325,17 +377,21 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
   };
 
   const handleAnular = async () => {
-    if (!selectedItem) return;
-    if (!justificacionAnulacion.trim()) {
+    if (!selectedItem || !justificacionAnulacion.trim()) {
       toast.error('La justificación es obligatoria para anular un ahorro');
       return;
     }
+    const justificacion = justificacionAnulacion.trim();
     try {
-      await ahorroPermanenteApi.anular(selectedItem.id, justificacionAnulacion.trim());
+      const { id, asociado_id, asociado, montoAhorrado } = selectedItem;
+      await ahorroPermanenteApi.anular(id, justificacion);
       setAhorros(prev => prev.map(a =>
-        a.id === selectedItem.id ? { ...a, anulado: true, estado: false, motivoAnulacion: justificacionAnulacion.trim() } : a
+        a.id === id ? { ...a, anulado: true, estado: false, motivoAnulacion: justificacion } : a
       ));
-      toast.success(`Ahorro de "${selectedItem.asociado}" anulado exitosamente`);
+      await notificarAsociado(asociado_id, '❌ Ahorro permanente anulado',
+        `Tu ahorro permanente ha sido anulado. Motivo: ${justificacion}`, 'ahorro_anulado');
+      invalidarAuditoria(id);
+      toast.success(`Ahorro de "${asociado}" anulado exitosamente`);
     } catch (err: any) {
       toast.error('Error al anular ahorro: ' + err.message);
     }
@@ -354,11 +410,11 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
       const { error } = await supabase
         .from('configuracion')
         .upsert({
-          id: 'monto_obligatorio_ahorro_permanente',
+          clave: 'cuota_ahorro_permanente',
           valor: monto.toString(),
           descripcion: 'Monto obligatorio mensual para el plan de ahorro permanente',
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'id' });
+        }, { onConflict: 'clave' });
       if (error) throw error;
       setMontoObligatorio(monto);
       setIsEditingMonto(false);
@@ -373,12 +429,24 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
     setIsEditingMonto(false);
   };
 
-  const handleSaveAhorro = async () => {
+
+
+  const handleSaveAhorro = async (skipSaldoCheck = false) => {
     if (!formAsociadoId) { toast.error('❌ Error de validación', { description: 'Selecciona un asociado' }); return; }
     const cuota = parseCurrencyInput(formCuotaMensual);
     if (!cuota || cuota <= 0) { toast.error('❌ Error de validación', { description: 'La cuota debe ser mayor a cero' }); return; }
+    if (cuota < montoObligatorio) {
+      toast.error('❌ Cuota insuficiente', {
+        description: `La cuota mínima obligatoria es ${montoObligatorio.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}. No se puede crear un ahorro permanente con un monto menor.`,
+      });
+      return;
+    }
     const saldo = parseCurrencyInput(formSaldoInicial);
     if (saldo < 0) { toast.error('❌ Error de validación', { description: 'El saldo inicial debe ser ≥ 0' }); return; }
+    if (!skipSaldoCheck && saldo > 0 && saldo < montoObligatorio) {
+      setIsConfirmSaldoBajoOpen(true);
+      return;
+    }
     if (!formFechaInicio) { toast.error('❌ Error de validación', { description: 'Selecciona una fecha de inicio' }); return; }
 
     // Solo ahorros activos pueden ser editados
@@ -387,23 +455,36 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
       return;
     }
 
+    // Al CREAR: verificar que el asociado no tenga ya un ahorro permanente activo
+    if (!selectedItem) {
+      const { data: existente } = await supabase
+        .from('ahorros_permanentes')
+        .select('id')
+        .eq('asociado_id', formAsociadoId)
+        .eq('estado', 'activo')
+        .eq('anulado', false)
+        .limit(1);
+      if (existente && existente.length > 0) {
+        toast.error('El asociado ya tiene un ahorro permanente activo', {
+          description: 'No se puede crear otro hasta que el actual sea liquidado en la fecha de corte.',
+        });
+        return;
+      }
+    }
+
     const asociado = asociadosDisponibles.find(a => a.id === formAsociadoId);
 
     try {
       if (selectedItem) {
-        // Construir payload de actualización
+        // Construir payload de actualización (fecha_inicio no existe en el esquema)
         const updatePayload: Record<string, any> = { cuota_mensual: cuota };
-        // Fecha de inicio solo si no hay movimientos registrados
-        if (!editHasMovimientos && formFechaInicio) {
-          updatePayload.fecha_inicio = formFechaInicio;
-        }
         await ahorroPermanenteApi.update(selectedItem.id, updatePayload);
 
         // Guardar observaciones por separado para no romper si la columna no existe
         if (formObservaciones.trim() !== selectedItem.observaciones) {
           try {
             await supabase
-              .from('ahorro_permanente')
+              .from('ahorros_permanentes')
               .update({ observaciones: formObservaciones.trim() || null })
               .eq('id', selectedItem.id);
           } catch { /* columna observaciones opcional */ }
@@ -414,9 +495,6 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
           cuotaMensual:  cuota,
           observaciones: formObservaciones.trim(),
         };
-        if (!editHasMovimientos && formFechaInicio) {
-          localUpdate.fechaInicio = formFechaInicio;
-        }
         setAhorros(prev => prev.map(a =>
           a.id === selectedItem.id ? { ...a, ...localUpdate } : a
         ));
@@ -424,7 +502,6 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
         // Mensaje con los cambios realizados
         const cambios: string[] = [];
         if (cuota !== selectedItem.cuotaMensual) cambios.push(`cuota: ${formatCurrency(cuota)}`);
-        if (!editHasMovimientos && formFechaInicio !== selectedItem.fechaInicio) cambios.push(`fecha inicio: ${formFechaInicio}`);
         if (formObservaciones.trim() !== selectedItem.observaciones) cambios.push('observaciones actualizadas');
         toast.success('✅ Ahorro actualizado', {
           description: cambios.length > 0
@@ -436,28 +513,36 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
           asociado_id:    formAsociadoId,
           cuota_mensual:  cuota,
           monto_ahorrado: saldo,
-          fecha_inicio:   formFechaInicio,
-          estado:         true,
+          estado:         'activo',
           anulado:        false,
         });
 
-        // Si el saldo inicial es mayor a 0, registrar movimiento de apertura
+        // Si el saldo inicial es mayor a 0, registrar pago de apertura
         if (saldo > 0) {
+          const periodoId = await resolverPeriodoId();
+          const fechaApertura = formFechaInicio || new Date().toISOString().split('T')[0];
           const { error: movErr } = await supabase
-            .from('movimientos_ahorro_permanente')
+            .from('pagos_ahorro_permanente')
             .insert({
-              ahorro_id:        nuevo.id,
-              asociado_id:      formAsociadoId,
-              tipo_movimiento:  'Apertura',
-              monto:            saldo,
-              saldo_anterior:   0,
-              saldo_nuevo:      saldo,
-              fecha_movimiento: formFechaInicio,
-              descripcion:      'Saldo inicial cargado al crear el plan',
+              ahorro_permanente_id: nuevo.id,
+              asociado_id:          formAsociadoId,
+              periodo_id:           periodoId,
+              mes_correspondiente:  fechaApertura,
+              fecha_pago:           fechaApertura,
+              fecha_movimiento:     fechaApertura,
+              monto_cuota:          saldo,
+              monto_total_pagado:   saldo,
+              monto:                saldo,
+              saldo_anterior:       0,
+              saldo_nuevo:          saldo,
+              tipo_movimiento:      'Apertura',
+              anulado:              false,
+              observacion:          'Saldo inicial cargado al crear el plan',
             });
           if (movErr) toast.error('Ahorro creado, pero error al registrar saldo inicial: ' + movErr.message);
         }
 
+        const nowIso = new Date().toISOString();
         setAhorros(prev => [{
           id: nuevo.id,
           asociado:      asociado?.nombre ?? '',
@@ -465,11 +550,11 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
           asociado_id:   formAsociadoId,
           montoAhorrado: saldo,
           cuotaMensual:  cuota,
-          fechaInicio:   formFechaInicio,
+          fechaInicio:   nowIso.split('T')[0],
           estado:        true,
           anulado:       false,
           motivoAnulacion: '',
-          createdAt:     new Date().toISOString(),
+          createdAt:     nowIso,
         }, ...prev]);
         toast.success('✅ Ahorro registrado exitosamente', {
           description: saldo > 0
@@ -487,42 +572,74 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
     setFormObservaciones(''); setEditHasMovimientos(false); setLoadingEditMovs(false);
   };
 
-  // ── Registrar aporte (depósito) ───────────────────────────────────────────
-  const handleRegistrarAporte = async () => {
-    const monto = parseCurrencyInput(formAporteMonto);
-    if (!monto || monto <= 0) { toast.error('El monto debe ser mayor a cero'); return; }
-    if (!formAporteFecha)     { toast.error('Selecciona la fecha del aporte'); return; }
-    if (!selectedItem)        return;
+  // ── Helper: obtiene el id del período activo (o null si no existe) ──────────
+  async function resolverPeriodoId(): Promise<string | null> {
+    const { data } = await supabase
+      .from('periodos')
+      .select('id')
+      .eq('estado', 'activo')
+      .order('fecha_inicio', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return data?.id ?? null;
+  }
 
+  // ── Registrar aporte — punto de entrada (valida y muestra advertencia si aplica) ──
+  const handleRegistrarAporte = () => {
+    const monto = parseCurrencyInput(formAporteMonto);
+    const hoy   = new Date().toISOString().split('T')[0];
+    if (!monto || monto <= 0)    { toast.error('El monto debe ser mayor a cero'); return; }
+    if (!formAporteFecha)        { toast.error('Selecciona la fecha del aporte'); return; }
+    if (formAporteFecha < hoy)   { toast.error('La fecha del aporte no puede ser anterior a hoy'); return; }
+    if (!selectedItem)           return;
+
+    // Advertencia si el monto está por debajo del mínimo obligatorio
+    if (monto < montoObligatorio) {
+      setIsConfirmAporteBajoOpen(true);
+      return;
+    }
+
+    ejecutarRegistrarAporte();
+  };
+
+  // ── Lógica real de guardado (llamada directamente o tras confirmación) ────
+  const ejecutarRegistrarAporte = async () => {
+    const monto = parseCurrencyInput(formAporteMonto);   // re-parsear: esta función no tiene acceso al scope de handleRegistrarAporte
     setSavingAporte(true);
     try {
       // Usar saldo real desde BD para evitar desincronización
       const { data: dbAhorro } = await supabase
-        .from('ahorro_permanente')
+        .from('ahorros_permanentes')
         .select('monto_ahorrado')
         .eq('id', selectedItem.id)
         .single();
       const saldoAnterior = dbAhorro?.monto_ahorrado ?? selectedItem.montoAhorrado;
       const saldoNuevo    = saldoAnterior + monto;
 
-      // Insertar movimiento
+      // Insertar pago — periodo_id elegido por el admin en el formulario
       const { error: movErr } = await supabase
-        .from('movimientos_ahorro_permanente')
+        .from('pagos_ahorro_permanente')
         .insert({
-          ahorro_id:        selectedItem.id,
-          asociado_id:      selectedItem.asociado_id,
-          tipo_movimiento:  'Aporte',
-          monto,
-          saldo_anterior:   saldoAnterior,
-          saldo_nuevo:      saldoNuevo,
-          fecha_movimiento: formAporteFecha,
-          descripcion:      formAporteDesc.trim() || null,
+          ahorro_permanente_id: selectedItem.id,
+          asociado_id:          selectedItem.asociado_id,
+          periodo_id:           formAportePeriodoId || null,
+          mes_correspondiente:  formAporteFecha,
+          fecha_pago:           formAporteFecha,
+          fecha_movimiento:     formAporteFecha,
+          monto_cuota:          monto,
+          monto_total_pagado:   monto,
+          monto:                monto,
+          saldo_anterior:       saldoAnterior,
+          saldo_nuevo:          saldoNuevo,
+          tipo_movimiento:      'Aporte',
+          anulado:              false,
+          observacion:          formAporteDesc.trim() || null,
         });
       if (movErr) throw movErr;
 
-      // Actualizar saldo en ahorro_permanente
+      // Actualizar saldo en ahorros_permanentes
       const { data: updData, error: updErr } = await supabase
-        .from('ahorro_permanente')
+        .from('ahorros_permanentes')
         .update({ monto_ahorrado: saldoNuevo })
         .eq('id', selectedItem.id)
         .select('monto_ahorrado')
@@ -536,12 +653,12 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
         a.id === selectedItem.id ? { ...a, montoAhorrado: saldoConfirmado } : a
       ));
 
-      // Recargar movimientos
+      // Recargar pagos con nombre del período
       const { data: movs } = await supabase
-        .from('movimientos_ahorro_permanente')
-        .select('*')
-        .eq('ahorro_id', selectedItem.id)
-        .order('fecha_movimiento', { ascending: false });
+        .from('pagos_ahorro_permanente')
+        .select('*, periodos(nombre)')
+        .eq('ahorro_permanente_id', selectedItem.id)
+        .order('fecha_pago', { ascending: false });
       setMovimientosDetalle(movs || []);
 
       toast.success('Aporte registrado exitosamente', {
@@ -551,6 +668,9 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
       setFormAporteMonto('');
       setFormAporteFecha('');
       setFormAporteDesc('');
+      // Restaurar período activo como selección por defecto
+      const activo = periodos.find((p: any) => p.estado === 'activo');
+      if (activo) setFormAportePeriodoId(activo.id);
     } catch (err: any) {
       toast.error('Error al registrar aporte: ' + err.message);
     } finally {
@@ -566,13 +686,13 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
     setPdfRangeInicio(ahorro.fechaInicio || hoy);
     setIsPdfRangeDialogOpen(true);
 
-    // Cargar movimientos reales desde la BD para este ahorro
+    // Cargar pagos reales desde la BD para este ahorro
     try {
       const { data, error } = await supabase
-        .from('movimientos_ahorro_permanente')
+        .from('pagos_ahorro_permanente')
         .select('*')
-        .eq('ahorro_id', ahorro.id)
-        .order('fecha_movimiento', { ascending: true });
+        .eq('ahorro_permanente_id', ahorro.id)
+        .order('fecha_pago', { ascending: true });
       if (!error) setMovimientosDetalle(data || []);
     } catch { /* ignorar */ }
   };
@@ -588,7 +708,7 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
       return;
     }
     const movsFiltrados = movimientosDetalle.filter(m => {
-      const fm = m.fecha_movimiento;
+      const fm = m.fecha_pago ?? m.fecha_movimiento;
       return fm >= pdfRangeInicio && fm <= pdfRangeFin;
     });
     const pdfData = {
@@ -596,7 +716,7 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
       cedula:            ahorroPdfSelected.cedula,
       fechaAfiliacion:   ahorroPdfSelected.fechaInicio,
       aporteActual:      ahorroPdfSelected.cuotaMensual,
-      fechaUltimoAporte: movsFiltrados[0]?.fecha_movimiento ?? ahorroPdfSelected.fechaInicio,
+      fechaUltimoAporte: (movsFiltrados[0]?.fecha_pago ?? movsFiltrados[0]?.fecha_movimiento) ?? ahorroPdfSelected.fechaInicio,
       totalAportes:      movsFiltrados.length,
       saldoAcumulado:    ahorroPdfSelected.montoAhorrado,
       estado:            ahorroPdfSelected.estado,
@@ -622,16 +742,11 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
         asociado_id:    sol.asociado_id,
         cuota_mensual:  montoObligatorio,
         monto_ahorrado: 0,
-        fecha_inicio:   new Date().toISOString().split('T')[0],
-        estado:         true,
+        estado:         'activo',
         anulado:        false,
       });
 
-      // 2. Marcar solicitud como aprobada
-      await supabase
-        .from('solicitudes')
-        .update({ estado: 'aprobada', fecha_resolucion: new Date().toISOString() })
-        .eq('id', sol.id);
+      // 2. solicitudes_ahorro no existe — actualizar estado local directamente
 
       // 3. Notificar al asociado
       await supabase.from('notificaciones').insert({
@@ -646,6 +761,7 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
       setSolicitudes(prev =>
         prev.map(s => s.id === sol.id ? { ...s, estado: 'aprobada' } : s)
       );
+      const aprobadoIso = new Date().toISOString();
       setAhorros(prev => [{
         id:              nuevo.id,
         asociado:        sol.asociados?.nombre ?? '',
@@ -653,11 +769,11 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
         asociado_id:     sol.asociado_id,
         montoAhorrado:   0,
         cuotaMensual:    montoObligatorio,
-        fechaInicio:     new Date().toISOString().split('T')[0],
+        fechaInicio:     aprobadoIso.split('T')[0],
         estado:          true,
         anulado:         false,
         motivoAnulacion: '',
-        createdAt:       new Date().toISOString(),
+        createdAt:       aprobadoIso,
       }, ...prev]);
 
       toast.success(`✅ Solicitud aprobada`, {
@@ -673,39 +789,42 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
     try {
       // Saldo real desde BD
       const { data: dbAhorro } = await supabase
-        .from('ahorro_permanente')
+        .from('ahorros_permanentes')
         .select('monto_ahorrado')
         .eq('id', ap.ahorro_id)
         .single();
       const saldoAnterior = dbAhorro?.monto_ahorrado ?? 0;
       const saldoNuevo    = saldoAnterior + ap.monto;
 
-      // Registrar movimiento
+      // Registrar pago — periodo_id resuelto del período activo
+      const periodoId = await resolverPeriodoId();
       const { error: movErr } = await supabase
-        .from('movimientos_ahorro_permanente')
+        .from('pagos_ahorro_permanente')
         .insert({
-          ahorro_id:        ap.ahorro_id,
-          asociado_id:      ap.asociado_id,
-          tipo_movimiento:  'Aporte',
-          monto:            ap.monto,
-          saldo_anterior:   saldoAnterior,
-          saldo_nuevo:      saldoNuevo,
-          fecha_movimiento: ap.fecha_pago,
-          descripcion:      `${ap.medio_pago}${ap.nota ? ' — ' + ap.nota : ''}`,
+          ahorro_permanente_id: ap.ahorro_id,
+          asociado_id:          ap.asociado_id,
+          periodo_id:           periodoId,
+          mes_correspondiente:  ap.fecha_pago,
+          fecha_pago:           ap.fecha_pago,
+          fecha_movimiento:     ap.fecha_pago,
+          monto_cuota:          ap.monto,
+          monto_total_pagado:   ap.monto,
+          monto:                ap.monto,
+          saldo_anterior:       saldoAnterior,
+          saldo_nuevo:          saldoNuevo,
+          tipo_movimiento:      'Aporte',
+          anulado:              false,
+          observacion:          `${ap.medio_pago ?? ''}${ap.nota ? ' — ' + ap.nota : ''}`,
         });
       if (movErr) throw movErr;
 
       // Actualizar saldo
       await supabase
-        .from('ahorro_permanente')
+        .from('ahorros_permanentes')
         .update({ monto_ahorrado: saldoNuevo })
         .eq('id', ap.ahorro_id);
 
-      // Marcar aporte como confirmado (aprobada en la tabla unificada)
-      await supabase
-        .from('solicitudes')
-        .update({ estado: 'aprobada', fecha_resolucion: new Date().toISOString() })
-        .eq('id', ap.id);
+      // solicitudes_aporte no existe — el estado se actualiza solo en memoria
 
       // Notificar al asociado
       await supabase.from('notificaciones').insert({
@@ -738,14 +857,7 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
     if (!notaRechazoAporte.trim()) { toast.error('Escribe el motivo del rechazo'); return; }
     setSavingAporte(true);
     try {
-      await supabase
-        .from('solicitudes')
-        .update({
-          estado:           'rechazada',
-          nota_admin:       notaRechazoAporte.trim(),
-          fecha_resolucion: new Date().toISOString(),
-        })
-        .eq('id', aporteSeleccionado.id);
+      // solicitudes_aporte no existe — el rechazo se refleja solo en estado local
 
       await supabase.from('notificaciones').insert({
         titulo:      '❌ Aporte no confirmado',
@@ -775,14 +887,7 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
     if (!notaRechazo.trim()) { toast.error('Escribe el motivo del rechazo'); return; }
     setSavingSolicitud(true);
     try {
-      await supabase
-        .from('solicitudes')
-        .update({
-          estado:           'rechazada',
-          nota_admin:       notaRechazo.trim(),
-          fecha_resolucion: new Date().toISOString(),
-        })
-        .eq('id', solicitudSeleccionada.id);
+      // solicitudes_ahorro no existe — el rechazo se refleja solo en estado local
 
       // Notificar al asociado
       await supabase.from('notificaciones').insert({
@@ -861,7 +966,8 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
               </TableRow>
             ) : (
               ahorrosList.map((ahorro) => (
-                <TableRow key={ahorro.id} className={`cursor-pointer hover:bg-slate-50 transition-colors ${!ahorro.estado && !ahorro.anulado ? 'bg-slate-50 opacity-80' : ''}`} onClick={() => handleOpenDetail(ahorro)}>
+                <Fragment key={ahorro.id}>
+                <TableRow className={`cursor-pointer hover:bg-slate-50 transition-colors ${!ahorro.estado && !ahorro.anulado ? 'bg-slate-50 opacity-80' : ''}`} onClick={() => handleOpenDetail(ahorro)}>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <div className={`p-2 rounded-lg ${isAnulados ? 'bg-slate-100' : ahorro.estado ? 'bg-emerald-100' : 'bg-yellow-50'}`}>
@@ -874,7 +980,7 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
                     <p className="text-slate-600">{ahorro.cedula}</p>
                   </TableCell>
                   <TableCell>
-                    <p className="text-slate-900 font-medium">{formatCurrency(ahorro.montoAhorrado)}</p>
+                    <p className="text-slate-900 font-medium">{formatCurrency(Number(ahorro.montoAhorrado) || 0)}</p>
                   </TableCell>
                   <TableCell>
                     <p className="text-slate-600">{formatCurrency(ahorro.cuotaMensual)}</p>
@@ -902,25 +1008,55 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
                     )}
                   </TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex gap-2 justify-end">
-                      {/* Solo se editan ahorros ACTIVOS */}
+                    <div className="flex gap-2 justify-end items-center">
+                      {/* ── Registrar Aporte: visible directamente en el listado ── */}
+                      {!isAnulados && userRole === 'admin' && ahorro.estado && (
+                        <Button
+                          size="sm"
+                          className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                          title="Registrar aporte"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedItem(ahorro);
+                            setMovimientosDetalle([]);   // limpiar movimientos de otro registro
+                            setFormAporteMonto('');
+                            setFormAporteFecha(new Date().toISOString().split('T')[0]);
+                            setFormAporteDesc('');
+                            setIsAporteDialogOpen(true);
+                          }}
+                        >
+                          <Plus className="size-3.5" />
+                          Aporte
+                        </Button>
+                      )}
+                      {/* Auditoría desplegable */}
+                      <Button
+                        variant="ghost" size="sm"
+                        title="Ver historial"
+                        className={`hover:bg-slate-100 ${expandedAhorroId === ahorro.id ? 'bg-slate-100' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); cargarAuditoria(ahorro.id); }}
+                      >
+                        {loadingAuditoria === ahorro.id
+                          ? <Loader2 className="size-4 animate-spin text-slate-500" />
+                          : <ChevronDown className={`size-4 text-slate-500 transition-transform ${expandedAhorroId === ahorro.id ? 'rotate-180' : ''}`} />
+                        }
+                      </Button>
                       {!isAnulados && userRole === 'admin' && ahorro.estado && (
                         <Button variant="outline" size="sm" title="Editar" onClick={() => handleOpenCreateDialog(ahorro)}>
                           <Edit className="size-4" />
                         </Button>
                       )}
-                      {!isAnulados && userRole === 'admin' && (
+                      {!isAnulados && userRole === 'admin' && ahorro.estado && (
                         <Button variant="outline" size="sm" title="Anular" onClick={() => {
                           setSelectedItem(ahorro);
                           setJustificacionAnulacion('');
                           setIsDeleteDialogOpen(true);
                         }}>
-                          <Trash2 className="size-4 text-amber-600" />
+                          <Ban className="size-4 text-red-600" />
                         </Button>
                       )}
                       <Button
-                        variant="outline"
-                        size="sm"
+                        variant="outline" size="sm"
                         title="Descargar extracto PDF"
                         className="hover:bg-emerald-50"
                         onClick={() => handleOpenPdfDialog(ahorro)}
@@ -930,6 +1066,49 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
                     </div>
                   </TableCell>
                 </TableRow>
+
+                {/* ── Fila de auditoría desplegable ───────────────────────── */}
+                {expandedAhorroId === ahorro.id && (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={7} className="p-0 border-t-0">
+                      <div className="bg-slate-50 border-t border-b border-slate-200 px-6 py-3">
+                        {(auditoriaPorAhorro[ahorro.id] ?? []).length === 0 ? (
+                          <p className="text-sm text-slate-400 py-1">Sin movimientos registrados aún.</p>
+                        ) : (
+                          <div>
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
+                              Historial de movimientos
+                            </p>
+                            <div className="divide-y divide-slate-100">
+                              {(auditoriaPorAhorro[ahorro.id] ?? []).map((mov: any) => (
+                                <div key={mov.id} className="flex items-center justify-between py-2 text-sm gap-4">
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-medium ${
+                                      mov.tipo_movimiento === 'Ajuste'   ? 'bg-slate-200 text-slate-700' :
+                                      mov.tipo_movimiento === 'Interés'  ? 'bg-emerald-100 text-emerald-700' :
+                                      mov.tipo_movimiento === 'Retiro'   ? 'bg-red-100 text-red-700' :
+                                      'bg-blue-100 text-blue-700'
+                                    }`}>
+                                      {mov.tipo_movimiento}
+                                    </span>
+                                    <span className="text-slate-600 truncate">{mov.descripcion || '—'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-6 shrink-0 text-right">
+                                    {mov.monto > 0 && (
+                                      <span className="font-medium text-emerald-700">+{formatCurrency(mov.monto)}</span>
+                                    )}
+                                    <span className="text-slate-400 text-xs w-24">{mov.fecha_movimiento}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
               ))
             )}
           </TableBody>
@@ -966,7 +1145,7 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
   );
 
   return (
-    <div className="p-8 bg-slate-50 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -1031,6 +1210,7 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
                   <p className="text-xs text-emerald-600 mt-2">Este monto se aplicará como aporte obligatorio para todos los nuevos asociados</p>
                 </div>
               </div>
+
             </CardContent>
           </Card>
         )}
@@ -1314,13 +1494,20 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
                 onChange={handleCuotaMensualChange}
                 onBlur={handleCuotaMensualBlur}
               />
-              <p className="text-xs text-slate-500">Monto mensual obligatorio (formato: 100.000,0)</p>
+              <p className="text-xs text-slate-500">
+                Monto mensual obligatorio — mínimo{' '}
+                <span className="font-semibold text-emerald-700">
+                  {montoObligatorio.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}
+                </span>
+              </p>
             </div>
 
             {/* Saldo inicial — solo al crear */}
             {!selectedItem && (
               <div className="space-y-2">
-                <Label htmlFor="saldo">Saldo inicial</Label>
+                <Label htmlFor="saldo" className={saldoInicialError ? 'text-red-600' : ''}>
+                  Saldo inicial
+                </Label>
                 <Input
                   id="saldo"
                   type="text"
@@ -1328,8 +1515,18 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
                   value={formSaldoInicial}
                   onChange={handleSaldoInicialChange}
                   onBlur={handleSaldoInicialBlur}
+                  className={saldoInicialError
+                    ? 'border-red-500 focus-visible:ring-red-400 bg-red-50 text-red-700 placeholder:text-red-300'
+                    : ''}
                 />
-                <p className="text-xs text-slate-500">Monto inicial del plan (opcional)</p>
+                {saldoInicialError
+                  ? <p className="text-xs text-red-600 font-medium flex items-center gap-1">
+                      <span>⚠️</span> {saldoInicialError}
+                    </p>
+                  : <p className="text-xs text-slate-500">
+                      Monto inicial del plan (opcional, déjelo en 0 si no aplica)
+                    </p>
+                }
               </div>
             )}
 
@@ -1337,7 +1534,13 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
             {!selectedItem ? (
               <div className="space-y-2">
                 <Label htmlFor="fecha">Fecha de inicio *</Label>
-                <Input id="fecha" type="date" value={formFechaInicio} onChange={(e) => setFormFechaInicio(e.target.value)} />
+                <Input
+                  id="fecha"
+                  type="date"
+                  value={formFechaInicio}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setFormFechaInicio(e.target.value)}
+                />
               </div>
             ) : (
               <div className="space-y-2">
@@ -1363,7 +1566,13 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
                   </div>
                 ) : (
                   <>
-                    <Input id="fecha-edit" type="date" value={formFechaInicio} onChange={(e) => setFormFechaInicio(e.target.value)} />
+                    <Input
+                      id="fecha-edit"
+                      type="date"
+                      value={formFechaInicio}
+                      min={new Date().toISOString().split('T')[0]}
+                      onChange={(e) => setFormFechaInicio(e.target.value)}
+                    />
                     <p className="text-xs text-amber-600">Solo es editable porque aún no hay movimientos registrados.</p>
                   </>
                 )}
@@ -1421,7 +1630,7 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
             const ultimoMovActivo = [...movimientosDetalle]
               .filter(m => !m.anulado)
               .sort((a, b) => new Date(b.fecha_movimiento).getTime() - new Date(a.fecha_movimiento).getTime())[0];
-            const saldoRealDetalle = ultimoMovActivo?.saldo_nuevo ?? selectedItem.montoAhorrado;
+            const saldoRealDetalle = ultimoMovActivo?.saldo_nuevo ?? selectedItem.montoAhorrado ?? 0;
             return (
             <Tabs defaultValue="info" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-4">
@@ -1476,22 +1685,6 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
               </TabsContent>
 
               <TabsContent value="historial" className="space-y-3">
-                {selectedItem && !selectedItem.anulado && selectedItem.estado && (
-                  <div className="flex justify-end">
-                    <Button
-                      size="sm"
-                      className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                      onClick={() => {
-                        setFormAporteMonto('');
-                        setFormAporteFecha(new Date().toISOString().split('T')[0]);
-                        setFormAporteDesc('');
-                        setIsAporteDialogOpen(true);
-                      }}
-                    >
-                      <Plus className="size-4" /> Registrar Aporte
-                    </Button>
-                  </div>
-                )}
                 {loadingMovimientos ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 mr-3" />
@@ -1513,7 +1706,15 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
                           </div>
                           <div>
                             <p className="text-sm font-medium text-slate-700">{mov.tipo_movimiento}</p>
-                            <p className="text-xs text-slate-500">{mov.fecha_movimiento} {mov.descripcion ? `— ${mov.descripcion}` : ''}</p>
+                            <p className="text-xs text-slate-500">
+                              {mov.fecha_movimiento ?? mov.fecha_pago}
+                              {mov.periodos?.nombre && (
+                                <span className="ml-1 px-1.5 py-0.5 bg-slate-100 rounded text-slate-500 font-medium">
+                                  {mov.periodos.nombre}
+                                </span>
+                              )}
+                              {mov.descripcion ? ` — ${mov.descripcion}` : ''}
+                            </p>
                           </div>
                         </div>
                         <div className="text-right">
@@ -1576,8 +1777,11 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
             <DialogTitle>Registrar Aporte</DialogTitle>
             <DialogDescription>
               {selectedItem && `Asociado: ${selectedItem.asociado} — Saldo actual: ${formatCurrency(
-                [...movimientosDetalle].filter(m => !m.anulado).sort((a,b) => new Date(b.fecha_movimiento).getTime() - new Date(a.fecha_movimiento).getTime())[0]?.saldo_nuevo
-                ?? selectedItem.montoAhorrado
+                Number(
+                  [...movimientosDetalle].filter(m => !m.anulado)
+                    .sort((a,b) => new Date(b.fecha_movimiento).getTime() - new Date(a.fecha_movimiento).getTime())[0]?.saldo_nuevo
+                  ?? selectedItem.montoAhorrado
+                ) || 0
               )}`}
             </DialogDescription>
           </DialogHeader>
@@ -1599,8 +1803,31 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
                 id="aporte-fecha"
                 type="date"
                 value={formAporteFecha}
+                min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setFormAporteFecha(e.target.value)}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="aporte-periodo">Período contable *</Label>
+              <Select value={formAportePeriodoId} onValueChange={setFormAportePeriodoId}>
+                <SelectTrigger id="aporte-periodo">
+                  <SelectValue placeholder="Selecciona un período..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {periodos.map((p: any) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <span className="flex items-center gap-2">
+                        {p.nombre}
+                        {p.estado === 'activo' && (
+                          <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
+                            Activo
+                          </span>
+                        )}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="aporte-desc">Descripción (opcional)</Label>
@@ -1625,6 +1852,89 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
       </Dialog>
 
       {/* ── Confirmación de anulación ────────────────────────────────────────── */}
+
+      {/* ── Advertencia: saldo inicial menor al mínimo ───────────────────────── */}
+      {/* ── Advertencia: aporte menor al mínimo obligatorio ─────────────────── */}
+      <AlertDialog open={isConfirmAporteBajoOpen} onOpenChange={setIsConfirmAporteBajoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-amber-500" />
+              Aporte por debajo del mínimo
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-slate-600">
+                <p>
+                  El monto ingresado es{' '}
+                  <span className="font-semibold text-red-600">
+                    {formatCurrency(parseCurrencyInput(formAporteMonto))}
+                  </span>
+                  , que está <span className="font-semibold">por debajo del mínimo obligatorio</span> de{' '}
+                  <span className="font-semibold text-emerald-700">
+                    {formatCurrency(montoObligatorio)}
+                  </span>.
+                </p>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 text-xs font-medium">
+                  ⚠️ Registrar un aporte inferior al mínimo puede generar inconsistencias en el historial del asociado y afectar los cálculos del período.
+                </div>
+                <p>Como administrador, puede continuar si existe una justificación válida (pago parcial acordado, abono, etc.).</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsConfirmAporteBajoOpen(false)}>
+              Cancelar — corregir monto
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+              onClick={() => { setIsConfirmAporteBajoOpen(false); ejecutarRegistrarAporte(); }}
+            >
+              Sí, registrar de todas formas
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isConfirmSaldoBajoOpen} onOpenChange={setIsConfirmSaldoBajoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-amber-500" />
+              ¿Está seguro del saldo inicial?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-slate-600">
+                <p>
+                  El saldo inicial ingresado es{' '}
+                  <span className="font-semibold text-red-600">
+                    {formatCurrency(parseCurrencyInput(formSaldoInicial))}
+                  </span>
+                  , que está <span className="font-semibold">por debajo del mínimo obligatorio</span> de{' '}
+                  <span className="font-semibold text-emerald-700">
+                    {montoObligatorio.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}
+                  </span>.
+                </p>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 text-xs font-medium">
+                  ⚠️ Esto generará un desequilibrio en el historial del asociado. Se recomienda usar <strong>0</strong> si no hay saldo de apertura, o un valor igual o superior al mínimo.
+                </div>
+                <p>¿Desea continuar de todas formas?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsConfirmSaldoBajoOpen(false)}>
+              Cancelar — corregir valor
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+              onClick={() => { setIsConfirmSaldoBajoOpen(false); handleSaveAhorro(true); }}
+            >
+              Sí, continuar de todas formas
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => { setIsDeleteDialogOpen(open); if (!open) { setSelectedItem(null); setJustificacionAnulacion(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1725,24 +2035,35 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
                 </button>
               ))}
             </div>
-            {nuevoEstadoSeleccionado === 'anulado' && (
-              <div className="space-y-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <Label className="text-red-700 font-medium">
-                  Justificación de anulación <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  placeholder="Motivo de la anulación..."
-                  value={justificacionAnulacion}
-                  onChange={(e) => setJustificacionAnulacion(e.target.value)}
-                />
-              </div>
-            )}
+            <div className={`space-y-2 p-3 rounded-lg border ${
+              nuevoEstadoSeleccionado === 'anulado'  ? 'bg-red-50 border-red-200' :
+              nuevoEstadoSeleccionado === 'inactivo' ? 'bg-yellow-50 border-yellow-200' :
+              'bg-emerald-50 border-emerald-200'
+            }`}>
+              <Label className={`font-medium ${
+                nuevoEstadoSeleccionado === 'anulado'  ? 'text-red-700' :
+                nuevoEstadoSeleccionado === 'inactivo' ? 'text-yellow-700' :
+                'text-emerald-700'
+              }`}>
+                Justificación <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                placeholder={
+                  nuevoEstadoSeleccionado === 'anulado'  ? 'Motivo de la anulación...' :
+                  nuevoEstadoSeleccionado === 'inactivo' ? 'Motivo de la desactivación...' :
+                  'Motivo de la reactivación...'
+                }
+                value={justificacionAnulacion}
+                onChange={(e) => setJustificacionAnulacion(e.target.value)}
+                rows={2}
+              />
+            </div>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => { setSelectedItem(null); setJustificacionAnulacion(''); }}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleToggleEstado}
-              disabled={nuevoEstadoSeleccionado === 'anulado' && !justificacionAnulacion.trim()}
+              disabled={!justificacionAnulacion.trim()}
               className={
                 nuevoEstadoSeleccionado === 'activo' ? 'bg-emerald-600 hover:bg-emerald-700' :
                 nuevoEstadoSeleccionado === 'inactivo' ? 'bg-yellow-600 hover:bg-yellow-700' :

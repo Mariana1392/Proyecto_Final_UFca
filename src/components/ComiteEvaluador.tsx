@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -23,7 +23,6 @@ import {
 } from './ui/alert-dialog';
 import { Textarea } from './ui/textarea';
 import { supabase } from '../lib/supabase';
-import { asociadosApi } from '../lib/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface EvaluacionComite {
@@ -152,43 +151,44 @@ export default function ComiteEvaluador() {
   async function loadSolicitudes() {
     try {
       const { data, error } = await supabase
-        .from('solicitudes')
+        .from('solicitudes_asociados')
         .select(`
-          *,
-          comite_evaluador (
+          id, usuario_id, nombres, apellidos, cedula, tipo_identificacion,
+          telefono, email, direccion, ocupacion, ingreso_mensual,
+          monto_ahorro_propuesto, motivacion, documentos, estado,
+          observaciones, fecha_solicitud, created_at,
+          comite_evaluador!solicitud_asociado_id (
             id, decision, observacion, comentarios,
-            verificaciones, score_credito, evaluador_id, fecha
+            verificaciones, score_credito, fecha
           )
         `)
-        .eq('tipo', 'afiliacion')
         .order('fecha_solicitud', { ascending: false });
       if (error) throw error;
       setSolicitudes((data || []).map((s: any) => {
-        // Tomar el primer (y único) registro del comité para esta solicitud
         const ev = Array.isArray(s.comite_evaluador) && s.comite_evaluador.length > 0
           ? s.comite_evaluador[0]
           : null;
         const score = ev?.score_credito ?? 70;
         return {
           id:                 s.id,
-          usuario_id:         s.usuario_id                   ?? null,
-          nombres:            s.datos?.nombres               ?? '',
-          apellidos:          s.datos?.apellidos             ?? '',
-          cedula:             s.datos?.cedula                ?? '',
-          tipoIdentificacion: s.datos?.tipo_identificacion   ?? '',
-          telefono:           s.datos?.telefono              ?? '',
-          email:              s.datos?.email                 ?? '',
-          direccion:          s.datos?.direccion             ?? '',
-          ocupacion:          s.datos?.ocupacion             ?? '',
-          ingresoMensual:     s.datos?.ingreso_mensual != null ? String(s.datos.ingreso_mensual) : '',
-          motivacion:         s.datos?.motivacion            ?? '',
-          documentos:         Array.isArray(s.datos?.documentos) ? s.datos.documentos : [],
-          urlDocumento:       s.datos?.url_documento         ?? '',
-          fechaSolicitud:     s.fecha_solicitud              ?? '',
-          estado:             s.estado                       ?? 'pendiente',
-          fechaResolucion:    s.fecha_resolucion             ?? '',
-          observaciones:      s.observaciones                ?? '',
-          // Evaluación desde comite_evaluador, no desde datos jsonb
+          usuario_id:         s.usuario_id         ?? null,
+          nombres:            s.nombres            ?? '',
+          apellidos:          s.apellidos          ?? '',
+          cedula:             s.cedula             ?? '',
+          tipoIdentificacion: s.tipo_identificacion ?? '',
+          telefono:           s.telefono           ?? '',
+          email:              s.email              ?? '',
+          direccion:          s.direccion          ?? '',
+          ocupacion:          s.ocupacion          ?? '',
+          ingresoMensual:          s.ingreso_mensual != null ? String(s.ingreso_mensual) : '',
+          montoAhorroPropuesto:    s.monto_ahorro_propuesto != null ? String(s.monto_ahorro_propuesto) : '',
+          motivacion:         s.motivacion         ?? '',
+          documentos:         Array.isArray(s.documentos) ? s.documentos : [],
+          urlDocumento:       '',
+          fechaSolicitud:     s.fecha_solicitud    ?? s.created_at ?? '',
+          estado:             s.estado             ?? 'pendiente',
+          fechaResolucion:    s.fecha_resolucion   ?? '',
+          observaciones:      s.observaciones      ?? '',
           evaluacion: ev ? {
             scoreCredito:      score,
             nivelRiesgo:       score >= 75 ? 'bajo' : score >= 50 ? 'medio' : 'alto',
@@ -294,14 +294,14 @@ export default function ComiteEvaluador() {
       const { error } = await supabase
         .from('comite_evaluador')
         .upsert({
-          solicitud_id:  selectedSolicitud.id,
-          evaluador_id:  user?.id ?? null,
+          solicitud_asociado_id: selectedSolicitud.id,
+          evaluador_id:          user?.id ?? null,
           verificaciones,
-          comentarios:   comentariosComite,
-          score_credito: score,
-          decision:      'en_evaluacion',
-          fecha:         new Date().toISOString(),
-        }, { onConflict: 'solicitud_id' });
+          comentarios:           comentariosComite,
+          score_credito:         score,
+          decision:              'en_evaluacion',
+          fecha:                 new Date().toISOString(),
+        }, { onConflict: 'solicitud_asociado_id' });
       if (error) throw error;
 
       const nivelRiesgo: 'bajo' | 'medio' | 'alto' = score >= 75 ? 'bajo' : score >= 50 ? 'medio' : 'alto';
@@ -328,80 +328,36 @@ export default function ComiteEvaluador() {
     if (!selectedSolicitud || selectedSolicitud.estado !== 'pendiente') return;
     setApproving(true);
     try {
-      const fechaRes = new Date().toISOString();
-
-      // 1. Marcar solicitud como aprobada
-      const { error: upErr } = await supabase
-        .from('solicitudes')
-        .update({ estado: 'aprobada', fecha_resolucion: fechaRes, observaciones: 'Aprobada por el comité evaluador' })
-        .eq('id', selectedSolicitud.id);
-      if (upErr) throw upErr;
-
-      // 2. Crear o actualizar registro en tabla asociados (upsert por cedula)
-      const { data: nuevoAsociado, error: asocErr } = await supabase
-        .from('asociados')
-        .upsert({
-          nombre:        `${selectedSolicitud.nombres} ${selectedSolicitud.apellidos}`,
-          cedula:        selectedSolicitud.cedula,
-          telefono:      selectedSolicitud.telefono,
-          email:         selectedSolicitud.email,
-          direccion:     selectedSolicitud.direccion,
-          fecha_ingreso: new Date().toISOString().split('T')[0],
-          estado:        'activo',
-        }, { onConflict: 'cedula', ignoreDuplicates: false })
-        .select()
-        .single();
-      if (asocErr) throw asocErr;
-
-      // 3. Registrar decisión final en comite_evaluador
       const { data: { user } } = await supabase.auth.getUser();
-      await supabase
-        .from('comite_evaluador')
-        .upsert({
-          solicitud_id:  selectedSolicitud.id,
-          evaluador_id:  user?.id ?? null,
-          verificaciones,
-          comentarios:   comentariosComite,
-          score_credito: scoreCredito,
-          decision:      'aprobado',
-          observacion:   'Aprobada por el comité evaluador',
-          fecha:         fechaRes,
-        }, { onConflict: 'solicitud_id' });
+      if (!user) throw new Error('No hay sesión activa');
 
-      // 4. Promover al usuario registrado al rol "asociado"
-      const { data: solData } = await supabase
-        .from('solicitudes')
-        .select('usuario_id')
-        .eq('id', selectedSolicitud.id)
-        .single();
+      // 1. Llamar al RPC atómico — crea asociado, ahorro permanente, actualiza solicitud y comité
+      const { data: nuevoAsociadoId, error: rpcError } = await supabase.rpc('aprobar_afiliacion', {
+        p_solicitud_id: selectedSolicitud.id,
+        p_admin_id:     user.id,
+      });
+      if (rpcError) throw rpcError;
 
-      if (solData?.usuario_id) {
-        // Buscar el id del rol "asociado" en la tabla roles
-        const { data: rolAsociado, error: rolErr } = await supabase
+      // 2. Si el solicitante ya tenía usuario registrado, actualizar su rol y vincular el asociado
+      if (selectedSolicitud.usuario_id && nuevoAsociadoId) {
+        const { data: rolAsociado } = await supabase
           .from('roles')
           .select('id')
           .eq('nombre', 'asociado')
           .limit(1)
           .single();
 
-        if (rolErr || !rolAsociado) {
-          throw new Error('No se encontró el rol "asociado" en la base de datos. Verifique que exista en la tabla roles.');
-        }
-
-        const { error: updateUserErr } = await supabase
-          .from('usuarios')
-          .update({
+        if (rolAsociado) {
+          await supabase.from('usuarios').update({
             rol_id:         rolAsociado.id,
-            asociado_id:    nuevoAsociado?.id ?? null,
-            identificacion: selectedSolicitud.cedula    || null,
-            telefono:       selectedSolicitud.telefono  || null,
-            direccion:      selectedSolicitud.direccion || null,
-          })
-          .eq('id', solData.usuario_id);
-
-        if (updateUserErr) throw updateUserErr;
+            asociado_id:    nuevoAsociadoId,
+            identificacion: selectedSolicitud.cedula || null,
+          }).eq('id', selectedSolicitud.usuario_id);
+        }
       }
 
+      // 3. Actualizar UI local
+      const fechaRes = new Date().toISOString();
       setSolicitudes(prev => prev.map(s =>
         s.id === selectedSolicitud.id
           ? { ...s, estado: 'aprobada', fechaResolucion: fechaRes, observaciones: 'Aprobada por el comité evaluador' }
@@ -423,34 +379,21 @@ export default function ComiteEvaluador() {
     if (!selectedSolicitud || !motivoRechazo.trim() || selectedSolicitud.estado !== 'pendiente') return;
     setRejecting(true);
     try {
-      const fechaRes = new Date().toISOString();
-      const motivo   = motivoRechazo.trim();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No hay sesión activa');
 
-      // 1. Marcar solicitud como rechazada
-      const { error } = await supabase
-        .from('solicitudes')
-        .update({ estado: 'rechazada', fecha_resolucion: fechaRes, observaciones: motivo })
-        .eq('id', selectedSolicitud.id);
+      // Llamar al RPC — actualiza solicitud y comité atómicamente
+      const { error } = await supabase.rpc('rechazar_afiliacion', {
+        p_solicitud_id: selectedSolicitud.id,
+        p_admin_id:     user.id,
+        p_motivo:       motivoRechazo.trim(),
+      });
       if (error) throw error;
 
-      // 2. Registrar decisión en comite_evaluador
-      const { data: { user } } = await supabase.auth.getUser();
-      await supabase
-        .from('comite_evaluador')
-        .upsert({
-          solicitud_id:  selectedSolicitud.id,
-          evaluador_id:  user?.id ?? null,
-          verificaciones,
-          comentarios:   comentariosComite,
-          score_credito: scoreCredito,
-          decision:      'rechazado',
-          observacion:   motivo,
-          fecha:         fechaRes,
-        }, { onConflict: 'solicitud_id' });
-
+      const fechaRes = new Date().toISOString();
       setSolicitudes(prev => prev.map(s =>
         s.id === selectedSolicitud.id
-          ? { ...s, estado: 'rechazada', fechaResolucion: fechaRes, observaciones: motivo }
+          ? { ...s, estado: 'rechazada', fechaResolucion: fechaRes, observaciones: motivoRechazo.trim() }
           : s
       ));
       toast.success('Solicitud rechazada y registrada en el historial.');
@@ -471,7 +414,7 @@ export default function ComiteEvaluador() {
     setDeleting(true);
     try {
       const { error } = await supabase
-        .from('solicitudes')
+        .from('solicitudes_asociados')
         .delete()
         .eq('id', selectedSolicitud.id);
       if (error) throw error;
@@ -495,21 +438,19 @@ export default function ComiteEvaluador() {
     setSavingNew(true);
     try {
       const { data, error } = await supabase
-        .from('solicitudes')
+        .from('solicitudes_asociados')
         .insert({
-          tipo:    'afiliacion',
-          estado:  'pendiente',
-          datos: {
-            nombres:         formNueva.nombres.trim(),
-            apellidos:       formNueva.apellidos.trim(),
-            cedula:          formNueva.cedula.trim(),
-            telefono:        formNueva.telefono.trim(),
-            email:           formNueva.email.trim(),
-            direccion:       formNueva.direccion.trim(),
-            ocupacion:       formNueva.ocupacion.trim(),
-            ingreso_mensual: formNueva.ingresoMensual.trim(),
-            motivacion:      formNueva.motivacion.trim(),
-          },
+          nombres:         formNueva.nombres.trim(),
+          apellidos:       formNueva.apellidos.trim(),
+          cedula:          formNueva.cedula.trim(),
+          telefono:        formNueva.telefono.trim()      || null,
+          email:           formNueva.email.trim()         || null,
+          direccion:       formNueva.direccion.trim()     || null,
+          ocupacion:       formNueva.ocupacion.trim()     || null,
+          ingreso_mensual: formNueva.ingresoMensual ? parseFloat(formNueva.ingresoMensual) : null,
+          motivacion:      formNueva.motivacion.trim()    || null,
+          estado:          'pendiente',
+          documentos:      [],
         })
         .select()
         .single();
@@ -517,19 +458,21 @@ export default function ComiteEvaluador() {
 
       const nueva: Solicitud = {
         id:              data.id,
-        usuario_id:      data.usuario_id      ?? null,
-        nombres:         data.datos?.nombres  ?? '',
-        apellidos:       data.datos?.apellidos ?? '',
-        cedula:          data.datos?.cedula   ?? '',
-        telefono:        data.datos?.telefono ?? '',
-        email:           data.datos?.email    ?? '',
-        direccion:       data.datos?.direccion ?? '',
-        ocupacion:       data.datos?.ocupacion ?? '',
-        ingresoMensual:  data.datos?.ingreso_mensual ?? '',
-        motivacion:      data.datos?.motivacion ?? '',
+        usuario_id:      data.usuario_id     ?? null,
+        nombres:         data.nombres        ?? '',
+        apellidos:       data.apellidos      ?? '',
+        cedula:          data.cedula         ?? '',
+        tipoIdentificacion: data.tipo_identificacion ?? '',
+        telefono:        data.telefono       ?? '',
+        email:           data.email          ?? '',
+        direccion:       data.direccion      ?? '',
+        ocupacion:       data.ocupacion      ?? '',
+        ingresoMensual:        data.ingreso_mensual != null ? String(data.ingreso_mensual) : '',
+        montoAhorroPropuesto:  data.monto_ahorro_propuesto != null ? String(data.monto_ahorro_propuesto) : '',
+        motivacion:            data.motivacion ?? '',
         documentos:      [],
         urlDocumento:    '',
-        fechaSolicitud:  data.fecha_solicitud ?? '',
+        fechaSolicitud:  data.fecha_solicitud ?? data.created_at ?? '',
         estado:          'pendiente',
         fechaResolucion: '',
         observaciones:   '',
@@ -555,7 +498,7 @@ export default function ComiteEvaluador() {
   };
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="p-8 bg-slate-50 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* ── Encabezado ── */}
@@ -564,12 +507,6 @@ export default function ComiteEvaluador() {
             <h1 className="text-slate-900 mb-1">Comité Evaluador</h1>
             <p className="text-slate-500 text-sm">Gestiona las solicitudes de ingreso a la asociación</p>
           </div>
-          <Button
-            className="bg-emerald-600 hover:bg-emerald-700 gap-2"
-            onClick={() => { setFormNueva(emptyNueva); setIsNewSolicitudOpen(true); }}
-          >
-            <UserPlus className="size-4" /> Registrar solicitud
-          </Button>
         </div>
 
         {/* ── KPIs ── */}
@@ -883,100 +820,6 @@ export default function ComiteEvaluador() {
         </Card>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* ── Dialog: Registrar nueva solicitud ────────────────────────────── */}
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      <Dialog open={isNewSolicitudOpen} onOpenChange={open => { setIsNewSolicitudOpen(open); if (!open) setFormNueva(emptyNueva); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 -mx-6 -mt-6 px-6 py-5 rounded-t-lg mb-2">
-              <DialogTitle className="text-white text-lg flex items-center gap-2">
-                <UserPlus className="size-5" /> Registrar solicitud de ingreso
-              </DialogTitle>
-              <DialogDescription className="text-emerald-100 mt-0.5 text-sm">
-                Completa los datos del aspirante. Los campos marcados con * son obligatorios.
-              </DialogDescription>
-            </div>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {/* Datos personales */}
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Users className="size-3.5" /> Datos personales
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Nombres <span className="text-red-500">*</span></Label>
-                  <Input value={formNueva.nombres} onChange={e => setFormNueva(p => ({ ...p, nombres: e.target.value }))} placeholder="Ej. Carlos Alberto" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Apellidos <span className="text-red-500">*</span></Label>
-                  <Input value={formNueva.apellidos} onChange={e => setFormNueva(p => ({ ...p, apellidos: e.target.value }))} placeholder="Ej. García Pérez" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Cédula <span className="text-red-500">*</span></Label>
-                  <Input value={formNueva.cedula} onChange={e => setFormNueva(p => ({ ...p, cedula: e.target.value }))} placeholder="Número de documento" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Teléfono</Label>
-                  <Input value={formNueva.telefono} onChange={e => setFormNueva(p => ({ ...p, telefono: e.target.value }))} placeholder="300 000 0000" />
-                </div>
-                <div className="space-y-1.5 col-span-2">
-                  <Label>Email</Label>
-                  <Input type="email" value={formNueva.email} onChange={e => setFormNueva(p => ({ ...p, email: e.target.value }))} placeholder="correo@ejemplo.com" />
-                </div>
-                <div className="space-y-1.5 col-span-2">
-                  <Label>Dirección</Label>
-                  <Input value={formNueva.direccion} onChange={e => setFormNueva(p => ({ ...p, direccion: e.target.value }))} placeholder="Dirección de residencia" />
-                </div>
-              </div>
-            </div>
-
-            {/* Datos laborales */}
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Briefcase className="size-3.5" /> Información laboral
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Ocupación</Label>
-                  <Input value={formNueva.ocupacion} onChange={e => setFormNueva(p => ({ ...p, ocupacion: e.target.value }))} placeholder="Cargo o profesión" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Ingreso mensual</Label>
-                  <Input value={formNueva.ingresoMensual} onChange={e => setFormNueva(p => ({ ...p, ingresoMensual: e.target.value }))} placeholder="Ej. 1500000" />
-                </div>
-              </div>
-            </div>
-
-            {/* Motivación */}
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <MessageSquare className="size-3.5" /> Motivación
-              </p>
-              <Textarea
-                rows={3}
-                className="resize-none text-sm"
-                placeholder="¿Por qué desea ingresar a la asociación?"
-                value={formNueva.motivacion}
-                onChange={e => setFormNueva(p => ({ ...p, motivacion: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setIsNewSolicitudOpen(false)} disabled={savingNew}>Cancelar</Button>
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700 gap-1.5"
-              onClick={handleCrearSolicitud}
-              disabled={savingNew || !formNueva.nombres.trim() || !formNueva.apellidos.trim() || !formNueva.cedula.trim()}
-            >
-              {savingNew ? 'Registrando...' : <><UserPlus className="size-4" /> Registrar solicitud</>}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* ── Dialog: Detalle / Evaluación ─────────────────────────────────── */}
@@ -1101,7 +944,7 @@ export default function ComiteEvaluador() {
                         <>
                           {([
                             selectedSolicitud.ocupacion      ? ['Ocupación',      selectedSolicitud.ocupacion]      : null,
-                            selectedSolicitud.ingresoMensual ? ['Ingreso mensual', selectedSolicitud.ingresoMensual] : null,
+                            selectedSolicitud.ingresoMensual ? ['Ingreso mensual', `$${parseFloat(selectedSolicitud.ingresoMensual).toLocaleString('es-CO')} COP`] : null,
                           ] as ([string,string] | null)[])
                             .filter((row): row is [string,string] => row !== null)
                             .map(([k, v]) => (
@@ -1110,11 +953,23 @@ export default function ComiteEvaluador() {
                               <span className="font-medium text-slate-800">{v}</span>
                             </div>
                           ))}
+
+                          {/* Ahorro mensual propuesto por el solicitante */}
+                          {selectedSolicitud.montoAhorroPropuesto && (
+                            <div className="mt-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                              <p className="text-xs text-emerald-700 font-semibold">Ahorro mensual propuesto</p>
+                              <p className="text-xl font-bold text-emerald-700">
+                                ${parseFloat(selectedSolicitud.montoAhorroPropuesto).toLocaleString('es-CO')} COP
+                              </p>
+                              <p className="text-[10px] text-emerald-600 mt-0.5">Monto que el solicitante propone ahorrar cada mes</p>
+                            </div>
+                          )}
+
                           {selectedSolicitud.ingresoMensual && (
-                            <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                            <div className="mt-2 p-3 bg-blue-50 rounded-lg">
                               <p className="text-xs text-blue-600 font-medium">Capacidad de pago estimada (30%)</p>
                               <p className="text-lg font-bold text-blue-700">
-                                ${(parseFloat(String(selectedSolicitud.ingresoMensual).replace(/[^0-9.]/g, '')) * 0.3 || 0).toLocaleString('es-CO')}
+                                ${(parseFloat(String(selectedSolicitud.ingresoMensual).replace(/[^0-9.]/g, '')) * 0.3 || 0).toLocaleString('es-CO')} COP
                               </p>
                             </div>
                           )}

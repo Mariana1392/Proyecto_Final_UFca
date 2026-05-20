@@ -43,10 +43,16 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
 
   async function cargar(asociadoId: string) {
     try {
-      const [ahorroRes, creditoRes, movRes, referidosRes] = await Promise.all([
-        // Ahorros actuales
-        supabase.from('ahorros')
-          .select('tipo, monto_ahorrado, estado, anulado')
+      const [ahorroPermRes, ahorroVolRes, creditoRes, pagosPermRes, pagosVolRes, refRes] = await Promise.all([
+        // Ahorro permanente
+        supabase.from('ahorros_permanentes')
+          .select('id, monto_ahorrado, estado, anulado')
+          .eq('asociado_id', asociadoId)
+          .eq('anulado', false),
+
+        // Ahorros voluntarios
+        supabase.from('ahorros_voluntarios')
+          .select('id, monto_ahorrado, estado, anulado')
           .eq('asociado_id', asociadoId)
           .eq('anulado', false),
 
@@ -57,12 +63,19 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
           .eq('anulado', false)
           .in('estado', ['activo', 'desembolsado', 'en_mora']),
 
-        // Últimos movimientos (panel)
-        supabase.from('movimientos_ahorro')
-          .select('id, tipo_movimiento, tipo_ahorro, monto, descripcion, created_at')
+        // Últimos pagos ahorro permanente
+        supabase.from('pagos_ahorro_permanente')
+          .select('id, fecha_pago, monto_total_pagado, created_at')
           .eq('asociado_id', asociadoId)
           .order('created_at', { ascending: false })
-          .limit(7),
+          .limit(4),
+
+        // Últimos pagos ahorro voluntario
+        supabase.from('pagos_ahorro_voluntario')
+          .select('id, fecha_pago, monto, created_at')
+          .eq('asociado_id', asociadoId)
+          .order('created_at', { ascending: false })
+          .limit(3),
 
         // Referidos
         supabase.from('asociados')
@@ -70,9 +83,8 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
           .eq('referido_por_id', asociadoId),
       ]);
 
-      const ahorros = ahorroRes.data || [];
-      const ap = ahorros.filter((a: any) => a.tipo === 'permanente').reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
-      const av = ahorros.filter((a: any) => a.tipo === 'voluntario').reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
+      const ap = (ahorroPermRes.data || []).reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
+      const av = (ahorroVolRes.data || []).reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
       const totalActual = ap + av;
 
       const creditosActivos = creditoRes.data || [];
@@ -83,16 +95,30 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
         ahorroVol:     av,
         creditoSaldo:  saldoTotal,
         creditoActivo: creditosActivos.length > 0,
-        referidos:     referidosRes.count ?? 0,
+        referidos:     refRes.count ?? 0,
       });
       setCreditos(creditosActivos);
 
-      // Movimientos del panel
-      const movsProcesados = (movRes.data || [])
-        .map((m: any) => ({
-          ...m,
-          fuente: m.tipo_ahorro === 'permanente' ? 'Ahorro Permanente' : 'Ahorro Voluntario',
-        }))
+      // Últimos pagos de ahorro — combinar permanente y voluntario
+      const movsProcesados = [
+        ...(pagosPermRes.data || []).map((m: any) => ({
+          id:             m.id,
+          tipo_movimiento: 'Aporte',
+          fuente:         'Ahorro Permanente',
+          monto:          m.monto_total_pagado,
+          created_at:     m.created_at,
+          fecha_pago:     m.fecha_pago,
+        })),
+        ...(pagosVolRes.data || []).map((m: any) => ({
+          id:             m.id,
+          tipo_movimiento: 'Depósito',
+          fuente:         'Ahorro Voluntario',
+          monto:          m.monto,
+          created_at:     m.created_at,
+          fecha_pago:     m.fecha_pago,
+        })),
+      ]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 5);
       setMovimientos(movsProcesados);
 
@@ -126,6 +152,29 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
         <div className="text-center space-y-3">
           <div className="size-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-slate-500 text-sm">Cargando tu portal...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // U-03: sin asociado_id → la solicitud aún no ha sido aprobada
+  if (!userData?.asociado_id) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] p-6">
+        <div className="max-w-md w-full text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="p-4 bg-amber-100 rounded-full">
+              <Clock className="size-10 text-amber-600" />
+            </div>
+          </div>
+          <h2 className="text-xl font-semibold text-slate-800">Solicitud en revisión</h2>
+          <p className="text-slate-500 text-sm">
+            Tu solicitud de asociación está siendo evaluada por el equipo UFCA.
+            Una vez aprobada podrás ver tu portal completo aquí.
+          </p>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            ¿Tienes dudas? Contacta a tu cooperativa para conocer el estado de tu solicitud.
+          </div>
         </div>
       </div>
     );
@@ -302,25 +351,38 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
               <Bell className="size-4 text-purple-500" /> Accesos rápidos
             </CardTitle>
           </CardHeader>
+          {/* R-06: mapa estático — Tailwind no detecta clases con interpolación dinámica `bg-${color}-100` */}
+          {(() => {
+            const CLS: Record<string, { hover: string; bg: string; text: string }> = {
+              emerald: { hover: 'hover:bg-emerald-50', bg: 'bg-emerald-100', text: 'text-emerald-600' },
+              amber:   { hover: 'hover:bg-amber-50',   bg: 'bg-amber-100',   text: 'text-amber-600'   },
+              blue:    { hover: 'hover:bg-blue-50',     bg: 'bg-blue-100',    text: 'text-blue-600'    },
+              purple:  { hover: 'hover:bg-purple-50',   bg: 'bg-purple-100',  text: 'text-purple-600'  },
+            };
+            return (
           <CardContent className="space-y-2">
             {[
               { label: 'Mis ahorros',  icon: PiggyBank,  view: 'ahorro-permanente', color: 'emerald' },
               { label: 'Mis créditos', icon: CreditCard, view: 'creditos',           color: 'amber'   },
               { label: 'Liquidación',  icon: Coins,      view: 'liquidacion',        color: 'blue'    },
               { label: 'Referidos',    icon: Gift,       view: 'referidos',          color: 'purple'  },
-            ].map(({ label, icon: Icon, view, color }) => (
+            ].map(({ label, icon: Icon, view, color }) => {
+              const cls = CLS[color] ?? CLS.emerald;
+              return (
               <button key={view}
-                className={`w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-${color}-50 transition-colors group text-left`}
+                className={`w-full flex items-center gap-3 p-2.5 rounded-xl ${cls.hover} transition-colors group text-left`}
                 onClick={() => onNavigate?.(view)}
               >
-                <div className={`size-8 rounded-lg bg-${color}-100 flex items-center justify-center flex-shrink-0`}>
-                  <Icon className={`size-4 text-${color}-600`} />
+                <div className={`size-8 rounded-lg ${cls.bg} flex items-center justify-center flex-shrink-0`}>
+                  <Icon className={`size-4 ${cls.text}`} />
                 </div>
                 <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">{label}</span>
                 <ChevronRight className="size-4 text-slate-300 group-hover:text-slate-500 ml-auto" />
               </button>
-            ))}
+            );})}
           </CardContent>
+            );
+          })()}
         </Card>
       </div>
 
@@ -343,7 +405,10 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
               {creditos.map(c => (
                 <div key={c.id} className="p-3 rounded-xl bg-amber-50 border border-amber-100">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-amber-700">Crédito activo</span>
+                    {/* U-04: título refleja el estado real del crédito */}
+                  <span className="text-xs font-medium text-amber-700">
+                    {c.estado === 'en_mora' ? 'Crédito en mora' : 'Crédito activo'}
+                  </span>
                     <Badge className={`text-xs border-0 ${c.estado === 'en_mora' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
                       {c.estado}
                     </Badge>
