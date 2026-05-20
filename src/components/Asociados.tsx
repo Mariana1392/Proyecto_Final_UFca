@@ -29,7 +29,7 @@ import MiPerfil from './MiPerfil';
 import { supabase } from '../lib/supabase';
 import { asociadosApi, ahorroPermanenteApi, ahorroVoluntarioApi, creditosApi } from '../lib/api';
 import type { UserRole } from '../contexts/AuthContext';
-// A-05: eventosApi no se usa aquí — se importará desde api.unimplemented cuando se active la vista
+
 
 interface AsociadosProps {
   onViewDetails: (id: string) => void;

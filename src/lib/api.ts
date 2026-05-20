@@ -470,13 +470,6 @@ export const pagosCreditoApi = {
 };
 
 // ═══════════════════════════════════════
-// A-05: MÓDULOS NO IMPLEMENTADOS
-// Movidos a src/lib/api.unimplemented.ts
-// Importar desde allí cuando se activen las vistas correspondientes
-// ═══════════════════════════════════════
-export { productosApi, categoriasApi, proveedoresApi, ventasApi, comprasApi, pedidosApi, eventosApi } from './api.unimplemented';
-
-// ═══════════════════════════════════════
 // EXCEPCIONES
 // ═══════════════════════════════════════
 
