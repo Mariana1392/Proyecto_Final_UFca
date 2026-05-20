@@ -10,8 +10,26 @@
  */
 
 import { supabase } from '../lib/supabase';
-import { Asociado } from '../models/Asociado';
-import { Credito, calcularDiasMora, verificarMora } from '../models/Credito';
+
+// ── Tipos compatibles con el schema de Supabase ───────────────────────────────
+interface AsociadoBasic {
+  id: string;
+  estado: string;
+  referido_por_id?: string | null; // no null = es referido
+}
+
+interface CreditoBasic {
+  id: string;
+  estado: string;
+}
+
+// ── Utilidad de mora (antes en models/Credito.ts) ─────────────────────────────
+const calcularDiasMora = (fechaVencimiento: string): number => {
+  const hoy = new Date();
+  const vencimiento = new Date(fechaVencimiento);
+  const diferencia = hoy.getTime() - vencimiento.getTime();
+  return Math.max(0, Math.floor(diferencia / (1000 * 60 * 60 * 24)));
+};
 
 // ── Tipo de resultado de validación ──────────────────────────────────────────
 
@@ -121,8 +139,8 @@ class BusinessRulesEngine {
   // ── REGLAS DE ASOCIADOS ───────────────────────────────────────────────────
 
   /** REGLA: Personas referidas no pueden afiliarse directamente */
-  validarAsociadoReferido(asociado: Partial<Asociado>): ReglaValidacion {
-    if ((asociado as any).esReferido) {
+  validarAsociadoReferido(asociado: Partial<AsociadoBasic>): ReglaValidacion {
+    if (asociado.referido_por_id) {
       return {
         valida: false,
         mensaje: 'Las personas referidas no pueden afiliarse según estatutos. Requiere aprobación administrativa.',
@@ -193,22 +211,22 @@ class BusinessRulesEngine {
   }
 
   /** REGLA: Más de N cuotas incumplidas genera suspensión automática */
-  validarSuspensionPorCuotasIncumplidas(asociado: Asociado): ReglaValidacion {
+  validarSuspensionPorCuotasIncumplidas(cuotasIncumplidas: number): ReglaValidacion {
     const max = this.config.cuotasMaximasIncumplidas;
-    if ((asociado as any).cuotasIncumplidas >= max) {
+    if (cuotasIncumplidas >= max) {
       return {
         valida: false,
-        mensaje: `El asociado tiene ${(asociado as any).cuotasIncumplidas} cuotas incumplidas (máximo: ${max}). Debe ser suspendido.`,
+        mensaje: `El asociado tiene ${cuotasIncumplidas} cuotas incumplidas (máximo: ${max}). Debe ser suspendido.`,
         tipoExcepcion: 'suspension_menos_dos_cuotas',
         impacto: 'alto',
-        requiereExcepcion: false, // Suspensión automática — no se puede eximir
+        requiereExcepcion: false,
       };
     }
     return { valida: true, mensaje: 'Cuotas incumplidas dentro del límite', requiereExcepcion: false };
   }
 
   /** REGLA: Solo asociados activos pueden solicitar crédito */
-  validarAsociadoActivoParaCredito(asociado: Asociado): ReglaValidacion {
+  validarAsociadoActivoParaCredito(asociado: AsociadoBasic): ReglaValidacion {
     if (asociado.estado !== 'activo') {
       return {
         valida: false,
@@ -293,7 +311,7 @@ class BusinessRulesEngine {
   // ── REGLAS DE PAGOS ───────────────────────────────────────────────────────
 
   /** REGLA: Solo registrar pagos a créditos en estado desembolsado o en mora */
-  validarPagoCreditoDesembolsado(credito: Credito): ReglaValidacion {
+  validarPagoCreditoDesembolsado(credito: CreditoBasic): ReglaValidacion {
     if (credito.estado !== 'desembolsado' && credito.estado !== 'en_mora') {
       return {
         valida: false,
