@@ -29,10 +29,10 @@ import { generateAhorroVoluntarioPDF, buildAhorroVoluntarioPDF } from './utils/p
 
 import { supabase } from '../lib/supabase';
 import { ahorroVoluntarioApi, asociadosApi } from '../lib/api';
-
+import type { UserRole } from '../contexts/AuthContext';
 
 interface AhorroVoluntarioProps {
-  userRole?: 'admin' | 'asociado' | null;
+  userRole?: UserRole | null;
   userData?: any;
 }
 

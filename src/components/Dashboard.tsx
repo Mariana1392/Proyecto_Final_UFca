@@ -15,9 +15,10 @@ import {
 // ── Supabase ──────────────────────────────────────────────────────────────────
 import { supabase } from '../lib/supabase';
 import { dashboardApi } from '../lib/api';
+import type { UserRole } from '../contexts/AuthContext';
 
 interface DashboardProps {
-  userRole?: 'admin' | 'asociado' | null;
+  userRole?: UserRole | null;
   userData?: any;
   onNavigate?: (view: string, asociadoId?: string) => void;
 }

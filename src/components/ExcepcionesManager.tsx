@@ -10,6 +10,7 @@ import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 
 import { supabase } from '../lib/supabase';
+import type { UserRole } from '../contexts/AuthContext';
 
 // Tipo local que reemplaza ExcepcionAdministrativa del exceptionService
 interface Excepcion {
@@ -31,7 +32,7 @@ interface Excepcion {
 }
 
 interface ExcepcionesManagerProps {
-  userRole: 'admin' | 'asociado';
+  userRole: UserRole;
   userId: string;
 }
 

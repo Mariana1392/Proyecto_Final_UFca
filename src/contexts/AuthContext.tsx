@@ -10,6 +10,9 @@ import { getPermisosEfectivos, rolLabel } from '../lib/permissions';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
+/** Roles posibles en la BD — fuente única de verdad para todos los componentes */
+export type UserRole = 'admin' | 'asociado' | 'usuario';
+
 export interface AuthUser {
   id: string; nombre: string; email: string; username: string;
   rol: string; rol_id: string | null; asociado_id: string | null;
@@ -27,7 +30,7 @@ interface AuthContextType {
   iniciarSesion:   (u: AuthUser) => void;
   logout:          () => Promise<void>;
   recargarPerfil:  () => Promise<void>;
-  userRole:        'admin' | 'asociado' | 'usuario' | null;
+  userRole:        UserRole | null;
   userData:        any;
 }
 

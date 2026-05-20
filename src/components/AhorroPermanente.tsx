@@ -29,9 +29,10 @@ import { generateAhorroPermanentePDF } from './utils/pdfGenerator';
 
 import { supabase } from '../lib/supabase';
 import { ahorroPermanenteApi, asociadosApi } from '../lib/api';
+import type { UserRole } from '../contexts/AuthContext';
 
 interface AhorroPermanenteProps {
-  userRole?: 'admin' | 'asociado' | null;
+  userRole?: UserRole | null;
   userData?: any;
 }
 

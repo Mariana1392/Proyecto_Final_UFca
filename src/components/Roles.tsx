@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 // ── Supabase + Auth ───────────────────────────────────────────────────────────
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import type { UserRole } from '../contexts/AuthContext';
 
 // PermisoKey ya no es un tipo fijo — los permisos vienen de la tabla `permisos` en la BD.
 // Se usa string genérico para compatibilidad con datos dinámicos.
@@ -45,7 +46,7 @@ const PERMISOS_MINIMOS: PermisoKey[] = ['dashboard'];
 // No existen objetos hardcoded — la BD es la única fuente de verdad
 
 interface RolesProps {
-  userRole?: 'admin' | 'asociado';
+  userRole?: UserRole;
 }
 
 export default function Roles({ userRole }: RolesProps) {

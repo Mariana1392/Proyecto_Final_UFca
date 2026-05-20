@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import type { UserRole } from '../contexts/AuthContext';
 import { rolLabel } from '../lib/permissions';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -45,7 +46,7 @@ const traducirErrorAuth = (msg: string): string => {
 };
 
 interface GestionUsuariosProps {
-  userRole?: 'admin' | 'asociado';
+  userRole?: UserRole;
 }
 
 export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsuariosProps) {

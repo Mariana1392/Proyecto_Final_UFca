@@ -12,6 +12,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
+import type { UserRole } from '../contexts/AuthContext';
 
 interface Notif {
   _id:      string;
@@ -25,7 +26,7 @@ interface Notif {
 
 interface AlertasWidgetProps {
   userId:     string;
-  userRole:   'admin' | 'asociado';
+  userRole:   UserRole;
   asociadoId?: string | null;
   onNavigateToExcepciones?: () => void;
   onNavigate?: (view: string) => void;

@@ -12,6 +12,7 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import AlertasWidget from "./AlertasWidget";
 import { supabase } from "../lib/supabase";
+import type { UserRole } from "../contexts/AuthContext";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -19,7 +20,7 @@ interface LayoutProps {
   currentView: string;
   onNavigate: (view: any) => void;
   onLogout: () => void;
-  userRole?: "admin" | "asociado" | "usuario" | null;
+  userRole?: UserRole | null;
   userData?: any;
   userPermisos?: string[];
 }
