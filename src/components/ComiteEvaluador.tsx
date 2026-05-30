@@ -570,7 +570,7 @@ export default function ComiteEvaluador() {
     }
   }
 
-  // ── Reenviar invitación (para pendiente_activacion sin email enviado) ────────
+  // ── Reenviar invitación / recordatorio de activación ─────────────────────────
   async function handleReenviarInvitacion(sol: Solicitud) {
     if (!sol.email) { toast.error('Esta solicitud no tiene email registrado'); return; }
     if (rateLimitUntil > Date.now()) {
@@ -581,6 +581,26 @@ export default function ComiteEvaluador() {
     }
     setReenviando(true);
     try {
+      // Si el usuario ya tiene cuenta creada, enviar correo de recuperación
+      // como recordatorio para que inicie sesión y complete el pago
+      if (sol.usuario_id) {
+        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(
+          sol.email,
+          { redirectTo: `${APP_URL}/?bienvenido=1` },
+        );
+        if (resetErr) throw resetErr;
+
+        setReenviadoSolicitudId(sol.id);
+        setAprobacionEmailData({
+          nombre:     `${sol.nombres} ${sol.apellidos}`,
+          email:      sol.email,
+          inviteLink: 'sent',
+        });
+        toast.success('✅ Correo de recordatorio enviado correctamente');
+        return;
+      }
+
+      // Usuario sin cuenta: enviar invitación
       const { error: invErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
         sol.email,
         {
@@ -588,7 +608,6 @@ export default function ComiteEvaluador() {
           data: { nombre: sol.nombres, rol: 'asociado' },
         }
       );
-
       if (invErr) throw invErr;
 
       setReenviadoSolicitudId(sol.id);
@@ -606,7 +625,7 @@ export default function ComiteEvaluador() {
           description: 'El botón se habilitará automáticamente en 1 hora.',
         });
       } else {
-        toast.error('Error al enviar invitación: ' + msg);
+        toast.error('Error al enviar correo: ' + msg);
       }
     } finally {
       setReenviando(false);
@@ -1175,8 +1194,8 @@ export default function ComiteEvaluador() {
                                 <PiggyBank className="size-3.5" /> Registrar pago
                               </button>
                             )}
-                            {/* Reenviar invitación — cuando aún no ha aceptado el invite */}
-                            {!s.usuario_id && s.email && (() => {
+                            {/* Reenviar correo — visible para toda solicitud pendiente_activacion con email */}
+                            {s.email && (() => {
                               const enCooldown = rateLimitUntil > Date.now();
                               return (
                                 <button
