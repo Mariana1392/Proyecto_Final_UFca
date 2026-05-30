@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
-import { Mail, Lock, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
+import { Mail, Lock, ArrowLeft, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 
 import { supabase } from '../lib/supabase';
 
 const APP_URL = import.meta.env.VITE_PUBLIC_URL || 'https://interfaz-web-profesional-ufca-9.vercel.app';
+const LS_KEY  = 'ufca_recuperar_cooldown_until';
 
 interface RecuperarPasswordProps {
   onBack: () => void;
@@ -20,10 +21,41 @@ export default function RecuperarPassword({ onBack }: RecuperarPasswordProps) {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // ── Cooldown para no exceder el límite de Supabase ────────────────────────
+  const [cooldownUntil, setCooldownUntil] = useState<number>(() => {
+    const v = localStorage.getItem(LS_KEY);
+    return v ? parseInt(v, 10) : 0;
+  });
+  const [countdown, setCountdown] = useState('');
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (cooldownUntil <= Date.now()) { setCountdown(''); return; }
+    const tick = () => {
+      const rem = cooldownUntil - Date.now();
+      if (rem <= 0) { setCountdown(''); if (timerRef.current) clearInterval(timerRef.current); return; }
+      const m = Math.floor(rem / 60000);
+      const s = Math.floor((rem % 60000) / 1000);
+      setCountdown(m > 0 ? `${m}:${String(s).padStart(2,'0')} min` : `${s} seg`);
+    };
+    tick();
+    timerRef.current = setInterval(tick, 1000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [cooldownUntil]);
+
+  const iniciarCooldown = (segundos: number) => {
+    const until = Date.now() + segundos * 1000;
+    localStorage.setItem(LS_KEY, String(until));
+    setCooldownUntil(until);
+  };
+
+  const enCooldown = cooldownUntil > Date.now();
+
   // ── Paso 1: Enviar enlace de recuperación por email ───────────────────────
   const handleSendLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (enCooldown) return;
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -38,12 +70,15 @@ export default function RecuperarPassword({ onBack }: RecuperarPasswordProps) {
       });
 
       if (supaErr) {
-        if (supaErr.message.toLowerCase().includes('rate limit')) {
-          throw new Error('Demasiados intentos. Espera unos minutos antes de intentarlo de nuevo.');
+        if (supaErr.message.toLowerCase().includes('rate limit') ||
+            supaErr.message.toLowerCase().includes('too many')) {
+          iniciarCooldown(180); // 3 minutos de espera tras rate limit
+          throw new Error('Demasiados intentos. El botón estará disponible de nuevo en 3 minutos.');
         }
         throw supaErr;
       }
 
+      iniciarCooldown(60); // 60 segundos entre envíos para no abusar
       setStep('sent');
     } catch (err: any) {
       setError(err.message || 'Error al enviar el correo de recuperación');
@@ -110,10 +145,18 @@ export default function RecuperarPassword({ onBack }: RecuperarPasswordProps) {
                 <div className="space-y-3">
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-lg shadow-emerald-200"
-                    disabled={isLoading}
+                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-lg shadow-emerald-200 disabled:opacity-60"
+                    disabled={isLoading || enCooldown}
                   >
-                    {isLoading ? 'Enviando enlace...' : 'Enviar enlace de recuperación'}
+                    {isLoading ? (
+                      'Enviando enlace...'
+                    ) : enCooldown ? (
+                      <span className="flex items-center gap-2">
+                        <Clock className="size-4" /> Disponible en {countdown}
+                      </span>
+                    ) : (
+                      'Enviar enlace de recuperación'
+                    )}
                   </Button>
 
                   <Button
@@ -165,10 +208,13 @@ export default function RecuperarPassword({ onBack }: RecuperarPasswordProps) {
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full"
+                    className="w-full disabled:opacity-60"
+                    disabled={enCooldown}
                     onClick={() => { setStep('email'); setError(''); }}
                   >
-                    Reenviar enlace
+                    {enCooldown
+                      ? <span className="flex items-center gap-2"><Clock className="size-4" /> Reenviar disponible en {countdown}</span>
+                      : 'Reenviar enlace'}
                   </Button>
 
                   <Button
