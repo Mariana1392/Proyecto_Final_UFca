@@ -616,22 +616,16 @@ export default function ComiteEvaluador() {
         }
       );
 
-      // Si el email ya está registrado, usar recuperación como recordatorio
-      if (invErr?.message?.toLowerCase().includes('already been registered') ||
-          invErr?.message?.toLowerCase().includes('already registered')) {
-        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(
-          sol.email,
-          { redirectTo: `${APP_URL}/?bienvenido=1` },
-        );
-        if (resetErr) throw resetErr;
+      // Si el email ya está registrado, el aspirante ya tiene cuenta — no se necesita correo
+      const yaRegistrado = invErr && (
+        invErr.message.toLowerCase().includes('already') ||
+        invErr.message.toLowerCase().includes('registered')
+      );
+      if (yaRegistrado) {
         limpiarRateLimit();
-        setReenviadoSolicitudId(sol.id);
-        setAprobacionEmailData({
-          nombre:     `${sol.nombres} ${sol.apellidos}`,
-          email:      sol.email,
-          inviteLink: 'sent',
+        toast.info('Este aspirante ya tiene cuenta creada y puede iniciar sesión directamente.', {
+          description: sol.email,
         });
-        toast.success('✅ Correo de recordatorio enviado correctamente');
         return;
       }
 
