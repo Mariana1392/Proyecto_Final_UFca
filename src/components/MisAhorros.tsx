@@ -38,30 +38,24 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
   async function cargarDatos() {
     setLoading(true);
     try {
-      // 1. Resolver asociado_id
-      let asocId: string | null = userData?.asociado_id ?? null;
-      if (!asocId && userData?.cedula) {
-        const { data: asoc } = await supabase
-          .from('asociados')
-          .select('id')
-          .eq('cedula', userData.cedula)
-          .maybeSingle();
-        asocId = asoc?.id ?? null;
-      }
+      // 1. Resolver asociado_id (ahora es userData.id directamente)
+      let asocId: string | null = userData?.id ?? null;
       setMiAsociadoId(asocId);
       if (!asocId) return;
 
       // 2. Cargar todo en paralelo
       const [permRes, volRes, configRes] = await Promise.all([
         supabase
-          .from('ahorros_permanentes')
+          .from('cuentas_ahorro')
           .select('*')
+          .eq('tipo', 'permanente')
           .eq('asociado_id', asocId)
           .eq('anulado', false)
           .order('created_at', { ascending: false }),
         supabase
-          .from('ahorros_voluntarios')
+          .from('cuentas_ahorro')
           .select('*')
+          .eq('tipo', 'voluntario')
           .eq('asociado_id', asocId)
           .eq('anulado', false)
           .order('created_at', { ascending: false }),
@@ -91,9 +85,10 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
       // 3. Movimientos del ahorro permanente (últimos 5)
       if (mejorPerm?.id) {
         const { data: movs } = await supabase
-          .from('pagos_ahorro_permanente')
+          .from('transacciones')
           .select('*')
-          .eq('ahorro_permanente_id', mejorPerm.id)
+          .eq('tipo', 'aporte_permanente')
+          .eq('ahorro_id', mejorPerm.id)
           .order('fecha_pago', { ascending: false })
           .limit(5);
         setMovsPerm(movs ?? []);
@@ -109,9 +104,10 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
   async function cargarMovsVol(ahorro: any) {
     setVolSeleccionado(ahorro);
     const { data } = await supabase
-      .from('pagos_ahorro_voluntario')
+      .from('transacciones')
       .select('*')
-      .eq('ahorro_voluntario_id', ahorro.id)
+      .eq('tipo', 'aporte_voluntario')
+      .eq('ahorro_id', ahorro.id)
       .order('fecha_pago', { ascending: false })
       .limit(5);
     setMovsVol(data ?? []);
@@ -121,9 +117,10 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
   const handleDescargarPDF = async () => {
     if (!ahorroPermanente) return;
     const { data: movs } = await supabase
-      .from('pagos_ahorro_permanente')
+      .from('transacciones')
       .select('*')
-      .eq('ahorro_permanente_id', ahorroPermanente.id)
+      .eq('tipo', 'aporte_permanente')
+      .eq('ahorro_id', ahorroPermanente.id)
       .order('fecha_pago', { ascending: true });
 
     const hoy = new Date().toISOString().split('T')[0];
@@ -241,11 +238,11 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
                               <ArrowUpCircle className="size-3.5 text-emerald-400 shrink-0" />
                               <span className="text-slate-600">
                                 Pago · {m.fecha_pago}
-                                {m.pago_mora ? <span className="ml-1 text-amber-600">(+mora)</span> : null}
+                                {m.monto_mora > 0 ? <span className="ml-1 text-amber-600">(+mora)</span> : null}
                               </span>
                             </div>
                             <span className="font-semibold text-emerald-600">
-                              +{formatCurrency(m.monto_total_pagado ?? m.monto_cuota ?? 0)}
+                              +{formatCurrency(m.monto ?? 0)}
                             </span>
                           </div>
                         ))}

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
-import { CheckCircle, Sparkles, Target, Trophy, UserPlus, Users, X, Shield, UserCircle2, Award, Calendar, MapPin, Clock, PiggyBank, CreditCard, TrendingUp, Upload, FileText, ImageIcon, Briefcase, Trash2, AlertCircle } from 'lucide-react';
+import { CheckCircle, Sparkles, Target, Trophy, UserPlus, Users, X, Shield, UserCircle2, Award, Calendar, MapPin, Clock, PiggyBank, CreditCard, TrendingUp, Upload, FileText, Briefcase, Trash2, AlertCircle, Mail } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -15,7 +15,7 @@ const ImageWithFallback = ({ src, alt, className }: { src: string; alt: string; 
 
 // ─── Tipos de documento requeridos ──────────────────────────────────────────
 interface DocumentoConfig {
-  key: 'cedula' | 'cartaLaboral' | 'fotografia';
+  key: 'cedula' | 'cartaLaboral';
   label: string;
   descripcion: string;
   icon: React.ReactNode;
@@ -40,21 +40,13 @@ const DOCUMENTOS_REQUERIDOS: DocumentoConfig[] = [
     accept: 'image/*,.pdf',
     color: 'purple',
   },
-  {
-    key: 'fotografia',
-    label: 'Fotografía Reciente',
-    descripcion: 'Foto de frente, fondo blanco, tamaño carnet',
-    icon: <ImageIcon className="size-5" />,
-    accept: 'image/*',
-    color: 'amber',
-  },
 ];
 
 // ─── Componente de zona de carga (FUERA del padre para evitar remount) ───────
 interface FileZoneProps {
   config: DocumentoConfig;
   file: File | null;
-  onSelect: (key: DocumentoConfig['key'], file: File | null) => void;
+  onSelect: (key: 'cedula' | 'cartaLaboral', file: File | null) => void;
 }
 
 function FileZone({ config, file, onSelect }: FileZoneProps) {
@@ -90,7 +82,7 @@ function FileZone({ config, file, onSelect }: FileZoneProps) {
     <div className="space-y-1">
       <div className="flex items-center gap-2 mb-1">
         <span className={c.icon}>{config.icon}</span>
-        <span className="text-sm font-medium text-slate-800">{config.label} <span className="text-red-500">*</span></span>
+        <span className="text-sm font-medium text-slate-800">{config.label} <span className="text-slate-400 font-normal text-xs">(opcional)</span></span>
       </div>
       <p className="text-xs text-slate-500 mb-2">{config.descripcion}</p>
 
@@ -149,11 +141,16 @@ interface HeroProps {
 }
 
 export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpenForm }: HeroProps) {
-  const [showSolicitudModal, setShowSolicitudModal] = useState(false);
+  // 'closed' | 'intro' | 'form' | 'success'
+  const [modalStep, setModalStep] = useState<'closed' | 'intro' | 'form' | 'success'>('closed');
+  const [solicitudEnviada, setSolicitudEnviada] = useState<{ nombre: string; email: string; cedula: string } | null>(null);
+
+  // Compatibilidad: showSolicitudModal ahora es derivado
+  const showSolicitudModal = modalStep !== 'closed';
 
   // Si viene desde Dashboard con "Soy nuevo", saltamos directo al form
   useEffect(() => {
-    if (autoOpenForm) setShowSolicitudModal(true);
+    if (autoOpenForm) setModalStep('intro');
   }, [autoOpenForm]);
 
   const [submitting, setSubmitting] = useState(false);
@@ -166,79 +163,91 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
   const [documentos, setDocumentos] = useState<{
     cedula: File | null;
     cartaLaboral: File | null;
-    fotografia: File | null;
-  }>({ cedula: null, cartaLaboral: null, fotografia: null });
+  }>({ cedula: null, cartaLaboral: null });
+
+  // Errores inline por campo — se muestran al perder el foco o al intentar enviar
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    // Limpiar error del campo al escribir
+    if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: '' }));
   };
 
-  const handleDocumentoSelect = (key: 'cedula' | 'cartaLaboral' | 'fotografia', file: File | null) => {
+  // Valida un campo individual y actualiza formErrors
+  const validarCampo = (name: string, value: string) => {
+    let error = '';
+    switch (name) {
+      case 'nombres':
+      case 'apellidos': {
+        const label = name === 'nombres' ? 'Nombres' : 'Apellidos';
+        if (!value.trim()) error = `${label} es obligatorio.`;
+        else if (!/^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(value.trim()))
+          error = `${label} solo puede contener letras y espacios.`;
+        break;
+      }
+      case 'cedula':
+        if (!value.trim()) error = 'La cédula es obligatoria.';
+        else if (!/^\d{5,12}$/.test(value.trim()))
+          error = 'Debe contener entre 5 y 12 dígitos numéricos.';
+        break;
+      case 'telefono':
+        if (!value.trim()) error = 'El teléfono es obligatorio.';
+        else if (!/^\d{7,15}$/.test(value.trim()))
+          error = 'Debe contener entre 7 y 15 dígitos numéricos.';
+        break;
+      case 'email':
+        if (!value.trim()) error = 'El correo electrónico es obligatorio.';
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()))
+          error = 'Formato de correo no válido. Ej: nombre@correo.com';
+        break;
+    }
+    setFormErrors(prev => ({ ...prev, [name]: error }));
+    return error;
+  };
+
+  const handleDocumentoSelect = (key: 'cedula' | 'cartaLaboral', file: File | null) => {
     setDocumentos(prev => ({ ...prev, [key]: file }));
   };
 
-  // Sube un archivo a Supabase Storage con ruta fija (sin timestamp)
+  // Sube un archivo a Supabase Storage y retorna la URL pública
   // Ruta: solicitudes/{cedula}/{tipo}.{ext}  → ComiteEvaluador lista la carpeta por cédula
-  const subirDocumento = async (file: File, cedula: string, tipo: string): Promise<void> => {
+  const subirDocumento = async (file: File, cedula: string, tipo: string): Promise<string> => {
     const ext = file.name.split('.').pop() ?? 'bin';
     const path = `solicitudes/${cedula}/${tipo}.${ext}`;
     const { error } = await supabase.storage
       .from('solicitudes-documentos')
       .upload(path, file, { upsert: true });
     if (error) throw new Error(`Error subiendo ${tipo}: ${error.message}`);
+    const { data: { publicUrl } } = supabase.storage
+      .from('solicitudes-documentos')
+      .getPublicUrl(path);
+    return publicUrl;
   };
-
-  const docsCompletos = documentos.cedula !== null && documentos.cartaLaboral !== null && documentos.fotografia !== null;
 
   const handleSubmitSolicitud = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // ── Validaciones de campos ────────────────────────────────────────────────
-
-    if (!formData.nombres.trim()) {
-      toast.error('El campo "Nombres" es obligatorio');
-      return;
+    // ── Validaciones de campos (inline + toast resumen) ──────────────────────
+    const camposRequeridos = ['nombres', 'apellidos', 'cedula', 'telefono', 'email'] as const;
+    const nuevosErrores: Record<string, string> = {};
+    let hayErrores = false;
+    for (const campo of camposRequeridos) {
+      const err = validarCampo(campo, formData[campo]);
+      if (err) { nuevosErrores[campo] = err; hayErrores = true; }
     }
-    if (!formData.apellidos.trim()) {
-      toast.error('El campo "Apellidos" es obligatorio');
-      return;
-    }
-    if (!formData.cedula.trim()) {
-      toast.error('El campo "Cédula" es obligatorio');
-      return;
-    }
-    if (!/^\d{5,12}$/.test(formData.cedula.trim())) {
-      toast.error('La cédula debe contener solo números (entre 5 y 12 dígitos)');
-      return;
-    }
-    if (!formData.telefono.trim()) {
-      toast.error('El campo "Teléfono" es obligatorio');
-      return;
-    }
-    if (!/^\d{7,15}$/.test(formData.telefono.replace(/\s/g, ''))) {
-      toast.error('El teléfono debe contener solo números (entre 7 y 15 dígitos)');
-      return;
-    }
-    if (!formData.email.trim()) {
-      toast.error('El campo "Correo electrónico" es obligatorio');
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-      toast.error('El correo electrónico no tiene un formato válido');
+    if (hayErrores) {
+      setFormErrors(prev => ({ ...prev, ...nuevosErrores }));
+      toast.error('Revisa los campos marcados en rojo antes de continuar.');
       return;
     }
 
-    // Validar documentos obligatorios
-    if (!docsCompletos) {
-      toast.error('Debes adjuntar los 3 documentos requeridos para continuar');
-      return;
-    }
-
-    // Validar tamaño máximo 5 MB por archivo
+    // Validar tamaño máximo 5 MB por archivo (solo los que se hayan adjuntado)
     const MAX_SIZE = 5 * 1024 * 1024;
     for (const [tipo, file] of Object.entries(documentos)) {
       if (file && file.size > MAX_SIZE) {
-        const nombre = tipo === 'cedula' ? 'Documento de identidad' : tipo === 'cartaLaboral' ? 'Carta laboral' : 'Fotografía';
+        const nombre = tipo === 'cedula' ? 'Documento de identidad' : 'Carta laboral';
         toast.error(`"${nombre}" supera el límite de 5 MB. Reduce el tamaño del archivo e inténtalo de nuevo.`);
         return;
       }
@@ -248,21 +257,26 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
     setUploadingDocs(true);
 
     try {
-      // ── 0. Verificar cédula duplicada ANTES de subir documentos ──────────
+      // ── 0. Verificar cédula/email duplicados ANTES de subir documentos ─────
+      const cedula = formData.cedula.trim();
+      const email  = formData.email.trim();
+
+      // a) ¿Ya existe una solicitud con esta cédula?
       const { data: existente } = await supabase
         .from('solicitudes_asociados')
         .select('id, estado')
-        .eq('cedula', formData.cedula.trim())
+        .eq('cedula', cedula)
         .maybeSingle();
 
       if (existente) {
         const estadoMsg =
-          existente.estado === 'pendiente'   ? 'está pendiente de revisión' :
-          existente.estado === 'aprobada'    ? 'ya fue aprobada' :
-          existente.estado === 'rechazada'   ? 'fue rechazada anteriormente' :
+          existente.estado === 'pendiente'            ? 'está pendiente de revisión' :
+          existente.estado === 'aprobada'             ? 'ya fue aprobada' :
+          existente.estado === 'pendiente_activacion' ? 'está pendiente de activación' :
+          existente.estado === 'rechazada'            ? 'fue rechazada anteriormente' :
           'ya fue registrada';
         toast.error('Ya existe una solicitud con esta cédula', {
-          description: `La solicitud con cédula ${formData.cedula.trim()} ${estadoMsg}. Si tienes dudas, comunícate con la cooperativa.`,
+          description: `La solicitud con cédula ${cedula} ${estadoMsg}. Si tienes dudas, comunícate con la cooperativa.`,
           duration: 6000,
         });
         setSubmitting(false);
@@ -270,38 +284,73 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
         return;
       }
 
-      // ── 1. Subir documentos a Supabase Storage ───────────────────────────
-      await Promise.all([
-        subirDocumento(documentos.cedula!,       formData.cedula, 'cedula'),
-        subirDocumento(documentos.cartaLaboral!, formData.cedula, 'carta_laboral'),
-        subirDocumento(documentos.fotografia!,   formData.cedula, 'fotografia'),
-      ]);
+      // b) ¿La cédula o el email ya están registrados como usuario activo?
+      const { data: usuarioExistente } = await supabase
+        .from('usuarios')
+        .select('id, cedula, email')
+        .or(`cedula.eq.${cedula},email.eq.${email}`)
+        .maybeSingle();
+
+      if (usuarioExistente) {
+        toast.error('Esta cédula o correo ya está registrado en el sistema', {
+          description: 'Si eres miembro activo, inicia sesión. Si olvidaste tu acceso, comunícate con la cooperativa.',
+          duration: 7000,
+        });
+        setSubmitting(false);
+        setUploadingDocs(false);
+        return;
+      }
+
+      // ── 1. Subir documentos a Supabase Storage (solo los adjuntados) ────────
+      const docUrls: string[] = [];
+      if (documentos.cedula) {
+        const url = await subirDocumento(documentos.cedula, formData.cedula, 'cedula');
+        docUrls.push(url);
+      }
+      if (documentos.cartaLaboral) {
+        const url = await subirDocumento(documentos.cartaLaboral, formData.cedula, 'carta_laboral');
+        docUrls.push(url);
+      }
       setUploadingDocs(false);
 
       // ── 2. Validación anti-spam server-side antes de insertar (S-06) ────────
       const { error: rpcError } = await supabase.rpc('validar_solicitud_asociacion', {
-        p_cedula:   formData.cedula.trim(),
+        p_cedula:   cedula,
         p_nombres:  `${formData.nombres.trim()} ${formData.apellidos.trim()}`,
-        p_email:    formData.email.trim(),
+        p_email:    email,
         p_telefono: formData.telefono.trim() || null,
       });
-      // Si la RPC aún no está creada en Supabase, continúa igual (modo degradado)
-      if (rpcError && !rpcError.message?.includes('Could not find')) throw rpcError;
+      // Si el RPC detecta duplicado o bloqueo, detener el envío
+      if (rpcError) {
+        const rpcMsg = rpcError.message ?? '';
+        const esDuplicado = rpcMsg.includes('duplicate') || rpcMsg.includes('ya existe') || rpcMsg.includes('registrada');
+        if (esDuplicado) {
+          toast.error('Esta solicitud no puede enviarse', {
+            description: rpcMsg || 'La cédula o el correo ya están registrados.',
+            duration: 6000,
+          });
+          setSubmitting(false);
+          setUploadingDocs(false);
+          return;
+        }
+        // Otros errores del RPC (ej. función no existe) → continuar sin bloquear
+        console.warn('[UFCA] validar_solicitud_asociacion (no bloqueante):', rpcMsg);
+      }
 
       // ── 3. Guardar solicitud completa en solicitudes_asociados ────────────
       const { error } = await supabase.from('solicitudes_asociados').insert({
         nombres:         formData.nombres.trim(),
         apellidos:       formData.apellidos.trim(),
-        cedula:          formData.cedula.trim(),
+        cedula:          cedula,
         telefono:        formData.telefono.trim()  || null,
         email:           formData.email.trim()     || null,
         direccion:       formData.direccion.trim() || null,
         ocupacion:       formData.ocupacion.trim() || null,
         ingreso_mensual:        formData.ingresoMensual     ? parseFloat(formData.ingresoMensual)     : null,
-        cuota_ahorro_propuesta: formData.cuotaAhorroMensual ? parseFloat(formData.cuotaAhorroMensual) : null,
+        monto_ahorro_propuesto: formData.cuotaAhorroMensual ? parseFloat(formData.cuotaAhorroMensual) : null,
         motivacion:             formData.motivacion.trim() || null,
         estado:                 'pendiente',
-        documentos:             [],
+        documentos:             docUrls,
       });
       if (error) throw error;
 
@@ -309,18 +358,20 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
       await supabase.from('notificaciones').insert({
         titulo:      'Nueva solicitud de afiliación',
         mensaje:     `${formData.nombres.trim()} ${formData.apellidos.trim()} ha enviado una solicitud de membresía y está pendiente de revisión.`,
-        tipo:        'solicitud_afiliacion',
+        tipo:        'general',
         leida:       false,
         para_admin:  true,
-        asociado_id: null,
       }).then(() => {}).catch(() => {});
 
-      toast.success('¡Solicitud enviada exitosamente!', {
-        description: 'El comité evaluador revisará tus documentos y te notificará el resultado.',
+      setSolicitudEnviada({
+        nombre: `${formData.nombres.trim()} ${formData.apellidos.trim()}`,
+        email:  formData.email.trim(),
+        cedula: formData.cedula.trim(),
       });
       setFormData({ nombres:'', apellidos:'', cedula:'', telefono:'', email:'', direccion:'', ocupacion:'', ingresoMensual:'', cuotaAhorroMensual:'', motivacion:'' });
-      setDocumentos({ cedula: null, cartaLaboral: null, fotografia: null });
-      setShowSolicitudModal(false);
+      setDocumentos({ cedula: null, cartaLaboral: null });
+      setFormErrors({});
+      setModalStep('success');
 
     } catch (err: any) {
       setUploadingDocs(false);
@@ -360,6 +411,139 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
       {showSolicitudModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+
+            {/* ── PASO 1: Pantalla informativa ────────────────────────────── */}
+            {modalStep === 'intro' && (
+              <>
+                <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-6 rounded-t-2xl flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <UserPlus className="size-8" />
+                    <div>
+                      <h2 className="text-2xl font-bold">Únete a UFCA</h2>
+                      <p className="text-emerald-100 text-sm">Conoce el proceso antes de comenzar</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setModalStep('closed')} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
+                    <X className="size-6" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-6">
+                  {/* Pasos del proceso */}
+                  <div>
+                    <h3 className="text-base font-semibold text-slate-700 mb-4">¿Cómo funciona el proceso?</h3>
+                    <div className="space-y-3">
+                      {[
+                        { n: '1', icon: <UserPlus className="size-5 text-emerald-600" />, title: 'Completa tu solicitud', desc: 'Llena el formulario con tus datos personales, laborales y adjunta los documentos requeridos. Toma aproximadamente 10 minutos.', color: 'emerald' },
+                        { n: '2', icon: <Clock className="size-5 text-amber-600" />,    title: 'El comité evalúa tu caso', desc: 'Nuestro comité revisará tu información y documentos. Este proceso toma entre 2 y 5 días hábiles.', color: 'amber' },
+                        { n: '3', icon: <Mail className="size-5 text-blue-600" />,      title: 'Recibes respuesta por correo', desc: 'Te notificaremos la decisión al correo que registres. Si es aprobada, recibirás un enlace para crear tu contraseña y acceder al sistema.', color: 'blue' },
+                        { n: '4', icon: <Trophy className="size-5 text-purple-600" />, title: '¡Bienvenido a UFCA!', desc: 'Una vez activa tu cuenta tendrás acceso a ahorros, créditos y todos los beneficios del fondo.', color: 'purple' },
+                      ].map(({ n, icon, title, desc, color }) => (
+                        <div key={n} className={`flex gap-4 p-4 rounded-xl border ${
+                          color === 'emerald' ? 'bg-emerald-50 border-emerald-200' :
+                          color === 'amber'   ? 'bg-amber-50 border-amber-200' :
+                          color === 'blue'    ? 'bg-blue-50 border-blue-200' :
+                                               'bg-purple-50 border-purple-200'
+                        }`}>
+                          <div className={`size-8 rounded-full flex items-center justify-center shrink-0 font-bold text-sm ${
+                            color === 'emerald' ? 'bg-emerald-600 text-white' :
+                            color === 'amber'   ? 'bg-amber-500 text-white' :
+                            color === 'blue'    ? 'bg-blue-600 text-white' :
+                                                 'bg-purple-600 text-white'
+                          }`}>{n}</div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">{icon}<p className="font-semibold text-slate-800 text-sm">{title}</p></div>
+                            <p className="text-xs text-slate-600 leading-relaxed">{desc}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Documentos que necesitas */}
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                      <FileText className="size-4 text-slate-500" /> Ten listos estos documentos:
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {[
+                        { icon: <FileText className="size-4 text-blue-500" />,   label: 'Copia de cédula',          sub: 'Frente y respaldo (opcional)' },
+                        { icon: <Briefcase className="size-4 text-purple-500" />, label: 'Carta laboral',            sub: 'O certificado de ingresos (opcional)' },
+                      ].map(({ icon, label, sub }) => (
+                        <div key={label} className="flex items-start gap-2 p-2 bg-white rounded-lg border border-slate-200">
+                          {icon}
+                          <div><p className="text-xs font-medium text-slate-700">{label}</p><p className="text-[11px] text-slate-400">{sub}</p></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Botones */}
+                  <div className="flex gap-3 pt-2">
+                    <button onClick={() => setModalStep('closed')} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
+                      Cancelar
+                    </button>
+                    <button onClick={() => setModalStep('form')} className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2">
+                      <UserPlus className="size-4" /> Comenzar solicitud
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── PASO 3: Confirmación de envío ───────────────────────────── */}
+            {modalStep === 'success' && solicitudEnviada && (
+              <>
+                <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-6 rounded-t-2xl">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="size-8" />
+                    <div>
+                      <h2 className="text-2xl font-bold">¡Solicitud enviada!</h2>
+                      <p className="text-emerald-100 text-sm">Tu solicitud fue recibida correctamente</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6 space-y-5">
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-center">
+                    <CheckCircle className="size-12 text-emerald-500 mx-auto mb-2" />
+                    <p className="font-bold text-slate-800 text-lg">{solicitudEnviada.nombre}</p>
+                    <p className="text-slate-500 text-sm">Tu solicitud fue registrada exitosamente</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                      <span className="text-sm text-slate-500">Cédula registrada</span>
+                      <span className="text-sm font-bold text-slate-800">{solicitudEnviada.cedula}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                      <span className="text-sm text-slate-500">Notificación al correo</span>
+                      <span className="text-sm font-bold text-slate-800">{solicitudEnviada.email}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-200">
+                      <span className="text-sm text-amber-700">Tiempo estimado de respuesta</span>
+                      <span className="text-sm font-bold text-amber-800">2 a 5 días hábiles</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                    <p className="text-sm font-semibold text-blue-800 mb-1">¿Qué sigue?</p>
+                    <p className="text-xs text-blue-700 leading-relaxed">
+                      El comité evaluará tu solicitud y tus documentos. Si es aprobada, recibirás un correo en
+                      <strong> {solicitudEnviada.email}</strong> con un enlace para crear tu contraseña e ingresar al sistema.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => { setModalStep('closed'); setSolicitudEnviada(null); }}
+                    className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm transition-colors"
+                  >
+                    Entendido, cerrar
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ── PASO 2: Formulario ───────────────────────────────────────── */}
+            {modalStep === 'form' && (<>
             <div className="sticky top-0 bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-6 rounded-t-2xl flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <UserPlus className="size-8" />
@@ -369,7 +553,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                 </div>
               </div>
               <button
-                onClick={() => setShowSolicitudModal(false)}
+                onClick={() => setModalStep('closed')}
                 className="p-2 hover:bg-white/20 rounded-lg transition-colors"
               >
                 <X className="size-6" />
@@ -393,9 +577,16 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       name="nombres"
                       value={formData.nombres}
                       onChange={handleInputChange}
+                      onBlur={e => validarCampo('nombres', e.target.value)}
                       placeholder="Ingresa tus nombres"
                       required
+                      className={formErrors.nombres ? 'border-red-400 focus:border-red-500' : ''}
                     />
+                    {formErrors.nombres && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="size-3 shrink-0" />{formErrors.nombres}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="apellidos">Apellidos *</Label>
@@ -404,9 +595,16 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       name="apellidos"
                       value={formData.apellidos}
                       onChange={handleInputChange}
+                      onBlur={e => validarCampo('apellidos', e.target.value)}
                       placeholder="Ingresa tus apellidos"
                       required
+                      className={formErrors.apellidos ? 'border-red-400 focus:border-red-500' : ''}
                     />
+                    {formErrors.apellidos && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="size-3 shrink-0" />{formErrors.apellidos}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="cedula">Cédula *</Label>
@@ -414,10 +612,23 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       id="cedula"
                       name="cedula"
                       value={formData.cedula}
-                      onChange={handleInputChange}
+                      onChange={e => {
+                        const soloDigitos = e.target.value.replace(/\D/g, '').slice(0, 12);
+                        setFormData(prev => ({ ...prev, cedula: soloDigitos }));
+                        if (formErrors.cedula) setFormErrors(prev => ({ ...prev, cedula: '' }));
+                      }}
+                      onBlur={e => validarCampo('cedula', e.target.value)}
                       placeholder="123456789"
+                      maxLength={12}
+                      inputMode="numeric"
                       required
+                      className={formErrors.cedula ? 'border-red-400 focus:border-red-500' : ''}
                     />
+                    {formErrors.cedula && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="size-3 shrink-0" />{formErrors.cedula}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="telefono">Teléfono *</Label>
@@ -426,10 +637,23 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       name="telefono"
                       type="tel"
                       value={formData.telefono}
-                      onChange={handleInputChange}
+                      onChange={e => {
+                        const soloDigitos = e.target.value.replace(/\D/g, '').slice(0, 15);
+                        setFormData(prev => ({ ...prev, telefono: soloDigitos }));
+                        if (formErrors.telefono) setFormErrors(prev => ({ ...prev, telefono: '' }));
+                      }}
+                      onBlur={e => validarCampo('telefono', e.target.value)}
                       placeholder="0987654321"
+                      maxLength={15}
+                      inputMode="numeric"
                       required
+                      className={formErrors.telefono ? 'border-red-400 focus:border-red-500' : ''}
                     />
+                    {formErrors.telefono && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="size-3 shrink-0" />{formErrors.telefono}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="email">Correo Electrónico *</Label>
@@ -439,9 +663,16 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       type="email"
                       value={formData.email}
                       onChange={handleInputChange}
+                      onBlur={e => validarCampo('email', e.target.value)}
                       placeholder="correo@ejemplo.com"
                       required
+                      className={formErrors.email ? 'border-red-400 focus:border-red-500' : ''}
                     />
+                    {formErrors.email && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="size-3 shrink-0" />{formErrors.email}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="direccion">Dirección</Label>
@@ -480,11 +711,17 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                     <Input
                       id="ingresoMensual"
                       name="ingresoMensual"
-                      type="number"
-                      min="0"
-                      value={formData.ingresoMensual}
-                      onChange={handleInputChange}
-                      placeholder="Ej: 2000000"
+                      type="text"
+                      inputMode="numeric"
+                      value={formData.ingresoMensual
+                        ? Number(formData.ingresoMensual).toLocaleString('es-CO')
+                        : ''}
+                      onChange={e => {
+                        const soloDigitos = e.target.value.replace(/\D/g, '');
+                        setFormData(prev => ({ ...prev, ingresoMensual: soloDigitos }));
+                        if (formErrors['ingresoMensual']) setFormErrors(prev => ({ ...prev, ingresoMensual: '' }));
+                      }}
+                      placeholder="Ej: 2.000.000"
                     />
                   </div>
                 </div>
@@ -516,16 +753,24 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                     <Label htmlFor="cuotaAhorroMensual" className="text-emerald-900">
                       ¿Cuánto deseas ahorrar mensualmente? <span className="text-slate-400 font-normal">(opcional)</span>
                     </Label>
-                    <Input
-                      id="cuotaAhorroMensual"
-                      name="cuotaAhorroMensual"
-                      type="number"
-                      min="0"
-                      value={formData.cuotaAhorroMensual}
-                      onChange={handleInputChange}
-                      placeholder="Ej: 150000"
-                      className="mt-1 bg-white border-emerald-300 focus:border-emerald-500"
-                    />
+                    <div className="relative mt-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-700 font-semibold text-sm pointer-events-none select-none">$</span>
+                      <Input
+                        id="cuotaAhorroMensual"
+                        name="cuotaAhorroMensual"
+                        type="text"
+                        inputMode="numeric"
+                        value={formData.cuotaAhorroMensual
+                          ? Number(formData.cuotaAhorroMensual).toLocaleString('es-CO')
+                          : ''}
+                        onChange={e => {
+                          const soloDigitos = e.target.value.replace(/\D/g, '');
+                          setFormData(prev => ({ ...prev, cuotaAhorroMensual: soloDigitos }));
+                        }}
+                        placeholder="150.000"
+                        className="pl-7 bg-white border-emerald-300 focus:border-emerald-500"
+                      />
+                    </div>
                     {formData.cuotaAhorroMensual && Number(formData.cuotaAhorroMensual) < 100000 && (
                       <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
                         <AlertCircle className="size-3 shrink-0" />
@@ -535,7 +780,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                     {formData.cuotaAhorroMensual && Number(formData.cuotaAhorroMensual) >= 100000 && (
                       <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
                         <CheckCircle className="size-3 shrink-0" />
-                        Propuesta válida. El comité confirmará el monto al aprobar tu solicitud.
+                        Propuesta válida · <span className="font-semibold">${Number(formData.cuotaAhorroMensual).toLocaleString('es-CO')}</span> mensuales. El comité confirmará el monto al aprobar tu solicitud.
                       </p>
                     )}
                   </div>
@@ -572,32 +817,14 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                   Documentos para el Comité Evaluador
                 </h3>
                 <p className="text-sm text-slate-500 mb-4">
-                  Los siguientes documentos son <strong>obligatorios</strong> para que el comité pueda evaluar tu solicitud.
+                  Los documentos son <strong>opcionales</strong>, pero adjuntarlos ayuda al comité a evaluar tu solicitud más rápido.
                 </p>
 
-                {/* Alerta si faltan documentos y ya se intentó enviar */}
-                {!docsCompletos && (
-                  <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl mb-4">
-                    <AlertCircle className="size-4 text-amber-500 mt-0.5 shrink-0" />
-                    <p className="text-xs text-amber-700">
-                      Debes adjuntar los 3 documentos para poder enviar la solicitud.{' '}
-                      <span className="font-semibold">
-                        {([
-                          !documentos.cedula && 'Copia de Cédula',
-                          !documentos.cartaLaboral && 'Carta Laboral',
-                          !documentos.fotografia && 'Fotografía',
-                        ] as Array<string | false>).filter((x): x is string => !!x).join(', ')}
-                      </span>{' '}
-                      {([!documentos.cedula, !documentos.cartaLaboral, !documentos.fotografia] as boolean[]).filter(Boolean).length === 1 ? 'falta' : 'faltan'}.
-                    </p>
-                  </div>
-                )}
-
-                {docsCompletos && (
+                {(documentos.cedula || documentos.cartaLaboral) && (
                   <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl mb-4">
                     <CheckCircle className="size-4 text-emerald-600 shrink-0" />
                     <p className="text-xs text-emerald-700 font-medium">
-                      Todos los documentos cargados correctamente. ¡Ya puedes enviar tu solicitud!
+                      {[documentos.cedula && 'Cédula', documentos.cartaLaboral && 'Carta laboral'].filter(Boolean).join(' y ')} cargado{documentos.cedula && documentos.cartaLaboral ? 's' : ''} correctamente.
                     </p>
                   </div>
                 )}
@@ -642,7 +869,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setShowSolicitudModal(false)}
+                  onClick={() => setModalStep('closed')}
                   className="flex-1"
                   disabled={submitting}
                 >
@@ -650,12 +877,8 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                 </Button>
                 <Button
                   type="submit"
-                  disabled={submitting || !docsCompletos}
-                  className={`flex-1 gap-2 transition-all ${
-                    docsCompletos
-                      ? 'bg-emerald-600 hover:bg-emerald-700'
-                      : 'bg-slate-300 cursor-not-allowed text-slate-500'
-                  }`}
+                  disabled={submitting}
+                  className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 transition-all"
                 >
                   {submitting ? (
                     <>
@@ -671,6 +894,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                 </Button>
               </div>
             </form>
+            </>)}
           </div>
         </div>
       )}
@@ -1047,13 +1271,20 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                     </div>
                   </div>
                 </div>
-                {/* Botón de registro prominente */}
+                {/* Botones CTA */}
                 <button
-                  onClick={() => onNavigateToLogin()}
+                  onClick={() => setModalStep('intro')}
                   className="group w-full flex items-center justify-center gap-3 px-10 py-4 rounded-2xl bg-[#f0c040] hover:bg-[#ffd84d] text-[#032a1e] font-black text-base shadow-2xl shadow-[#f0c040]/40 hover:shadow-[#f0c040]/60 hover:-translate-y-1 hover:scale-105 transition-all duration-200"
                 >
                   <UserPlus className="size-5 group-hover:rotate-12 transition-transform duration-200" />
                   Quiero ser asociado
+                </button>
+                <button
+                  onClick={() => onNavigateToLogin()}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/30 text-white text-sm font-semibold transition-all duration-200"
+                >
+                  <UserCircle2 className="size-4" />
+                  Ya soy asociado — Ingresar
                 </button>
               </div>
             </div>

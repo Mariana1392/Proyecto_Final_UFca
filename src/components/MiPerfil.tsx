@@ -39,80 +39,44 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
   const [loading, setLoading]       = useState(true);
 
   useEffect(() => {
-    if (userData?.asociado_id) {
-      cargarPerfilPorAsociadoId(userData.asociado_id);
-    } else if (userData?.cedula) {
-      cargarPerfil(userData.cedula);
-    } else if (userData?.id) {
+    if (userData?.id) {
       cargarPerfilPorUserId(userData.id);
     } else {
       setLoading(false);
     }
   }, [userData]);
 
-  async function queryAsociado(filtro: { campo: 'id' | 'cedula'; valor: string }) {
-    const q1 = supabase.from('asociados').select('*');
-    const { data: base, error: e1 } = await (filtro.campo === 'id'
-      ? q1.eq('id', filtro.valor).single()
-      : q1.eq('cedula', filtro.valor).single());
-    if (e1 || !base) throw e1 ?? new Error('Asociado no encontrado');
-
-    const [
-      { data: ahPerm },
-      { data: ahVol },
-      { data: creds },
-      { data: refs },
-    ] = await Promise.all([
-      supabase.from('ahorros_permanentes').select('id, monto_ahorrado, cuota_mensual, estado, anulado').eq('asociado_id', base.id).eq('anulado', false).eq('estado', 'activo'),
-      supabase.from('ahorros_voluntarios').select('id, monto_ahorrado, estado, anulado').eq('asociado_id', base.id).eq('anulado', false).eq('estado', 'activo'),
-      supabase.from('creditos').select('id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado, tasa_interes').eq('asociado_id', base.id),
-      supabase.from('asociados').select('id, nombre, cedula, telefono, fecha_ingreso, estado').eq('referido_por_id', base.id).order('fecha_ingreso', { ascending: false }),
-    ]);
-
-    return {
-      ...base,
-      ahorro_permanente: ahPerm ?? [],
-      ahorro_voluntario: ahVol  ?? [],
-      creditos:          creds  ?? [],
-      referidos:         refs   ?? [],
-    };
-  }
-
-  async function cargarPerfilPorAsociadoId(id: string) {
-    try {
-      setLoading(true);
-      const data = await queryAsociado({ campo: 'id', valor: id });
-      mapearDatos(data);
-    } catch (err: any) {
-      console.warn('Error cargando perfil por asociado_id:', err.message);
-      setAsociadoId(id);
-      setLoading(false);
-    }
-  }
-
-  async function cargarPerfil(cedula: string) {
-    try {
-      setLoading(true);
-      const data = await queryAsociado({ campo: 'cedula', valor: cedula });
-      mapearDatos(data);
-    } catch (err: any) {
-      console.warn('Perfil no encontrado en BD:', err.message);
-      setLoading(false);
-    }
-  }
-
   async function cargarPerfilPorUserId(userId: string) {
     try {
       setLoading(true);
-      const { data: usuario } = await supabase
-        .from('usuarios').select('asociado_id').eq('id', userId).single();
-      if (usuario?.asociado_id) {
-        const data = await queryAsociado({ campo: 'id', valor: usuario.asociado_id });
-        mapearDatos(data);
-      }
+      const { data: base, error: e1 } = await supabase
+        .from('usuarios')
+        .select('id, nombre, email, cedula, telefono, direccion, fecha_ingreso, estado_cuenta, referido_por_id')
+        .eq('id', userId)
+        .single();
+      if (e1 || !base) throw e1 ?? new Error('Usuario no encontrado');
+
+      const [
+        { data: ahPerm },
+        { data: ahVol },
+        { data: creds },
+        { data: refs },
+      ] = await Promise.all([
+        supabase.from('cuentas_ahorro').select('id, tipo, monto_ahorrado, cuota_mensual, estado, anulado').eq('tipo','permanente').eq('asociado_id', base.id).eq('anulado', false).eq('estado', 'activo'),
+        supabase.from('cuentas_ahorro').select('id, tipo, monto_ahorrado, estado, anulado').eq('tipo','voluntario').eq('asociado_id', base.id).eq('anulado', false).eq('estado', 'activo'),
+        supabase.from('creditos').select('id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado, tasa_interes').eq('asociado_id', base.id),
+        supabase.from('usuarios').select('id, nombre, cedula, telefono, fecha_ingreso, estado_cuenta').eq('referido_por_id', base.id).order('fecha_ingreso', { ascending: false }),
+      ]);
+
+      mapearDatos({
+        ...base,
+        ahorro_permanente: ahPerm ?? [],
+        ahorro_voluntario: ahVol  ?? [],
+        creditos:          creds  ?? [],
+        referidos:         refs   ?? [],
+      });
     } catch (err: any) {
       console.warn('Error cargando perfil:', err.message);
-    } finally {
       setLoading(false);
     }
   }
@@ -120,11 +84,11 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
   function mapearDatos(data: any) {
     setAsociadoId(data.id);
     const mapped = {
-      nombre:       data.nombre,
-      cedula:       data.cedula,
-      email:        data.email         || '',
-      telefono:     data.telefono      || '',
-      direccion:    data.direccion     || '',
+      nombre:       data.nombre       || '',
+      cedula:       data.cedula       || '',
+      email:        data.email        || '',
+      telefono:     data.telefono     || '',
+      direccion:    data.direccion    || '',
       fechaIngreso: data.fecha_ingreso || '',
     };
     setFormData(mapped);
@@ -168,7 +132,7 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
       cedula:        r.cedula,
       telefono:      r.telefono || '—',
       fechaReferido: r.fecha_ingreso,
-      estado:        r.estado === 'activo' ? 'Aprobado' : 'Pendiente',
+      estado:        r.estado_cuenta === 'activo' ? 'Aprobado' : 'Pendiente',
     })));
 
     setLoading(false);
@@ -181,25 +145,9 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
 
     setSaving(true);
     try {
-      let idFinal: string | null = asociadoId || userData?.asociado_id || null;
-      let usuarioId: string | null = userData?.id || null;
+      const usuarioId: string | null = asociadoId || userData?.id || null;
 
-      if (!idFinal || !usuarioId) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          usuarioId = usuarioId ?? user.id;
-          const { data: usr } = await supabase.from('usuarios').select('id, asociado_id').eq('id', user.id).single();
-          if (usr?.asociado_id) {
-            idFinal   = idFinal   ?? usr.asociado_id;
-            usuarioId = usuarioId ?? usr.id;
-          } else {
-            const { data: asoc } = await supabase.from('asociados').select('id').eq('email', user.email ?? '').maybeSingle();
-            if (asoc?.id) idFinal = asoc.id;
-          }
-        }
-      }
-
-      if (!idFinal) { toast.error('No se pudo identificar el asociado. Contacta al administrador.'); return; }
+      if (!usuarioId) { toast.error('No se pudo identificar el usuario. Contacta al administrador.'); return; }
 
       const payload = {
         email:     formData.email.trim(),
@@ -207,17 +155,13 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
         direccion: formData.direccion.trim(),
       };
 
-      const { error: errAsoc } = await supabase.from('asociados').update(payload).eq('id', idFinal);
-      if (errAsoc) throw errAsoc;
+      const { error: errUsr } = await supabase.from('usuarios').update(payload).eq('id', usuarioId);
+      if (errUsr) throw errUsr;
 
-      if (usuarioId) {
-        await supabase.from('usuarios').update({ email: formData.email.trim(), telefono: formData.telefono.trim(), direccion: formData.direccion.trim() }).eq('id', usuarioId);
-        if (formData.email.trim() !== originalData.email) {
-          try { await supabase.auth.updateUser({ email: formData.email.trim() }); } catch { /* no crítico */ }
-        }
+      if (formData.email.trim() !== originalData.email) {
+        try { await supabase.auth.updateUser({ email: formData.email.trim() }); } catch { /* no crítico */ }
       }
 
-      if (!asociadoId) setAsociadoId(idFinal);
       const nuevosDatos = { ...formData };
       setFormData(nuevosDatos);
       setOriginalData(nuevosDatos);

@@ -7,3 +7,5 @@ dist
 # Scripts SQL de base de datos
 *.sql
 
+
+.vercel

@@ -11,7 +11,7 @@ import {
   Users, AlertTriangle, Shield, Award,
   Calculator, FileCheck, UserPlus, Edit, Trash2,
   CalendarDays, Paperclip, ExternalLink,
-  ChevronRight, Flame,
+  ChevronRight, Flame, PiggyBank,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -23,19 +23,27 @@ import {
 } from './ui/alert-dialog';
 import { Textarea } from './ui/textarea';
 import { supabase } from '../lib/supabase';
+import { supabaseAdmin } from '../lib/supabaseAdmin';
+import { formatCurrencyInput, parseCurrencyInput, formatCurrency } from '../lib/formatters';
+
+// URL pública de la app — siempre apunta a producción, nunca a localhost.
+// Viene de la variable de entorno VITE_PUBLIC_URL definida en .env y Vercel.
+const APP_URL = (import.meta.env.VITE_PUBLIC_URL as string | undefined)?.replace(/\/$/, '')
+  || 'https://interfaz-web-profesional-ufca-9.vercel.app';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface EvaluacionComite {
   scoreCredito: number;
   nivelRiesgo: 'bajo' | 'medio' | 'alto';
   capacidadPago: number;
-  verificaciones: { documentacion: boolean; ingresos: boolean; referencias: boolean; antecedentes: boolean };
+  verificaciones: { documentacion: boolean; ingresos: boolean; referencias: boolean };
   comentariosComite: string;
   evaluadoPor?: string;
 }
 
 interface Solicitud {
   id: string;
+  usuario_id?: string | null;
   nombres: string;
   apellidos: string;
   cedula: string;
@@ -45,15 +53,20 @@ interface Solicitud {
   direccion: string;
   ocupacion: string;
   ingresoMensual: string;
+  montoAhorroPropuesto?: string;
   motivacion: string;
   documentos: string[];       // URLs guardadas en la columna documentos (jsonb)
   urlDocumento?: string;      // campo legacy
   fechaSolicitud: string;
-  estado: 'pendiente' | 'aprobada' | 'rechazada';
+  estado: 'pendiente' | 'aprobada' | 'rechazada' | 'pendiente_activacion';
   fechaResolucion?: string;
   observaciones?: string;
   evaluacion?: EvaluacionComite | null;
 }
+
+/** Helper: estados que se consideran "aprobados" (aprobada o esperando activación) */
+const esAprobada = (estado: string) =>
+  estado === 'aprobada' || estado === 'pendiente_activacion';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const getEstadoBadge = (estado: string) => {
@@ -62,6 +75,8 @@ const getEstadoBadge = (estado: string) => {
       return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border border-amber-200 gap-1"><Clock className="size-3" />Pendiente</Badge>;
     case 'aprobada':
       return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 gap-1"><CheckCircle className="size-3" />Aprobada</Badge>;
+    case 'pendiente_activacion':
+      return <Badge className="bg-teal-100 text-teal-700 hover:bg-teal-100 border border-teal-200 gap-1"><CheckCircle className="size-3" />Aprobada — pendiente activación</Badge>;
     case 'rechazada':
       return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border border-red-200 gap-1"><XCircle className="size-3" />Rechazada</Badge>;
     default: return null;
@@ -122,12 +137,60 @@ export default function ComiteEvaluador() {
   const [deleting, setDeleting]           = useState(false);
   const [savingNew, setSavingNew]         = useState(false);
 
+  // ── Email post-rechazo ────────────────────────────────────────────────────
+  const [rechazoEmailData, setRechazoEmailData] = useState<{
+    email: string; nombre: string; motivo: string;
+  } | null>(null);
+
+  // ── Resultado de invitación post-aprobación ───────────────────────────────
+  const [aprobacionEmailData, setAprobacionEmailData] = useState<{
+    nombre: string; email: string; error?: string; inviteLink?: string;
+  } | null>(null);
+
+  // ── Temporizador de rate-limit de Gmail ────────────────────────────────────
+  const [rateLimitUntil, setRateLimitUntil] = useState<number>(() => {
+    const v = localStorage.getItem('ufca_invite_rate_limit_until');
+    return v ? parseInt(v, 10) : 0;
+  });
+  const [rateLimitCountdown, setRateLimitCountdown] = useState('');
+
+  useEffect(() => {
+    if (rateLimitUntil <= Date.now()) return;
+    const tick = () => {
+      const rem = rateLimitUntil - Date.now();
+      if (rem <= 0) { setRateLimitCountdown(''); return; }
+      const m = Math.floor(rem / 60000);
+      const s = Math.floor((rem % 60000) / 1000);
+      setRateLimitCountdown(`${m}:${String(s).padStart(2, '0')}`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [rateLimitUntil]);
+
+  const marcarRateLimit = () => {
+    const until = Date.now() + 60 * 60 * 1000;
+    localStorage.setItem('ufca_invite_rate_limit_until', String(until));
+    setRateLimitUntil(until);
+  };
+  const [reenviadoSolicitudId, setReenviadoSolicitudId] = useState<string | null>(null);
+  const [reenviando, setReenviando] = useState(false);
+
   // ── Evaluation form ───────────────────────────────────────────────────────
   const [scoreCredito, setScoreCredito]     = useState(70);
   const [verificaciones, setVerificaciones] = useState({
-    documentacion: false, ingresos: false, referencias: false, antecedentes: false,
+    documentacion: false, ingresos: false, referencias: false,
   });
   const [comentariosComite, setComentariosComite] = useState('');
+
+  // ── Pago de activación ────────────────────────────────────────────────────
+  const [isPagoActivacionOpen, setIsPagoActivacionOpen] = useState(false);
+  const [pagoSolicitud, setPagoSolicitud]               = useState<Solicitud | null>(null);
+  const [pagoMonto, setPagoMonto]                       = useState('');
+  const [pagoFecha, setPagoFecha]                       = useState('');
+  const [pagoObservacion, setPagoObservacion]           = useState('');
+  const [pagoComprobante, setPagoComprobante]           = useState<File | null>(null);
+  const [savingPago, setSavingPago]                     = useState(false);
 
   // ── Nueva solicitud form ──────────────────────────────────────────────────
   const emptyNueva = { nombres: '', apellidos: '', cedula: '', telefono: '', email: '', direccion: '', ocupacion: '', ingresoMensual: '', motivacion: '' };
@@ -156,7 +219,7 @@ export default function ComiteEvaluador() {
           id, usuario_id, nombres, apellidos, cedula, tipo_identificacion,
           telefono, email, direccion, ocupacion, ingreso_mensual,
           monto_ahorro_propuesto, motivacion, documentos, estado,
-          observaciones, fecha_solicitud, created_at,
+          observaciones, fecha_solicitud, fecha_resolucion, created_at,
           comite_evaluador!solicitud_asociado_id (
             id, decision, observacion, comentarios,
             verificaciones, score_credito, fecha
@@ -193,7 +256,7 @@ export default function ComiteEvaluador() {
             scoreCredito:      score,
             nivelRiesgo:       score >= 75 ? 'bajo' : score >= 50 ? 'medio' : 'alto',
             capacidadPago:     0,
-            verificaciones:    ev.verificaciones ?? { documentacion: false, ingresos: false, referencias: false, antecedentes: false },
+            verificaciones:    ev.verificaciones ?? { documentacion: false, ingresos: false, referencias: false },
             comentariosComite: ev.comentarios    ?? '',
             evaluadoPor:       'Comité Evaluador',
           } : null,
@@ -217,7 +280,12 @@ export default function ComiteEvaluador() {
       );
     }
     if (filterEstado !== 'todas') {
-      list = list.filter(s => s.estado === filterEstado);
+      // 'aprobada' en el filtro incluye también 'pendiente_activacion'
+      list = list.filter(s =>
+        filterEstado === 'aprobada'
+          ? esAprobada(s.estado)
+          : s.estado === filterEstado
+      );
     }
     // Pendientes primero, luego las demás por fecha desc
     list.sort((a, b) => {
@@ -228,38 +296,81 @@ export default function ComiteEvaluador() {
     setFilteredSolicitudes(list);
   }
 
-  // ── Cargar documentos desde las URLs guardadas en la solicitud ───────────
-  function fetchDocsStorage(cedula: string, solicitud?: Solicitud | null) {
+  // ── Cargar documentos del aspirante (URLs guardadas o listado desde Storage) ─
+  async function fetchDocsStorage(cedula: string, solicitud?: Solicitud | null) {
     const src = solicitud ?? selectedSolicitud;
     setDocsStorage([]);
     setErrorDocs(null);
+    setLoadingDocs(true);
 
     const IMG_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
 
-    // Prioridad 1: columna documentos (array de URLs nuevas)
-    const urls: string[] = src?.documentos?.length ? src.documentos : [];
+    try {
+      // Prioridad 1: columna documentos (array de URLs públicas guardadas al subir)
+      const urls: string[] = src?.documentos?.length ? src.documentos : [];
 
-    // Prioridad 2: campo legacy url_documento
-    if (urls.length === 0 && src?.urlDocumento) {
-      urls.push(src.urlDocumento);
+      if (urls.length > 0) {
+        const items = urls.map((url, i) => {
+          const fileName = url.split('/').pop()?.split('?')[0] ?? `documento-${i + 1}`;
+          const ext      = fileName.split('.').pop()?.toLowerCase() ?? '';
+          const esImagen = IMG_EXTS.includes(ext);
+          const label    = fileName.startsWith('cedula')
+            ? 'Copia de Cédula'
+            : fileName.startsWith('carta_laboral')
+            ? 'Carta Laboral / Ingresos'
+            : esImagen ? `Imagen ${i + 1}` : `Documento ${i + 1}`;
+          return { name: fileName, url, label, esImagen };
+        });
+        setDocsStorage(items);
+        return;
+      }
+
+      // Prioridad 2: campo legacy url_documento
+      if (src?.urlDocumento) {
+        const url      = src.urlDocumento;
+        const fileName = url.split('/').pop() ?? 'documento';
+        const ext      = fileName.split('.').pop()?.toLowerCase() ?? '';
+        const esImagen = IMG_EXTS.includes(ext);
+        setDocsStorage([{ name: fileName, url, label: esImagen ? 'Imagen' : 'Documento', esImagen }]);
+        return;
+      }
+
+      // Prioridad 3: listar archivos en la carpeta del aspirante dentro del bucket
+      const { data: files, error } = await supabase.storage
+        .from('solicitudes-documentos')
+        .list(`solicitudes/${cedula}`, { limit: 20, sortBy: { column: 'name', order: 'asc' } });
+
+      if (error) throw error;
+
+      const filtered = (files ?? []).filter(f => f.name !== '.emptyFolderPlaceholder' && f.name.trim() !== '');
+
+      if (filtered.length === 0) {
+        setDocsStorage([]);
+        return;
+      }
+
+      const items = filtered.map(f => {
+        const ext      = f.name.split('.').pop()?.toLowerCase() ?? '';
+        const esImagen = IMG_EXTS.includes(ext);
+        const { data: { publicUrl } } = supabase.storage
+          .from('solicitudes-documentos')
+          .getPublicUrl(`solicitudes/${cedula}/${f.name}`);
+        const label = f.name.startsWith('cedula')
+          ? 'Copia de Cédula'
+          : f.name.startsWith('carta_laboral')
+          ? 'Carta Laboral / Ingresos'
+          : f.name.startsWith('fotografia')
+          ? 'Fotografía'
+          : esImagen ? 'Imagen' : 'Documento';
+        return { name: f.name, url: publicUrl, label, esImagen };
+      });
+
+      setDocsStorage(items);
+    } catch (err: any) {
+      setErrorDocs('No se pudieron cargar los documentos: ' + err.message);
+    } finally {
+      setLoadingDocs(false);
     }
-
-    if (urls.length === 0) {
-      // Sin documentos disponibles — no mostrar error, solo "sin adjuntos"
-      return;
-    }
-
-    const items = urls.map((url, i) => {
-      const fileName = url.split('/').pop() ?? `documento-${i + 1}`;
-      const ext      = fileName.split('.').pop()?.toLowerCase() ?? '';
-      const esImagen = IMG_EXTS.includes(ext);
-      const label    = esImagen
-        ? `Foto / Imagen ${i + 1}`
-        : `Documento PDF ${i + 1}`;
-      return { name: fileName, url, label, esImagen };
-    });
-
-    setDocsStorage(items);
   }
 
   // ── Open detail ───────────────────────────────────────────────────────────
@@ -267,7 +378,7 @@ export default function ComiteEvaluador() {
     setSelectedSolicitud(s);
     // Las verificaciones siempre inician en false para que el comité
     // las marque conforme revisa cada ítem (nunca se restauran del guardado).
-    setVerificaciones({ documentacion: false, ingresos: false, referencias: false, antecedentes: false });
+    setVerificaciones({ documentacion: false, ingresos: false, referencias: false });
     // Solo restaurar los comentarios si ya había una evaluación previa
     setComentariosComite(s.evaluacion?.comentariosComite ?? '');
     fetchDocsStorage(s.cedula, s);
@@ -338,35 +449,75 @@ export default function ComiteEvaluador() {
       });
       if (rpcError) throw rpcError;
 
-      // 2. Si el solicitante ya tenía usuario registrado, actualizar su rol y vincular el asociado
-      if (selectedSolicitud.usuario_id && nuevoAsociadoId) {
-        const { data: rolAsociado } = await supabase
-          .from('roles')
-          .select('id')
-          .eq('nombre', 'asociado')
-          .limit(1)
-          .single();
+      // 2. Si el solicitante ya tenía usuario, el RPC ya lo promovió a asociado.
+      //    Actualizamos cédula/dirección que puedan faltar (campos adicionales del perfil).
+      if (selectedSolicitud.usuario_id) {
+        await supabase.from('usuarios').update({
+          cedula:    selectedSolicitud.cedula    || null,
+          telefono:  selectedSolicitud.telefono  || null,
+          direccion: selectedSolicitud.direccion || null,
+        }).eq('id', selectedSolicitud.usuario_id);
+      }
 
-        if (rolAsociado) {
-          await supabase.from('usuarios').update({
-            rol_id:         rolAsociado.id,
-            asociado_id:    nuevoAsociadoId,
-            identificacion: selectedSolicitud.cedula || null,
-          }).eq('id', selectedSolicitud.usuario_id);
+      // 3. Marcar solicitud como pendiente de pago de activación
+      await supabase
+        .from('solicitudes_asociados')
+        .update({ estado: 'pendiente_activacion' })
+        .eq('id', selectedSolicitud.id);
+
+      // 4. Enviar invitación por email usando el template HTML de Supabase (inviteUserByEmail).
+      let inviteEnviado = false;
+      let inviteError: string | undefined;
+
+      if (selectedSolicitud.email && !selectedSolicitud.usuario_id) {
+        try {
+          const { error: invErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+            selectedSolicitud.email,
+            {
+              redirectTo: `${APP_URL}/?bienvenido=1`,
+              data: { nombre: selectedSolicitud.nombres, rol: 'asociado' },
+            }
+          );
+
+          if (invErr) {
+            const msg = invErr.message.toLowerCase();
+            inviteError = msg.includes('rate') || msg.includes('limit')
+              ? 'RATE_LIMIT'
+              : invErr.message;
+            if (inviteError === 'RATE_LIMIT') marcarRateLimit();
+            console.warn('[ComiteEvaluador] Error al enviar invitación:', invErr.message);
+          } else {
+            inviteEnviado = true;
+          }
+        } catch (err: any) {
+          inviteError = err?.message ?? 'Error desconocido';
+          console.warn('[ComiteEvaluador] Error al enviar invitación:', err);
         }
       }
 
-      // 3. Actualizar UI local
+      // 5. Actualizar UI local
       const fechaRes = new Date().toISOString();
       setSolicitudes(prev => prev.map(s =>
         s.id === selectedSolicitud.id
-          ? { ...s, estado: 'aprobada', fechaResolucion: fechaRes, observaciones: 'Aprobada por el comité evaluador' }
+          ? { ...s, estado: 'pendiente_activacion', fechaResolucion: fechaRes, observaciones: 'Aprobada — pendiente de pago de activación' }
           : s
       ));
-      toast.success(`${selectedSolicitud.nombres} ${selectedSolicitud.apellidos} es ahora asociado activo.`);
+
       setIsApproveOpen(false);
       setIsDetailOpen(false);
-      setSelectedSolicitud(null);
+
+      // 6. Mostrar diálogo con resultado de la generación del link
+      if (selectedSolicitud.email && !selectedSolicitud.usuario_id) {
+        setAprobacionEmailData({
+          nombre:     `${selectedSolicitud.nombres} ${selectedSolicitud.apellidos}`,
+          email:      selectedSolicitud.email,
+          error:      inviteError,
+          inviteLink: inviteEnviado ? 'sent' : undefined,
+        });
+      } else {
+        toast.success(`✅ Solicitud de ${selectedSolicitud.nombres} aprobada correctamente.`);
+        setSelectedSolicitud(null);
+      }
     } catch (err: any) {
       toast.error('Error al aprobar: ' + err.message);
     } finally {
@@ -391,20 +542,209 @@ export default function ComiteEvaluador() {
       if (error) throw error;
 
       const fechaRes = new Date().toISOString();
+      const motivoFinal = motivoRechazo.trim();
       setSolicitudes(prev => prev.map(s =>
         s.id === selectedSolicitud.id
-          ? { ...s, estado: 'rechazada', fechaResolucion: fechaRes, observaciones: motivoRechazo.trim() }
+          ? { ...s, estado: 'rechazada', fechaResolucion: fechaRes, observaciones: motivoFinal }
           : s
       ));
       toast.success('Solicitud rechazada y registrada en el historial.');
       setIsRejectOpen(false);
       setIsDetailOpen(false);
+
+      // Activar diálogo de notificación al aspirante (si tiene email registrado)
+      if (selectedSolicitud.email) {
+        setRechazoEmailData({
+          email:  selectedSolicitud.email,
+          nombre: `${selectedSolicitud.nombres} ${selectedSolicitud.apellidos}`,
+          motivo: motivoFinal,
+        });
+      }
+
       setMotivoRechazo('');
       setSelectedSolicitud(null);
     } catch (err: any) {
       toast.error('Error al rechazar: ' + err.message);
     } finally {
       setRejecting(false);
+    }
+  }
+
+  // ── Reenviar invitación (para pendiente_activacion sin email enviado) ────────
+  async function handleReenviarInvitacion(sol: Solicitud) {
+    if (!sol.email) { toast.error('Esta solicitud no tiene email registrado'); return; }
+    if (rateLimitUntil > Date.now()) {
+      toast.error('Correo aún no disponible', {
+        description: `Podrás reenviar en ${rateLimitCountdown}.`,
+      });
+      return;
+    }
+    setReenviando(true);
+    try {
+      const { error: invErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+        sol.email,
+        {
+          redirectTo: `${APP_URL}/?bienvenido=1`,
+          data: { nombre: sol.nombres, rol: 'asociado' },
+        }
+      );
+
+      if (invErr) throw invErr;
+
+      setReenviadoSolicitudId(sol.id);
+      setAprobacionEmailData({
+        nombre:     `${sol.nombres} ${sol.apellidos}`,
+        email:      sol.email,
+        inviteLink: 'sent',
+      });
+      toast.success('✅ Email de bienvenida enviado correctamente');
+    } catch (err: any) {
+      const msg = err.message ?? String(err);
+      if (msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('limit')) {
+        marcarRateLimit();
+        toast.error('Límite de correos alcanzado', {
+          description: 'El botón se habilitará automáticamente en 1 hora.',
+        });
+      } else {
+        toast.error('Error al enviar invitación: ' + msg);
+      }
+    } finally {
+      setReenviando(false);
+    }
+  }
+
+  // ── Registrar primer pago de activación ──────────────────────────────────
+  async function handleRegistrarPrimerPago() {
+    if (!pagoSolicitud?.usuario_id) return;
+
+    // Validaciones
+    const montoNum = parseCurrencyInput(pagoMonto);
+    if (!montoNum || montoNum < 100_000) {
+      toast.error('Monto inválido', { description: 'El primer aporte debe ser mínimo $100.000 COP.' });
+      return;
+    }
+    if (!pagoFecha) {
+      toast.error('Selecciona la fecha del pago');
+      return;
+    }
+    if (pagoFecha !== hoyLocal()) {
+      toast.error('La fecha del pago debe ser la fecha de hoy');
+      return;
+    }
+    if (pagoComprobante && pagoComprobante.size > 10 * 1024 * 1024) {
+      toast.error('El comprobante supera los 10 MB', { description: 'Adjunta un archivo más pequeño.' });
+      return;
+    }
+    setSavingPago(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // 1. Período activo
+      const { data: periodo, error: periodoErr } = await supabase
+        .from('periodos').select('id').eq('estado', 'activo').limit(1).maybeSingle();
+      if (periodoErr) throw periodoErr;
+      if (!periodo) throw new Error('No hay un período activo. Crea un período antes de registrar aportes.');
+
+      // 2. Subir comprobante si se adjuntó (no bloquea el flujo si falla)
+      let urlComprobante: string | null = null;
+      if (pagoComprobante) {
+        try {
+          const ext  = pagoComprobante.name.split('.').pop() ?? 'jpg';
+          const path = `comprobantes-activacion/${pagoSolicitud.usuario_id}/${Date.now()}.${ext}`;
+          const { error: uploadErr } = await supabaseAdmin.storage
+            .from('solicitudes-documentos')
+            .upload(path, pagoComprobante, { upsert: true });
+          if (!uploadErr) {
+            const { data: { publicUrl } } = supabaseAdmin.storage
+              .from('solicitudes-documentos')
+              .getPublicUrl(path);
+            urlComprobante = publicUrl;
+          }
+        } catch { /* no bloquea */ }
+      }
+
+      // 3. Buscar cuenta de ahorro permanente (puede existir del RPC aprobar_afiliacion)
+      // Usamos supabaseAdmin para bypasear RLS en escrituras sobre cuentas_ahorro
+      const { data: cuentaExistente } = await supabaseAdmin
+        .from('cuentas_ahorro')
+        .select('id, monto_ahorrado')
+        .eq('asociado_id', pagoSolicitud.usuario_id)
+        .eq('tipo', 'permanente')
+        .eq('anulado', false)
+        .maybeSingle();
+
+      let cuentaId: string;
+      const saldoAntes = Number(cuentaExistente?.monto_ahorrado) || 0;
+
+      if (cuentaExistente) {
+        const { error: updateErr } = await supabaseAdmin.from('cuentas_ahorro').update({
+          estado: 'activo',
+          monto_ahorrado: saldoAntes + montoNum,
+          cuota_mensual: montoNum,
+          updated_at: new Date().toISOString(),
+        }).eq('id', cuentaExistente.id);
+        if (updateErr) throw updateErr;
+        cuentaId = cuentaExistente.id;
+      } else {
+        const { data: nuevaCuenta, error: cuentaErr } = await supabaseAdmin
+          .from('cuentas_ahorro')
+          .insert({
+            asociado_id: pagoSolicitud.usuario_id,
+            tipo: 'permanente',
+            periodo_id: periodo.id,
+            monto_ahorrado: montoNum,
+            cuota_mensual: montoNum,
+            estado: 'activo',
+          })
+          .select('id').single();
+        if (cuentaErr) throw cuentaErr;
+        cuentaId = nuevaCuenta.id;
+      }
+
+      // 4. Registrar transacción (supabaseAdmin para bypasear RLS en transacciones)
+      const { error: txErr } = await supabaseAdmin.from('transacciones').insert({
+        tipo: 'aporte_permanente',
+        asociado_id: pagoSolicitud.usuario_id,
+        registrado_por: user?.id ?? null,
+        ahorro_id: cuentaId,
+        periodo_id: periodo.id,
+        monto: montoNum,
+        capital: montoNum,
+        interes: 0,
+        monto_mora: 0,
+        dias_mora: 0,
+        saldo_antes: saldoAntes,
+        saldo_despues: saldoAntes + montoNum,
+        fecha_pago: pagoFecha,
+        mes_correspondiente: pagoFecha,
+        url_comprobante: urlComprobante,
+        observacion: pagoObservacion.trim() || 'Primer aporte de activación',
+      });
+      if (txErr) throw txErr;
+
+      // 5. Marcar solicitud como aprobada (ya no pendiente_activacion)
+      const { error: solErr } = await supabase
+        .from('solicitudes_asociados').update({ estado: 'aprobada' }).eq('id', pagoSolicitud.id);
+      if (solErr) throw solErr;
+
+      // 6. Actualizar UI
+      setSolicitudes(prev => prev.map(s =>
+        s.id === pagoSolicitud.id ? { ...s, estado: 'aprobada' } : s
+      ));
+      toast.success('✅ Cuenta activada', {
+        description: `El primer aporte de ${pagoSolicitud.nombres} ${pagoSolicitud.apellidos} fue registrado. Ya tiene acceso completo al sistema.`,
+      });
+      setIsPagoActivacionOpen(false);
+      setPagoSolicitud(null);
+      setPagoMonto('');
+      setPagoFecha('');
+      setPagoObservacion('');
+      setPagoComprobante(null);
+      if (isDetailOpen) { setIsDetailOpen(false); setSelectedSolicitud(null); setDocsStorage([]); }
+    } catch (err: any) {
+      toast.error('Error al registrar el pago: ' + err.message);
+    } finally {
+      setSavingPago(false);
     }
   }
 
@@ -489,11 +829,17 @@ export default function ComiteEvaluador() {
     }
   }
 
+  // Devuelve "YYYY-MM-DD" en hora local — evita desfase UTC en zonas UTC-
+  const hoyLocal = (): string => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
   // ── Stats ─────────────────────────────────────────────────────────────────
   const stats = {
     total:      solicitudes.length,
     pendientes: solicitudes.filter(s => s.estado === 'pendiente').length,
-    aprobadas:  solicitudes.filter(s => s.estado === 'aprobada').length,
+    aprobadas:  solicitudes.filter(s => esAprobada(s.estado)).length,
     rechazadas: solicitudes.filter(s => s.estado === 'rechazada').length,
   };
   // ── Render ────────────────────────────────────────────────────────────────
@@ -713,7 +1059,7 @@ export default function ComiteEvaluador() {
                           ? 'border-orange-300 bg-orange-50/50 hover:border-orange-400'
                           : s.estado === 'pendiente'
                           ? 'border-amber-200 bg-amber-50/40 hover:border-amber-300'
-                          : s.estado === 'aprobada'
+                          : esAprobada(s.estado)
                           ? 'border-emerald-100 bg-white hover:border-emerald-200'
                           : 'border-red-100 bg-white hover:border-red-200'
                       }`}
@@ -721,9 +1067,9 @@ export default function ComiteEvaluador() {
                       <div className="flex items-start justify-between gap-4">
                         {/* Indicador de estado lateral */}
                         <div className={`mt-1 w-1 self-stretch rounded-full shrink-0 ${
-                          urgente          ? 'bg-orange-400'
+                          urgente                   ? 'bg-orange-400'
                           : s.estado === 'pendiente'  ? 'bg-amber-400'
-                          : s.estado === 'aprobada'   ? 'bg-emerald-500'
+                          : esAprobada(s.estado)      ? 'bg-emerald-500'
                           : 'bg-red-400'
                         }`} />
 
@@ -771,15 +1117,29 @@ export default function ComiteEvaluador() {
                             </span>
 
                             {s.fechaResolucion ? (
+                              // Tiene fecha de resolución → mostrar con ícono correcto
                               <span className="flex items-center gap-1.5">
-                                {s.estado === 'aprobada'
+                                {esAprobada(s.estado)
                                   ? <CheckCircle className="size-3.5 shrink-0 text-emerald-500" />
                                   : <XCircle className="size-3.5 shrink-0 text-red-400" />
                                 }
                                 <span className="text-slate-400">Evaluada:</span>
                                 <span className="font-medium text-slate-600">{formatFecha(s.fechaResolucion)}</span>
                               </span>
+                            ) : esAprobada(s.estado) ? (
+                              // Aprobada pero sin fecha guardada en BD → mostrar aprobada sin fecha
+                              <span className="flex items-center gap-1.5 text-emerald-600">
+                                <CheckCircle className="size-3.5 shrink-0" />
+                                <span className="italic">Aprobada</span>
+                              </span>
+                            ) : s.estado === 'rechazada' ? (
+                              // Rechazada pero sin fecha guardada en BD
+                              <span className="flex items-center gap-1.5 text-red-500">
+                                <XCircle className="size-3.5 shrink-0" />
+                                <span className="italic">Rechazada</span>
+                              </span>
                             ) : (
+                              // Pendiente real
                               <span className="flex items-center gap-1.5 text-amber-500">
                                 <Clock className="size-3.5 shrink-0" />
                                 <span className="italic">Pendiente de evaluación</span>
@@ -793,6 +1153,53 @@ export default function ComiteEvaluador() {
                             )}
                           </div>
                         </div>
+
+                        {/* Botones pendiente_activacion */}
+                        {s.estado === 'pendiente_activacion' && (
+                          <div className="flex flex-col gap-1.5 shrink-0">
+                            {/* Registrar pago — solo cuando el usuario ya aceptó el invite */}
+                            {s.usuario_id && (
+                              <button
+                                type="button"
+                                title="Registrar primer pago de activación"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setPagoSolicitud(s);
+                                  setPagoMonto('');
+                                  setPagoFecha(hoyLocal());
+                                  setPagoObservacion('');
+                                  setIsPagoActivacionOpen(true);
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold transition-colors"
+                              >
+                                <PiggyBank className="size-3.5" /> Registrar pago
+                              </button>
+                            )}
+                            {/* Reenviar invitación — cuando aún no ha aceptado el invite */}
+                            {!s.usuario_id && s.email && (() => {
+                              const enCooldown = rateLimitUntil > Date.now();
+                              return (
+                                <button
+                                  type="button"
+                                  disabled={reenviando || enCooldown}
+                                  title={enCooldown ? `Disponible en ${rateLimitCountdown}` : 'Reenviar correo de invitación'}
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    handleReenviarInvitacion(s);
+                                  }}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-semibold transition-colors"
+                                >
+                                  <Mail className="size-3.5" />
+                                  {reenviando
+                                    ? 'Enviando…'
+                                    : enCooldown
+                                      ? rateLimitCountdown
+                                      : 'Reenviar correo'}
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        )}
 
                         {/* Solo botón eliminar (rechazadas) — detener propagación para no abrir detalle */}
                         {s.estado === 'rechazada' && (
@@ -875,11 +1282,11 @@ export default function ComiteEvaluador() {
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg shrink-0 ${
                       selectedSolicitud.fechaResolucion
-                        ? selectedSolicitud.estado === 'aprobada' ? 'bg-emerald-100' : 'bg-red-100'
+                        ? esAprobada(selectedSolicitud.estado) ? 'bg-emerald-100' : 'bg-red-100'
                         : 'bg-amber-100'
                     }`}>
                       {selectedSolicitud.fechaResolucion
-                        ? selectedSolicitud.estado === 'aprobada'
+                        ? esAprobada(selectedSolicitud.estado)
                           ? <CheckCircle className="size-4 text-emerald-600" />
                           : <XCircle className="size-4 text-red-500" />
                         : <Clock className="size-4 text-amber-500" />
@@ -896,7 +1303,7 @@ export default function ComiteEvaluador() {
                       </p>
                       {selectedSolicitud.fechaResolucion && (
                         <p className="text-xs text-slate-400 mt-0.5">
-                          {selectedSolicitud.estado === 'aprobada' ? 'Aprobada' : 'Rechazada'} el {formatFecha(selectedSolicitud.fechaResolucion)}
+                          {esAprobada(selectedSolicitud.estado) ? 'Aprobada' : 'Rechazada'} el {formatFecha(selectedSolicitud.fechaResolucion)}
                         </p>
                       )}
                     </div>
@@ -1091,31 +1498,81 @@ export default function ComiteEvaluador() {
                 </div>
 
                 {/* Resultado (si ya fue evaluada) */}
-                {selectedSolicitud.estado !== 'pendiente' && (
-                  <div className={`p-4 rounded-xl border ${selectedSolicitud.estado === 'aprobada' ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-                    <div className="flex items-center gap-2 mb-3">
-                      {selectedSolicitud.estado === 'aprobada'
-                        ? <CheckCircle className="size-4 text-emerald-600" />
-                        : <XCircle className="size-4 text-red-500" />
-                      }
-                      <p className={`text-xs font-bold uppercase tracking-wider ${selectedSolicitud.estado === 'aprobada' ? 'text-emerald-700' : 'text-red-600'}`}>
-                        Resultado: {selectedSolicitud.estado === 'aprobada' ? 'Aprobada' : 'Rechazada'}
-                      </p>
-                    </div>
-                    {selectedSolicitud.observaciones && (
-                      <p className="text-sm text-slate-700">
-                        <span className="font-medium">{selectedSolicitud.estado === 'rechazada' ? 'Motivo del rechazo:' : 'Observaciones:'}</span>{' '}
-                        {selectedSolicitud.observaciones}
-                      </p>
-                    )}
-                    {selectedSolicitud.evaluacion?.comentariosComite && (
-                      <div className="mt-3 p-3 bg-white rounded-lg border">
-                        <p className="text-xs text-slate-400 mb-1">Comentarios del comité</p>
-                        <p className="text-sm text-slate-700">{selectedSolicitud.evaluacion.comentariosComite}</p>
+                {selectedSolicitud.estado !== 'pendiente' && (() => {
+                  const aprobado = esAprobada(selectedSolicitud.estado);
+                  const esPendAct = selectedSolicitud.estado === 'pendiente_activacion';
+                  return (
+                    <div className={`p-4 rounded-xl border ${aprobado ? (esPendAct ? 'bg-teal-50 border-teal-200' : 'bg-emerald-50 border-emerald-200') : 'bg-red-50 border-red-200'}`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        {aprobado
+                          ? <CheckCircle className={`size-4 ${esPendAct ? 'text-teal-600' : 'text-emerald-600'}`} />
+                          : <XCircle className="size-4 text-red-500" />
+                        }
+                        <p className={`text-xs font-bold uppercase tracking-wider ${aprobado ? (esPendAct ? 'text-teal-700' : 'text-emerald-700') : 'text-red-600'}`}>
+                          {aprobado
+                            ? esPendAct
+                              ? 'Resultado: Aprobada — pendiente de activación'
+                              : 'Resultado: Aprobada'
+                            : 'Resultado: Rechazada'
+                          }
+                        </p>
                       </div>
-                    )}
-                  </div>
-                )}
+                      {esPendAct && (
+                        <div className="space-y-2 mb-3">
+                          <p className="text-xs text-teal-600 bg-teal-100 rounded-lg px-3 py-2">
+                            ✅ El aspirante fue aprobado como asociado. Está en espera del pago de activación para quedar activo en el sistema.
+                          </p>
+                          {selectedSolicitud.usuario_id && (
+                            <Button
+                              className="w-full bg-teal-600 hover:bg-teal-700 text-white gap-2"
+                              onClick={() => {
+                                setPagoSolicitud(selectedSolicitud);
+                                setPagoMonto('');
+                                setPagoFecha(hoyLocal());
+                                setPagoObservacion('');
+                                setIsPagoActivacionOpen(true);
+                              }}
+                            >
+                              <PiggyBank className="size-4" />
+                              Registrar pago recibido y activar cuenta
+                            </Button>
+                          )}
+                          {selectedSolicitud.email && !selectedSolicitud.usuario_id && (() => {
+                            const enCooldown = rateLimitUntil > Date.now();
+                            return (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full border-teal-300 text-teal-700 hover:bg-teal-50 gap-2 disabled:opacity-60"
+                                disabled={reenviando || enCooldown}
+                                onClick={() => handleReenviarInvitacion(selectedSolicitud)}
+                              >
+                                <Mail className="size-4" />
+                                {reenviando
+                                  ? 'Enviando…'
+                                  : enCooldown
+                                    ? `Disponible en ${rateLimitCountdown}`
+                                    : 'Reenviar invitación de acceso'}
+                              </Button>
+                            );
+                          })()}
+                        </div>
+                      )}
+                      {selectedSolicitud.observaciones && (
+                        <p className="text-sm text-slate-700">
+                          <span className="font-medium">{selectedSolicitud.estado === 'rechazada' ? 'Motivo del rechazo:' : 'Observaciones:'}</span>{' '}
+                          {selectedSolicitud.observaciones}
+                        </p>
+                      )}
+                      {selectedSolicitud.evaluacion?.comentariosComite && (
+                        <div className="mt-3 p-3 bg-white rounded-lg border">
+                          <p className="text-xs text-slate-400 mb-1">Comentarios del comité</p>
+                          <p className="text-sm text-slate-700">{selectedSolicitud.evaluacion.comentariosComite}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Formulario de evaluación (solo pendientes) */}
                 {selectedSolicitud.estado === 'pendiente' && (
@@ -1125,7 +1582,7 @@ export default function ComiteEvaluador() {
                       <CardHeader className="pb-3">
                         <CardTitle className="text-sm flex items-center gap-2">
                           <FileCheck className="size-4 text-emerald-600" /> Lista de verificación del comité
-                          <Badge className="ml-auto bg-slate-100 text-slate-600 text-xs">{verificacionesCompletas}/4</Badge>
+                          <Badge className="ml-auto bg-slate-100 text-slate-600 text-xs">{verificacionesCompletas}/3</Badge>
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-2">
@@ -1133,7 +1590,6 @@ export default function ComiteEvaluador() {
                           { key: 'documentacion', label: 'Documentación completa y válida' },
                           { key: 'ingresos',       label: 'Verificación de ingresos' },
                           { key: 'referencias',    label: 'Referencias personales verificadas' },
-                          { key: 'antecedentes',   label: 'Antecedentes crediticios revisados' },
                         ].map(({ key, label }) => (
                           <label
                             key={key}
@@ -1158,12 +1614,12 @@ export default function ComiteEvaluador() {
                         <div className="p-3 bg-emerald-50 rounded-lg mt-1">
                           <div className="flex justify-between text-sm mb-1.5">
                             <span className="font-medium text-emerald-800">Progreso de verificación</span>
-                            <span className="font-bold text-emerald-600">{verificacionesCompletas * 25}%</span>
+                            <span className="font-bold text-emerald-600">{Math.round(verificacionesCompletas * 100 / 3)}%</span>
                           </div>
                           <div className="w-full bg-emerald-200 rounded-full h-2">
                             <div
                               className="bg-emerald-600 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${verificacionesCompletas * 25}%` }}
+                              style={{ width: `${Math.round(verificacionesCompletas * 100 / 3)}%` }}
                             />
                           </div>
                         </div>
@@ -1210,6 +1666,22 @@ export default function ComiteEvaluador() {
                     onClick={() => setIsDeleteOpen(true)}
                   >
                     <Trash2 className="size-4" /> Eliminar solicitud
+                  </Button>
+                )}
+
+                {/* pendiente_activacion: registrar pago (si ya tiene usuario) */}
+                {selectedSolicitud.estado === 'pendiente_activacion' && selectedSolicitud.usuario_id && (
+                  <Button
+                    className="bg-teal-600 hover:bg-teal-700 gap-1.5"
+                    onClick={() => {
+                      setPagoSolicitud(selectedSolicitud);
+                      setPagoMonto('');
+                      setPagoFecha(hoyLocal());
+                      setPagoObservacion('');
+                      setIsPagoActivacionOpen(true);
+                    }}
+                  >
+                    <PiggyBank className="size-4" /> Registrar pago recibido
                   </Button>
                 )}
 
@@ -1406,6 +1878,414 @@ export default function ComiteEvaluador() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* ── Dialog: Notificar al aspirante del rechazo por correo ─────────── */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      <Dialog open={!!rechazoEmailData} onOpenChange={open => { if (!open) setRechazoEmailData(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="size-5 text-slate-600" /> Notificar al aspirante
+            </DialogTitle>
+            <DialogDescription>
+              La solicitud fue rechazada. ¿Deseas enviar una notificación al aspirante explicando el motivo?
+            </DialogDescription>
+          </DialogHeader>
+
+          {rechazoEmailData && (
+            <div className="space-y-4">
+              {/* Vista previa del correo */}
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3 text-sm">
+                <div className="flex gap-2">
+                  <span className="text-slate-500 shrink-0 w-12">Para:</span>
+                  <span className="font-medium text-slate-800 break-all">{rechazoEmailData.email}</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-slate-500 shrink-0 w-12">Asunto:</span>
+                  <span className="font-medium text-slate-800">UFCA — Resultado de su solicitud de ingreso</span>
+                </div>
+                <div className="border-t border-slate-200 pt-3">
+                  <p className="text-slate-700 whitespace-pre-line leading-relaxed">
+{`Estimado/a ${rechazoEmailData.nombre},
+
+Hemos revisado su solicitud de ingreso a la Cooperativa de Ahorro y Crédito UFCA.
+
+Lamentablemente, su solicitud no fue aprobada por el siguiente motivo:
+
+"${rechazoEmailData.motivo}"
+
+Si desea más información o desea presentar una nueva solicitud en el futuro, no dude en contactarnos.
+
+Atentamente,
+Comité Evaluador — UFCA`}
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                Al hacer clic en <strong>"Abrir en Gmail"</strong> se abrirá una nueva pestaña en Gmail con el borrador listo para enviar.
+              </p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRechazoEmailData(null)}
+            >
+              Omitir
+            </Button>
+            {rechazoEmailData && (
+              <Button
+                className="gap-2 bg-slate-700 hover:bg-slate-800"
+                onClick={() => {
+                  const { email, nombre, motivo } = rechazoEmailData;
+                  const asunto  = encodeURIComponent('UFCA — Resultado de su solicitud de ingreso');
+                  const cuerpo  = encodeURIComponent(
+                    `Estimado/a ${nombre},\n\n` +
+                    `Hemos revisado su solicitud de ingreso a la Cooperativa de Ahorro y Crédito UFCA.\n\n` +
+                    `Lamentablemente, su solicitud no fue aprobada por el siguiente motivo:\n\n` +
+                    `"${motivo}"\n\n` +
+                    `Si desea más información o desea presentar una nueva solicitud en el futuro, no dude en contactarnos.\n\n` +
+                    `Atentamente,\nComité Evaluador — UFCA`
+                  );
+                  // Abrir Gmail Compose directamente (funciona sin cliente de correo instalado)
+                  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${asunto}&body=${cuerpo}`;
+                  window.open(gmailUrl, '_blank');
+                  setRechazoEmailData(null);
+                }}
+              >
+                <Mail className="size-4" /> Abrir en Gmail
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* ── Dialog: Registrar primer pago de activación ───────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      <Dialog
+        open={isPagoActivacionOpen}
+        onOpenChange={open => {
+          if (!open) { setIsPagoActivacionOpen(false); setPagoSolicitud(null); setPagoMonto(''); setPagoFecha(''); setPagoObservacion(''); setPagoComprobante(null); }
+        }}
+      >
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[480px] p-0 gap-0 overflow-hidden rounded-2xl">
+
+          {/* ── Cabecera ─────────────────────────────────────────────────────── */}
+          <div className="bg-gradient-to-r from-teal-600 to-emerald-600 px-5 py-4 sm:px-6 sm:py-5">
+            <div className="flex items-center gap-3">
+              <div className="p-2 sm:p-2.5 bg-white/20 rounded-xl shrink-0">
+                <PiggyBank className="size-5 sm:size-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-white text-base sm:text-lg font-bold leading-tight">
+                  Registrar primer aporte
+                </DialogTitle>
+                <DialogDescription className="text-teal-100 text-xs sm:text-sm mt-0.5 truncate">
+                  {pagoSolicitud
+                    ? `${pagoSolicitud.nombres} ${pagoSolicitud.apellidos} · C.C. ${pagoSolicitud.cedula}`
+                    : ''}
+                </DialogDescription>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Cuerpo scrollable ─────────────────────────────────────────────── */}
+          <div className="px-5 py-4 sm:px-6 sm:py-5 space-y-4 overflow-y-auto max-h-[calc(100svh-14rem)]">
+
+            {/* Aviso de activación */}
+            <div className="flex items-start gap-2.5 px-3.5 py-3 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 rounded-xl">
+              <CheckCircle className="size-4 text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
+              <p className="text-sm text-teal-800 dark:text-teal-300 leading-relaxed">
+                Al registrar este pago la cuenta se <strong>activará automáticamente</strong>{' '}
+                y el asociado tendrá acceso completo al sistema.
+              </p>
+            </div>
+
+            {/* Referencia monto propuesto */}
+            {pagoSolicitud?.montoAhorroPropuesto && (
+              <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl">
+                <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 shrink-0">
+                  <Calculator className="size-3.5 shrink-0" /> Propuesto
+                </span>
+                <span className="font-bold text-sm text-slate-700 dark:text-slate-200 text-right">
+                  ${parseFloat(pagoSolicitud.montoAhorroPropuesto).toLocaleString('es-CO')} COP
+                </span>
+              </div>
+            )}
+
+            {/* Monto recibido */}
+            <div className="space-y-1.5">
+              <Label htmlFor="pago-monto" className="text-sm font-semibold">
+                Monto recibido (COP) <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 font-semibold text-sm pointer-events-none select-none">
+                  $
+                </span>
+                <Input
+                  id="pago-monto"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="100.000"
+                  value={pagoMonto}
+                  onChange={e => {
+                    const digits = e.target.value.replace(/\D/g, '');
+                    if (!digits) { setPagoMonto(''); return; }
+                    const num = parseInt(digits, 10);
+                    if (!isNaN(num)) {
+                      setPagoMonto(
+                        new Intl.NumberFormat('es-CO', {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0,
+                        }).format(num)
+                      );
+                    }
+                  }}
+                  className={`h-11 pl-8 text-sm font-semibold tracking-wide ${
+                    pagoMonto && parseCurrencyInput(pagoMonto) < 100_000
+                      ? 'border-red-400 focus-visible:ring-red-400/20'
+                      : 'focus-visible:border-teal-500 focus-visible:ring-teal-500/20'
+                  }`}
+                  autoFocus
+                />
+              </div>
+              <p className={`text-xs flex items-center gap-1 ${
+                pagoMonto && parseCurrencyInput(pagoMonto) < 100_000
+                  ? 'text-red-500'
+                  : 'text-slate-400 dark:text-slate-500'
+              }`}>
+                {pagoMonto && parseCurrencyInput(pagoMonto) < 100_000 && (
+                  <AlertTriangle className="size-3 shrink-0" />
+                )}
+                Mínimo $100.000 COP
+              </p>
+            </div>
+
+            {/* Fecha del pago */}
+            <div className="space-y-1.5">
+              <Label htmlFor="pago-fecha" className="text-sm font-semibold">
+                Fecha del pago <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="pago-fecha"
+                type="date"
+                value={pagoFecha}
+                min={hoyLocal()}
+                max={hoyLocal()}
+                onChange={e => setPagoFecha(e.target.value)}
+                className="h-11 focus-visible:border-teal-500 focus-visible:ring-teal-500/20"
+              />
+              <p className="text-xs text-slate-400 dark:text-slate-500">Solo se permite la fecha de hoy</p>
+            </div>
+
+            {/* Observación */}
+            <div className="space-y-1.5">
+              <Label htmlFor="pago-obs" className="text-sm font-semibold">
+                Observación{' '}
+                <span className="text-xs font-normal text-slate-400 dark:text-slate-500">(opcional)</span>
+              </Label>
+              <Input
+                id="pago-obs"
+                placeholder="Ej: Transferencia Nequi, efectivo, etc."
+                value={pagoObservacion}
+                onChange={e => setPagoObservacion(e.target.value)}
+                className="h-11"
+              />
+            </div>
+
+            {/* Comprobante */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-semibold">
+                Comprobante de pago{' '}
+                <span className="text-xs font-normal text-slate-400 dark:text-slate-500">(opcional)</span>
+              </Label>
+              <label
+                htmlFor="pago-comprobante"
+                className={`flex items-center gap-3 px-4 py-3.5 rounded-xl border-2 border-dashed cursor-pointer transition-all select-none ${
+                  pagoComprobante
+                    ? 'border-teal-400 bg-teal-50 dark:bg-teal-950/40 dark:border-teal-700'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-teal-300 dark:hover:border-teal-600 hover:bg-teal-50/50 dark:hover:bg-teal-950/20'
+                }`}
+              >
+                <div className={`p-2 rounded-lg shrink-0 ${
+                  pagoComprobante
+                    ? 'bg-teal-100 dark:bg-teal-900'
+                    : 'bg-slate-100 dark:bg-slate-700'
+                }`}>
+                  <Paperclip className={`size-4 ${
+                    pagoComprobante ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400'
+                  }`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  {pagoComprobante ? (
+                    <>
+                      <p className="text-sm font-semibold text-teal-700 dark:text-teal-400 truncate">
+                        {pagoComprobante.name}
+                      </p>
+                      <p className="text-xs text-teal-500 dark:text-teal-500 mt-0.5">
+                        {(pagoComprobante.size / 1024).toFixed(0)} KB · Listo para subir
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                        Adjuntar imagen o PDF del comprobante
+                      </p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                        PNG, JPG, PDF — máx. 10 MB
+                      </p>
+                    </>
+                  )}
+                </div>
+                {pagoComprobante && (
+                  <button
+                    type="button"
+                    onClick={e => { e.preventDefault(); setPagoComprobante(null); }}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors shrink-0"
+                  >
+                    <XCircle className="size-4" />
+                  </button>
+                )}
+              </label>
+              <input
+                id="pago-comprobante"
+                type="file"
+                accept="image/*,.pdf"
+                className="sr-only"
+                onChange={e => setPagoComprobante(e.target.files?.[0] ?? null)}
+              />
+            </div>
+          </div>
+
+          {/* ── Footer ───────────────────────────────────────────────────────── */}
+          <div className="px-5 py-4 sm:px-6 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => {
+                setIsPagoActivacionOpen(false);
+                setPagoSolicitud(null);
+                setPagoMonto(''); setPagoFecha(''); setPagoObservacion(''); setPagoComprobante(null);
+              }}
+              disabled={savingPago}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 gap-2 font-semibold shadow-md shadow-teal-900/20"
+              onClick={handleRegistrarPrimerPago}
+              disabled={savingPago || parseCurrencyInput(pagoMonto) < 100_000 || !pagoFecha}
+            >
+              <PiggyBank className="size-4" />
+              {savingPago ? 'Registrando...' : 'Registrar y activar cuenta'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* ── Dialog: Resultado del correo de bienvenida post-aprobación ─────── */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      <Dialog open={!!aprobacionEmailData} onOpenChange={open => { if (!open) { setAprobacionEmailData(null); setSelectedSolicitud(null); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {aprobacionEmailData?.inviteLink
+                ? <><CheckCircle className="size-5 text-emerald-600" /> ¡Solicitud aprobada!</>
+                : aprobacionEmailData?.error === 'RATE_LIMIT'
+                  ? <><AlertTriangle className="size-5 text-orange-500" /> Límite de invitaciones alcanzado</>
+                  : <><AlertTriangle className="size-5 text-red-500" /> Error al generar el acceso</>
+              }
+            </DialogTitle>
+            <DialogDescription>
+              {aprobacionEmailData?.inviteLink
+                ? 'La cuenta fue creada. Envía el enlace de acceso al aspirante por Gmail.'
+                : 'La aprobación quedó registrada en el sistema.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {aprobacionEmailData && (
+            <div className="space-y-4">
+              {aprobacionEmailData.inviteLink ? (
+                /* ── Email enviado exitosamente ── */
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="size-5 text-emerald-600 shrink-0" />
+                    <p className="text-sm font-semibold text-emerald-800">¡Email de bienvenida enviado automáticamente!</p>
+                  </div>
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Aspirante:</span>
+                      <span className="font-semibold text-slate-800">{aprobacionEmailData.nombre}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Correo:</span>
+                      <span className="font-semibold text-slate-800 break-all">{aprobacionEmailData.email}</span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-white border border-emerald-200 p-3 text-xs text-emerald-700">
+                    <p>📧 El aspirante recibirá un correo con el diseño de UFCA y un botón para crear su contraseña. El enlace expira en <strong>24 horas</strong>.</p>
+                  </div>
+                </div>
+              ) : aprobacionEmailData.error === 'RATE_LIMIT' ? (
+                /* ── Rate limit ── */
+                <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 space-y-3">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="size-5 text-orange-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-orange-800">Has excedido el límite de correos de Gmail</p>
+                      <p className="text-xs text-orange-700 mt-1">
+                        La aprobación quedó registrada. El correo de invitación se podrá reenviar cuando se cumpla la hora.
+                      </p>
+                    </div>
+                  </div>
+                  {rateLimitCountdown ? (
+                    <div className="rounded-lg bg-white border border-orange-200 p-3 flex items-center justify-between">
+                      <span className="text-xs text-slate-600">Tiempo restante para reenviar:</span>
+                      <span className="text-lg font-bold text-orange-600 tabular-nums">{rateLimitCountdown}</span>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-700 font-medium">
+                      ✅ Ya puedes reenviar el correo desde el detalle de la solicitud.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* ── Otro error ── */
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-3">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="size-5 text-red-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-red-800">No se pudo generar el enlace de acceso</p>
+                      {aprobacionEmailData.error && (
+                        <p className="text-xs text-red-600 mt-1">{aprobacionEmailData.error}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-white border border-red-200 p-3 text-xs text-slate-700">
+                    <p>La aprobación quedó registrada. Para dar acceso al sistema, ve a <strong>Supabase → Authentication → Users → Invite user</strong> e ingresa el correo del aspirante manualmente.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setAprobacionEmailData(null); setSelectedSolicitud(null); }}
+            >
+              Cerrar
+            </Button>
+
+            {/* El email ya se envió automáticamente — solo mostrar botón Cerrar */}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
 import { supabase } from '../lib/supabase';
-import { asociadosApi } from '../lib/api';
 
 interface AsociadoDetalleProps {
   asociadoId: string | null;
@@ -36,17 +35,12 @@ export default function AsociadoDetalle({ asociadoId, onBack }: AsociadoDetalleP
     try {
       setLoading(true);
 
-      // Traer asociado con todas sus relaciones + bonificacion desde configuracion (Q-04)
-      const [{ data, error }, { data: cfgData }] = await Promise.all([
+      // Tras la migración, los asociados viven en la tabla usuarios.
+      // Los referidos se identifican por referido_por_id en usuarios.
+      const [{ data, error }, { data: cfgData }, { data: cuentasAhorro }, { data: referidosData }, { data: creditosData }] = await Promise.all([
         supabase
-          .from('asociados')
-          .select(`
-            *,
-            ahorros_permanentes(id, monto_ahorrado, cuota_mensual, estado, anulado),
-            ahorros_voluntarios(id, monto_ahorrado, estado, anulado),
-            creditos(id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado),
-            referidos:asociados!referido_por_id(id, nombre, cedula, telefono, fecha_ingreso, estado)
-          `)
+          .from('usuarios')
+          .select('id, nombre, cedula, telefono, email, direccion, fecha_ingreso, activo, estado_cuenta')
           .eq('id', id)
           .single(),
         supabase
@@ -54,14 +48,28 @@ export default function AsociadoDetalle({ asociadoId, onBack }: AsociadoDetalleP
           .select('valor')
           .eq('clave', 'bonificacion_referido')
           .maybeSingle(),
+        supabase
+          .from('cuentas_ahorro')
+          .select('id, tipo, monto_ahorrado, cuota_mensual, estado, anulado')
+          .eq('asociado_id', id)
+          .eq('anulado', false),
+        supabase
+          .from('usuarios')
+          .select('id, nombre, cedula, telefono, fecha_ingreso, activo, estado_cuenta')
+          .eq('referido_por_id', id)
+          .order('fecha_ingreso', { ascending: false }),
+        supabase
+          .from('creditos')
+          .select('id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado')
+          .eq('asociado_id', id),
       ]);
       const bonif = cfgData?.valor ? Number(cfgData.valor) : 50_000; // Q-04
 
       if (error) throw error;
 
-      const ahorroPerm  = (data.ahorros_permanentes || []).filter((a: any) => !a.anulado).reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
-      const ahorroVol   = (data.ahorros_voluntarios || []).filter((a: any) => !a.anulado).reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
-      const creditoActivo = (data.creditos || []).find((c: any) => !c.anulado && c.estado);
+      const ahorroPerm  = (cuentasAhorro || []).filter((a: any) => a.tipo === 'permanente').reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
+      const ahorroVol   = (cuentasAhorro || []).filter((a: any) => a.tipo === 'voluntario').reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
+      const creditoActivo = (creditosData || []).find((c: any) => !c.anulado && c.estado);
 
       setAsociado({
         id:                   data.id,
@@ -71,7 +79,7 @@ export default function AsociadoDetalle({ asociadoId, onBack }: AsociadoDetalleP
         email:                data.email || '',
         direccion:            data.direccion || '',
         fechaIngreso:         data.fecha_ingreso,
-        estado:               data.estado ? 'Activo' : 'Inactivo',
+        estado:               (data.activo === true || data.estado_cuenta === 'activo') ? 'Activo' : 'Inactivo',
         ahorrosPermanentes:   ahorroPerm,
         ahorrosVoluntarios:   ahorroVol,
         creditoActivo:        !!creditoActivo,
@@ -79,28 +87,28 @@ export default function AsociadoDetalle({ asociadoId, onBack }: AsociadoDetalleP
         saldoCredito:         creditoActivo?.saldo || 0,
       });
 
-      // Referidos
-      setReferidos((data.referidos || []).map((r: any) => ({
+      // Referidos (usuarios que tienen referido_por_id = este asociado)
+      setReferidos((referidosData || []).map((r: any) => ({
         nombre:        r.nombre,
         cedula:        r.cedula,
         telefono:      r.telefono || '',
         fechaReferido: r.fecha_ingreso,
-        estadoReferido: r.estado ? 'Aprobado' : 'Inactivo',
+        estadoReferido: (r.activo === true || r.estado_cuenta === 'activo') ? 'Aprobado' : 'Inactivo',
         bonificacion:  bonif,
       })));
 
-      // Movimientos ahorros: registros de la tabla unificada ahorros
-      const movAh = (data.ahorros || []).map((a: any) => ({
-        id:      a.id,
-        fecha:   a.fecha_inicio,
-        tipo:    'Depósito',
+      // Movimientos ahorros
+      const movAh = (cuentasAhorro || []).map((a: any) => ({
+        id:       a.id,
+        fecha:    a.created_at || '',
+        tipo:     'Depósito',
         concepto: a.tipo === 'permanente' ? 'Ahorro permanente' : 'Ahorro voluntario',
-        monto:   a.monto_ahorrado,
+        monto:    a.monto_ahorrado,
       })).sort((a: any, b: any) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).slice(0, 5);
       setMovimientosAhorros(movAh);
 
       // Movimientos créditos
-      const movCr = (data.creditos || []).map((c: any, i: number) => ({
+      const movCr = (creditosData || []).map((c: any, i: number) => ({
         id:       i + 1,
         fecha:    c.fecha_desembolso,
         concepto: c.anulado ? 'Crédito anulado' : 'Desembolso crédito',

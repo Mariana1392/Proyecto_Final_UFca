@@ -1348,9 +1348,60 @@ export const generateLiquidacionPDF = (liquidacion: any) => {
     const splitNota = doc.splitTextToSize(nota, 170);
     doc.text(splitNota, 20, yPos);
     
+    // ── Bloque de firmas y sello ────────────────────────────────────────────
+    // Revisar si hay espacio suficiente; si no, agregar nueva página
+    if (yPos > 220) {
+      doc.addPage();
+      yPos = 20;
+    } else {
+      yPos += 15;
+    }
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('FIRMAS DE CONFORMIDAD', 20, yPos);
+    yPos += 12;
+
+    // Línea firma asociado
+    doc.setLineWidth(0.4);
+    doc.line(20, yPos, 90, yPos);
+    // Línea sello/firma administrador
+    doc.line(120, yPos, 190, yPos);
+    yPos += 6;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(60, 60, 60);
+    doc.text('Firma del Asociado', 20, yPos);
+    doc.text('Firma del Administrador', 120, yPos);
+    yPos += 5;
+    doc.setFontSize(8);
+    doc.text(liquidacion.asociado || 'N/A', 20, yPos);
+    const fechaFirma = new Date().toLocaleDateString('es-CO', {
+      year: 'numeric', month: 'long', day: 'numeric',
+    });
+    doc.text(`UFCA — Fecha: ${fechaFirma}`, 120, yPos);
+
+    // Sello institucional (recuadro)
+    yPos += 18;
+    doc.setDrawColor(16, 185, 129);
+    doc.setLineWidth(1);
+    doc.roundedRect(70, yPos - 6, 70, 20, 3, 3, 'S');
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(6, 95, 70);
+    doc.text('SELLO UFCA', 105, yPos + 2, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(80, 80, 80);
+    doc.text('Cooperativa de Ahorro y Crédito', 105, yPos + 8, { align: 'center' });
+    doc.text('Documento oficial — No válido sin sello', 105, yPos + 13, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+
     // Footer
     addFooter(doc);
-    
+
     // Guardar
     doc.save(`Liquidacion_${liquidacion.asociado?.replace(/\s/g, '_') || 'N/A'}.pdf`);
     return true;
@@ -1440,12 +1491,12 @@ export const generateAhorroPermanentePDF = (ahorro: any) => {
       yPos += 20;
     } else {
       const historialRows = movimientos.map((m: any) => [
-        m.fecha_movimiento || '—',
-        m.tipo_movimiento  || '—',
-        m.descripcion      || '—',
+        m.fecha_pago        || m.fecha_movimiento || '—',
+        'Aporte',
+        m.observacion       || m.descripcion      || '—',
         formatCurrency(m.monto        || 0),
-        formatCurrency(m.saldo_anterior || 0),
-        formatCurrency(m.saldo_nuevo   || 0),
+        formatCurrency((m.saldo_antes  ?? m.saldo_anterior) || 0),
+        formatCurrency((m.saldo_despues ?? m.saldo_nuevo)   || 0),
       ]);
 
       autoTable(doc, {
@@ -1487,12 +1538,10 @@ export const generateAhorroPermanentePDF = (ahorro: any) => {
 
       // ── Resumen totales ───────────────────────────────────────────────────
       const totalAportado = movimientos
-        .filter((m: any) => (m.tipo_movimiento === 'Aporte' || m.tipo_movimiento === 'Apertura') && !m.anulado)
+        .filter((m: any) => !m.anulado)
         .reduce((acc: number, m: any) => acc + (m.monto || 0), 0);
 
-      const totalRetirado = movimientos
-        .filter((m: any) => m.tipo_movimiento === 'Retiro' && !m.anulado)
-        .reduce((acc: number, m: any) => acc + (m.monto || 0), 0);
+      const totalRetirado = 0; // Los aportes permanentes no tienen retiros directos
 
       const resumenRows = [
         ['Total depositado en el período:', formatCurrency(totalAportado)],
@@ -1528,6 +1577,176 @@ export const generateAhorroPermanentePDF = (ahorro: any) => {
   } catch (error) {
     console.error('Error al generar PDF de Ahorro Permanente:', error);
     return false;
+  }
+};
+
+// ==================== PDF DE AHORRO PERMANENTE (build — devuelve blob URL) ====================
+/**
+ * Igual que generateAhorroPermanentePDF pero NO llama doc.save().
+ * Devuelve { url, filename, download } para mostrar vista previa antes de descargar.
+ */
+export const buildAhorroPermanentePDF = (ahorro: any): {
+  url: string;
+  filename: string;
+  download: () => void;
+} | null => {
+  try {
+    const doc = new jsPDF();
+    let yPos = addHeader(doc, 'EXTRACTO DE AHORRO PERMANENTE');
+
+    yPos += 5;
+
+    if (ahorro.rangoInicio && ahorro.rangoFin) {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Período: ${ahorro.rangoInicio} al ${ahorro.rangoFin}`, 20, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 8;
+    }
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('INFORMACIÓN DEL ASOCIADO', 20, yPos);
+    yPos += 8;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+
+    const ahorroInfo: [string, string][] = [
+      ['Asociado:',         ahorro.asociado       || 'N/A'],
+      ['Cédula:',           ahorro.cedula          || 'N/A'],
+      ['Fecha de inicio:',  ahorro.fechaAfiliacion || 'N/A'],
+      ['Cuota mensual:',    formatCurrency(ahorro.aporteActual || 0)],
+      ['Estado del plan:',  (ahorro.estado === true || ahorro.estado === 'activo') ? 'Activo' : 'Inactivo'],
+    ];
+
+    ahorroInfo.forEach(([label, value]) => {
+      doc.setFont('helvetica', 'bold');
+      doc.text(label, 20, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(String(value), 75, yPos);
+      yPos += 7;
+    });
+
+    yPos += 8;
+
+    doc.setFillColor(236, 253, 245);
+    doc.roundedRect(15, yPos - 5, 180, 22, 3, 3, 'F');
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(6, 95, 70);
+    doc.text('SALDO ACTUAL:', 20, yPos + 5);
+    doc.setFontSize(16);
+    doc.text(formatCurrency(ahorro.saldoAcumulado || 0), 75, yPos + 5);
+    doc.setTextColor(0, 0, 0);
+    yPos += 28;
+
+    const movimientos: any[] = ahorro.movimientos || [];
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    const titulo = movimientos.length > 0
+      ? `HISTORIAL DE TRANSACCIONES (${movimientos.length} registro${movimientos.length > 1 ? 's' : ''})`
+      : 'HISTORIAL DE TRANSACCIONES';
+    doc.text(titulo, 20, yPos);
+    yPos += 5;
+
+    if (movimientos.length === 0) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(10);
+      doc.setTextColor(120, 120, 120);
+      doc.text('No hay transacciones registradas en el período seleccionado.', 20, yPos + 8);
+      doc.setTextColor(0, 0, 0);
+      yPos += 20;
+    } else {
+      const historialRows = movimientos.map((m: any) => [
+        m.fecha_pago        || m.fecha_movimiento || '—',
+        'Aporte',
+        m.observacion       || m.descripcion      || '—',
+        formatCurrency(m.monto        || 0),
+        formatCurrency((m.saldo_antes  ?? m.saldo_anterior) || 0),
+        formatCurrency((m.saldo_despues ?? m.saldo_nuevo)   || 0),
+      ]);
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Fecha', 'Tipo', 'Descripción', 'Monto', 'Saldo anterior', 'Saldo nuevo']],
+        body: historialRows,
+        theme: 'striped',
+        headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+        margin: { left: 15, right: 15 },
+        styles: { fontSize: 8, cellPadding: 3 },
+        columnStyles: {
+          0: { cellWidth: 22 },
+          1: { cellWidth: 22 },
+          2: { cellWidth: 50 },
+          3: { halign: 'right', cellWidth: 28 },
+          4: { halign: 'right', cellWidth: 28 },
+          5: { halign: 'right', cellWidth: 28 },
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body' && data.column.index === 1) {
+            const tipo = data.cell.raw as string;
+            if (tipo === 'Aporte' || tipo === 'Apertura') {
+              data.cell.styles.textColor = [6, 95, 70];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 10;
+
+      const totalAportado = movimientos
+        .filter((m: any) => !m.anulado)
+        .reduce((acc: number, m: any) => acc + (m.monto || 0), 0);
+
+      const resumenRows = [
+        ['Total depositado en el período:', formatCurrency(totalAportado)],
+        ['Total retirado en el período:',   formatCurrency(0)],
+        ['Saldo actual del plan:',          formatCurrency(ahorro.saldoAcumulado || 0)],
+      ];
+
+      autoTable(doc, {
+        startY: yPos,
+        body: resumenRows,
+        theme: 'plain',
+        margin: { left: 90, right: 15 },
+        styles: { fontSize: 9 },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 75 },
+          1: { halign: 'right', cellWidth: 35, fontStyle: 'bold', textColor: [6, 95, 70] },
+        },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 10;
+    }
+
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    const nota = 'Este extracto certifica el estado del ahorro permanente del asociado en el período indicado. Los aportes mensuales son obligatorios según el reglamento de UFCA. Para consultas, comuníquese con la administración.';
+    doc.text(doc.splitTextToSize(nota, 170), 20, yPos);
+
+    addFooter(doc);
+
+    const filename = `Extracto_Ahorro_${ahorro.asociado?.replace(/\s+/g, '_') || 'N/A'}_${ahorro.rangoInicio ?? ''}_${ahorro.rangoFin ?? ''}.pdf`;
+    const blob = doc.output('blob');
+    const url  = URL.createObjectURL(blob);
+
+    return {
+      url,
+      filename,
+      download: () => {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+      },
+    };
+  } catch (error) {
+    console.error('Error al construir PDF de Ahorro Permanente:', error);
+    return null;
   }
 };
 

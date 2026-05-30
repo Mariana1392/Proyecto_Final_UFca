@@ -52,6 +52,8 @@ interface RolesProps {
 export default function Roles({ userRole }: RolesProps) {
   // Filtro de permisos para roles (implementado en UI de filtros)
   const [filterPermiso, setFilterPermiso] = useState<'todos' | PermisoKey>('todos');
+  // Ordenación de la tabla de roles
+  const [rolesSortBy, setRolesSortBy] = useState<'nombre_az'|'nombre_za'|'usuarios_desc'|'usuarios_asc'|'activo'>('nombre_az');
   // ── Usuario actual desde el contexto (no llamar getUser() aquí) ───────────
   const { user: authUser } = useAuth();
   const usuarioActualId     = authUser?.id    ?? null;
@@ -90,7 +92,7 @@ export default function Roles({ userRole }: RolesProps) {
       accion,
       tabla:       'roles',
       registro_id: registroId ?? null,
-      detalle:     { descripcion: detalle, usuario: usuarioActualNombre },
+      datos_despues: { descripcion: detalle, usuario: usuarioActualNombre },
     }).select('id').single();
 
     if (error) console.warn('Error al guardar auditoría:', error.message);
@@ -193,9 +195,9 @@ export default function Roles({ userRole }: RolesProps) {
       const auditMapeada: AuditEntry[] = (auditoriaData || []).map((a: any) => ({
         id:      a.id,
         accion:  a.accion,
-        detalle: a.detalle?.descripcion ?? '—',
+        detalle: a.datos_despues?.descripcion ?? '—',
         fecha:   new Date(a.created_at).toLocaleString('es-CO'),
-        usuario: a.detalle?.usuario ?? 'Sistema',
+        usuario: a.datos_despues?.usuario ?? 'Sistema',
       }));
       setAuditLog(auditMapeada);
 
@@ -208,14 +210,23 @@ export default function Roles({ userRole }: RolesProps) {
     }
   }
 
-  const filteredRoles  = roles.filter(r => {
-    const permisos = r.permisos as any;
-    const matchesPermiso = filterPermiso === 'todos' || !!permisos[filterPermiso];
-    const matchesSearch = !searchTerm.trim() ||
-      r.nombre.toLowerCase().includes(searchTerm.trim().toLowerCase()) ||
-      r.descripcion.toLowerCase().includes(searchTerm.trim().toLowerCase());
-    return matchesPermiso && matchesSearch;
-  });
+  const filteredRoles  = roles
+    .filter(r => {
+      const permisos = r.permisos as any;
+      const matchesPermiso = filterPermiso === 'todos' || !!permisos[filterPermiso];
+      const matchesSearch = !searchTerm.trim() ||
+        r.nombre.toLowerCase().includes(searchTerm.trim().toLowerCase()) ||
+        r.descripcion.toLowerCase().includes(searchTerm.trim().toLowerCase());
+      return matchesPermiso && matchesSearch;
+    })
+    .sort((a, b) => {
+      if (rolesSortBy === 'nombre_az')      return a.nombre.localeCompare(b.nombre, 'es');
+      if (rolesSortBy === 'nombre_za')      return b.nombre.localeCompare(a.nombre, 'es');
+      if (rolesSortBy === 'usuarios_desc')  return (b.cantidadUsuarios ?? 0) - (a.cantidadUsuarios ?? 0);
+      if (rolesSortBy === 'usuarios_asc')   return (a.cantidadUsuarios ?? 0) - (b.cantidadUsuarios ?? 0);
+      if (rolesSortBy === 'activo')         return (b.estado ? 1 : 0) - (a.estado ? 1 : 0);
+      return 0;
+    });
   const totalPages     = Math.ceil(filteredRoles.length / itemsPerPage);
   const startIndex     = (currentPage - 1) * itemsPerPage;
   const endIndex       = startIndex + itemsPerPage;
@@ -665,7 +676,7 @@ export default function Roles({ userRole }: RolesProps) {
                 <CardTitle>Lista de Roles</CardTitle>
                 <p className="text-sm text-slate-500 mt-1">Haz clic en cualquier fila para ver los detalles completos</p>
               </div>
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex gap-2 w-full sm:w-auto flex-wrap">
                 <div className="relative flex-1 sm:flex-none sm:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
                   <Input
@@ -684,6 +695,18 @@ export default function Roles({ userRole }: RolesProps) {
                     {permisosDisponibles.map(p => (
                       <SelectItem key={p.clave} value={p.clave}>{p.label}</SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <Select value={rolesSortBy} onValueChange={v => { setRolesSortBy(v as typeof rolesSortBy); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-44">
+                    <SelectValue placeholder="Ordenar por" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nombre_az">Nombre A→Z</SelectItem>
+                    <SelectItem value="nombre_za">Nombre Z→A</SelectItem>
+                    <SelectItem value="usuarios_desc">Más usuarios primero</SelectItem>
+                    <SelectItem value="usuarios_asc">Menos usuarios primero</SelectItem>
+                    <SelectItem value="activo">Activos primero</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -916,17 +939,19 @@ export default function Roles({ userRole }: RolesProps) {
 
         {/* ===== HISTORIAL DE CAMBIOS ===== */}
         {(() => {
-          const accionesUnicas = ['todos', ...Array.from(new Set(auditLog.map(e => e.accion)))];
+          const accionesUnicas = ['todos', ...Array.from(new Set(auditLog.map(e => e.accion ?? 'SIN_ACCION').filter(Boolean)))];
           const auditFiltrado  = auditFiltro === 'todos' ? auditLog : auditLog.filter(e => e.accion === auditFiltro);
           const auditTotalPags = Math.ceil(auditFiltrado.length / AUDIT_PER_PAGE);
           const auditPagina    = auditFiltrado.slice((auditPage - 1) * AUDIT_PER_PAGE, auditPage * AUDIT_PER_PAGE);
-          const badgeColor = (accion: string) =>
-            accion.includes('CREADO')    ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+          const badgeColor = (accion: string | null) => {
+            if (!accion) return 'bg-slate-50 text-slate-700 border-slate-200';
+            return accion.includes('CREADO')    ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
             accion.includes('EDITADO') || accion.includes('AGREGADO') ? 'bg-blue-50 text-blue-700 border-blue-200' :
             accion.includes('ELIMINADO') ? 'bg-red-50 text-red-700 border-red-200'   :
             accion.includes('ACTIVADO')  ? 'bg-green-50 text-green-700 border-green-200' :
             accion.includes('DESACTIVADO') ? 'bg-orange-50 text-orange-700 border-orange-200' :
             'bg-slate-50 text-slate-700 border-slate-200';
+          };
 
           return (
             <Card>
@@ -998,7 +1023,7 @@ export default function Roles({ userRole }: RolesProps) {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap mb-1">
                                 <Badge variant="outline" className={`text-[10px] font-semibold ${badgeColor(entry.accion)}`}>
-                                  {entry.accion}
+                                  {entry.accion ?? '—'}
                                 </Badge>
                                 <span className="text-[11px] text-slate-400 flex items-center gap-1">
                                   <Clock className="size-3" />{entry.fecha}

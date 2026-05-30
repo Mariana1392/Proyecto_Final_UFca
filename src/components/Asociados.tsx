@@ -3,11 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Switch } from './ui/switch';
-import { 
+import {
   Search, Plus, ChevronLeft, ChevronRight,
   Edit, Trash2, Mail, Phone, User, Users, Calendar, AlertTriangle,
   DollarSign, CreditCard, PartyPopper, TrendingUp, Clock, CheckCircle2,
-  XCircle, Info, FileText, MapPin, History, ChevronDown, ChevronUp
+  XCircle, Info, FileText, MapPin, History, ChevronDown, ChevronUp,
+  Upload, AlertCircle, LogOut,
 } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -76,8 +77,31 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
   const [auditoriaAsociado, setAuditoriaAsociado] = useState<any[]>([]);
   const [loadingAuditoria, setLoadingAuditoria] = useState(false);
 
+  // ── Pendientes de pago de activación ─────────────────────────────────────
+  const [pendientesPago, setPendientesPago] = useState<any[]>([]);
+  const [isPagoConfirmDialogOpen, setIsPagoConfirmDialogOpen] = useState(false);
+  const [solicitudPagoSeleccionada, setSolicitudPagoSeleccionada] = useState<any>(null);
+  const [comprobante, setComprobante] = useState<File | null>(null);
+  const [savingConfirmPago, setSavingConfirmPago] = useState(false);
+
+  // ── Wizard de retiro de asociado ────────────────────────────────────────
+  const [isRetiroOpen, setIsRetiroOpen]       = useState(false);
+  const [retiroAsociado, setRetiroAsociado]   = useState<any>(null);
+  const [retirando, setRetirando]             = useState(false);
+  const [retiroStatus, setRetiroStatus]       = useState<{
+    loading: boolean;
+    creditosPendientes: number;
+    ahorrosConSaldo: number;
+    tieneAlgunaLiq: boolean;
+    liquidacionPagada: boolean;
+    usuarioActivo: boolean;
+    usuarioId: string | null;
+  } | null>(null);
+
+
   useEffect(() => {
     cargarAsociados();
+    cargarPendientesPago();
   }, []);
 
   // Mantener ref sincronizada para usarla dentro de funciones async
@@ -101,12 +125,13 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
     // detalle puede ser objeto JSONB { descripcion, admin, fecha } o string legado
     let detalleStr = '—';
     let usuario = 'Sistema';
-    if (r.detalle && typeof r.detalle === 'object') {
-      detalleStr = r.detalle.descripcion || '—';
-      usuario    = r.detalle.admin || 'Sistema';
-    } else if (typeof r.detalle === 'string') {
-      detalleStr = r.detalle;
-      const match = r.detalle.match(/Por:\s*([^|]+)/);
+    const dd = r.datos_despues ?? r.detalle; // compatibilidad legado
+    if (dd && typeof dd === 'object') {
+      detalleStr = dd.descripcion || '—';
+      usuario    = dd.admin || 'Sistema';
+    } else if (typeof dd === 'string') {
+      detalleStr = dd;
+      const match = dd.match(/Por:\s*([^|]+)/);
       usuario = match ? match[1].trim() : 'Sistema';
     }
     // Buscar nombre del asociado en el estado local
@@ -120,9 +145,9 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
       usuario,
       asociadoNombre: asociadoLocal?.nombre || '(eliminado)',
       asociadoCedula: asociadoLocal?.cedula || '—',
-      tipo:           r.accion.toLowerCase().includes('estado')    ? 'estado'
-                    : r.accion.toLowerCase().includes('edic')       ? 'edicion'
-                    : r.accion.toLowerCase().includes('elim')       ? 'eliminacion'
+      tipo:           (r.accion ?? '').toLowerCase().includes('estado')  ? 'estado'
+                    : (r.accion ?? '').toLowerCase().includes('edic')   ? 'edicion'
+                    : (r.accion ?? '').toLowerCase().includes('elim')   ? 'eliminacion'
                     : 'creacion',
     };
   }
@@ -136,11 +161,11 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
     adminId?: string | null,
   ) {
     const { error } = await supabase.from('auditoria').insert({
-      tabla:       'asociados',
+      tabla:       'usuarios',
       registro_id: asociadoId,
       usuario_id:  adminId ?? null,
       accion,
-      detalle: {
+      datos_despues: {
         descripcion,
         admin: adminNombre,
         fecha: new Date().toISOString(),
@@ -157,8 +182,8 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
     try {
       const { data, error } = await supabase
         .from('auditoria')
-        .select('id, registro_id, accion, detalle, created_at')
-        .eq('tabla', 'asociados')
+        .select('id, registro_id, accion, datos_despues, created_at')
+        .eq('tabla', 'usuarios')
         .eq('registro_id', id)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -177,8 +202,8 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
       // Sin JOIN para evitar errores de relación en PostgREST
       const { data, error } = await supabase
         .from('auditoria')
-        .select('id, registro_id, accion, detalle, created_at')
-        .eq('tabla', 'asociados')
+        .select('id, registro_id, accion, datos_despues, created_at')
+        .eq('tabla', 'usuarios')
         .order('created_at', { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -187,6 +212,120 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
       setAuditoriaGlobal((data || []).map((r: any) => mapearFilaAuditoria(r, snap)));
     } catch (err: any) {
       toast.error('Error al cargar auditoría: ' + err.message);
+    }
+  }
+
+  // ── Carga el estado de cada paso del flujo de retiro ───────────────────
+  async function cargarEstadoRetiro(asociadoId: string) {
+    setRetiroStatus({ loading: true, creditosPendientes: 0, ahorrosConSaldo: 0, tieneAlgunaLiq: false, liquidacionPagada: false, usuarioActivo: false, usuarioId: null });
+    try {
+      const [creditosRes, ahorrosRes, liqRes, liqPagadaRes, usuarioRes] = await Promise.all([
+        // Créditos con saldo real pendiente
+        supabase.from('creditos').select('id')
+          .eq('asociado_id', asociadoId).eq('anulado', false)
+          .in('estado', ['pendiente', 'aprobado', 'desembolsado', 'en_mora', 'activo'])
+          .gt('saldo', 0),
+        // Ahorros permanentes activos con saldo
+        supabase.from('cuentas_ahorro').select('id')
+          .eq('tipo', 'permanente').eq('asociado_id', asociadoId)
+          .eq('estado', 'activo').eq('anulado', false).gt('monto_ahorrado', 0),
+        // ¿Existe alguna liquidación?
+        supabase.from('liquidaciones').select('id')
+          .eq('asociado_id', asociadoId).eq('anulado', false).limit(1),
+        // ¿Hay liquidación pagada?
+        supabase.from('liquidaciones').select('id')
+          .eq('asociado_id', asociadoId).eq('anulado', false).eq('estado', 'Pagada').limit(1),
+        // Cuenta de usuario vinculada (asociadoId IS el usuarios.id tras la migración)
+        supabase.from('usuarios').select('id, activo')
+          .eq('id', asociadoId).maybeSingle(),
+      ]);
+      setRetiroStatus({
+        loading:           false,
+        creditosPendientes: creditosRes.data?.length    ?? 0,
+        ahorrosConSaldo:   ahorrosRes.data?.length      ?? 0,
+        tieneAlgunaLiq:    (liqRes.data?.length         ?? 0) > 0,
+        liquidacionPagada: (liqPagadaRes.data?.length   ?? 0) > 0,
+        usuarioActivo:     usuarioRes.data?.activo      ?? false,
+        usuarioId:         usuarioRes.data?.id          ?? null,
+      });
+    } catch {
+      setRetiroStatus(null);
+      toast.error('No se pudo cargar el estado del retiro');
+    }
+  }
+
+  // ── Paso 4 del flujo: desactivar cuenta del asociado ───────────────────
+  async function handleDesactivarCuenta() {
+    if (!retiroAsociado || !retiroStatus) return;
+    setRetirando(true);
+    try {
+      // Tras la migración asociadoId === usuarioId; desactivamos directamente en usuarios
+      const ops: Promise<any>[] = [
+        supabase.from('usuarios').update({ activo: false, estado_cuenta: 'inactivo' }).eq('id', retiroAsociado.id),
+      ];
+      if (retiroStatus.usuarioId && retiroStatus.usuarioId !== retiroAsociado.id) {
+        ops.push(supabase.from('usuarios').update({ activo: false }).eq('id', retiroStatus.usuarioId));
+      }
+      await Promise.all(ops);
+      setAsociados(prev => prev.map(a =>
+        a.id === retiroAsociado.id ? { ...a, estado: 'inactivo' } : a
+      ));
+      toast.success(`Retiro completado — cuenta de "${retiroAsociado.nombre}" desactivada.`);
+      setIsRetiroOpen(false);
+      setRetiroAsociado(null);
+      setRetiroStatus(null);
+    } catch (err: any) {
+      toast.error('Error al desactivar: ' + err.message);
+    } finally {
+      setRetirando(false);
+    }
+  }
+
+  async function cargarPendientesPago() {
+    const { data, error } = await supabase
+      .from('solicitudes_asociados')
+      .select('id, usuario_id, nombres, apellidos, cedula, telefono, email, fecha_solicitud, monto_ahorro_propuesto, observaciones')
+      .eq('estado', 'pendiente_activacion')
+      .order('fecha_solicitud', { ascending: true });
+    if (!error) setPendientesPago(data || []);
+  }
+
+  async function handleConfirmarPago() {
+    if (!solicitudPagoSeleccionada) return;
+    setSavingConfirmPago(true);
+    try {
+      let comprobanteUrl: string | null = null;
+
+      if (comprobante) {
+        const ext  = comprobante.name.split('.').pop();
+        const path = `comprobantes/${solicitudPagoSeleccionada.id}_${Date.now()}.${ext}`;
+        const { data: uploadData, error: uploadErr } = await supabase.storage
+          .from('documentos')
+          .upload(path, comprobante, { upsert: true });
+        if (uploadErr) throw uploadErr;
+        const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(uploadData.path);
+        comprobanteUrl = urlData.publicUrl;
+      }
+
+      const observacionFinal = comprobanteUrl
+        ? `Pago confirmado. Comprobante: ${comprobanteUrl}`
+        : 'Pago confirmado por el administrador.';
+
+      const { error } = await supabase
+        .from('solicitudes_asociados')
+        .update({ estado: 'aprobada', observaciones: observacionFinal })
+        .eq('id', solicitudPagoSeleccionada.id);
+      if (error) throw error;
+
+      setPendientesPago(prev => prev.filter(s => s.id !== solicitudPagoSeleccionada.id));
+      toast.success(`Pago de ${solicitudPagoSeleccionada.nombres} ${solicitudPagoSeleccionada.apellidos} confirmado. Cuenta activada.`);
+      setIsPagoConfirmDialogOpen(false);
+      setSolicitudPagoSeleccionada(null);
+      setComprobante(null);
+    } catch (err: any) {
+      toast.error('Error al confirmar pago: ' + err.message);
+    } finally {
+      setSavingConfirmPago(false);
     }
   }
 
@@ -203,130 +342,80 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
         if (perfil?.nombre) setUsuarioActualNombre(perfil.nombre);
       }
 
-      // Cargar asociados registrados
-      const { data, error } = await supabase
-        .from('asociados')
+      // Obtener rol_id de 'asociado' para filtrar usuarios
+      const { data: rolAsoc } = await supabase
+        .from('roles').select('id').eq('nombre', 'asociado').limit(1).maybeSingle();
+      const rolAsociadoId = rolAsoc?.id ?? null;
+
+      // Cargar usuarios con rol asociado + sus créditos (asociado_id = usuarios.id tras migración)
+      let usuariosQuery = supabase
+        .from('usuarios')
         .select(`
-          *,
-          ahorros_permanentes(id, monto_ahorrado, cuota_mensual, estado, anulado),
-          ahorros_voluntarios(id, monto_ahorrado, estado, anulado),
+          id, nombre, cedula, telefono, email, direccion, fecha_ingreso,
+          activo, estado_cuenta,
           creditos(id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado)
         `)
         .order('nombre');
+      if (rolAsociadoId) {
+        usuariosQuery = (usuariosQuery as any).eq('rol_id', rolAsociadoId);
+      }
+
+      const [{ data, error }, { data: todasCuentas }] = await Promise.all([
+        usuariosQuery,
+        supabase
+          .from('cuentas_ahorro')
+          .select('id, tipo, monto_ahorrado, cuota_mensual, estado, anulado, asociado_id'),
+      ]);
 
       if (error) throw error;
 
-      // Buscar usuarios con rol 'asociado' que no tienen asociado_id vinculado
-      // y crearles automáticamente el registro en asociados
-      const { data: usuariosSinAsociado } = await supabase
-        .from('usuarios')
-        .select('id, nombre, email, identificacion, activo')
-        .is('asociado_id', null)
-        .eq('activo', true)
-        .in('rol_id',
-          // Obtener el ID del rol asociado
-          (await supabase.from('roles').select('id').eq('nombre', 'asociado')).data?.map((r: any) => r.id) || []
-        );
+      const cuentasPorAsociado = (todasCuentas || []).reduce((acc: any, c: any) => {
+        if (!acc[c.asociado_id]) acc[c.asociado_id] = [];
+        acc[c.asociado_id].push(c);
+        return acc;
+      }, {});
 
-      for (const usu of (usuariosSinAsociado || [])) {
-        if (!usu.identificacion) continue;
-        // Verificar si ya existe un asociado con esa cédula (evitar duplicado)
-        const yaExiste = (data || []).some((a: any) => a.cedula === usu.identificacion);
-        if (yaExiste) {
-          // Solo vincular: actualizar asociado_id en usuarios
-          const asociadoExistente = (data || []).find((a: any) => a.cedula === usu.identificacion);
-          if (asociadoExistente) {
-            await supabase.from('usuarios').update({ asociado_id: asociadoExistente.id }).eq('id', usu.id);
-          }
-          continue;
-        }
-        // Crear registro en asociados con los datos disponibles
-        const { data: nuevoAsoc, error: insertErr } = await supabase
-          .from('asociados')
-          .insert({
-            nombre:        usu.nombre,
-            cedula:        usu.identificacion,
-            email:         usu.email,
-            telefono:      'Sin registro',
-            direccion:     'Sin registro',
-            fecha_ingreso: new Date().toISOString().split('T')[0],
-            estado:        'activo',
-          })
-          .select('id')
-          .single();
-        if (!insertErr && nuevoAsoc) {
-          // Vincular usuario con el nuevo asociado
-          await supabase.from('usuarios').update({ asociado_id: nuevoAsoc.id }).eq('id', usu.id);
-        }
-      }
-
-      // Recargar asociados después de crear los faltantes
-      const { data: dataFinal, error: errorFinal } = await supabase
-        .from('asociados')
-        .select(`
-          *,
-          ahorros_permanentes(id, monto_ahorrado, cuota_mensual, estado, anulado),
-          ahorros_voluntarios(id, monto_ahorrado, estado, anulado),
-          creditos(id, monto, saldo, cuota_mensual, fecha_desembolso, plazo_meses, estado, anulado)
-        `)
-        .order('nombre');
-
-      if (errorFinal) throw errorFinal;
-      // Usar los datos finales (con los nuevos asociados incluidos)
-      const dataParaMapear = dataFinal || data || [];
-
-      const asociadosMapeados = dataParaMapear.map((a: any) => ({
-        id: a.id,
-        nombre: a.nombre,
-        cedula: a.cedula,
-        telefono: a.telefono || '',
-        email: a.email || '',
-        direccion: a.direccion || '',
-        fechaIngreso: a.fecha_ingreso,
-        // DB guarda 'activo'/'inactivo'/'suspendido'; internamente usamos boolean
-        estado: a.estado === 'activo',
-        tieneCreditos: (a.creditos || []).some((c: any) => !c.anulado && c.saldo > 0),
-        referidos: [],
-        ahorros: [
-          ...(a.ahorros_permanentes || []).map((ah: any) => ({
+      const asociadosMapeados = (data || []).map((a: any) => {
+        const cuentas = cuentasPorAsociado[a.id] || [];
+        return ({
+          id: a.id,
+          nombre: a.nombre || '',
+          cedula: a.cedula || '',
+          telefono: a.telefono || '',
+          email: a.email || '',
+          direccion: a.direccion || '',
+          fechaIngreso: a.fecha_ingreso || '',
+          // activo boolean en usuarios; estado_cuenta puede ser 'activo'/'inactivo'
+          estado: a.activo === true || a.estado_cuenta === 'activo',
+          tieneCreditos: (a.creditos || []).some((c: any) => !c.anulado && c.saldo > 0),
+          referidos: [],
+          ahorros: cuentas.map((ah: any) => ({
             id: ah.id,
-            tipo: 'Ahorro Permanente',
+            tipo: ah.tipo === 'permanente' ? 'Ahorro Permanente' : 'Ahorro Voluntario',
             monto: ah.monto_ahorrado,
             saldo: ah.monto_ahorrado,
-            cuotaMensual: ah.cuota_mensual,
+            cuotaMensual: ah.cuota_mensual ?? null,
             estado: ah.anulado ? 'Anulado' : (ah.estado === 'activo' ? 'Activo' : 'Inactivo'),
           })),
-          ...(a.ahorros_voluntarios || []).map((ah: any) => ({
-            id: ah.id,
-            tipo: 'Ahorro Voluntario',
-            monto: ah.monto_ahorrado,
-            saldo: ah.monto_ahorrado,
-            cuotaMensual: null,
-            estado: ah.anulado ? 'Anulado' : (ah.estado === 'activo' ? 'Activo' : 'Inactivo'),
+          creditos: (a.creditos || []).map((c: any) => ({
+            id: c.id,
+            tipo: 'Crédito',
+            monto: c.monto,
+            saldo: c.saldo,
+            saldoPendiente: c.saldo,
+            cuota: c.cuota_mensual,
+            fechaDesembolso: c.fecha_desembolso,
+            plazo: `${c.plazo_meses} meses`,
+            estado: c.anulado ? 'Anulado' : (c.estado ? 'Activo' : 'Inactivo'),
           })),
-        ],
-        creditos: (a.creditos || []).map((c: any) => ({
-          id: c.id,
-          tipo: 'Crédito',
-          monto: c.monto,
-          saldo: c.saldo,
-          saldoPendiente: c.saldo,
-          cuota: c.cuota_mensual,
-          fechaDesembolso: c.fecha_desembolso,
-          plazo: `${c.plazo_meses} meses`,
-          estado: c.anulado ? 'Anulado' : (c.estado ? 'Activo' : 'Inactivo'),
-        })),
-        eventos: [],
-        totalAhorros: [
-          ...(a.ahorros_permanentes || []),
-          ...(a.ahorros_voluntarios || []),
-        ].reduce((sum: number, ah: any) => sum + (ah.monto_ahorrado || 0), 0),
-        totalCreditos: (a.creditos || [])
-          .filter((c: any) => !c.anulado)
-          .reduce((sum: number, c: any) => sum + (c.saldo || 0), 0),
-        // Auditoria se carga por separado al abrir el detalle
-        historialAuditoria: [],
-      }));
+          eventos: [],
+          totalAhorros: cuentas.reduce((sum: number, ah: any) => sum + (ah.monto_ahorrado || 0), 0),
+          totalCreditos: (a.creditos || [])
+            .filter((c: any) => !c.anulado)
+            .reduce((sum: number, c: any) => sum + (c.saldo || 0), 0),
+          historialAuditoria: [],
+        });
+      });
 
       setAsociados(asociadosMapeados);
       // Cargar auditoría global pasando los asociados ya mapeados
@@ -412,20 +501,12 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
     });
 
     try {
-      const { error: estadoErr } = await supabase.from('asociados').update({
-        estado: nuevoEstadoDB,
+      // Tras la migración, el asociado ES el usuario: actualizamos directamente en usuarios
+      const { error: estadoErr } = await supabase.from('usuarios').update({
+        activo: nuevoEstado,
+        estado_cuenta: nuevoEstadoDB,
       }).eq('id', id);
       if (estadoErr) throw estadoErr;
-
-      // Sincronizar estado en la tabla usuarios si existe un usuario vinculado a este asociado
-      try {
-        await supabase
-          .from('usuarios')
-          .update({ activo: nuevoEstado })
-          .eq('asociado_id', id);
-      } catch {
-        // Si no hay usuario vinculado o falla la sincronización, no bloquear el flujo.
-      }
 
       // Guardar en auditoría con usuario y fecha
       await registrarAuditoria(
@@ -496,15 +577,27 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
     }
 
     try {
-      const nuevo = await asociadosApi.create({
-        nombre:        formData.nombre.trim(),
-        cedula:        formData.cedula.trim(),
-        telefono:      formData.telefono.trim(),
-        email:         formData.email.trim(),
-        direccion:     formData.direccion.trim(),
-        fecha_ingreso: formData.fechaIngreso,
-        estado:        'activo',
-      });
+      // Obtener rol_id de 'asociado' para asignarlo al nuevo usuario
+      const { data: rolAsoc } = await supabase
+        .from('roles').select('id').eq('nombre', 'asociado').limit(1).maybeSingle();
+
+      const { data: nuevoData, error: insertErr } = await supabase
+        .from('usuarios')
+        .insert({
+          nombre:        formData.nombre.trim(),
+          cedula:        formData.cedula.trim(),
+          telefono:      formData.telefono.trim(),
+          email:         formData.email.trim(),
+          direccion:     formData.direccion.trim(),
+          fecha_ingreso: formData.fechaIngreso,
+          estado_cuenta: 'activo',
+          activo:        true,
+          rol_id:        rolAsoc?.id ?? null,
+        })
+        .select('id, nombre, cedula, telefono, email, direccion, fecha_ingreso')
+        .single();
+      if (insertErr) throw insertErr;
+      const nuevo = nuevoData!;
 
       const adminNombreCreate = usuarioActualNombre || userData?.name || 'Administrador';
       await registrarAuditoria(
@@ -600,19 +693,13 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
     const adminNombreEdit = usuarioActualNombre || userData?.name || 'Administrador';
 
     try {
-      const { error: editErr } = await supabase.from('asociados').update({
+      // Tras la migración, el asociado ES el usuario — actualizar directamente en usuarios
+      const { error: editErr } = await supabase.from('usuarios').update({
         telefono:  formData.telefono.trim(),
         email:     formData.email.trim(),
         direccion: formData.direccion.trim(),
       }).eq('id', selectedAsociado.id);
       if (editErr) throw editErr;
-
-      // Sincronizar datos hacia la tabla usuarios si existe un usuario vinculado
-      await supabase.from('usuarios').update({
-        email:    formData.email.trim(),
-        telefono: formData.telefono.trim(),
-        direccion: formData.direccion.trim(),
-      }).eq('asociado_id', selectedAsociado.id);
 
       await registrarAuditoria(
         selectedAsociado.id,
@@ -711,31 +798,21 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
         usuarioActualId,
       );
 
-      // Buscar el usuario vinculado a este asociado ANTES de eliminar el asociado
-      const { data: usuarioVinculado } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('asociado_id', asociado.id)
-        .maybeSingle();
-
-      // Eliminar el registro de asociados
-      await asociadosApi.delete(asociado.id);
-
-      // Si había un usuario vinculado, eliminarlo también de usuarios y de Auth
-      if (usuarioVinculado?.id) {
-        await supabase.from('usuarios').delete().eq('id', usuarioVinculado.id);
-        try {
-          await supabase.rpc('eliminar_usuario_auth', { user_id: usuarioVinculado.id });
-        } catch {
-          // Si la función Auth falla, el registro de usuarios ya fue eliminado
-        }
+      // Tras la migración el asociado ES el usuario — eliminamos directamente de usuarios
+      // Primero intentar eliminar de auth (RPC), luego el registro de usuarios
+      try {
+        await supabase.rpc('eliminar_usuario_auth', { user_id: asociado.id });
+      } catch {
+        // Si la función Auth falla, continuamos igual
       }
+      const { error: delErr } = await supabase.from('usuarios').delete().eq('id', asociado.id);
+      if (delErr) throw delErr;
 
       setAsociados(prev => prev.filter(a => a.id !== asociado.id));
       cargarAuditoriaGlobal();
 
       toast.success('🗑️ Asociado Eliminado Permanentemente', {
-        description: `"${asociado.nombre}" ha sido eliminado del sistema el ${fechaEliminacion}${usuarioVinculado ? ' junto con su cuenta de usuario' : ''}.`
+        description: `"${asociado.nombre}" ha sido eliminado del sistema el ${fechaEliminacion}.`
       });
     } catch (error: any) {
       toast.error('Error al eliminar asociado: ' + error.message);
@@ -832,6 +909,59 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
             </Button>
           </div>
         </div>
+
+        {/* ── Pendientes de pago de activación ─────────────────────────── */}
+        {pendientesPago.length > 0 && (
+          <Card className="border-amber-300 bg-amber-50 shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-100 rounded-xl">
+                  <AlertCircle className="size-5 text-amber-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-base text-amber-900">
+                    Pendientes de pago de activación ({pendientesPago.length})
+                  </CardTitle>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    Estos asociados fueron aprobados y esperan confirmación de pago para activar su cuenta.
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {pendientesPago.map(sol => (
+                  <div key={sol.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white rounded-xl border border-amber-200 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="size-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <User className="size-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-800 text-sm">{sol.nombres} {sol.apellidos}</p>
+                        <p className="text-xs text-slate-500">CC {sol.cedula}</p>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                          {sol.telefono && <span className="flex items-center gap-1"><Phone className="size-3" />{sol.telefono}</span>}
+                          {sol.email    && <span className="flex items-center gap-1"><Mail  className="size-3" />{sol.email}</span>}
+                        </div>
+                        <p className="text-xs text-amber-700 mt-1">
+                          Solicitud: {new Date(sol.fecha_solicitud).toLocaleDateString('es-CO')}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 flex-shrink-0"
+                      onClick={() => { setSolicitudPagoSeleccionada(sol); setComprobante(null); setIsPagoConfirmDialogOpen(true); }}
+                    >
+                      <CheckCircle2 className="size-4" /> Confirmar pago
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Layout de dos columnas */}
         <div className={`grid gap-6 transition-all duration-300 ${showAuditoria ? 'grid-cols-[1fr,400px]' : 'grid-cols-1'}`}>
@@ -1120,11 +1250,27 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
                               >
                                 <Edit className="size-4" />
                               </Button>
+                              {/* Botón Retirar — solo para asociados activos */}
+                              {asociado.estado && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  title="Iniciar proceso de retiro del asociado"
+                                  className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                                  onClick={() => {
+                                    setRetiroAsociado(asociado);
+                                    setIsRetiroOpen(true);
+                                    cargarEstadoRetiro(asociado.id);
+                                  }}
+                                >
+                                  <LogOut className="size-4" />
+                                </Button>
+                              )}
                               {(() => {
                                 const deleteStatus = canDeleteAsociado(asociado);
                                 return (
-                                  <Button 
-                                    variant="outline" 
+                                  <Button
+                                    variant="outline"
                                     size="sm"
                               onClick={() => {
                                     setSelectedAsociado(asociado);
@@ -2077,6 +2223,241 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Diálogo: Confirmar pago de activación ───────────────────────── */}
+      <Dialog open={isPagoConfirmDialogOpen} onOpenChange={open => {
+        if (!open) { setIsPagoConfirmDialogOpen(false); setSolicitudPagoSeleccionada(null); setComprobante(null); }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="size-5 text-emerald-600" /> Confirmar pago de activación
+            </DialogTitle>
+            <DialogDescription>
+              Al confirmar, la cuenta quedará completamente activa y el asociado tendrá acceso a todos los módulos.
+            </DialogDescription>
+          </DialogHeader>
+          {solicitudPagoSeleccionada && (
+            <div className="space-y-4">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm">
+                <p className="font-semibold text-slate-800">
+                  {solicitudPagoSeleccionada.nombres} {solicitudPagoSeleccionada.apellidos}
+                </p>
+                <p className="text-slate-500 text-xs">CC {solicitudPagoSeleccionada.cedula}</p>
+                {solicitudPagoSeleccionada.monto_ahorro_propuesto && (
+                  <p className="text-emerald-700 text-xs mt-1 font-medium">
+                    Aporte propuesto: {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(Number(solicitudPagoSeleccionada.monto_ahorro_propuesto))}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">
+                  Comprobante de pago <span className="text-slate-400 font-normal">(opcional)</span>
+                </Label>
+                <label className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-emerald-400 hover:bg-emerald-50 transition-colors">
+                  <Upload className="size-5 text-slate-400" />
+                  <span className="text-sm text-slate-500">
+                    {comprobante ? comprobante.name : 'Subir comprobante (PDF, imagen)'}
+                  </span>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    className="hidden"
+                    onChange={e => setComprobante(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 pt-2">
+            <Button variant="outline" onClick={() => { setIsPagoConfirmDialogOpen(false); setSolicitudPagoSeleccionada(null); setComprobante(null); }}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+              disabled={savingConfirmPago}
+              onClick={handleConfirmarPago}
+            >
+              {savingConfirmPago
+                ? <><div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Procesando...</>
+                : <><CheckCircle2 className="size-4" /> Confirmar pago</>
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* ── Wizard: Proceso de retiro de asociado ─────────────── */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      <Dialog
+        open={isRetiroOpen}
+        onOpenChange={open => {
+          setIsRetiroOpen(open);
+          if (!open) { setRetiroAsociado(null); setRetiroStatus(null); }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LogOut className="size-5 text-amber-600" />
+              Proceso de retiro
+            </DialogTitle>
+            <DialogDescription>
+              {retiroAsociado?.nombre} — sigue los 4 pasos en orden antes de desactivar la cuenta.
+            </DialogDescription>
+          </DialogHeader>
+
+          {retiroStatus?.loading ? (
+            <div className="flex items-center justify-center py-10 gap-3 text-slate-500">
+              <div className="size-5 border-2 border-slate-300 border-t-amber-500 rounded-full animate-spin" />
+              Verificando estado del asociado…
+            </div>
+          ) : retiroStatus ? (() => {
+            const paso1ok = retiroStatus.creditosPendientes === 0;
+            const paso2ok = retiroStatus.tieneAlgunaLiq;
+            const paso3ok = retiroStatus.liquidacionPagada;
+            const paso4ok = !retiroStatus.usuarioActivo;
+            const puedeDesactivar = paso1ok && paso3ok && !retirando;
+
+            const StepRow = ({
+              num, ok, title, detail, bloqueado,
+            }: { num: string; ok: boolean; title: string; detail: string; bloqueado?: boolean }) => (
+              <div className={`flex items-start gap-3 p-3 rounded-xl border ${
+                ok
+                  ? 'bg-emerald-50 border-emerald-200'
+                  : bloqueado
+                  ? 'bg-red-50 border-red-200'
+                  : 'bg-amber-50 border-amber-200'
+              }`}>
+                <div className={`shrink-0 size-7 rounded-full flex items-center justify-center font-bold text-sm ${
+                  ok ? 'bg-emerald-600 text-white' : bloqueado ? 'bg-red-500 text-white' : 'bg-amber-400 text-white'
+                }`}>
+                  {ok ? '✓' : num}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold ${ok ? 'text-emerald-800' : bloqueado ? 'text-red-800' : 'text-amber-800'}`}>
+                    {title}
+                  </p>
+                  <p className={`text-xs mt-0.5 ${ok ? 'text-emerald-600' : bloqueado ? 'text-red-600' : 'text-amber-700'}`}>
+                    {detail}
+                  </p>
+                </div>
+              </div>
+            );
+
+            return (
+              <div className="space-y-3 py-1">
+                <StepRow
+                  num="1"
+                  ok={paso1ok}
+                  bloqueado={!paso1ok}
+                  title="Cerrar créditos pendientes"
+                  detail={paso1ok
+                    ? 'Sin créditos con saldo pendiente ✓'
+                    : `${retiroStatus.creditosPendientes} crédito(s) con saldo pendiente. Ve al módulo Créditos y registra el pago.`
+                  }
+                />
+                <StepRow
+                  num="2"
+                  ok={paso2ok}
+                  title="Crear liquidación de retiro"
+                  detail={paso2ok
+                    ? 'Liquidación registrada en el sistema ✓'
+                    : 'Aún no hay liquidación. Crea una en el módulo Liquidación con todos los saldos del asociado.'
+                  }
+                />
+                <StepRow
+                  num="3"
+                  ok={paso3ok}
+                  title='Marcar liquidación como "Pagada"'
+                  detail={paso3ok
+                    ? 'Liquidación pagada — ahorros cerrados automáticamente ✓'
+                    : paso2ok
+                    ? 'La liquidación existe pero aún no está marcada como Pagada. Ve a Liquidación y actualiza el estado.'
+                    : 'Completa el paso 2 primero.'
+                  }
+                />
+
+                {/* Paso 4 — Ejecutable directamente desde este wizard */}
+                <div className={`flex items-start gap-3 p-3 rounded-xl border ${
+                  paso4ok
+                    ? 'bg-emerald-50 border-emerald-200'
+                    : puedeDesactivar
+                    ? 'bg-blue-50 border-blue-200'
+                    : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <div className={`shrink-0 size-7 rounded-full flex items-center justify-center font-bold text-sm ${
+                    paso4ok ? 'bg-emerald-600 text-white' : puedeDesactivar ? 'bg-blue-600 text-white' : 'bg-slate-300 text-slate-500'
+                  }`}>
+                    {paso4ok ? '✓' : '4'}
+                  </div>
+                  <div className="flex-1">
+                    <p className={`text-sm font-semibold ${paso4ok ? 'text-emerald-800' : puedeDesactivar ? 'text-blue-800' : 'text-slate-600'}`}>
+                      Desactivar cuenta
+                    </p>
+                    {paso4ok ? (
+                      <p className="text-xs text-emerald-600 mt-0.5">Cuenta ya desactivada — proceso completado ✓</p>
+                    ) : puedeDesactivar ? (
+                      <div className="mt-2">
+                        <p className="text-xs text-blue-700 mb-2">
+                          Todos los pasos previos completados. La cuenta será desactivada y el asociado no podrá iniciar sesión.
+                        </p>
+                        <Button
+                          size="sm"
+                          className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5"
+                          onClick={handleDesactivarCuenta}
+                          disabled={retirando}
+                        >
+                          {retirando
+                            ? <><div className="size-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Desactivando…</>
+                            : <><LogOut className="size-3.5" /> Desactivar cuenta ahora</>
+                          }
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Disponible cuando los pasos 1 y 3 estén completos.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Resumen del estado */}
+                {!paso1ok && (
+                  <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+                    <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Paso 1 bloqueado:</strong> el asociado tiene {retiroStatus.creditosPendientes} crédito(s) con saldo pendiente.
+                      Ve al módulo <strong>Créditos</strong> y registra los pagos antes de continuar.
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })() : (
+            <p className="text-sm text-slate-500 py-4 text-center">No se pudo cargar el estado. Cierra e intenta de nuevo.</p>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setIsRetiroOpen(false); setRetiroAsociado(null); setRetiroStatus(null); }}
+            >
+              Cerrar
+            </Button>
+            {retiroStatus && !retiroStatus.loading && (
+              <Button
+                variant="ghost"
+                className="text-slate-500 text-xs"
+                onClick={() => retiroAsociado && cargarEstadoRetiro(retiroAsociado.id)}
+              >
+                ↻ Actualizar estado
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       </div>
     </div>
   );

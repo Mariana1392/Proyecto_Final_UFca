@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
-import { Mail, Lock, User, AlertCircle, Shield, CheckCircle2, RefreshCw, ArrowLeft, InboxIcon, PiggyBank, UserCircle2, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Shield, CheckCircle2, RefreshCw, ArrowLeft, InboxIcon, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import logo from '../assets/logo.svg';
 
@@ -21,21 +21,14 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
   const { iniciarSesion } = useAuth();
   const [loginEmail, setLoginEmail]           = useState('');
   const [loginPassword, setLoginPassword]     = useState('');
-  const [registerName, setRegisterName]                     = useState('');
-  const [registerEmail, setRegisterEmail]                   = useState('');
-  const [registerPassword, setRegisterPassword]             = useState('');
-  const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
   const [isLoading, setIsLoading]               = useState(false);
   const [error, setError]                       = useState('');
   const [pendingConfirmEmail, setPendingConfirmEmail] = useState('');
   const [resendLoading, setResendLoading]       = useState(false);
   const [resendCooldown, setResendCooldown]     = useState(0);
-  const [activeTab, setActiveTab]               = useState<'login'|'register'>('login');
 
-  // ── Visibilidad de contraseñas ─────────────────────────────────────────────
-  const [showLoginPassword,   setShowLoginPassword]   = useState(false);
-  const [showRegisterPass,    setShowRegisterPass]    = useState(false);
-  const [showConfirmPass,     setShowConfirmPass]     = useState(false);
+  // ── Visibilidad de contraseña ─────────────────────────────────────────────
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   // ── Login con Supabase Auth ───────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
@@ -70,9 +63,8 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
       const { data: perfil, error: perfilError } = await supabase
         .from('usuarios')
         .select(`
-          id, nombre, email, username, activo, rol_id, asociado_id,
-          roles!rol_id(nombre, label, rol_permisos(permiso_clave, activo)),
-          asociados!asociado_id(cedula, telefono)
+          id, nombre, email, username, activo, rol_id, cedula, telefono,
+          roles!rol_id(nombre, label, rol_permisos(permiso_clave, activo))
         `)
         .eq('id', authData.user.id)
         .single();
@@ -100,8 +92,8 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
             .map((rp: any) => rp.permiso_clave)
             .filter(Boolean)
         : [];
-      const cedula      = (perfil as any).asociados?.cedula ?? '';
-      const telefono    = (perfil as any).asociados?.telefono ?? '';
+      const cedula      = (perfil as any).cedula   ?? '';
+      const telefono    = (perfil as any).telefono ?? '';
       const role: 'admin' | 'asociado' | 'usuario' =
         rolNombre === 'admin' ? 'admin'
         : rolNombre === 'asociado' ? 'asociado'
@@ -115,17 +107,16 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
 
       // Guardar en AuthContext
       iniciarSesion({
-        id:          authData.user.id,
-        nombre:      perfil.nombre,
-        email:       perfil.email,
-        username:    perfil.username ?? perfil.email.split('@')[0],
-        rol:         rolNombre,
-        label:       rolLabelDB,
-        rol_id:      perfil.rol_id ?? null,
-        asociado_id: perfil.asociado_id ?? null,
-        activo:      true,
-        permisos:    getPermisosEfectivos(rolNombre, rolPermisos),
-        cedula:      cedula || undefined,
+        id:       authData.user.id,
+        nombre:   perfil.nombre,
+        email:    perfil.email,
+        username: perfil.username ?? perfil.email.split('@')[0],
+        rol:      rolNombre,
+        label:    rolLabelDB,
+        rol_id:   perfil.rol_id ?? null,
+        activo:   true,
+        permisos: getPermisosEfectivos(rolNombre, rolPermisos),
+        cedula:   cedula || undefined,
       });
 
       const roleLabel =
@@ -139,7 +130,7 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
       onLogin(role, {
         id: authData.user.id, name: perfil.nombre, email: perfil.email,
         role, rol_nombre: rolNombre, permisos: rolPermisos,
-        asociado_id: perfil.asociado_id ?? null, cedula, telefono,
+        cedula, telefono,
       });
     } catch (err: any) {
       setError(
@@ -149,66 +140,6 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
       );
     }
 
-    setIsLoading(false);
-  };
-
-  // ── Registro con Supabase Auth ────────────────────────────────────────────
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    if (registerName.length < 3) { setError('El nombre debe tener al menos 3 caracteres'); return; }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(registerEmail)) { setError('Formato de correo electrónico inválido'); return; }
-    if (registerPassword.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return; }
-    if (registerPassword !== registerConfirmPassword) { setError('Las contraseñas no coinciden. Verifica e intenta de nuevo.'); return; }
-
-    setIsLoading(true);
-    try {
-      // 1. Verificar si el correo ya existe en la tabla usuarios
-      const { data: existente } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('email', registerEmail.trim().toLowerCase())
-        .maybeSingle();
-
-      if (existente) {
-        setError('Este correo ya está registrado. Inicia sesión o usa otro correo.');
-        setIsLoading(false);
-        return;
-      }
-
-      // 2. Crear en Supabase Auth
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email:    registerEmail.trim(),
-        password: registerPassword,
-        options:  { data: { nombre: registerName.trim() } },
-      });
-      if (signUpError) throw signUpError;
-
-      // 3. Supabase devuelve identities=[] si el email ya existe en Auth pero no en usuarios
-      //    (caso de eliminación parcial — borrado de usuarios pero no de Auth)
-      if (data.user && (data.user.identities?.length ?? 0) === 0) {
-        setError('Este correo ya está en uso. Si olvidaste tu contraseña, usa "¿Olvidaste tu contraseña?" o contacta al administrador.');
-        setIsLoading(false);
-        return;
-      }
-
-      // El trigger PostgreSQL `on_auth_user_created` en Supabase
-      // se encarga automáticamente de insertar el usuario en la tabla `usuarios`
-      // con el rol "usuario". El cliente nunca toca rol_id. (S-02, S-03)
-
-      // Siempre mostrar la pantalla de confirmación de email,
-      // sin importar si Supabase tiene Auto Confirm activado.
-      // Así los emails falsos no pueden entrar sin verificar.
-      setPendingConfirmEmail(registerEmail.trim());
-    } catch (err: any) {
-      setError(
-        err.message?.includes('already registered')
-          ? 'Este correo ya está registrado. Intenta iniciar sesión.'
-          : err.message || 'Error al crear cuenta'
-      );
-    }
     setIsLoading(false);
   };
 
@@ -369,200 +300,85 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
 
           <div className="mb-8">
             <h2 className="text-3xl font-black text-slate-900 mb-1">Bienvenido</h2>
-            <p className="text-slate-500">Accede a tu cuenta o crea una nueva</p>
+            <p className="text-slate-500">Ingresa tus credenciales para acceder a tu cuenta</p>
           </div>
 
-          {/* Tabs propios */}
-          <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-2xl mb-6 shadow-sm">
-            {(['login','register'] as const).map((tab) => (
-              <button key={tab} onClick={() => { setActiveTab(tab); setError(''); setRegisterConfirmPassword(''); }}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                  activeTab === tab
-                    ? 'bg-gradient-to-r from-[#054030] to-[#0a7050] text-white shadow-md'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}>
-                {tab === 'login' ? <><Shield className="size-4"/> Iniciar sesión</> : <><UserCircle2 className="size-4"/> Registrarse</>}
-              </button>
-            ))}
-          </div>
-
-          {/* Formulario */}
+          {/* Formulario de login */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
             <div className="h-1 bg-gradient-to-r from-[#054030] via-[#f0c040] to-[#054030]"/>
             <div className="p-7">
+              <div className="mb-6 flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <Shield className="size-5 text-[#054030]"/>
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900">Iniciar sesión</h3>
+                  <p className="text-slate-400 text-sm">Ingresa tus credenciales para acceder</p>
+                </div>
+              </div>
 
-              {activeTab === 'login' ? (
-                <>
-                  <div className="mb-6">
-                    <h3 className="text-xl font-black text-slate-900">Iniciar sesión</h3>
-                    <p className="text-slate-400 text-sm mt-0.5">Ingresa tus credenciales para acceder</p>
+              <form onSubmit={handleLogin} className="space-y-4">
+                {error && (
+                  <Alert variant="destructive" className="py-3 rounded-xl">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="space-y-1.5">
+                  <Label htmlFor="login-email" className="text-slate-700 font-semibold text-sm">Correo electrónico</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400"/>
+                    <Input id="login-email" type="email" placeholder="tu@correo.com"
+                      className="pl-10 h-11 rounded-xl border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20 bg-slate-50"
+                      value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
+                      autoComplete="email" required disabled={isLoading}/>
                   </div>
-                  <form onSubmit={handleLogin} className="space-y-4">
-                    {error && (
-                      <Alert variant="destructive" className="py-3 rounded-xl">
-                        <AlertCircle className="size-4" />
-                        <AlertDescription>{error}</AlertDescription>
-                      </Alert>
-                    )}
-                    <div className="space-y-1.5">
-                      <Label htmlFor="login-email" className="text-slate-700 font-semibold text-sm">Correo electrónico</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400"/>
-                        <Input id="login-email" type="email" placeholder="tu@correo.com"
-                          className="pl-10 h-11 rounded-xl border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20 bg-slate-50"
-                          value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
-                          autoComplete="email" required disabled={isLoading}/>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="login-password" className="text-slate-700 font-semibold text-sm">Contraseña</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400"/>
-                        <Input id="login-password" type={showLoginPassword ? 'text' : 'password'} placeholder="••••••••"
-                          className="pl-10 pr-11 h-11 rounded-xl border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20 bg-slate-50"
-                          value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
-                          required disabled={isLoading}/>
-                        <button
-                          type="button"
-                          onClick={() => setShowLoginPassword(v => !v)}
-                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                          tabIndex={-1}
-                          aria-label={showLoginPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                        >
-                          {showLoginPassword ? <EyeOff className="size-4"/> : <Eye className="size-4"/>}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      {/* S-11: checkbox "Recordarme" eliminado — sin implementación de persistencia real */}
-                      <span />
-                      <button type="button" onClick={() => onShowRecovery?.()}
-                        className="text-[#054030] font-semibold hover:underline text-sm">
-                        ¿Olvidaste tu contraseña?
-                      </button>
-                    </div>
-                    <Button type="submit" disabled={isLoading}
-                      className="w-full h-12 rounded-xl bg-gradient-to-r from-[#054030] to-[#0a7050] hover:from-[#032a1e] hover:to-[#054030] text-white font-bold text-base shadow-lg shadow-emerald-900/20 mt-2">
-                      {isLoading ? 'Iniciando sesión...' : 'Iniciar sesión'}
-                    </Button>
-                  </form>
-                </>
-              ) : (
-                <>
-                  <div className="mb-6">
-                    <h3 className="text-xl font-black text-slate-900">Crear cuenta</h3>
-                    <p className="text-slate-400 text-sm mt-0.5">Regístrate y solicita ser asociado de UFCA</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="login-password" className="text-slate-700 font-semibold text-sm">Contraseña</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400"/>
+                    <Input id="login-password" type={showLoginPassword ? 'text' : 'password'} placeholder="••••••••"
+                      className="pl-10 pr-11 h-11 rounded-xl border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20 bg-slate-50"
+                      value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
+                      required disabled={isLoading}/>
+                    <button
+                      type="button"
+                      onClick={() => setShowLoginPassword(v => !v)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                      tabIndex={-1}
+                      aria-label={showLoginPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    >
+                      {showLoginPassword ? <EyeOff className="size-4"/> : <Eye className="size-4"/>}
+                    </button>
                   </div>
-                  <form onSubmit={handleRegister} className="space-y-4">
-                    {error && (
-                      <Alert variant="destructive" className="py-3 rounded-xl">
-                        <AlertCircle className="size-4"/>
-                        <AlertDescription>{error}</AlertDescription>
-                      </Alert>
-                    )}
-                    <div className="space-y-1.5">
-                      <Label htmlFor="register-name" className="text-slate-700 font-semibold text-sm">Nombre completo</Label>
-                      <div className="relative">
-                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400"/>
-                        <Input id="register-name" type="text" placeholder="Juan Pérez"
-                          className="pl-10 h-11 rounded-xl border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20 bg-slate-50"
-                          value={registerName} onChange={e => setRegisterName(e.target.value)} required/>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="register-email" className="text-slate-700 font-semibold text-sm">Correo electrónico</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400"/>
-                        <Input id="register-email" type="email" placeholder="tu@correo.com"
-                          className="pl-10 h-11 rounded-xl border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20 bg-slate-50"
-                          value={registerEmail} onChange={e => setRegisterEmail(e.target.value)} required/>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="register-password" className="text-slate-700 font-semibold text-sm">Contraseña</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400"/>
-                        <Input id="register-password" type={showRegisterPass ? 'text' : 'password'} placeholder="••••••••"
-                          className="pl-10 pr-11 h-11 rounded-xl border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20 bg-slate-50"
-                          value={registerPassword} onChange={e => setRegisterPassword(e.target.value)} required/>
-                        <button
-                          type="button"
-                          onClick={() => setShowRegisterPass(v => !v)}
-                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                          tabIndex={-1}
-                          aria-label={showRegisterPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                        >
-                          {showRegisterPass ? <EyeOff className="size-4"/> : <Eye className="size-4"/>}
-                        </button>
-                      </div>
-                      <p className="text-xs text-slate-400">Mínimo 6 caracteres</p>
-                    </div>
+                </div>
 
-                    {/* ── Confirmar contraseña ── */}
-                    <div className="space-y-1.5">
-                      <Label htmlFor="register-confirm" className="text-slate-700 font-semibold text-sm">
-                        Confirmar contraseña
-                      </Label>
-                      <div className="relative">
-                        <Lock className={`absolute left-3.5 top-1/2 -translate-y-1/2 size-4 ${
-                          registerConfirmPassword.length > 0 && registerPassword !== registerConfirmPassword
-                            ? 'text-red-400'
-                            : registerConfirmPassword.length > 0 && registerPassword === registerConfirmPassword
-                            ? 'text-emerald-500'
-                            : 'text-slate-400'
-                        }`}/>
-                        <Input
-                          id="register-confirm"
-                          type={showConfirmPass ? 'text' : 'password'}
-                          placeholder="••••••••"
-                          value={registerConfirmPassword}
-                          onChange={e => setRegisterConfirmPassword(e.target.value)}
-                          required
-                          className={`pl-10 pr-11 h-11 rounded-xl bg-slate-50 transition-colors ${
-                            registerConfirmPassword.length > 0 && registerPassword !== registerConfirmPassword
-                              ? 'border-red-400 focus:border-red-500 focus:ring-red-200 bg-red-50'
-                              : registerConfirmPassword.length > 0 && registerPassword === registerConfirmPassword
-                              ? 'border-emerald-400 focus:border-emerald-500 focus:ring-emerald-200 bg-emerald-50/40'
-                              : 'border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20'
-                          }`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPass(v => !v)}
-                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                          tabIndex={-1}
-                          aria-label={showConfirmPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                        >
-                          {showConfirmPass ? <EyeOff className="size-4"/> : <Eye className="size-4"/>}
-                        </button>
-                      </div>
-                      {/* Mensajes de validación en tiempo real */}
-                      {registerConfirmPassword.length > 0 && registerPassword !== registerConfirmPassword && (
-                        <p className="text-xs text-red-500 flex items-center gap-1 font-medium">
-                          <AlertCircle className="size-3 shrink-0"/>
-                          Las contraseñas no coinciden
-                        </p>
-                      )}
-                      {registerConfirmPassword.length > 0 && registerPassword === registerConfirmPassword && (
-                        <p className="text-xs text-emerald-600 flex items-center gap-1 font-medium">
-                          <CheckCircle2 className="size-3 shrink-0"/>
-                          Las contraseñas coinciden
-                        </p>
-                      )}
-                    </div>
+                <div className="flex justify-end">
+                  <button type="button" onClick={() => onShowRecovery?.()}
+                    className="text-[#054030] font-semibold hover:underline text-sm">
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </div>
 
-                    <Button type="submit"
-                      disabled={isLoading || (registerConfirmPassword.length > 0 && registerPassword !== registerConfirmPassword)}
-                      className="w-full h-12 rounded-xl bg-gradient-to-r from-[#054030] to-[#0a7050] hover:from-[#032a1e] hover:to-[#054030] text-white font-bold text-base shadow-lg shadow-emerald-900/20 mt-2">
-                      {isLoading ? 'Creando cuenta...' : 'Crear cuenta'}
-                    </Button>
-                    <p className="text-xs text-slate-400 text-center">
-                      Al registrarte aceptas nuestros{' '}
-                      <span className="text-[#054030] font-semibold cursor-pointer hover:underline">términos y condiciones</span>
+                <Button type="submit" disabled={isLoading}
+                  className="w-full h-12 rounded-xl bg-gradient-to-r from-[#054030] to-[#0a7050] hover:from-[#032a1e] hover:to-[#054030] text-white font-bold text-base shadow-lg shadow-emerald-900/20">
+                  {isLoading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+                </Button>
+              </form>
+
+              {/* Aviso: ¿No tienes cuenta? */}
+              <div className="mt-6 pt-5 border-t border-slate-100">
+                <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                  <CheckCircle2 className="size-4 text-amber-600 shrink-0 mt-0.5"/>
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800">¿Quieres ser asociado?</p>
+                    <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                      El acceso al sistema es exclusivo para asociados aprobados. Para unirte, usa el botón <strong>"Hazte asociado"</strong> en la página principal y envía tu solicitud.
                     </p>
-                  </form>
-                </>
-              )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -27,7 +27,7 @@ import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/supabase';
-import { asociadosApi } from '../lib/api';
+// asociadosApi removed — tabla asociados eliminada
 import { useAuth } from '../contexts/AuthContext';
 import { TIPOS_LIQUIDACION as TIPOS_LIQ, ESTADOS_LIQUIDACION as ESTADOS_LIQ } from '../lib/constants';
 
@@ -219,6 +219,139 @@ function generateLiquidacionPDF(liq: any): boolean {
   }
 }
 
+/**
+ * Genera el PDF como blob URL (para previsualización en iframe).
+ * Devuelve el object URL o null en caso de error.
+ */
+function generateLiquidacionPDFBlobUrl(liq: any): string | null {
+  try {
+    const doc = new jsPDF();
+    const pageW = doc.internal.pageSize.getWidth();
+    const tipoLabel = TIPOS_LIQ.find(t => t.value === liq.tipo)?.label ?? liq.tipo;
+    const nLiq = numLiq(liq.id);
+
+    // Header
+    doc.setFillColor(16, 185, 129);
+    doc.rect(0, 0, 210, 42, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22); doc.setFont('helvetica', 'bold');
+    doc.text('UFCA', 14, 18);
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    doc.text('Unión Familiar de Crédito y Ahorro', 14, 26);
+    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+    doc.text('DOCUMENTO OFICIAL DE LIQUIDACIÓN', 14, 36);
+    const fechaGen = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    doc.text(`Generado: ${fechaGen}`, pageW - 14, 36, { align: 'right' });
+
+    let y = 52;
+    doc.setTextColor(0, 0, 0);
+
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+    doc.text(`N° Liquidación: ${nLiq}`, 14, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Tipo: ${tipoLabel}`, 110, y); y += 7;
+    doc.text(`Fecha de corte: ${liq.fechaCorte ?? '—'}`, 14, y);
+    doc.text(`Fecha liquidación: ${liq.fechaLiquidacion || '—'}`, 110, y); y += 7;
+    const estadoText = liq.anulado ? 'INVÁLIDA' : (liq.estado ?? '—');
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Estado: ${estadoText}`, 14, y); doc.setFont('helvetica', 'normal'); y += 4;
+    doc.setDrawColor(200, 200, 200); doc.line(14, y, pageW - 14, y); y += 8;
+
+    // Asociado
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(16, 185, 129);
+    doc.text('DATOS DEL ASOCIADO', 14, y); y += 6;
+    doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal');
+    doc.text(`Nombre: ${liq.asociado}`, 14, y);
+    doc.text(`Cédula: ${liq.cedula}`, 110, y); y += 6;
+    if (liq.motivo) { doc.text(`Motivo: ${liq.motivo}`, 14, y); y += 6; }
+    doc.setDrawColor(200, 200, 200); doc.line(14, y, pageW - 14, y); y += 8;
+
+    if (liq.calculo?.salarioMensual) {
+      doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(16, 185, 129);
+      doc.text('DATOS LABORALES', 14, y); y += 6;
+      doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal');
+      doc.text(`Salario mensual: ${fmtCOP(liq.calculo.salarioMensual)}`, 14, y);
+      doc.text(`Fecha de ingreso: ${liq.calculo.fechaIngreso}`, 110, y); y += 6;
+      if (liq.calculo.diasVacPendientes > 0)
+        doc.text(`Días vacaciones pendientes: ${liq.calculo.diasVacPendientes}`, 14, y);
+      doc.setDrawColor(200, 200, 200); doc.line(14, y + 2, pageW - 14, y + 2); y += 10;
+    }
+
+    // Conceptos
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(16, 185, 129);
+    doc.text('DESGLOSE DE CONCEPTOS', 14, y); y += 4;
+    doc.setTextColor(0, 0, 0);
+
+    const conceptos: Concepto[] = liq.conceptos ?? [];
+    const tableRows = conceptos.map(c => {
+      const monto = parseFloat(String(c.monto).replace(/[^\d.-]/g, '')) || 0;
+      return [c.nombre, c.tipo === 'credito' ? 'Crédito (+)' : 'Débito (−)', c.tipo === 'credito' ? fmtCOP(monto) : `(${fmtCOP(Math.abs(monto))})`];
+    });
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Concepto', 'Tipo', 'Monto']],
+      body: tableRows.length > 0 ? tableRows : [['Sin conceptos registrados', '', '—']],
+      headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      columnStyles: { 0: { cellWidth: 105 }, 1: { cellWidth: 35 }, 2: { cellWidth: 42, halign: 'right' } },
+      margin: { left: 14, right: 14 },
+    });
+
+    y = ((doc as any).lastAutoTable?.finalY ?? y + 40) + 6;
+
+    // Total
+    doc.setFillColor(235, 255, 245); doc.setDrawColor(16, 185, 129); doc.setLineWidth(0.5);
+    doc.rect(14, y - 4, pageW - 28, 14, 'FD');
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 100, 60);
+    doc.text('MONTO TOTAL DE LIQUIDACIÓN:', 18, y + 5);
+    doc.text(fmtCOP(liq.montoFinal ?? 0), pageW - 18, y + 5, { align: 'right' });
+    y += 22;
+
+    if (liq.observaciones) {
+      doc.setTextColor(0, 0, 0); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+      doc.text('Observaciones:', 14, y); y += 5;
+      const obsLines = doc.splitTextToSize(liq.observaciones, pageW - 28);
+      doc.text(obsLines, 14, y); y += obsLines.length * 5 + 6;
+    }
+
+    if (liq.anulado && liq.justificacionAnulacion) {
+      doc.setFillColor(255, 235, 235); doc.setDrawColor(220, 0, 0); doc.setLineWidth(0.5);
+      doc.rect(14, y - 4, pageW - 28, 16, 'FD');
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(180, 0, 0);
+      doc.text('DOCUMENTO INVÁLIDO — Motivo de anulación:', 18, y + 4);
+      doc.setFont('helvetica', 'normal');
+      const motLines = doc.splitTextToSize(liq.justificacionAnulacion, pageW - 36);
+      doc.text(motLines, 18, y + 10); y += 22 + motLines.length * 4;
+    }
+
+    const selloY = Math.max(y + 8, 228);
+    doc.setFillColor(230, 248, 255); doc.setDrawColor(16, 185, 129); doc.setLineWidth(0.6);
+    doc.rect(14, selloY, pageW - 28, 44, 'FD');
+    doc.setFillColor(16, 185, 129); doc.circle(30, selloY + 22, 13, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+    doc.text('UFCA', 30, selloY + 19, { align: 'center' });
+    doc.text('VÁLIDO', 30, selloY + 25, { align: 'center' });
+    doc.setTextColor(0, 60, 100); doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+    doc.text('DOCUMENTO OFICIALMENTE VALIDADO', 50, selloY + 11);
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 50, 50);
+    doc.text('Este documento constituye constancia oficial de liquidación emitida por UFCA.', 50, selloY + 18);
+    doc.text('Válido como soporte para trámites ante entidades financieras y estatales.', 50, selloY + 24);
+    doc.setDrawColor(80, 80, 80); doc.line(50, selloY + 39, 150, selloY + 39);
+    doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(80, 80, 80);
+    doc.text('Firma y sello del Administrador UFCA', 100, selloY + 43, { align: 'center' });
+    doc.setFontSize(7); doc.setTextColor(130, 130, 130);
+    doc.text(nLiq, pageW - 16, selloY + 43, { align: 'right' });
+
+    const blob = doc.output('blob');
+    return URL.createObjectURL(blob);
+  } catch (err) {
+    console.error('Error generando blob PDF:', err);
+    return null;
+  }
+}
+
 // ══════════════════════════════════════════════════════════════
 // COMPONENT
 // ══════════════════════════════════════════════════════════════
@@ -239,7 +372,11 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
   const [filterTipo, setFilterTipo]     = useState('');
   const [filterDesde, setFilterDesde]   = useState('');
   const [filterHasta, setFilterHasta]   = useState('');
-  const [sortBy, setSortBy]             = useState<'fecha_desc'|'fecha_asc'|'monto_desc'|'monto_asc'>('fecha_desc');
+  const [sortBy, setSortBy]             = useState<'fecha_desc'|'fecha_asc'|'monto_desc'|'monto_asc'|'estado_az'>('fecha_desc');
+
+  // ── PDF Preview (associate view) ──────────────────────────────
+  const [pdfPreviewUrl, setPdfPreviewUrl]     = useState<string | null>(null);
+  const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
 
   // ── Pagination ────────────────────────────────────────────────
   const [currentPage, setCurrentPage]               = useState(1);
@@ -387,7 +524,7 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
       let asociadoIds: string[] | null = null;
       if (esNombre) {
         const { data: asocMatch, error: asocErr } = await supabase
-          .from('asociados')
+          .from('usuarios')
           .select('id')
           .ilike('nombre', `%${nombre}%`)
           .limit(200);
@@ -466,9 +603,8 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
     try {
       if (esVistaPropia) {
         // ── ASOCIADO: solo carga SUS liquidaciones desde el servidor ──
-        // userData.asociado_id  → UUID en tabla asociados (el que está en liquidaciones.asociado_id)
-        // userData.id           → UUID de auth.users (distinto al anterior)
-        const asociadoId = userData?.asociado_id ?? null;
+        // Tras la migración: userData.id === asociado_id (tabla asociados eliminada)
+        const asociadoId = userData?.id ?? null;
         if (!asociadoId) {
           // Usuario no vinculado a un asociado todavía
           setLiquidaciones([]);
@@ -493,14 +629,20 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
         setLiquidaciones(mapearFilas(data || [], asocMap));
       } else {
         // ── ADMIN: carga todas las liquidaciones ──
-        const [liqResult, asocData] = await Promise.all([
+        const { data: rolAsoc } = await supabase
+          .from('roles').select('id').eq('nombre', 'asociado').limit(1).maybeSingle();
+        const rolAsociadoId = rolAsoc?.id ?? null;
+        const [liqResult, { data: usuariosAsoc }] = await Promise.all([
           supabase.rpc('listar_liquidaciones', { p_limite: 500 }),
-          asociadosApi.getAll(),
+          rolAsociadoId
+            ? supabase.from('usuarios').select('id,nombre,cedula').eq('rol_id', rolAsociadoId).order('nombre')
+            : supabase.from('usuarios').select('id,nombre,cedula').order('nombre'),
         ]);
         if (liqResult.error) throw liqResult.error;
-        const asocMap  = buildAsocMap(asocData || []);
+        const asocData = usuariosAsoc ?? [];
+        const asocMap  = buildAsocMap(asocData);
         setLiquidaciones(mapearFilas(liqResult.data || [], asocMap));
-        setAsociadosDisponibles(asocData || []);
+        setAsociadosDisponibles(asocData);
       }
     } catch (err: any) {
       const msg = err.message ?? JSON.stringify(err);
@@ -538,7 +680,7 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
     try {
       const { data, error } = await supabase
         .from('auditoria')
-        .select('id, accion, detalle, usuario_id, created_at')
+        .select('id, accion, datos_despues, usuario_id, created_at')
         .eq('registro_id', liqId)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -564,7 +706,7 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
         asociado_id: asociadoId,
         usuario_id:  userData?.id ?? null,
         accion,
-        detalle: JSON.stringify(detalle),
+        datos_despues: detalle,
       });
     } catch {
       // No interrumpir el flujo principal si la auditoría falla
@@ -576,12 +718,12 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
     setDatosAsocLoading(true);
     try {
       const [ahPermRes, ahVolRes, crRes] = await Promise.all([
-        supabase.from('ahorros_permanentes').select('monto_ahorrado').eq('asociado_id', id).eq('anulado', false),
-        supabase.from('ahorros_voluntarios').select('saldo').eq('asociado_id', id).eq('anulado', false),
+        supabase.from('cuentas_ahorro').select('monto_ahorrado').eq('tipo','permanente').eq('asociado_id', id).eq('anulado', false),
+        supabase.from('cuentas_ahorro').select('monto_ahorrado').eq('tipo','voluntario').eq('asociado_id', id).eq('anulado', false),
         supabase.from('creditos').select('saldo').eq('asociado_id', id).in('estado', ['activo', 'pendiente', 'aprobado', 'desembolsado', 'en_mora']).eq('anulado', false),
       ]);
       const totAP = (ahPermRes.data || []).reduce((s: number, r: any) => s + (Number(r.monto_ahorrado) || 0), 0);
-      const totAV = (ahVolRes.data  || []).reduce((s: number, r: any) => s + (Number(r.saldo)          || 0), 0);
+      const totAV = (ahVolRes.data  || []).reduce((s: number, r: any) => s + (Number(r.monto_ahorrado) || 0), 0);
       const totCr = (crRes.data     || []).reduce((s: number, r: any) => s + (Number(r.saldo)          || 0), 0);
       setFormAhorroPerm(totAP > 0 ? String(Math.round(totAP)) : '');
       setFormAhorroVol(totAV  > 0 ? String(Math.round(totAV))  : '');
@@ -608,9 +750,9 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
       let utilidadesAsociado = parseFloat(formUtilidades) || 0;
       if (aplicaUtilidades && !formUtilidades) {
         const [moraRes, interesRes, asocCountRes] = await Promise.all([
-          supabase.from('pagos_ahorro_permanente').select('monto_mora').gt('monto_mora', 0),
-          supabase.from('pagos_credito').select('interes').gt('interes', 0),
-          supabase.from('asociados').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
+          supabase.from('transacciones').select('monto_mora').eq('tipo','aporte_permanente').gt('monto_mora', 0),
+          supabase.from('transacciones').select('interes').in('tipo',['pago_credito','abono_capital']).gt('interes', 0),
+          supabase.from('usuarios').select('id', { count: 'exact', head: true }).eq('estado_cuenta', 'activo'),
         ]);
         const totalMora    = ((moraRes.data    || []) as any[]).reduce((s, r) => s + (Number(r.monto_mora) || 0), 0);
         const totalInteres = ((interesRes.data || []) as any[]).reduce((s, r) => s + (Number(r.interes)   || 0), 0);
@@ -724,6 +866,7 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
         if (sortBy === 'fecha_asc')   return new Date(a.fechaCorte||a.createdAt).getTime() - new Date(b.fechaCorte||b.createdAt).getTime();
         if (sortBy === 'monto_desc')  return (b.montoFinal??0) - (a.montoFinal??0);
         if (sortBy === 'monto_asc')   return (a.montoFinal??0) - (b.montoFinal??0);
+        if (sortBy === 'estado_az')   return (a.estado??'').localeCompare(b.estado??'', 'es');
         return 0;
       });
 
@@ -964,14 +1107,11 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
         try {
           await Promise.all([
             // Marcar asociado como liquidado
-            supabase.from('asociados').update({
-              estado: 'inactivo',
+            supabase.from('usuarios').update({
+              estado_cuenta: 'inactivo',
             }).eq('id', liq.asociado_id),
-            // Cerrar ahorros permanentes
-            supabase.from('ahorros_permanentes').update({ estado: 'cerrado' })
-              .eq('asociado_id', liq.asociado_id).eq('anulado', false),
-            // Cerrar ahorros voluntarios
-            supabase.from('ahorros_voluntarios').update({ estado: 'cerrado' })
+            // Cerrar todas las cuentas de ahorro (permanentes y voluntarias)
+            supabase.from('cuentas_ahorro').update({ estado: 'cerrado' })
               .eq('asociado_id', liq.asociado_id).eq('anulado', false),
           ]);
         } catch { /* cierre de productos no crítico */ }
@@ -1298,7 +1438,7 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
                     ) : (
                       auditEntries.map((entry, idx) => {
                         let det: Record<string, any> = {};
-                        try { det = entry.detalle ? JSON.parse(entry.detalle) : {}; } catch { det = {}; }
+                        try { det = entry.datos_despues ? (typeof entry.datos_despues === 'string' ? JSON.parse(entry.datos_despues) : entry.datos_despues) : {}; } catch { det = {}; }
                         const esAnulacion = entry.accion === 'ANULACIÓN';
                         const fecha = new Date(entry.created_at).toLocaleString('es-CO', {
                           day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit',
@@ -1749,15 +1889,22 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="gap-1.5 h-7 text-xs border-slate-200 text-slate-600 hover:bg-slate-50 shrink-0"
-                          title="Descargar PDF"
+                          className="gap-1.5 h-7 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 shrink-0"
+                          title="Vista previa PDF"
                           onClick={e => {
                             e.stopPropagation(); // no abrir el detalle
-                            const ok = generateLiquidacionPDF(l);
-                            if (ok) toast.success('PDF descargado'); else toast.error('Error al generar PDF');
+                            // Revocar URL anterior si existe
+                            if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+                            const url = generateLiquidacionPDFBlobUrl(l);
+                            if (url) {
+                              setPdfPreviewUrl(url);
+                              setIsPdfPreviewOpen(true);
+                            } else {
+                              toast.error('Error al generar vista previa del PDF');
+                            }
                           }}
                         >
-                          <Download className="size-3" /> PDF
+                          <Eye className="size-3" /> Ver PDF
                         </Button>
                       </div>
                     </CardContent>
@@ -1768,6 +1915,50 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
           </div>
         </div>
         {renderDetailDialog()}
+
+        {/* ── PDF Preview Dialog (asociado) ── */}
+        <Dialog open={isPdfPreviewOpen} onOpenChange={open => {
+          if (!open) {
+            setIsPdfPreviewOpen(false);
+            if (pdfPreviewUrl) { URL.revokeObjectURL(pdfPreviewUrl); setPdfPreviewUrl(null); }
+          }
+        }}>
+          <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <FileText className="size-5 text-emerald-600" />
+                Vista previa — Documento de Liquidación
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-400">
+                Revisa el documento antes de descargarlo
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 min-h-0" style={{ height: '65vh' }}>
+              {pdfPreviewUrl && (
+                <iframe
+                  src={pdfPreviewUrl}
+                  className="w-full h-full rounded-lg border border-slate-200"
+                  title="Vista previa PDF liquidación"
+                />
+              )}
+            </div>
+            <DialogFooter className="gap-2 pt-2">
+              <Button variant="outline" onClick={() => {
+                setIsPdfPreviewOpen(false);
+                if (pdfPreviewUrl) { URL.revokeObjectURL(pdfPreviewUrl); setPdfPreviewUrl(null); }
+              }}>
+                Cerrar
+              </Button>
+              {pdfPreviewUrl && (
+                <a href={pdfPreviewUrl} download={`Liquidacion_UFCA.pdf`}>
+                  <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+                    <Download className="size-4" /> Descargar
+                  </Button>
+                </a>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </>
     );
   };
@@ -1958,8 +2149,8 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
               )}
             </div>
 
-            {/* Fila de selectores: Estado + Tipo */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            {/* Fila de selectores: Estado + Tipo + Ordenar por */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Estado</p>
                 <Select value={filterEstado || 'todos'} onValueChange={v => { setFilterEstado(v === 'todos' ? '' : v); setCurrentPage(1); }}>
@@ -1981,6 +2172,21 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
                   <SelectContent>
                     <SelectItem value="todos">Todos los tipos</SelectItem>
                     {TIPOS_LIQ.map(t => <SelectItem key={t.value} value={t.value} className="text-xs">{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Ordenar por</p>
+                <Select value={sortBy} onValueChange={v => { setSortBy(v as typeof sortBy); setCurrentPage(1); }}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fecha_desc" className="text-xs">Más reciente primero</SelectItem>
+                    <SelectItem value="fecha_asc"  className="text-xs">Más antigua primero</SelectItem>
+                    <SelectItem value="monto_desc" className="text-xs">Mayor monto primero</SelectItem>
+                    <SelectItem value="monto_asc"  className="text-xs">Menor monto primero</SelectItem>
+                    <SelectItem value="estado_az"  className="text-xs">Estado A→Z</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

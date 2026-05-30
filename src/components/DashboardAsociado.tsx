@@ -37,7 +37,7 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
   const [loading, setLoading]         = useState(true);
 
   useEffect(() => {
-    if (userData?.asociado_id) cargar(userData.asociado_id);
+    if (userData?.id) cargar(userData.id);
     else setLoading(false);
   }, [userData]);
 
@@ -45,14 +45,16 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
     try {
       const [ahorroPermRes, ahorroVolRes, creditoRes, pagosPermRes, pagosVolRes, refRes] = await Promise.all([
         // Ahorro permanente
-        supabase.from('ahorros_permanentes')
+        supabase.from('cuentas_ahorro')
           .select('id, monto_ahorrado, estado, anulado')
+          .eq('tipo', 'permanente')
           .eq('asociado_id', asociadoId)
           .eq('anulado', false),
 
         // Ahorros voluntarios
-        supabase.from('ahorros_voluntarios')
+        supabase.from('cuentas_ahorro')
           .select('id, monto_ahorrado, estado, anulado')
+          .eq('tipo', 'voluntario')
           .eq('asociado_id', asociadoId)
           .eq('anulado', false),
 
@@ -63,22 +65,24 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
           .eq('anulado', false)
           .in('estado', ['activo', 'desembolsado', 'en_mora']),
 
-        // Últimos pagos ahorro permanente
-        supabase.from('pagos_ahorro_permanente')
-          .select('id, fecha_pago, monto_total_pagado, created_at')
+        // Últimos aportes ahorro permanente
+        supabase.from('transacciones')
+          .select('id, fecha_pago, monto, created_at')
+          .eq('tipo', 'aporte_permanente')
           .eq('asociado_id', asociadoId)
           .order('created_at', { ascending: false })
           .limit(4),
 
-        // Últimos pagos ahorro voluntario
-        supabase.from('pagos_ahorro_voluntario')
+        // Últimos aportes ahorro voluntario
+        supabase.from('transacciones')
           .select('id, fecha_pago, monto, created_at')
+          .eq('tipo', 'aporte_voluntario')
           .eq('asociado_id', asociadoId)
           .order('created_at', { ascending: false })
           .limit(3),
 
         // Referidos
-        supabase.from('asociados')
+        supabase.from('usuarios')
           .select('id', { count: 'exact', head: true })
           .eq('referido_por_id', asociadoId),
       ]);
@@ -105,7 +109,7 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
           id:             m.id,
           tipo_movimiento: 'Aporte',
           fuente:         'Ahorro Permanente',
-          monto:          m.monto_total_pagado,
+          monto:          m.monto,
           created_at:     m.created_at,
           fecha_pago:     m.fecha_pago,
         })),
@@ -157,8 +161,8 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
     );
   }
 
-  // U-03: sin asociado_id → la solicitud aún no ha sido aprobada
-  if (!userData?.asociado_id) {
+  // U-03: sin id → la solicitud aún no ha sido aprobada
+  if (!userData?.id) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] p-6">
         <div className="max-w-md w-full text-center space-y-4">
@@ -176,6 +180,101 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
             ¿Tienes dudas? Contacta a tu cooperativa para conocer el estado de tu solicitud.
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Cuenta suspendida: solicitud aprobada pero aún no pagó la primera cuota
+  if (userData?.cuentaActivada === false) {
+    return (
+      <div className="p-6 max-w-3xl mx-auto">
+        <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-6 flex gap-4 items-start shadow-md">
+          <div className="p-3 bg-amber-100 rounded-xl flex-shrink-0">
+            <PiggyBank className="size-7 text-amber-600" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="font-bold text-amber-900 text-lg">
+              ¡Bienvenido/a a UFCA, {userData?.nombre?.split(' ')[0]}!
+            </h2>
+            <p className="text-sm text-amber-800 leading-relaxed">
+              Tu cuenta está <strong>casi lista</strong>. Para activar el acceso completo al sistema,
+              realiza tu <strong>primera cuota de ahorro permanente</strong> y comunícate con el
+              administrador para que la registre. Una vez registrado el pago, todos los módulos se
+              activarán automáticamente.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-3 text-xs text-amber-700">
+              <span className="flex items-center gap-1">📞 +57 314 758 7250</span>
+              <span className="flex items-center gap-1">✉️ marboledalondono@gmail.com</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // U-04: asociado_id existe pero pendiente de pago de activación
+  if (userData?.pendienteActivacion) {
+    return (
+      <div className="p-6 space-y-6 max-w-3xl mx-auto">
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 flex gap-4 items-start shadow-sm">
+          <div className="p-2 bg-amber-100 rounded-xl flex-shrink-0">
+            <AlertCircle className="size-6 text-amber-600" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-amber-900 text-base">Tu cuenta está pendiente de activación</h2>
+            <p className="text-sm text-amber-800 mt-1 leading-relaxed">
+              Tu solicitud fue aprobada. Para activar tu cuenta completa, realiza el pago del aporte inicial
+              y envía el comprobante al administrador. Una vez confirmado el pago, tendrás acceso a todos los módulos.
+            </p>
+          </div>
+        </div>
+
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
+              <PiggyBank className="size-5 text-emerald-600" /> Tu ahorro permanente
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+              <div>
+                <p className="text-xs text-slate-500 font-medium mb-1">Saldo acumulado</p>
+                <p className="text-3xl font-bold text-emerald-700">{fmtCompact(data.ahorroPerm)}</p>
+              </div>
+              <div className="size-14 rounded-2xl bg-emerald-100 flex items-center justify-center">
+                <PiggyBank className="size-7 text-emerald-600" />
+              </div>
+            </div>
+            <Button
+              className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => onNavigate?.('ahorro-permanente')}
+            >
+              Ver detalle de mi ahorro <ArrowRight className="size-4 ml-2" />
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-sm bg-slate-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-slate-500">Módulos disponibles tras activación</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {[
+              { label: 'Ahorro voluntario', icon: Wallet     },
+              { label: 'Créditos',          icon: CreditCard },
+              { label: 'Liquidación',       icon: Coins      },
+              { label: 'Referidos',         icon: Gift       },
+            ].map(({ label, icon: Icon }) => (
+              <div key={label} className="flex items-center gap-3 p-2.5 rounded-xl opacity-40 cursor-not-allowed">
+                <div className="size-8 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0">
+                  <Icon className="size-4 text-slate-400" />
+                </div>
+                <span className="text-sm font-medium text-slate-500">{label}</span>
+                <span className="ml-auto text-xs text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full">Bloqueado</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
     );
   }

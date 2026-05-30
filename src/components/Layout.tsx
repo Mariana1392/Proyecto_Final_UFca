@@ -30,7 +30,6 @@ interface LayoutProps {
 const CHILD_PERMISO: Record<string, string | string[]> = {
   'gestion-roles':    'roles',
   'gestion-usuarios': 'usuarios',
-  'gestion-asociados':'asociados',
   // Asociado ve UN SOLO ítem "Mis Ahorros" (ahorro-permanente → MisAhorros muestra ambos tipos).
   // ahorro-voluntario solo se muestra al admin (permiso 'ahorros').
   'ahorro-permanente':['ahorros', 'mis_ahorros'],
@@ -40,15 +39,15 @@ const CHILD_PERMISO: Record<string, string | string[]> = {
   'creditos':         ['creditos', 'mis_creditos'],
   'referidos':        ['asociados', 'mis_referidos'],
   'mediciones':       'dashboard',
-  'excepciones':      'configuracion',
+  'parametros':       'configuracion',
 };
 
 // Mapeo de vista actual → id del hijo del menú (para resaltar el activo)
 const VIEW_TO_CHILD_ID: Record<string, string> = {
   'roles':             'gestion-roles',
   'usuarios':          'gestion-usuarios',
-  'asociados':         'gestion-asociados',
-  'asociado-detalle':  'gestion-asociados',
+  'asociados':         'gestion-usuarios',
+  'asociado-detalle':  'gestion-usuarios',
   'ahorro-permanente': 'ahorro-permanente',
   'ahorro-voluntario': 'ahorro-voluntario',
   'liquidacion':       'liquidacion',
@@ -56,7 +55,7 @@ const VIEW_TO_CHILD_ID: Record<string, string> = {
   'creditos':          'creditos',
   'referidos':         'referidos',
   'dashboard':         'mediciones',
-  'excepciones':       'excepciones',
+  'parametros':        'parametros',
 };
 
 interface MenuItem {
@@ -98,7 +97,7 @@ export default function Layout({
 
     // Buscar qué grupo padre contiene ese child
     const parentGroups: Record<string, string[]> = {
-      configuracion: ['gestion-roles', 'excepciones'],
+      configuracion: ['gestion-roles', 'parametros'],
       usuarios:      ['gestion-usuarios'],
       asociados:     ['gestion-asociados', 'ahorro-permanente', 'ahorro-voluntario', 'liquidacion', 'comite-evaluador', 'creditos', 'referidos'],
     };
@@ -147,6 +146,7 @@ export default function Layout({
       icon: <Settings className="size-5" />,
       children: [
         { id: "gestion-roles", label: "Gestión de roles" },
+        { id: "parametros",    label: "Parámetros del sistema" },
       ],
     },
     {
@@ -166,7 +166,6 @@ export default function Layout({
       icon: <Users className="size-5" />,
       // Los ítems visibles se filtran por tienePermiso() según los permisos reales de la BD
       children: [
-        { id: "gestion-asociados",  label: "Gestión de asociados" },
         // Asociado → "Mis Ahorros" (un solo ítem, MisAhorros muestra permanente + voluntario)
         // Admin    → "Ahorro permanente" + "Ahorro voluntario" (dos ítems separados)
         { id: "ahorro-permanente",  label: userPermisos.includes('mis_ahorros') && !userPermisos.includes('ahorros') ? "Mis Ahorros" : "Ahorro permanente" },
@@ -188,10 +187,17 @@ export default function Layout({
     return userPermisos.includes(permiso);
   };
 
+  // Módulos bloqueados hasta que el asociado pague su primera cuota de ahorro permanente
+  const ITEMS_REQUIEREN_CUENTA_ACTIVA = new Set(['liquidacion', 'creditos', 'referidos', 'ahorro-voluntario']);
+  const cuentaActivadaOK = userData?.rol !== 'asociado' || (userData?.cuentaActivada ?? true);
+
   const filteredMenuItems = menuItems
     .map((item) => ({
       ...item,
-      children: item.children?.filter((child) => tienePermiso(child.id)),
+      children: item.children?.filter((child) => {
+        if (!cuentaActivadaOK && ITEMS_REQUIEREN_CUENTA_ACTIVA.has(child.id)) return false;
+        return tienePermiso(child.id);
+      }),
     }))
     .filter((item) =>
       // Mostrar el grupo solo si tiene al menos un hijo visible
@@ -213,7 +219,7 @@ export default function Layout({
     'roles':                 'roles',
     'gestion-usuarios':      'usuarios',
     'gestion-acceso':        'acceso',
-    'gestion-asociados':     'asociados',
+    'gestion-asociados':     'usuarios',
     'ahorro-permanente':     'ahorro-permanente',
     'ahorro-voluntario':     'ahorro-voluntario',
     'liquidacion':           'liquidacion',
@@ -230,7 +236,7 @@ export default function Layout({
     'pedidos':               'pedidos',
     'dashboard':             'dashboard',
     'mediciones':            'dashboard',
-    'excepciones':           'excepciones',
+    'parametros':            'parametros',
   };
 
   const handleMenuClick = (id: string) => {
@@ -283,8 +289,8 @@ export default function Layout({
               <AlertasWidget
                 userId={userData.id || "admin"}
                 userRole={userRole || "asociado"}
-                asociadoId={userData.asociado_id ?? null}
-                onNavigateToExcepciones={() => onNavigate("excepciones")}
+                asociadoId={userData.id ?? null}
+                onNavigateToExcepciones={undefined}
                 onNavigate={onNavigate}
               />
             )}
@@ -591,9 +597,9 @@ export default function Layout({
                     <p className="text-[#f0c040] font-bold text-xs tracking-widest uppercase mb-5">Contacto</p>
                     <div className="space-y-3">
                       {[
-                        { icon: <Phone className="size-4 text-[#0f8c62]" />, text: '+57 (300) 123-4567' },
-                        { icon: <Mail className="size-4 text-[#0f8c62]" />, text: 'info@ufca.com' },
-                        { icon: <MapPin className="size-4 text-[#0f8c62]" />, text: 'Medellín, Colombia' },
+                        { icon: <Phone className="size-4 text-[#0f8c62]" />, text: '+57 314 758 7250' },
+                        { icon: <Mail className="size-4 text-[#0f8c62]" />, text: 'marboledalondono@gmail.com' },
+                        { icon: <MapPin className="size-4 text-[#0f8c62]" />, text: 'Calle 102c No. 77b 56, Medellín' },
                       ].map((c) => (
                         <div key={c.text} className="flex items-center gap-3 group cursor-pointer">
                           <div className="p-2 rounded-lg bg-white/5 group-hover:bg-[#0f8c62]/20 transition-colors shrink-0">{c.icon}</div>

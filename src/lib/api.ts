@@ -29,27 +29,28 @@ export interface AsociadoRow {
   updated_at: string;
 }
 
-export interface AhorroPermanenteRow {
+/** Fila de cuentas_ahorro — unifica permanente y voluntario */
+export interface CuentaAhorroRow {
   id: string;
+  tipo: 'permanente' | 'voluntario';
   asociado_id: string;
+  periodo_id: string;
   monto_ahorrado: number;
+  cuota_mensual?: number | null;     // Solo permanente
+  fecha_retiro?: string | null;      // Solo voluntario
+  monto_al_cierre?: number | null;   // Solo voluntario
   estado: string;
+  fecha_cierre?: string | null;
   anulado: boolean;
   motivo_anulacion?: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export interface AhorroVoluntarioRow {
-  id: string;
-  asociado_id: string;
-  monto_ahorrado: number;
-  estado: string;
-  anulado: boolean;
-  motivo_anulacion?: string | null;
-  created_at: string;
-  updated_at: string;
-}
+/** @deprecated Usar CuentaAhorroRow */
+export type AhorroPermanenteRow = CuentaAhorroRow;
+/** @deprecated Usar CuentaAhorroRow */
+export type AhorroVoluntarioRow = CuentaAhorroRow;
 
 export interface CreditoRow {
   id: string;
@@ -62,9 +63,12 @@ export interface CreditoRow {
   saldo: number;
   estado: string;
   anulado: boolean;
-  motivo_anulacion?: string | null;
-  fecha_desembolso?: string | null;
-  observaciones?: string | null;
+  motivo_anulacion?:           string | null;
+  fecha_desembolso?:           string | null;
+  observaciones?:              string | null;
+  url_comprobante_solicitud?:  string | null;
+  fecha_estado_cambio?:        string | null;
+  motivo_estado_cambio?:       string | null;
   created_at: string;
   updated_at: string;
 }
@@ -94,10 +98,10 @@ export const auth = {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
 
-    // Obtener datos del usuario (rol, asociado vinculado)
+    // Obtener datos del usuario (rol vinculado)
     const { data: usuario, error: userError } = await supabase
       .from('usuarios')
-      .select('*, roles(*), asociados(*)')
+      .select('*, roles(*)')
       .eq('id', data.user.id)
       .single();
 
@@ -130,23 +134,23 @@ export const auth = {
 // ═══════════════════════════════════════
 
 export const asociadosApi = {
-  /** @deprecated Carga toda la tabla — usar getPaginated() en vistas de lista (R-02) */
+  /** Devuelve todos los usuarios con rol 'asociado' (antes tabla asociados). */
   async getAll() {
-    // R-05: columnas específicas para listas — omite campos pesados (direccion, motivacion, etc.)
-    const { data, error } = await supabase
-      .from('asociados')
-      .select('id,nombre,cedula,telefono,email,fecha_ingreso,estado,referido_por_id,created_at')
+    const { data: rolAsoc } = await supabase
+      .from('roles').select('id').eq('nombre', 'asociado').limit(1).maybeSingle();
+    const rolAsociadoId = rolAsoc?.id ?? null;
+    let query = supabase
+      .from('usuarios')
+      .select('id,nombre,cedula,telefono,email,fecha_ingreso,estado_cuenta,referido_por_id,created_at')
       .order('nombre');
+    if (rolAsociadoId) query = (query as any).eq('rol_id', rolAsociadoId);
+    const { data, error } = await query;
     if (error) throw error;
     return data;
   },
 
   /**
-   * R-02: Versión paginada — no descarga toda la tabla.
-   * @param page      Página actual (base 0)
-   * @param pageSize  Registros por página (default 20)
-   * @param search    Texto para filtrar por nombre o cédula
-   * @param estado    Filtro por estado ('activo' | 'inactivo' | undefined = todos)
+   * Versión paginada de asociados (usuarios con rol 'asociado').
    */
   async getPaginated(
     page     = 0,
@@ -154,19 +158,21 @@ export const asociadosApi = {
     search   = '',
     estado?: string,
   ) {
+    const { data: rolAsoc } = await supabase
+      .from('roles').select('id').eq('nombre', 'asociado').limit(1).maybeSingle();
+    const rolAsociadoId = rolAsoc?.id ?? null;
     let query = supabase
-      .from('asociados')
-      .select('id,nombre,cedula,telefono,email,fecha_ingreso,estado,referido_por_id', { count: 'exact' })
+      .from('usuarios')
+      .select('id,nombre,cedula,telefono,email,fecha_ingreso,estado_cuenta,referido_por_id', { count: 'exact' })
       .order('nombre')
       .range(page * pageSize, (page + 1) * pageSize - 1);
-
+    if (rolAsociadoId) query = (query as any).eq('rol_id', rolAsociadoId);
     if (search.trim()) {
-      query = query.or(`nombre.ilike.%${search.trim()}%,cedula.ilike.%${search.trim()}%`);
+      query = (query as any).or(`nombre.ilike.%${search.trim()}%,cedula.ilike.%${search.trim()}%`);
     }
     if (estado) {
-      query = query.eq('estado', estado);
+      query = (query as any).eq('estado_cuenta', estado);
     }
-
     const { data, error, count } = await query;
     if (error) throw error;
     return { data: data ?? [], total: count ?? 0, page, pageSize };
@@ -174,7 +180,7 @@ export const asociadosApi = {
 
   async getById(id: string) {
     const { data, error } = await supabase
-      .from('asociados')
+      .from('usuarios')
       .select('*')
       .eq('id', id)
       .single();
@@ -182,19 +188,9 @@ export const asociadosApi = {
     return data;
   },
 
-  async create(asociado: DbInsert<AsociadoRow>) {
-    const { data, error } = await supabase
-      .from('asociados')
-      .insert(asociado)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
-  },
-
   async update(id: string, updates: DbUpdate<AsociadoRow>) {
     const { data, error } = await supabase
-      .from('asociados')
+      .from('usuarios')
       .update(updates)
       .eq('id', id)
       .select()
@@ -203,20 +199,15 @@ export const asociadosApi = {
     return data;
   },
 
-  /** Activa o desactiva un asociado. La BD almacena 'activo' / 'inactivo', no booleanos. */
+  /** Activa o desactiva un asociado (campo estado_cuenta en usuarios). */
   async toggleEstado(id: string, activo: boolean) {
     return asociadosApi.update(id, { estado: activo ? 'activo' : 'inactivo' });
   },
 
-  async delete(id: string) {
-    const { error } = await supabase.from('asociados').delete().eq('id', id);
-    if (error) throw error;
-  },
-
   async getReferidos(asociadoId: string) {
     const { data, error } = await supabase
-      .from('asociados')
-      .select('id, nombre, cedula, telefono, fecha_ingreso, estado')
+      .from('usuarios')
+      .select('id, nombre, cedula, telefono, fecha_ingreso, estado_cuenta')
       .eq('referido_por_id', asociadoId)
       .order('fecha_ingreso', { ascending: false });
     if (error) throw error;
@@ -231,35 +222,45 @@ export const asociadosApi = {
 export const ahorroPermanenteApi = {
   async getAll() {
     const { data, error } = await supabase
-      .from('ahorros_permanentes')
-      .select('*, asociados(nombre, cedula)')
+      .from('cuentas_ahorro')
+      .select('*')
+      .eq('tipo', 'permanente')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data;
+    const rows = data ?? [];
+    const ids = [...new Set(rows.map((r: any) => r.asociado_id).filter(Boolean))];
+    const uMap: Record<string, any> = {};
+    if (ids.length > 0) {
+      const { data: usrs } = await supabase.from('usuarios').select('id, nombre, cedula').in('id', ids);
+      (usrs || []).forEach((u: any) => { uMap[u.id] = u; });
+    }
+    return rows.map((r: any) => ({ ...r, usuarios: uMap[r.asociado_id] ?? null }));
   },
 
   async getByAsociado(asociadoId: string) {
     const { data, error } = await supabase
-      .from('ahorros_permanentes')
+      .from('cuentas_ahorro')
       .select('*')
+      .eq('tipo', 'permanente')
       .eq('asociado_id', asociadoId);
     if (error) throw error;
     return data;
   },
 
-  async create(ahorro: DbInsert<AhorroPermanenteRow>) {
+  async create(ahorro: Omit<DbInsert<CuentaAhorroRow>, 'tipo'>) {
     const { data, error } = await supabase
-      .from('ahorros_permanentes')
-      .insert(ahorro)
-      .select('*, asociados(nombre, cedula)')
+      .from('cuentas_ahorro')
+      .insert({ ...ahorro, tipo: 'permanente' })
+      .select('*')
       .single();
     if (error) throw error;
-    return data;
+    const { data: usr } = await supabase.from('usuarios').select('id, nombre, cedula').eq('id', data.asociado_id).maybeSingle();
+    return { ...data, usuarios: usr ?? null };
   },
 
-  async update(id: string, updates: DbUpdate<AhorroPermanenteRow>) {
+  async update(id: string, updates: DbUpdate<CuentaAhorroRow>) {
     const { data, error } = await supabase
-      .from('ahorros_permanentes')
+      .from('cuentas_ahorro')
       .update(updates)
       .eq('id', id)
       .select()
@@ -280,35 +281,45 @@ export const ahorroPermanenteApi = {
 export const ahorroVoluntarioApi = {
   async getAll() {
     const { data, error } = await supabase
-      .from('ahorros_voluntarios')
-      .select('*, asociados(nombre, cedula)')
+      .from('cuentas_ahorro')
+      .select('*')
+      .eq('tipo', 'voluntario')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data;
+    const rows = data ?? [];
+    const ids = [...new Set(rows.map((r: any) => r.asociado_id).filter(Boolean))];
+    const uMap: Record<string, any> = {};
+    if (ids.length > 0) {
+      const { data: usrs } = await supabase.from('usuarios').select('id, nombre, cedula').in('id', ids);
+      (usrs || []).forEach((u: any) => { uMap[u.id] = u; });
+    }
+    return rows.map((r: any) => ({ ...r, usuarios: uMap[r.asociado_id] ?? null }));
   },
 
   async getByAsociado(asociadoId: string) {
     const { data, error } = await supabase
-      .from('ahorros_voluntarios')
+      .from('cuentas_ahorro')
       .select('*')
+      .eq('tipo', 'voluntario')
       .eq('asociado_id', asociadoId);
     if (error) throw error;
     return data;
   },
 
-  async create(ahorro: DbInsert<AhorroVoluntarioRow>) {
+  async create(ahorro: Omit<DbInsert<CuentaAhorroRow>, 'tipo'>) {
     const { data, error } = await supabase
-      .from('ahorros_voluntarios')
-      .insert(ahorro)
-      .select('*, asociados(nombre, cedula)')
+      .from('cuentas_ahorro')
+      .insert({ ...ahorro, tipo: 'voluntario' })
+      .select('*')
       .single();
     if (error) throw error;
-    return data;
+    const { data: usr } = await supabase.from('usuarios').select('id, nombre, cedula').eq('id', data.asociado_id).maybeSingle();
+    return { ...data, usuarios: usr ?? null };
   },
 
-  async update(id: string, updates: DbUpdate<AhorroVoluntarioRow>) {
+  async update(id: string, updates: DbUpdate<CuentaAhorroRow>) {
     const { data, error } = await supabase
-      .from('ahorros_voluntarios')
+      .from('cuentas_ahorro')
       .update(updates)
       .eq('id', id)
       .select()
@@ -330,10 +341,17 @@ export const creditosApi = {
   async getAll() {
     const { data, error } = await supabase
       .from('creditos')
-      .select('*, asociados(nombre, cedula)')
+      .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data;
+    const rows = data ?? [];
+    const ids = [...new Set(rows.map((r: any) => r.asociado_id).filter(Boolean))];
+    const uMap: Record<string, any> = {};
+    if (ids.length > 0) {
+      const { data: usrs } = await supabase.from('usuarios').select('id, nombre, cedula').in('id', ids);
+      (usrs || []).forEach((u: any) => { uMap[u.id] = u; });
+    }
+    return rows.map((r: any) => ({ ...r, usuarios: uMap[r.asociado_id] ?? null }));
   },
 
   async getByAsociado(asociadoId: string) {
@@ -349,10 +367,11 @@ export const creditosApi = {
     const { data, error } = await supabase
       .from('creditos')
       .insert(credito)
-      .select('*, asociados(nombre, cedula)')
+      .select('*')
       .single();
     if (error) throw error;
-    return data;
+    const { data: usr } = await supabase.from('usuarios').select('id, nombre, cedula').eq('id', data.asociado_id).maybeSingle();
+    return { ...data, usuarios: usr ?? null };
   },
 
   async update(id: string, updates: DbUpdate<CreditoRow>) {
@@ -386,8 +405,8 @@ export const creditosApi = {
 
   /** Elimina definitivamente un crédito (solo si está anulado o saldo = 0) */
   async eliminar(id: string) {
-    // Eliminar pagos asociados primero (CASCADE también lo hace, pero explicitamos)
-    await supabase.from('pagos_credito').delete().eq('credito_id', id);
+    // Eliminar transacciones asociadas primero (CASCADE también lo hace, pero explicitamos)
+    await supabase.from('transacciones').delete().eq('credito_id', id);
     const { error } = await supabase.from('creditos').delete().eq('id', id);
     if (error) throw error;
   },
@@ -401,12 +420,23 @@ export const pagosCreditoApi = {
   /** Obtiene todos los pagos de un crédito, ordenados del más reciente al más antiguo */
   async getByCredito(creditoId: string) {
     const { data, error } = await supabase
-      .from('pagos_credito')
-      .select('*, usuarios!registrado_por(nombre)')
+      .from('transacciones')
+      .select('*')
       .eq('credito_id', creditoId)
+      .in('tipo', ['pago_credito', 'abono_capital', 'cancelacion_total'])
       .order('fecha_pago', { ascending: false });
     if (error) throw error;
-    return data ?? [];
+    const rows = data ?? [];
+    const regIds = [...new Set(rows.map((r: any) => r.registrado_por).filter(Boolean))];
+    const regMap: Record<string, string> = {};
+    if (regIds.length > 0) {
+      const { data: usrs } = await supabase.from('usuarios').select('id, nombre').in('id', regIds);
+      (usrs || []).forEach((u: any) => { regMap[u.id] = u.nombre; });
+    }
+    return rows.map((r: any) => ({
+      ...r,
+      usuarios: r.registrado_por ? { nombre: regMap[r.registrado_por] ?? '' } : null,
+    }));
   },
 
   /** Registra un pago y actualiza el saldo del crédito en una sola operación */
@@ -478,10 +508,17 @@ export const excepcionesApi = {
   async getAll() {
     const { data, error } = await supabase
       .from('excepciones')
-      .select('*, asociados(nombre, cedula)')
+      .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data;
+    const rows = data ?? [];
+    const ids = [...new Set(rows.map((r: any) => r.asociado_id).filter(Boolean))];
+    const uMap: Record<string, any> = {};
+    if (ids.length > 0) {
+      const { data: usrs } = await supabase.from('usuarios').select('id, nombre, cedula').in('id', ids);
+      (usrs || []).forEach((u: any) => { uMap[u.id] = u; });
+    }
+    return rows.map((r: any) => ({ ...r, usuarios: uMap[r.asociado_id] ?? null }));
   },
 
   async getByAsociado(asociadoId: string) {
@@ -555,19 +592,19 @@ export const dashboardApi = {
       { data: carteraData },
       { data: interesesData },
     ] = await Promise.all([
-      supabase.from('asociados').select('*', { count: 'exact', head: true }).eq('estado', 'activo'),
+      supabase.from('usuarios').select('*', { count: 'exact', head: true }).eq('estado_cuenta', 'activo'),
       supabase.from('usuarios').select('*', { count: 'exact', head: true }).eq('activo', true),
       supabase.from('creditos').select('*', { count: 'exact', head: true })
         .eq('anulado', false).in('estado', ['activo', 'aprobado', 'desembolsado', 'en_mora']),
-      supabase.from('ahorros_permanentes').select('monto_ahorrado').eq('estado', 'activo').eq('anulado', false),
-      supabase.from('ahorros_voluntarios').select('monto_ahorrado').eq('estado', 'activo').eq('anulado', false),
+      supabase.from('cuentas_ahorro').select('monto_ahorrado').eq('tipo', 'permanente').eq('estado', 'activo').eq('anulado', false),
+      supabase.from('cuentas_ahorro').select('monto_ahorrado').eq('tipo', 'voluntario').eq('estado', 'activo').eq('anulado', false),
       supabase.from('solicitudes_asociados').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
       // R-03: filtro sobre columna real 'estado' (post-migración JSONB→columnas)
       supabase.from('liquidaciones').select('*', { count: 'exact', head: true })
         .not('estado', 'in', '("Pagada","Rechazada","Borrador")'),
       supabase.from('creditos').select('saldo').eq('anulado', false)
         .in('estado', ['activo', 'aprobado', 'desembolsado', 'en_mora']),
-      supabase.from('pagos_credito').select('interes').gte('fecha_pago', inicioMes),
+      supabase.from('transacciones').select('interes').in('tipo', ['pago_credito','abono_capital']).gte('fecha_pago', inicioMes),
     ]);
 
     const totalAhorrosPerm     = ahorrosPerm?.reduce((s, a) => s + (a.monto_ahorrado || 0), 0) ?? 0;

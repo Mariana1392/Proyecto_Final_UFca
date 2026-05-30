@@ -61,7 +61,7 @@ export const VIEW_PERMISO: Record<string, string | string[]> = {
   'comite-evaluador':  PERM.ASOCIADOS,
   creditos:            [PERM.CREDITOS, PERM.MIS_CREDITOS],
   referidos:           [PERM.ASOCIADOS, PERM.MIS_REFERIDOS],
-  excepciones:         PERM.CONFIGURACION,
+  parametros:          PERM.CONFIGURACION,
   // A-07: mi-perfil requiere estar autenticado (cualquier permiso activo)
   'mi-perfil':         [PERM.DASHBOARD, PERM.MIS_AHORROS, PERM.SOLICITUD_ASOCIACION],
 };

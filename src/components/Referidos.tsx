@@ -51,12 +51,14 @@ export default function Referidos({ userData }: ReferidosProps) {
 
   // ── Carga lista de asociados activos para el selector ────────────────────────
   async function cargarAsociadosList() {
-    const { data } = await supabase
-      .from('asociados')
-      .select('id, nombre, cedula')
-      .eq('estado', 'activo')
-      .eq('anulado', false)
-      .order('nombre');
+    // Obtener rol_id de 'asociado' y filtrar usuarios por ese rol
+    const { data: rolAsoc } = await supabase
+      .from('roles').select('id').eq('nombre', 'asociado').limit(1).maybeSingle();
+    const rolAsociadoId = rolAsoc?.id ?? null;
+    const query = rolAsociadoId
+      ? supabase.from('usuarios').select('id, nombre, cedula').eq('rol_id', rolAsociadoId).eq('estado_cuenta', 'activo').order('nombre')
+      : supabase.from('usuarios').select('id, nombre, cedula').eq('estado_cuenta', 'activo').order('nombre');
+    const { data } = await query;
     setAsociadosList(data ?? []);
   }
 
@@ -122,13 +124,10 @@ export default function Referidos({ userData }: ReferidosProps) {
     try {
       setLoading(true);
 
-      const [{ data, error }, { data: cfgData }] = await Promise.all([
+      const [refRes, { data: cfgData }] = await Promise.all([
         supabase
           .from('referidos')
-          .select(`
-            id, nombre, cedula, telefono, estado, observaciones, created_at,
-            asociado:asociados!asociado_id(id, nombre, cedula)
-          `)
+          .select('id, nombre, cedula, telefono, estado, observaciones, created_at, asociado_id')
           .order('created_at', { ascending: false }),
         supabase
           .from('configuracion')
@@ -137,7 +136,18 @@ export default function Referidos({ userData }: ReferidosProps) {
           .maybeSingle(),
       ]);
 
-      if (error) throw error;
+      if (refRes.error) throw refRes.error;
+
+      // Join manual: traer nombre/cedula del asociado
+      const refAsocIds = [...new Set((refRes.data || []).map((r: any) => r.asociado_id).filter(Boolean))];
+      const refUsrMap: Record<string, any> = {};
+      if (refAsocIds.length > 0) {
+        const { data: refUsrs } = await supabase.from('usuarios').select('id, nombre, cedula').in('id', refAsocIds);
+        (refUsrs || []).forEach((u: any) => { refUsrMap[u.id] = u; });
+      }
+      const data = (refRes.data || []).map((r: any) => ({
+        ...r, asociado: refUsrMap[r.asociado_id] ?? null,
+      }));
 
       const bonif = cfgData?.valor ? Number(cfgData.valor) : 50_000;
       setBonificacionReferido(bonif);
@@ -184,8 +194,9 @@ export default function Referidos({ userData }: ReferidosProps) {
 
         // Buscar el ahorro voluntario activo del asociado referente
         const { data: ahorroVol } = await supabase
-          .from('ahorros_voluntarios')
+          .from('cuentas_ahorro')
           .select('id, monto_ahorrado, asociado_id')
+          .eq('tipo', 'voluntario')
           .eq('asociado_id', ref.asociado_id)
           .eq('estado', 'activo')
           .eq('anulado', false)
@@ -198,17 +209,20 @@ export default function Referidos({ userData }: ReferidosProps) {
           const saldoNuevo    = saldoAnterior + bonif;
 
           // Registrar el movimiento
-          await supabase.from('pagos_ahorro_voluntario').insert({
-            ahorro_voluntario_id: ahorroVol.id,
-            asociado_id:          ref.asociado_id,
-            fecha_pago:           new Date().toISOString().split('T')[0],
-            monto:                bonif,
-            observacion:          `Bonificación por referido aprobado: ${ref.nombre} (CC ${ref.cedula})`,
+          await supabase.from('transacciones').insert({
+            tipo:          'aporte_voluntario',
+            ahorro_id:     ahorroVol.id,
+            asociado_id:   ref.asociado_id,
+            fecha_pago:    new Date().toISOString().split('T')[0],
+            monto:         bonif,
+            saldo_antes:   saldoAnterior,
+            saldo_despues: saldoNuevo,
+            observacion:   `Bonificación por referido aprobado: ${ref.nombre} (CC ${ref.cedula})`,
           });
 
           // Actualizar saldo
           await supabase
-            .from('ahorros_voluntarios')
+            .from('cuentas_ahorro')
             .update({ monto_ahorrado: saldoNuevo })
             .eq('id', ahorroVol.id);
 

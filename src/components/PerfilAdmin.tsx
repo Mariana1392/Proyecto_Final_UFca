@@ -46,13 +46,20 @@ export default function PerfilAdmin() {
   }
 
   async function cargarStats() {
+    // Obtener el rol_id de 'asociado' para filtrar usuarios por rol
+    const { data: rolAsoc } = await supabase
+      .from('roles').select('id').eq('nombre', 'asociado').limit(1).maybeSingle();
+    const rolAsociadoId = rolAsoc?.id ?? null;
+
     const [
       { count: totalUsuarios },
       { count: totalAsociados },
       { count: solicitudesPendientes },
     ] = await Promise.all([
       supabase.from('usuarios').select('*', { count: 'exact', head: true }),
-      supabase.from('asociados').select('*', { count: 'exact', head: true }),
+      rolAsociadoId
+        ? supabase.from('usuarios').select('*', { count: 'exact', head: true }).eq('rol_id', rolAsociadoId)
+        : supabase.from('usuarios').select('*', { count: 'exact', head: true }).not('rol_id', 'is', null),
       supabase.from('solicitudes_asociados').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
     ]);
     setStats({

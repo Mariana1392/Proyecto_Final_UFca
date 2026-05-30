@@ -65,13 +65,22 @@ export default function ExcepcionesManager({ userRole, userId }: ExcepcionesMana
     try {
       let query = supabase
         .from('excepciones')
-        .select('*, asociados(nombre, cedula)')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (filtro !== 'todas') query = query.eq('estado', filtro);
 
-      const { data, error } = await query;
+      const { data: excRaw, error } = await query;
       if (error) throw error;
+
+      // Join manual: usuarios por asociado_id
+      const excIds = [...new Set((excRaw || []).map((r: any) => r.asociado_id).filter(Boolean))];
+      const excUsrMap: Record<string, any> = {};
+      if (excIds.length > 0) {
+        const { data: excUsrs } = await supabase.from('usuarios').select('id, nombre, cedula').in('id', excIds);
+        (excUsrs || []).forEach((u: any) => { excUsrMap[u.id] = u; });
+      }
+      const data = (excRaw || []).map((r: any) => ({ ...r, usuarios: excUsrMap[r.asociado_id] ?? null }));
 
       const mapeadas: Excepcion[] = (data || []).map((e: any) => ({
         _id:              e.id,
@@ -82,8 +91,8 @@ export default function ExcepcionesManager({ userRole, userId }: ExcepcionesMana
         descripcionRegla: e.descripcion,
         reglaViolada:     e.tipo,
         motivo:           e.descripcion,
-        entidad:          e.asociados?.nombre ?? 'Sin nombre',
-        datosRelevantes:  { cedula: e.asociados?.cedula, asociado_id: e.asociado_id },
+        entidad:          e.usuarios?.nombre ?? 'Sin nombre',
+        datosRelevantes:  { cedula: e.usuarios?.cedula, asociado_id: e.asociado_id },
         fechaSolicitud:   e.created_at,
         decision:         e.estado !== 'pendiente' ? e.estado : undefined,
         observacionesAdmin: undefined,

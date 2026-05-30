@@ -63,7 +63,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
       const canal = supabase
         .channel('dashboard-creditos')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'creditos' }, recargarDashboard)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'pagos_credito' }, recargarDashboard)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'transacciones' }, recargarDashboard)
         .subscribe();
 
       return () => {
@@ -111,12 +111,14 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
 
       const [{ data: pagosPerm }, { data: pagosVol }, { data: credsMes }] = await Promise.all([
         // Pagos ahorro permanente del período
-        supabase.from('pagos_ahorro_permanente')
-          .select('fecha_pago, monto_total_pagado')
+        supabase.from('transacciones')
+          .select('fecha_pago, monto')
+          .eq('tipo', 'aporte_permanente')
           .gte('fecha_pago', desdeStr),
         // Pagos ahorro voluntario del período
-        supabase.from('pagos_ahorro_voluntario')
+        supabase.from('transacciones')
           .select('fecha_pago, monto')
+          .eq('tipo', 'aporte_voluntario')
           .gte('fecha_pago', desdeStr),
         supabase.from('creditos')
           .select('created_at, monto')
@@ -138,7 +140,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
 
       movsPerm.forEach((m: any) => {
         const entry = meses.find(x => x.key === m.fecha_pago?.substring(0, 7));
-        if (entry) entry.permanente += m.monto_total_pagado || 0;
+        if (entry) entry.permanente += m.monto || 0;
       });
       movsVol.forEach((m: any) => {
         const entry = meses.find(x => x.key === m.fecha_pago?.substring(0, 7));
@@ -196,32 +198,30 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
   }
 
   async function cargarStatsAsociado(cedula: string) {
+    void cedula; // cedula no se usa directamente; usamos userData.id
     try {
-      // B-05: 'ahorros' no existe — las tablas reales son ahorros_permanentes y ahorros_voluntarios
-      const { data: asoc } = await supabase
-        .from('asociados')
-        .select('id, creditos(id, anulado, estado)')
-        .eq('cedula', cedula)
-        .single();
+      const asociadoId = userData?.id;
+      if (!asociadoId) return;
 
-      if (!asoc) return;
-
-      const [permRes, volRes] = await Promise.all([
-        supabase.from('ahorros_permanentes')
-          .select('monto_ahorrado')
-          .eq('asociado_id', asoc.id)
+      const [{ data: cuentas }, { data: credData }] = await Promise.all([
+        supabase
+          .from('cuentas_ahorro')
+          .select('tipo, monto_ahorrado')
+          .eq('asociado_id', asociadoId)
           .eq('anulado', false)
           .eq('estado', 'activo'),
-        supabase.from('ahorros_voluntarios')
-          .select('monto_ahorrado')
-          .eq('asociado_id', asoc.id)
-          .eq('anulado', false)
-          .eq('estado', 'activo'),
+        supabase
+          .from('creditos')
+          .select('id, anulado, estado')
+          .eq('asociado_id', asociadoId),
       ]);
+
+      const permRes = { data: (cuentas || []).filter((c: any) => c.tipo === 'permanente') };
+      const volRes  = { data: (cuentas || []).filter((c: any) => c.tipo === 'voluntario') };
 
       const ahorroPerm  = (permRes.data || []).reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
       const ahorroVol   = (volRes.data  || []).reduce((s: number, a: any) => s + (a.monto_ahorrado || 0), 0);
-      const credActivos = (asoc.creditos || []).filter((c: any) => !c.anulado && ['activo','desembolsado','en_mora'].includes(c.estado)).length;
+      const credActivos = (credData || []).filter((c: any) => !c.anulado && ['activo','desembolsado','en_mora'].includes(c.estado)).length;
 
       setLiveStats(prev => ({
         ...prev,

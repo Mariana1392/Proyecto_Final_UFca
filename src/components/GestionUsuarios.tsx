@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -12,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
+import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { useAuth } from '../contexts/AuthContext';
 import type { UserRole } from '../contexts/AuthContext';
 import { rolLabel } from '../lib/permissions';
@@ -89,6 +91,13 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
 
   useEffect(() => { cargarDatos(); }, []);
 
+  // ── Tiempo real: recarga cuando cambian usuarios ───────────────────────────
+  useRealtimeSubscription(
+    'realtime:usuarios',
+    ['usuarios'],
+    cargarDatos,
+  );
+
   async function cargarDatos() {
   try {
     setLoading(true);
@@ -97,60 +106,29 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     const [
       { data: usData, error: usErr },
       { data: rolesData },
-      { data: asociadosData },
       { data: auditoriaData },
     ] = await Promise.all([
-      supabase.from('usuarios').select('*, roles(nombre, es_sistema), asociados!asociado_id(telefono, cedula, direccion)').order('nombre'),
+      supabase.from('usuarios').select('*, roles(nombre, es_sistema)').order('nombre'),
       supabase.from('roles').select('*').order('nombre'),
-      supabase.from('asociados').select('id, nombre, cedula, telefono, email, estado, created_at').order('nombre'),
       supabase.from('auditoria').select('*').eq('tabla', 'usuarios').order('created_at', { ascending: false }).limit(100),
     ]);
 
     if (usErr) throw usErr;
 
-    // IDs de asociados que ya tienen usuario vinculado
-    const asociadosYaVinculados = new Set(
-      (usData || []).map((u: any) => u.asociado_id).filter(Boolean)
-    );
-
-    // Auto-sincronizar identificacion y telefono desde asociados cuando están vacíos o inválidos
-    const sincronizaciones: Promise<any>[] = [];
-    for (const u of (usData || [])) {
-      if (!u.asociado_id) continue;
-      const asoc = (asociadosData || []).find((a: any) => a.id === u.asociado_id);
-      if (!asoc) continue;
-
-      const updates: Record<string, string> = {};
-
-      // Identificacion vacía o con letras → tomar cedula del asociado
-      const idActual = u.identificacion ?? '';
-      if ((!idActual || /[a-zA-Z]/.test(idActual)) && asoc.cedula && /^\d+$/.test(asoc.cedula)) {
-        updates.identificacion = asoc.cedula;
-        u.identificacion = asoc.cedula;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        sincronizaciones.push(
-          supabase.from('usuarios').update(updates).eq('id', u.id)
-        );
-      }
-    }
-    if (sincronizaciones.length > 0) await Promise.all(sincronizaciones);
-
     const usuariosMapeados = (usData || []).map((u: any) => {
       const rolDb = u.roles?.nombre ?? 'usuario';
       return {
         id:               u.id,
-        identificacion:   u.identificacion || u.asociados?.cedula     || '',
+        identificacion:   u.identificacion || u.cedula || '',
         username:         u.username || u.email?.split('@')[0] || '—',
         nombre:           u.nombre,
         email:            u.email,
-        telefono:         u.telefono || u.asociados?.telefono  || '',
-        direccion:        u.direccion || u.asociados?.direccion || '',
+        telefono:         u.telefono || '',
+        direccion:        u.direccion || '',
         rol:              rolLabel(rolDb),
-        rol_nombre_db:    rolDb, // nombre real en BD
+        rol_nombre_db:    rolDb,
         rol_id:           u.rol_id,
-        asociado_id:      u.asociado_id,
+        asociado_id:      u.id,
         ultimoAcceso:     u.ultimo_acceso
           ? new Date(u.ultimo_acceso).toLocaleString('es-CO')
           : 'Nunca',
@@ -158,45 +136,23 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         fechaCreacion:    u.created_at?.split('T')[0] ?? '—',
         fechaModificacion: u.updated_at?.split('T')[0] ?? '—',
         soloLectura:      false,
-        // Usuario de sistema: no se puede modificar ni eliminar
-        // Usa el campo `es_sistema` de la tabla `roles` — nunca hardcodeado
         esSistema:        u.roles?.es_sistema ?? false,
       };
     });
 
-    // Asociados sin cuenta de usuario — solo lectura
-    const asociadosSinCuenta = (asociadosData || [])
-      .filter((a: any) => !asociadosYaVinculados.has(a.id))
-      .map((a: any) => ({
-        id:             a.id,
-        identificacion: a.cedula,
-        username:       '—',
-        nombre:         a.nombre,
-        email:          a.email ?? '—',
-        telefono:       a.telefono ?? '',
-        rol:            'Asociado',
-        rol_id:         null,
-        asociado_id:    a.id,
-        ultimoAcceso:   '—',
-        estado:         a.estado === 'activo',
-        fechaCreacion:    a.created_at?.split('T')[0] ?? '—',
-      fechaModificacion: a.created_at?.split('T')[0] ?? '—',
-        soloLectura:    true,  // bloquea editar/eliminar
-      }));
-
-    setUsuarios([...usuariosMapeados, ...asociadosSinCuenta]);
+    setUsuarios(usuariosMapeados);
     setRoles(rolesData || []);
 
     // Cargar auditoría persistida desde Supabase
     const auditoriaFormateada = (auditoriaData || []).map((r: any) => ({
       usuarioId:        r.usuario_id,
-      usuarioNombre:    r.detalle?.usuarioNombre ?? '—',
-      estadoAnterior:   r.detalle?.estadoAnterior ?? '—',
-      estadoNuevo:      r.detalle?.estadoNuevo ?? '—',
+      usuarioNombre:    r.datos_despues?.usuarioNombre ?? '—',
+      estadoAnterior:   r.datos_despues?.estadoAnterior ?? '—',
+      estadoNuevo:      r.datos_despues?.estadoNuevo ?? '—',
       fechaHora:        new Date(r.created_at).toLocaleString('es-CO'),
-      adminResponsable: r.detalle?.adminResponsable ?? '—',
+      adminResponsable: r.datos_despues?.adminResponsable ?? '—',
       accion:           r.accion,
-      cambios:          Array.isArray(r.detalle?.cambios) ? r.detalle.cambios : [],
+      cambios:          Array.isArray(r.datos_despues?.cambios) ? r.datos_despues.cambios : [],
     }));
     setAuditoria(auditoriaFormateada);
   } catch (err: any) {
@@ -247,7 +203,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       accion:      registro.accion,
       tabla:       'usuarios',
       registro_id: registro.usuarioId,
-      detalle: {
+      datos_despues: {
         usuarioNombre:    registro.usuarioNombre,
         estadoAnterior:   registro.estadoAnterior,
         estadoNuevo:      registro.estadoNuevo,
@@ -287,7 +243,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         { data: ahorros },
         { data: creditos },
       ] = await Promise.all([
-        supabase.from('ahorros_permanentes').select('id').eq('asociado_id', asociadoId).eq('estado', 'activo').eq('anulado', false).limit(1),
+        supabase.from('cuentas_ahorro').select('id').eq('tipo','permanente').eq('asociado_id', asociadoId).eq('estado', 'activo').eq('anulado', false).limit(1),
         supabase.from('creditos').select('id').eq('asociado_id', asociadoId).in('estado', ['activo', 'pendiente', 'aprobado']).limit(1),
       ]);
 
@@ -308,21 +264,6 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     try {
       const { error } = await supabase.from('usuarios').update({ activo: nuevoEstado }).eq('id', id);
       if (error) throw error;
-
-      // Sincronizar estado en la tabla asociados si el usuario tiene asociado vinculado
-      if (usuario?.asociado_id) {
-        try {
-          await supabase
-            .from('asociados')
-            .update({
-              estado: nuevoEstado ? 'activo' : 'inactivo',
-            })
-            .eq('id', usuario.asociado_id);
-        } catch {
-          // Si falla la sincronización (ej. política RLS en asociados),
-          // no bloquear el flujo principal — el estado en usuarios ya se guardó.
-        }
-      }
 
       setUsuarios(prev => prev.map(u => u.id === id ? { ...u, estado: nuevoEstado } : u));
 
@@ -420,25 +361,14 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         rolLabel(r.nombre) === formData.rol || r.nombre === formData.rol
       );
 
-      // Si el rol es Asociado, crear primero el registro en la tabla asociados
-      let asociadoId: string | null = null;
-      if (formData.rol === 'Asociado') {
-        const { data: nuevoAsociado, error: asociadoErr } = await supabase
-          .from('asociados')
-          .insert({
-            nombre:        formData.nombre.trim(),
-            cedula:        formData.identificacion.trim(),
-            telefono:      formData.telefono.trim(),
-            email:         formData.email.trim(),
-            direccion:     formData.direccion.trim(),
-            fecha_ingreso: formData.fechaIngreso.trim(),
-            estado:        'activo',
-          })
-          .select('id')
-          .single();
-        if (asociadoErr) throw new Error('Error al crear el asociado: ' + asociadoErr.message);
-        asociadoId = nuevoAsociado.id;
-      }
+      // Campos adicionales para usuarios con rol Asociado
+      const camposAsociado = formData.rol === 'Asociado' ? {
+        cedula:        formData.identificacion.trim(),
+        telefono:      formData.telefono.trim(),
+        direccion:     formData.direccion.trim(),
+        fecha_ingreso: formData.fechaIngreso.trim(),
+        estado_cuenta: 'activo',
+      } : {};
 
       const { error: userErr } = await supabase.from('usuarios').insert({
         id:             authData.user.id,
@@ -448,7 +378,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         identificacion: formData.identificacion.trim(),
         rol_id:         rolSeleccionado?.id,
         activo:         true,
-        ...(asociadoId ? { asociado_id: asociadoId } : {}),
+        ...camposAsociado,
       });
       if (userErr) throw userErr;
 
@@ -460,14 +390,14 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         email:          formData.email.trim(),
         telefono:       formData.telefono.trim(),
         rol:            formData.rol,
-        asociado_id:    asociadoId,
+        asociado_id:    authData.user!.id,
         ultimoAcceso:   'Nunca',
         estado:         true,
         fechaCreacion:  new Date().toISOString().split('T')[0],
         soloLectura:    false,
       }]);
 
-      toast.success(`Usuario "${formData.nombre}" creado exitosamente${asociadoId ? ' y registrado como asociado' : ''}`);
+      toast.success(`Usuario "${formData.nombre}" creado exitosamente`);
       setIsCreateModalOpen(false);
     } catch (err: any) {
       toast.error(traducirErrorAuth(err.message));
@@ -533,17 +463,6 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         })
         .eq('id', selectedUsuario.id);
       if (error) throw error;
-
-      // Sincronizar datos hacia la tabla asociados si el usuario tiene asociado vinculado
-      if (selectedUsuario.asociado_id) {
-        await supabase.from('asociados').update({
-          nombre:    formData.nombre.trim(),
-          email:     formData.email.trim(),
-          cedula:    formData.identificacion.trim(),
-          telefono:  formData.telefono.trim(),
-          direccion: formData.direccion.trim(),
-        }).eq('id', selectedUsuario.asociado_id);
-      }
 
       setUsuarios(prev => prev.map(u =>
         u.id === selectedUsuario.id
@@ -612,21 +531,28 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       try {
         const id = selectedUsuario.asociado_id;
         const [creditosRes, ahorrosRes] = await Promise.all([
-          supabase.from('creditos').select('id')
+          // Solo bloquear si tiene créditos con saldo pendiente real (saldo > 0).
+          // Créditos en estado desembolsado/activo con saldo=0 ya están pagados
+          // y no deben impedir la eliminación.
+          supabase.from('creditos').select('id, saldo')
             .eq('asociado_id', id)
             .eq('anulado', false)
             .in('estado', ['pendiente', 'aprobado', 'desembolsado', 'en_mora', 'activo'])
+            .gt('saldo', 0)
             .limit(1),
-          supabase.from('ahorros_permanentes').select('id')
+          // Solo bloquear si tiene ahorros permanentes activos con saldo real
+          supabase.from('cuentas_ahorro').select('id, monto_ahorrado')
+            .eq('tipo', 'permanente')
             .eq('asociado_id', id)
             .eq('estado', 'activo')
             .eq('anulado', false)
+            .gt('monto_ahorrado', 0)
             .limit(1),
         ]);
 
         const bloqueos: string[] = [];
-        if ((creditosRes.data?.length ?? 0) > 0) bloqueos.push('créditos');
-        if ((ahorrosRes.data?.length  ?? 0) > 0) bloqueos.push('ahorros activos');
+        if ((creditosRes.data?.length ?? 0) > 0) bloqueos.push('créditos con saldo pendiente');
+        if ((ahorrosRes.data?.length  ?? 0) > 0) bloqueos.push('ahorros permanentes con saldo');
 
         if (bloqueos.length > 0) {
           toast.error('No se puede eliminar este asociado', {
@@ -647,26 +573,26 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     });
 
     try {
-      // 1. Eliminar el registro de asociado vinculado PRIMERO (si existe)
-      //    para evitar que reaparezca como "asociado sin cuenta" al recargar.
-      if (selectedUsuario.asociado_id) {
-        const { error: asocDelErr } = await supabase
-          .from('asociados')
-          .delete()
-          .eq('id', selectedUsuario.asociado_id);
-        if (asocDelErr) throw new Error(
-          `No se pudo eliminar el registro de asociado: ${asocDelErr.message}. ` +
-          'Puede tener ahorros, créditos u otros registros vinculados.'
-        );
-      }
-
-      // 2. Eliminar de la tabla usuarios (solo si no es un asociado sin cuenta)
+      // Eliminar de la tabla usuarios
       if (!selectedUsuario.soloLectura) {
         const { error: dbErr } = await supabase.from('usuarios').delete().eq('id', selectedUsuario.id);
         if (dbErr) throw dbErr;
 
-        // 3. Eliminar de Supabase Auth via función SQL con SECURITY DEFINER
+        // Eliminar de Supabase Auth via función SQL con SECURITY DEFINER
         await supabase.rpc('eliminar_usuario_auth', { user_id: selectedUsuario.id });
+
+        // Eliminar la cuenta de auth.users mediante el cliente admin para garantizar
+        // que el usuario no pueda volver a autenticarse aunque el cascade falle.
+        try {
+          const { error: adminErr } = await supabaseAdmin.auth.admin.deleteUser(selectedUsuario.id);
+          if (adminErr) {
+            // Si el usuario ya no existe en auth (p. ej. ya fue eliminado por el RPC),
+            // se registra como advertencia pero no se interrumpe la operación.
+            console.warn('supabaseAdmin.auth.admin.deleteUser:', adminErr.message);
+          }
+        } catch (adminEx: any) {
+          console.warn('supabaseAdmin.auth.admin.deleteUser (excepción):', adminEx?.message ?? adminEx);
+        }
       }
 
       guardarAuditoria({
@@ -718,13 +644,6 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         .update({ identificacion: val })
         .eq('id', fixIdUsuario.id);
       if (error) throw error;
-
-      // Sincronizar con asociados si aplica
-      if (fixIdUsuario.asociado_id) {
-        await supabase.from('asociados')
-          .update({ cedula: val })
-          .eq('id', fixIdUsuario.asociado_id);
-      }
 
       setUsuarios(prev => prev.map(u =>
         u.id === fixIdUsuario.id ? { ...u, identificacion: val } : u
@@ -1497,8 +1416,11 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                   <li>La acción quedará registrada en auditoría</li>
                 </ul>
               </span>
-              <span className="block text-xs text-slate-500">
-                Nota: No se puede eliminar si el usuario tiene créditos activos o ahorros con saldo.
+              <span className="block text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                ⚠️ <strong>Solo para asociados retirados o cuentas de prueba.</strong> Si el asociado
+                aún tiene créditos con saldo pendiente o ahorros activos con saldo, la eliminación
+                será bloqueada. El flujo correcto para un asociado activo es: cerrar créditos →
+                crear <strong>Liquidación</strong> → desactivar cuenta.
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>

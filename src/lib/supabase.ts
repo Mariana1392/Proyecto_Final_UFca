@@ -71,56 +71,51 @@ export type RolPermiso = {
 
 /** Tabla: usuarios */
 export type Usuario = Timestamps & {
-  id:             string;   // Mismo UUID que auth.users
-  nombre:         string;
-  email:          string;
-  username?:      string;
-  identificacion?: string;
-  activo:         boolean;
-  rol_id?:        string;   // → roles.id
-  asociado_id?:   string;   // → asociados.id (null si aún no es asociado)
-  ultimo_acceso?: string;
-};
-
-// ── ASOCIADOS ─────────────────────────────────────────────────────────────────
-
-/** Tabla: asociados */
-export type Asociado = Timestamps & Anulable & {
-  id:               string;
+  id:               string;   // Mismo UUID que auth.users
   nombre:           string;
-  cedula:           string;
+  email:            string;
+  username?:        string;
+  activo:           boolean;
+  rol_id?:          string;   // → roles.id
+  ultimo_acceso?:   string;
+  // Campos financieros (antes en tabla asociados)
+  cedula?:          string;
   telefono?:        string;
-  email?:           string;
   direccion?:       string;
-  estado:           'activo' | 'inactivo' | 'suspendido';
   fecha_ingreso?:   string;
-  referido_por_id?: string;  // → asociados.id
+  estado_cuenta?:   'activo' | 'inactivo' | 'suspendido';
+  referido_por_id?: string;   // → usuarios.id
 };
 
 // ── AHORROS ───────────────────────────────────────────────────────────────────
 
-/** Tabla: ahorros_permanentes */
-export type AhorroPermanente = Timestamps & Anulable & {
-  id:              string;
-  asociado_id:     string;  // → asociados.id
-  periodo_id:      string;  // → periodos.id
-  cuota_mensual:   number;
-  monto_ahorrado:  number;
-  estado:          'activo' | 'cerrado' | 'suspendido';
-  fecha_cierre?:   string;
+/**
+ * Tabla: cuentas_ahorro
+ * Unifica ahorros permanentes y voluntarios mediante el campo `tipo`.
+ * Permanente: cuota_mensual obligatorio.
+ * Voluntario:  fecha_retiro y monto_al_cierre opcionales.
+ */
+export type CuentaAhorro = Timestamps & Anulable & {
+  id:               string;
+  tipo:             'permanente' | 'voluntario';
+  asociado_id:      string;   // → usuarios.id
+  periodo_id:       string;   // → periodos.id
+  monto_ahorrado:   number;
+  cuota_mensual?:   number;   // Solo permanente
+  fecha_retiro?:    string;   // Solo voluntario
+  monto_al_cierre?: number;   // Solo voluntario
+  estado:           'activo' | 'cerrado' | 'suspendido' | 'retirado';
+  fecha_cierre?:    string;
+  observaciones?:   string;   // Notas internas sobre la cuenta
+  anulado_por?:     string;   // → usuarios.id
+  anulado_en?:      string;
 };
 
-/** Tabla: ahorros_voluntarios */
-export type AhorroVoluntario = Timestamps & Anulable & {
-  id:              string;
-  asociado_id:     string;  // → asociados.id
-  periodo_id:      string;  // → periodos.id
-  monto_ahorrado:  number;
-  estado:          'activo' | 'retirado' | 'cerrado';
-  fecha_retiro?:   string;
-  fecha_cierre?:   string;
-  monto_al_cierre?: number;
-};
+// Alias para compatibilidad con código existente que aún importe estos tipos
+/** @deprecated Usar CuentaAhorro con tipo='permanente' */
+export type AhorroPermanente = CuentaAhorro;
+/** @deprecated Usar CuentaAhorro con tipo='voluntario' */
+export type AhorroVoluntario = CuentaAhorro;
 
 // ── CRÉDITOS ──────────────────────────────────────────────────────────────────
 
@@ -146,22 +141,40 @@ export type Credito = Timestamps & Anulable & {
   aprobado_por?:             string;  // → usuarios.id
 };
 
-/** Tabla: pagos_credito */
-export type PagoCredito = Timestamps & {
+/**
+ * Tabla: transacciones
+ * Unifica todos los movimientos de dinero: aportes de ahorro y pagos de crédito.
+ * El campo `tipo` discrimina el subtipo del movimiento.
+ */
+export type Transaccion = Timestamps & {
   id:               string;
-  credito_id:       string;   // → creditos.id
-  monto_pagado:     number;
+  tipo:             'aporte_permanente' | 'aporte_voluntario' | 'pago_credito' | 'abono_capital' | 'cancelacion_total';
+  asociado_id:      string;   // → usuarios.id
+  registrado_por?:  string;   // → usuarios.id
+  ahorro_id?:       string;   // → cuentas_ahorro.id (aportes)
+  credito_id?:      string;   // → creditos.id (pagos crédito)
+  cuota_id?:        string;   // → cuotas_credito.id
+  periodo_id?:      string;   // → periodos.id
+  monto:            number;
   capital:          number;
   interes:          number;
-  saldo_antes:      number;
-  saldo_despues:    number;
-  num_cuota:        number;
+  monto_mora:       number;
+  dias_mora:        number;
+  saldo_antes?:     number;
+  saldo_despues?:   number;
+  mes_correspondiente?: string;
   fecha_pago:       string;
-  metodo_pago:      string;
-  registrado_por?:  string;   // → usuarios.id
+  metodo_pago?:     string;
+  url_comprobante?: string;
   observacion?:     string;
-  url_comprobante?: string;   // URL del comprobante subido por el administrador
+  anulado:          boolean;
+  anulado_por?:     string;
+  anulado_en?:      string;
+  motivo_anulacion?: string;
 };
+
+/** @deprecated Usar Transaccion con tipo='pago_credito' */
+export type PagoCredito = Transaccion;
 
 // ── LIQUIDACIONES ─────────────────────────────────────────────────────────────
 
@@ -196,19 +209,25 @@ export type Liquidacion = Timestamps & {
 
 /** Tabla: solicitudes_asociados */
 export type SolicitudAsociado = Timestamps & {
-  id:            string;
-  nombres:       string;
-  apellidos:     string;
-  cedula:        string;
-  telefono?:     string;
-  email?:        string;
-  direccion?:    string;
-  ocupacion?:    string;
-  estado:        'pendiente' | 'aprobada' | 'rechazada';
-  evaluacion?:   Record<string, any>;  // jsonb: score, nivel_riesgo, verificaciones, etc.
-  documentos?:   string[];             // jsonb: array de URLs de archivos adjuntos
-  observaciones?: string;
-  fecha_resolucion?: string;
+  id:                     string;
+  usuario_id?:            string;   // → usuarios.id
+  nombres:                string;
+  apellidos:              string;
+  cedula:                 string;
+  tipo_identificacion?:   string;
+  telefono?:              string;
+  email?:                 string;
+  direccion?:             string;
+  ocupacion?:             string;
+  ingreso_mensual?:       number;
+  monto_ahorro_propuesto?: number;
+  motivacion?:            string;
+  estado:                 'pendiente' | 'aprobada' | 'rechazada';
+  evaluacion?:            Record<string, any>;  // jsonb
+  documentos?:            string[];             // jsonb: array de URLs
+  observaciones?:         string;
+  fecha_solicitud?:       string;
+  fecha_resolucion?:      string;
 };
 
 // ── EXCEPCIONES ───────────────────────────────────────────────────────────────

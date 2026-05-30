@@ -48,12 +48,19 @@ export interface ReglaValidacion {
 // Para insertar los valores iniciales en BD, ejecuta supabase_seed_configuracion.sql
 
 interface ConfigParametros {
-  aporteMinimo: number;
-  cuotasMaximasIncumplidas: number;
-  diasMoraMaximo: number;
+  aporteMinimo:                    number;
+  cuotasMaximasIncumplidas:        number;
+  diasMoraMaximo:                  number;
   permitirRetirosParcialesDefecto: boolean;
-  periodoActualCerrado: boolean;
-  fechaCierrePeriodo?: string;
+  periodoActualCerrado:            boolean;
+  fechaCierrePeriodo?:             string;
+  // ── Tasas financieras ────────────────────────────────────────────────────
+  tasaLibreInversion: number;  // % EA
+  tasaEducacion:      number;  // % EA
+  tasaVivienda:       number;  // % EA
+  tasaCalamidad:      number;  // % EA
+  tasaMoraCreditos:   number;  // % EA (mora = 1.5x tasa corriente por defecto Art. 884 C.Co.)
+  tasaInteresAhorros: number;  // % EA que UFCA paga sobre ahorros voluntarios
 }
 
 /** Claves exactas usadas en la tabla `configuracion` */
@@ -64,6 +71,13 @@ const CLAVES_CONFIG = [
   'permitir_retiros_parciales',
   'periodo_cerrado',
   'fecha_cierre_periodo',
+  // Tasas financieras
+  'tasa_libre_inversion',
+  'tasa_educacion',
+  'tasa_vivienda',
+  'tasa_calamidad',
+  'tasa_mora_creditos',
+  'tasa_interes_ahorros',
 ] as const;
 
 /** Valores de emergencia — solo se usan si la BD no devuelve la clave.
@@ -74,6 +88,13 @@ const CONFIG_DEFAULTS: ConfigParametros = {
   diasMoraMaximo:                  30,
   permitirRetirosParcialesDefecto: false,
   periodoActualCerrado:            false,
+  // Tasas financieras por defecto
+  tasaLibreInversion: 18,
+  tasaEducacion:      14,
+  tasaVivienda:       12,
+  tasaCalamidad:      10,
+  tasaMoraCreditos:   27,
+  tasaInteresAhorros:  4,
 };
 
 class BusinessRulesEngine {
@@ -125,6 +146,13 @@ class BusinessRulesEngine {
         get('periodo_cerrado') === 'true',
       fechaCierrePeriodo:
         get('fecha_cierre_periodo'),
+      // Tasas financieras
+      tasaLibreInversion: Number(get('tasa_libre_inversion') ?? CONFIG_DEFAULTS.tasaLibreInversion),
+      tasaEducacion:      Number(get('tasa_educacion')       ?? CONFIG_DEFAULTS.tasaEducacion),
+      tasaVivienda:       Number(get('tasa_vivienda')        ?? CONFIG_DEFAULTS.tasaVivienda),
+      tasaCalamidad:      Number(get('tasa_calamidad')       ?? CONFIG_DEFAULTS.tasaCalamidad),
+      tasaMoraCreditos:   Number(get('tasa_mora_creditos')   ?? CONFIG_DEFAULTS.tasaMoraCreditos),
+      tasaInteresAhorros: Number(get('tasa_interes_ahorros') ?? CONFIG_DEFAULTS.tasaInteresAhorros),
     };
 
     this.configCargada = true;
@@ -182,10 +210,10 @@ class BusinessRulesEngine {
       : `cedula.eq.${cedula}`;
 
     let query = supabase
-      .from('asociados')
+      .from('usuarios')
       .select('id, cedula, email')
       .or(filtros)
-      .eq('estado', 'activo')
+      .eq('estado_cuenta', 'activo')
       .limit(1);
 
     // Si se está re-validando un registro existente, excluirlo del conteo
@@ -280,9 +308,10 @@ class BusinessRulesEngine {
    */
   async validarEliminacionCredito(creditoId: string): Promise<ReglaValidacion> {
     const { count, error } = await supabase
-      .from('pagos_credito')
+      .from('transacciones')
       .select('*', { count: 'exact', head: true })
-      .eq('credito_id', creditoId);
+      .eq('credito_id', creditoId)
+      .in('tipo', ['pago_credito', 'abono_capital', 'cancelacion_total']);
 
     if (error) {
       console.error('[businessRules] validarEliminacionCredito:', error.message);
@@ -515,6 +544,29 @@ class BusinessRulesEngine {
 
     return data;
   }
+
+  // ── GETTERS DE TASAS FINANCIERAS ─────────────────────────────────────────
+
+  /** Tasa EA % por defecto según tipo de crédito */
+  getTasaCredito(tipo: string): number {
+    const map: Record<string, keyof ConfigParametros> = {
+      libre_inversion: 'tasaLibreInversion',
+      educacion:       'tasaEducacion',
+      vivienda:        'tasaVivienda',
+      calamidad:       'tasaCalamidad',
+    };
+    const key = map[tipo];
+    return key ? (this.config[key] as number) : this.config.tasaLibreInversion;
+  }
+
+  /** Tasa EA % de mora para créditos */
+  getTasaMoraCreditos(): number { return this.config.tasaMoraCreditos; }
+
+  /** Tasa EA % de rendimiento de ahorros voluntarios */
+  getTasaAhorros(): number { return this.config.tasaInteresAhorros; }
+
+  /** Snapshot completo de la configuración (para la pantalla Configuración) */
+  getConfig(): Readonly<ConfigParametros> { return { ...this.config }; }
 
   // ── UTILIDADES ────────────────────────────────────────────────────────────
 

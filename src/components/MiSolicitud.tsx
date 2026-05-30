@@ -371,7 +371,6 @@ export default function MiSolicitud() {
         tipo:       'solicitud_afiliacion',
         leida:      false,
         para_admin: true,
-        asociado_id: null,
       }).then(() => {}).catch(() => {}); // silencioso — no bloquea si falla
 
       toast.success('¡Solicitud enviada!', {
