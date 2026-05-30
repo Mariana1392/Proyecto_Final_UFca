@@ -59,11 +59,22 @@ function AppContent() {
 
     if (esInvitacion) {
       setCurrentView('crear-password');
-      // Dejar que el SDK procese el hash (ocurre de forma síncrona en su init),
-      // luego limpiar la URL para no exponer el token al recargar.
       setTimeout(() => {
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
       }, 500);
+      return;
+    }
+
+    // Si el usuario salió sin crear contraseña y vuelve al mismo navegador
+    // con la sesión aún activa, retomar el flujo automáticamente.
+    if (sessionStorage.getItem('ufca_creando_password') === '1') {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          setCurrentView('crear-password');
+        } else {
+          sessionStorage.removeItem('ufca_creando_password');
+        }
+      });
     }
   }, []);
 

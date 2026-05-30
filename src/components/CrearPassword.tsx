@@ -20,6 +20,9 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
   const [error, setError]                     = useState('');
   const [isLoading, setIsLoading]             = useState(false);
   const [done, setDone]                       = useState(false);
+  const [recoveryEmail, setRecoveryEmail]     = useState('');
+  const [recoverySent, setRecoverySent]       = useState(false);
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
 
   // Estado de la sesión: 'checking' → 'ready' | 'error'
   const [sessionStatus, setSessionStatus] = useState<'checking' | 'ready' | 'error'>('checking');
@@ -29,23 +32,24 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
     let timeout: ReturnType<typeof setTimeout>;
 
     const verificarSesion = async () => {
-      // 1. Intentar obtener la sesión que el SDK pudo haber establecido del hash
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        sessionStorage.setItem('ufca_creando_password', '1');
+        setRecoveryEmail(session.user.email ?? '');
         setSessionStatus('ready');
         return;
       }
 
-      // 2. Si no hay sesión aún, escuchar el evento SIGNED_IN (el SDK procesa el hash async)
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
         if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && s) {
+          sessionStorage.setItem('ufca_creando_password', '1');
+          setRecoveryEmail(s.user.email ?? '');
           setSessionStatus('ready');
           subscription.unsubscribe();
           clearTimeout(timeout);
         }
       });
 
-      // 3. Si después de 10s no llega sesión → el link expiró o ya fue usado
       timeout = setTimeout(() => {
         subscription.unsubscribe();
         setSessionStatus('error');
@@ -55,6 +59,17 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
     verificarSesion();
     return () => clearTimeout(timeout);
   }, []);
+
+  // Advertir si el usuario intenta salir sin haber creado la contraseña
+  useEffect(() => {
+    if (sessionStatus !== 'ready' || done) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [sessionStatus, done]);
 
   // Validaciones en tiempo real
   const validaciones = {
@@ -97,6 +112,7 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
         throw supaErr;
       }
 
+      sessionStorage.removeItem('ufca_creando_password');
       setDone(true);
       toast.success('¡Contraseña creada exitosamente!', {
         description: 'Ya puedes acceder a tu cuenta de asociado UFCA.',
@@ -131,6 +147,21 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
 
   // ── Link expirado o ya usado ─────────────────────────────────────────────
   if (sessionStatus === 'error') {
+    const handleRecovery = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!recoveryEmail.trim()) return;
+      setRecoveryLoading(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail.trim(), {
+        redirectTo: `${window.location.origin}/?recuperar=1`,
+      });
+      setRecoveryLoading(false);
+      if (error) {
+        toast.error('No se pudo enviar el correo. Contacta al administrador.');
+      } else {
+        setRecoverySent(true);
+      }
+    };
+
     return (
       <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-red-50 via-white to-orange-50 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
@@ -140,32 +171,41 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
             </div>
             <h1 className="text-2xl font-bold text-slate-900 mb-2">Enlace inválido o expirado</h1>
             <p className="text-slate-600 text-sm leading-relaxed">
-              Este enlace de invitación ya fue usado o ha expirado (los enlaces son válidos por 24 horas y son de un solo uso).
+              Este enlace ya fue usado o expiró. Ingresa tu correo para recibir un nuevo enlace de acceso.
             </p>
           </div>
           <Card className="border-red-200 shadow-xl">
             <CardContent className="pt-6 space-y-4">
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 space-y-2">
-                <p className="font-semibold">¿Qué puedes hacer?</p>
-                <ul className="space-y-1.5 text-xs">
-                  <li className="flex items-start gap-2">
-                    <span className="text-amber-500 mt-0.5">1.</span>
-                    Contacta al administrador de UFCA para que te envíe un nuevo enlace de acceso.
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-amber-500 mt-0.5">2.</span>
-                    Si ya creaste tu contraseña antes, ingresa normalmente desde el botón de inicio de sesión.
-                  </li>
-                </ul>
-              </div>
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600">
-                <p><strong>Contacto UFCA:</strong> marboledalondono@gmail.com · +57 314 758 7250</p>
-              </div>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={onSuccess}
-              >
+              {recoverySent ? (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800 text-center space-y-2">
+                  <CheckCircle className="size-8 text-emerald-500 mx-auto" />
+                  <p className="font-semibold">¡Correo enviado!</p>
+                  <p className="text-xs">Revisa tu bandeja de entrada y haz clic en el enlace para crear tu contraseña.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleRecovery} className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="recoveryEmail">Tu correo electrónico</Label>
+                    <Input
+                      id="recoveryEmail"
+                      type="email"
+                      placeholder="ejemplo@correo.com"
+                      value={recoveryEmail}
+                      onChange={e => setRecoveryEmail(e.target.value)}
+                      required
+                      disabled={recoveryLoading}
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                    disabled={recoveryLoading || !recoveryEmail.trim()}
+                  >
+                    {recoveryLoading ? 'Enviando…' : 'Enviarme un nuevo enlace'}
+                  </Button>
+                </form>
+              )}
+              <Button variant="outline" className="w-full" onClick={onSuccess}>
                 Ir al inicio de sesión
               </Button>
             </CardContent>
