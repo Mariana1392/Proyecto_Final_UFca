@@ -173,6 +173,12 @@ export default function ComiteEvaluador() {
     localStorage.setItem('ufca_invite_rate_limit_until', String(until));
     setRateLimitUntil(until);
   };
+
+  const limpiarRateLimit = () => {
+    localStorage.removeItem('ufca_invite_rate_limit_until');
+    setRateLimitUntil(0);
+    setRateLimitCountdown('');
+  };
   const [reenviadoSolicitudId, setReenviadoSolicitudId] = useState<string | null>(null);
   const [reenviando, setReenviando] = useState(false);
 
@@ -590,6 +596,7 @@ export default function ComiteEvaluador() {
         );
         if (resetErr) throw resetErr;
 
+        limpiarRateLimit();
         setReenviadoSolicitudId(sol.id);
         setAprobacionEmailData({
           nombre:     `${sol.nombres} ${sol.apellidos}`,
@@ -610,6 +617,7 @@ export default function ComiteEvaluador() {
       );
       if (invErr) throw invErr;
 
+      limpiarRateLimit();
       setReenviadoSolicitudId(sol.id);
       setAprobacionEmailData({
         nombre:     `${sol.nombres} ${sol.apellidos}`,
@@ -1194,8 +1202,8 @@ export default function ComiteEvaluador() {
                                 <PiggyBank className="size-3.5" /> Registrar pago
                               </button>
                             )}
-                            {/* Reenviar correo — visible para toda solicitud pendiente_activacion con email */}
-                            {s.email && (() => {
+                            {/* Reenviar correo — solo visible cuando hay rate limit activo */}
+                            {s.email && rateLimitUntil > 0 && (() => {
                               const enCooldown = rateLimitUntil > Date.now();
                               return (
                                 <button
