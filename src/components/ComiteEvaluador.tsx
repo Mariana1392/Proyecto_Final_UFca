@@ -615,6 +615,26 @@ export default function ComiteEvaluador() {
           data: { nombre: sol.nombres, rol: 'asociado' },
         }
       );
+
+      // Si el email ya está registrado, usar recuperación como recordatorio
+      if (invErr?.message?.toLowerCase().includes('already been registered') ||
+          invErr?.message?.toLowerCase().includes('already registered')) {
+        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(
+          sol.email,
+          { redirectTo: `${APP_URL}/?bienvenido=1` },
+        );
+        if (resetErr) throw resetErr;
+        limpiarRateLimit();
+        setReenviadoSolicitudId(sol.id);
+        setAprobacionEmailData({
+          nombre:     `${sol.nombres} ${sol.apellidos}`,
+          email:      sol.email,
+          inviteLink: 'sent',
+        });
+        toast.success('✅ Correo de recordatorio enviado correctamente');
+        return;
+      }
+
       if (invErr) throw invErr;
 
       limpiarRateLimit();
