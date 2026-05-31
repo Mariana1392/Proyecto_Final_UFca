@@ -2102,7 +2102,9 @@ Comité Evaluador — UFCA`}
                 {pagoMonto && parseCurrencyInput(pagoMonto) < 100_000 && (
                   <AlertTriangle className="size-3 shrink-0" />
                 )}
-                Mínimo $100.000 COP
+                {pagoMonto && parseCurrencyInput(pagoMonto) < 100_000
+                  ? 'El valor ingresado es menor al monto estipulado'
+                  : ''}
               </p>
             </div>
 
