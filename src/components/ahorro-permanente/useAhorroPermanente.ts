@@ -134,29 +134,30 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
         }
       }
 
-      // ── Cálculo de mora ────────────────────────────────────────────────────
-      // Regla: si hoy >= día 17 y el asociado no tiene aporte en el mes actual
-      // → en mora. Mora = $2.000 COP × (diaHoy - 16) días.
-      const MORA_DIARIA = 2_000;
-      const hoy         = new Date();
-      const diaHoy      = hoy.getDate();
+      // ── Pagos del mes actual y cálculo de mora ─────────────────────────────
+      // Siempre consultamos qué cuentas ya pagaron este mes:
+      //   · Para advertir al admin si intenta registrar un segundo aporte.
+      //   · Para calcular mora (si hoy >= 17 y no han pagado).
+      // Mora: $2.000 COP × (diaHoy - 16) días desde el día 17.
+      const MORA_DIARIA    = 2_000;
+      const hoy            = new Date();
+      const diaHoy         = hoy.getDate();
       const diasMoraGlobal = diaHoy >= 17 ? diaHoy - 16 : 0;
+      const primerDiaMes   = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
 
-      let ahorrosConPagoEsteMes: Set<string> = new Set();
-      if (diasMoraGlobal > 0) {
-        const primerDiaMes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
-        const { data: pagos } = await (supabaseAdmin ?? supabase)
-          .from('transacciones')
-          .select('ahorro_id')
-          .eq('tipo', 'aporte_permanente')
-          .eq('anulado', false)
-          .gte('fecha_pago', primerDiaMes);
-        (pagos || []).forEach((p: any) => ahorrosConPagoEsteMes.add(p.ahorro_id));
-      }
+      const ahorrosConPagoEsteMes: Set<string> = new Set();
+      const { data: pagos } = await (supabaseAdmin ?? supabase)
+        .from('transacciones')
+        .select('ahorro_id')
+        .eq('tipo', 'aporte_permanente')
+        .eq('anulado', false)
+        .gte('fecha_pago', primerDiaMes);
+      (pagos || []).forEach((p: any) => ahorrosConPagoEsteMes.add(p.ahorro_id));
 
       const mapeados = (data || []).map((a: any) => {
-        const activo  = a.estado === 'activo' && !a.anulado;
-        const enMora  = activo && diasMoraGlobal > 0 && !ahorrosConPagoEsteMes.has(a.id);
+        const activo         = a.estado === 'activo' && !a.anulado;
+        const pagadoEsteMes  = ahorrosConPagoEsteMes.has(a.id);
+        const enMora         = activo && diasMoraGlobal > 0 && !pagadoEsteMes;
         return {
           id:              a.id,
           asociado:        a.usuarios?.nombre  ?? 'Sin nombre',
@@ -172,6 +173,8 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
           motivoAnulacion: a.motivo_anulacion || '',
           observaciones:   a.observaciones || '',
           createdAt:       a.created_at,
+          // Pago mes actual
+          pagadoEsteMes,
           // Mora
           enMora,
           diasMora:  enMora ? diasMoraGlobal : 0,

@@ -78,6 +78,19 @@ export default function AhorroDialogAporte({
 
         <div className="grid gap-4 py-4">
 
+          {/* Advertencia: ya pagó este mes */}
+          {selectedItem?.pagadoEsteMes && !selectedItem?.enMora && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+              <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-700">Ya se registró el aporte de este mes</p>
+                <p className="text-xs text-amber-600 mt-0.5">
+                  Puedes continuar si lo consideras necesario. Quedará registrado como aporte adicional.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Alerta de mora */}
           {selectedItem?.enMora && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg space-y-1">
