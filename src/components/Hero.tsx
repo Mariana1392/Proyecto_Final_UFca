@@ -941,9 +941,6 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                 <p className="text-2xl lg:text-3xl font-light text-white/90 leading-relaxed">
                   Administra tus <span className="font-bold text-[#f0c040]">ahorros y crédito</span><br/>con la confianza de una familia.
                 </p>
-                <p className="text-base text-emerald-100/75 leading-relaxed">
-                  Plataforma moderna para gestionar microinversiones, préstamos, ahorro permanente y voluntario de manera segura y transparente.
-                </p>
               </div>
 
               {/* Decoración — línea dorada con destellos */}
