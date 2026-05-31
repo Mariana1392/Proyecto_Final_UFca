@@ -98,7 +98,7 @@ export default function AhorroDialogAporte({
             {montoError && (
               <p className="text-xs flex items-center gap-1 text-amber-600">
                 <AlertTriangle className="size-3 shrink-0" />
-                El valor ingresado es menor al monto estipulado para este asociado.
+                El valor ingresado es menor al monto estipulado.
               </p>
             )}
           </div>
