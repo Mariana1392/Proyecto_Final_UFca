@@ -844,11 +844,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                   </div>
                   <div className="flex items-center gap-2 text-emerald-700 text-sm">
                     <CheckCircle className="size-4" />
-                    <span>Créditos con bajas tasas</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-emerald-700 text-sm">
-                    <CheckCircle className="size-4" />
-                    <span>Eventos exclusivos</span>
+                    <span>Créditos</span>
                   </div>
                 </div>
               </div>
