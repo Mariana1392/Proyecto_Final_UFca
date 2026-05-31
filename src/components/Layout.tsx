@@ -542,9 +542,6 @@ export default function Layout({
                         <p className="text-[10px] text-[#f0c040] font-bold tracking-[0.25em] uppercase mt-1">Unión Familiar de Crédito y Ahorro</p>
                       </div>
                     </div>
-                    <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
-                      Sociedad familiar dedicada a gestionar microinversiones, préstamos y ahorros con transparencia y confianza.
-                    </p>
                     {/* Redes */}
                     <div className="flex gap-2 pt-1">
                       {[
