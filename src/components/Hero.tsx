@@ -168,6 +168,49 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
   // Errores inline por campo — se muestran al perder el foco o al intentar enviar
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  // ── Verificación de existencia en tiempo real (cédula y email) ─────────────
+  type ExistenciaInfo = { tipo: 'asociado' | 'en_proceso' | 'rechazada'; mensaje: string; bloquea: boolean } | null;
+  const [existenciaCedula,  setExistenciaCedula]  = useState<ExistenciaInfo>(null);
+  const [existenciaEmail,   setExistenciaEmail]   = useState<ExistenciaInfo>(null);
+  const [checkingCedula,    setCheckingCedula]    = useState(false);
+  const [checkingEmail,     setCheckingEmail]     = useState(false);
+  const debCedula = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debEmail  = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const verificarExistencia = async (tipo: 'cedula' | 'email', valor: string) => {
+    const setInfo  = tipo === 'cedula' ? setExistenciaCedula : setExistenciaEmail;
+    const setCheck = tipo === 'cedula' ? setCheckingCedula   : setCheckingEmail;
+    if (!valor.trim()) { setInfo(null); return; }
+    setCheck(true);
+    try {
+      // 1. ¿Ya es asociado?
+      const { data: usr } = await supabase
+        .from('usuarios')
+        .select('id, roles(nombre)')
+        .eq(tipo, valor.trim())
+        .maybeSingle();
+      if ((usr as any)?.roles?.nombre === 'asociado') {
+        setInfo({ tipo: 'asociado', mensaje: 'Ya eres asociado UFCA — inicia sesión', bloquea: true });
+        return;
+      }
+      // 2. ¿Tiene solicitud previa?
+      const campo = tipo === 'cedula' ? 'cedula' : 'email';
+      const { data: sol } = await supabase
+        .from('solicitudes_asociados')
+        .select('id, estado')
+        .eq(campo, valor.trim())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!sol) { setInfo(null); return; }
+      if (sol.estado === 'rechazada') {
+        setInfo({ tipo: 'rechazada', mensaje: 'Tu solicitud fue rechazada — puedes reenviarla', bloquea: false });
+      } else {
+        setInfo({ tipo: 'en_proceso', mensaje: 'Ya tienes una solicitud en proceso', bloquea: true });
+      }
+    } catch { setInfo(null); } finally { setCheck(false); }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -240,6 +283,16 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
     if (hayErrores) {
       setFormErrors(prev => ({ ...prev, ...nuevosErrores }));
       toast.error('Revisa los campos marcados en rojo antes de continuar.');
+      return;
+    }
+
+    // ── Bloquear si cédula o email ya están registrados como asociado o en proceso ──
+    if (existenciaCedula?.bloquea) {
+      toast.error(existenciaCedula.mensaje);
+      return;
+    }
+    if (existenciaEmail?.bloquea) {
+      toast.error(existenciaEmail.mensaje);
       return;
     }
 
@@ -616,6 +669,10 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                         const soloDigitos = e.target.value.replace(/\D/g, '').slice(0, 12);
                         setFormData(prev => ({ ...prev, cedula: soloDigitos }));
                         if (formErrors.cedula) setFormErrors(prev => ({ ...prev, cedula: '' }));
+                        setExistenciaCedula(null);
+                        if (debCedula.current) clearTimeout(debCedula.current);
+                        if (soloDigitos.length >= 5)
+                          debCedula.current = setTimeout(() => verificarExistencia('cedula', soloDigitos), 800);
                       }}
                       onBlur={e => validarCampo('cedula', e.target.value)}
                       placeholder="123456789"
@@ -627,6 +684,18 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                     {formErrors.cedula && (
                       <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
                         <AlertCircle className="size-3 shrink-0" />{formErrors.cedula}
+                      </p>
+                    )}
+                    {checkingCedula && (
+                      <p className="text-xs text-slate-400 mt-1">Verificando...</p>
+                    )}
+                    {!checkingCedula && existenciaCedula && (
+                      <p className={`text-xs mt-1 flex items-center gap-1 font-medium ${
+                        existenciaCedula.tipo === 'rechazada' ? 'text-blue-600'
+                        : 'text-red-600'
+                      }`}>
+                        <AlertCircle className="size-3 shrink-0" />
+                        {existenciaCedula.mensaje}
                       </p>
                     )}
                   </div>
@@ -662,7 +731,14 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       name="email"
                       type="email"
                       value={formData.email}
-                      onChange={handleInputChange}
+                      onChange={e => {
+                        handleInputChange(e);
+                        setExistenciaEmail(null);
+                        if (debEmail.current) clearTimeout(debEmail.current);
+                        const val = e.target.value;
+                        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val))
+                          debEmail.current = setTimeout(() => verificarExistencia('email', val), 800);
+                      }}
                       onBlur={e => validarCampo('email', e.target.value)}
                       placeholder="correo@ejemplo.com"
                       required
@@ -671,6 +747,18 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                     {formErrors.email && (
                       <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
                         <AlertCircle className="size-3 shrink-0" />{formErrors.email}
+                      </p>
+                    )}
+                    {checkingEmail && (
+                      <p className="text-xs text-slate-400 mt-1">Verificando...</p>
+                    )}
+                    {!checkingEmail && existenciaEmail && (
+                      <p className={`text-xs mt-1 flex items-center gap-1 font-medium ${
+                        existenciaEmail.tipo === 'rechazada' ? 'text-blue-600'
+                        : 'text-red-600'
+                      }`}>
+                        <AlertCircle className="size-3 shrink-0" />
+                        {existenciaEmail.mensaje}
                       </p>
                     )}
                   </div>
