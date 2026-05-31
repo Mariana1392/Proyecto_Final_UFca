@@ -251,10 +251,11 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
   const hayFiltros = !!(searchTerm || filterEstado || filterFechaInicio || filterFechaFin);
 
   const autocompleteSuggestions = asociadosDisponibles
-    .filter(a => a.estado && (
+    .filter(a =>
+      !autocompleteSearch ||
       a.nombre.toLowerCase().includes(autocompleteSearch.toLowerCase()) ||
-      a.cedula.includes(autocompleteSearch)
-    ))
+      (a.cedula && a.cedula.includes(autocompleteSearch))
+    )
     .slice(0, 8);
 
   // Resumen para el tab de transacciones
