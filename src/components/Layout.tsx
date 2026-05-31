@@ -566,7 +566,7 @@ export default function Layout({
                   <div className="md:col-span-2">
                     <p className="text-[#f0c040] font-bold text-xs tracking-widest uppercase mb-5">Servicios</p>
                     <ul className="space-y-3">
-                      {['Ahorros Permanentes','Ahorros Voluntarios','Créditos','Eventos','Compras y Ventas'].map((item) => (
+                      {['Ahorros Permanentes','Ahorros Voluntarios','Créditos','Eventos'].map((item) => (
                         <li key={item}>
                           <span className="text-slate-400 text-sm hover:text-white cursor-pointer transition-colors flex items-center gap-2 group">
                             <span className="w-1 h-1 rounded-full bg-[#0f8c62] group-hover:bg-[#f0c040] transition-colors shrink-0" />
