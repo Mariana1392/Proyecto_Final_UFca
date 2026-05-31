@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
+import { supabaseAdmin } from '../lib/supabaseAdmin';
+
+const db = supabaseAdmin ?? supabase; // bypasea RLS para verificaciones
 import { CheckCircle, Sparkles, Target, Trophy, UserPlus, Users, X, Shield, UserCircle2, Award, Calendar, MapPin, Clock, PiggyBank, CreditCard, TrendingUp, Upload, FileText, Briefcase, Trash2, AlertCircle, Mail } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import { Label } from './ui/label';
@@ -183,8 +186,8 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
     if (!valor.trim()) { setInfo(null); return; }
     setCheck(true);
     try {
-      // 1. ¿Ya es asociado?
-      const { data: usr } = await supabase
+      // 1. ¿Ya es asociado? (usa db con service role para bypassar RLS)
+      const { data: usr } = await db
         .from('usuarios')
         .select('id, roles(nombre)')
         .eq(tipo, valor.trim())
@@ -195,7 +198,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
       }
       // 2. ¿Tiene solicitud previa?
       const campo = tipo === 'cedula' ? 'cedula' : 'email';
-      const { data: sol } = await supabase
+      const { data: sol } = await db
         .from('solicitudes_asociados')
         .select('id, estado')
         .eq(campo, valor.trim())
@@ -286,13 +289,24 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
       return;
     }
 
-    // ── Bloquear si cédula o email ya están registrados como asociado o en proceso ──
-    if (existenciaCedula?.bloquea) {
-      toast.error(existenciaCedula.mensaje);
+    // ── Verificación definitiva en BD antes de enviar (no depende del estado) ──
+    const [{ data: usrCed }, { data: usrEmail }, { data: solCed }, { data: solEmail }] =
+      await Promise.all([
+        db.from('usuarios').select('id, roles(nombre)').eq('cedula', formData.cedula.trim()).maybeSingle(),
+        db.from('usuarios').select('id, roles(nombre)').eq('email',  formData.email.trim()).maybeSingle(),
+        db.from('solicitudes_asociados').select('id, estado').eq('cedula', formData.cedula.trim())
+          .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        db.from('solicitudes_asociados').select('id, estado').eq('email', formData.email.trim())
+          .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      ]);
+
+    if ((usrCed as any)?.roles?.nombre === 'asociado' || (usrEmail as any)?.roles?.nombre === 'asociado') {
+      toast.error('Ya eres asociado UFCA — inicia sesión con tu cuenta.');
       return;
     }
-    if (existenciaEmail?.bloquea) {
-      toast.error(existenciaEmail.mensaje);
+    const estadoSol = solCed?.estado ?? solEmail?.estado;
+    if (estadoSol && estadoSol !== 'rechazada') {
+      toast.error('Ya tienes una solicitud en proceso. No puedes enviar otra.');
       return;
     }
 
