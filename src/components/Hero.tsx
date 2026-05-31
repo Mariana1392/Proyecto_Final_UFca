@@ -1109,7 +1109,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                 <div className="divide-y divide-slate-100">
                   {[
                     { icon: <CreditCard className="size-4 text-blue-600"/>, text: 'Préstamos con tasas preferenciales', tag: 'Crédito' },
-                    { icon: <PiggyBank className="size-4 text-purple-600"/>, text: 'Ahorro permanente para metas a mediano y corto plazo', tag: 'Ahorro' },
+                    { icon: <PiggyBank className="size-4 text-purple-600"/>, text: 'Ahorro permanente para metas a corto plazo', tag: 'Ahorro' },
                     { icon: <Award className="size-4 text-amber-600"/>, text: 'Ahorro voluntario con flexibilidad total', tag: 'Ahorro' },
                   ].map((s) => (
                     <div key={s.text} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
