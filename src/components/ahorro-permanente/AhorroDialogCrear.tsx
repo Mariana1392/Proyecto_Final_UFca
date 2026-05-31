@@ -98,14 +98,6 @@ export default function AhorroDialogCrear({
               onChange={handleCuotaMensualChange}
               onBlur={handleCuotaMensualBlur}
             />
-            <p className="text-xs text-slate-500">
-              Monto mensual obligatorio — mínimo{' '}
-              <span className="font-semibold text-emerald-700">
-                {montoObligatorio.toLocaleString('es-CO', {
-                  style: 'currency', currency: 'COP', minimumFractionDigits: 0,
-                })}
-              </span>
-            </p>
           </div>
 
           {/* Saldo inicial — solo al crear */}
