@@ -1252,18 +1252,18 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
               <div className="flex flex-col items-center gap-4 shrink-0">
                 {/* Badges info */}
                 <div className="flex gap-3">
-                  <div className="flex items-center gap-3 px-5 py-3 bg-white/50 border border-white/80 rounded-2xl backdrop-blur-sm">
-                    <Shield className="size-5 text-[#f0c040] shrink-0" />
+                  <div className="flex items-center gap-3 px-5 py-3 bg-white border border-white rounded-2xl">
+                    <Shield className="size-5 text-[#032a1e] shrink-0" />
                     <div>
-                      <p className="text-white font-bold text-sm leading-none">100% Seguro</p>
-                      <p className="text-white text-xs mt-0.5">Datos protegidos</p>
+                      <p className="text-[#032a1e] font-bold text-sm leading-none">100% Seguro</p>
+                      <p className="text-[#065f46] text-xs mt-0.5">Datos protegidos</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 px-5 py-3 bg-white/50 border border-white/80 rounded-2xl backdrop-blur-sm">
-                    <Award className="size-5 text-[#f0c040] shrink-0" />
+                  <div className="flex items-center gap-3 px-5 py-3 bg-white border border-white rounded-2xl">
+                    <Award className="size-5 text-[#032a1e] shrink-0" />
                     <div>
-                      <p className="text-white font-bold text-sm leading-none">Confiable</p>
-                      <p className="text-white text-xs mt-0.5">2 años de trayectoria</p>
+                      <p className="text-[#032a1e] font-bold text-sm leading-none">Confiable</p>
+                      <p className="text-[#065f46] text-xs mt-0.5">2 años de trayectoria</p>
                     </div>
                   </div>
                 </div>
@@ -1277,7 +1277,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                 </button>
                 <button
                   onClick={() => onNavigateToLogin()}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white/50 hover:bg-white/65 border-2 border-white text-white text-sm font-bold transition-all duration-200"
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white hover:bg-slate-100 border-2 border-white text-[#032a1e] text-sm font-bold transition-all duration-200"
                 >
                   <UserCircle2 className="size-4" />
                   Ya soy asociado — Ingresar
