@@ -742,11 +742,6 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       <p className="text-sm font-semibold text-emerald-900">
                         Ahorro Permanente Mensual
                       </p>
-                      <p className="text-xs text-emerald-700 mt-0.5">
-                        Al ser aceptado, este será tu aporte mensual obligatorio al fondo.
-                        El comité evaluador revisará tu propuesta según tu capacidad de pago.
-                        El mínimo del sistema es <strong>$100.000</strong>.
-                      </p>
                     </div>
                   </div>
                   <div>
