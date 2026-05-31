@@ -262,7 +262,7 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
             {[
               { icon: <Shield className="size-4 text-[#f0c040]"/>, text: 'Plataforma 100% segura' },
               { icon: <CheckCircle2 className="size-4 text-[#f0c040]"/>, text: 'Ahorros permanentes y voluntarios' },
-              { icon: <CheckCircle2 className="size-4 text-[#f0c040]"/>, text: 'Créditos con tasas preferenciales' },
+              { icon: <CheckCircle2 className="size-4 text-[#f0c040]"/>, text: 'Créditos' },
             ].map((b) => (
               <div key={b.text} className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/8 border border-white/10 backdrop-blur-sm">
                 {b.icon}
