@@ -766,12 +766,6 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                         className="pl-7 bg-white border-emerald-300 focus:border-emerald-500"
                       />
                     </div>
-                    {formData.cuotaAhorroMensual && Number(formData.cuotaAhorroMensual) < 100000 && (
-                      <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                        <AlertCircle className="size-3 shrink-0" />
-                        El monto propuesto es menor al mínimo ($100.000). El comité evaluará tu caso.
-                      </p>
-                    )}
                     {formData.cuotaAhorroMensual && Number(formData.cuotaAhorroMensual) >= 100000 && (
                       <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
                         <CheckCircle className="size-3 shrink-0" />
