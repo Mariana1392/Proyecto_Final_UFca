@@ -95,10 +95,12 @@ export default function AhorroDialogAporte({
                 className={`pl-8 ${montoError ? 'border-red-400 focus-visible:ring-red-400/20' : ''}`}
               />
             </div>
-            <p className={`text-xs flex items-center gap-1 ${montoError ? 'text-red-500' : 'text-slate-400'}`}>
-              {montoError && <AlertTriangle className="size-3 shrink-0" />}
-              Mínimo $100.000 COP
-            </p>
+            {montoError && (
+              <p className="text-xs flex items-center gap-1 text-amber-600">
+                <AlertTriangle className="size-3 shrink-0" />
+                El valor ingresado es menor al monto estipulado para este asociado.
+              </p>
+            )}
           </div>
 
           {/* Fecha — solo hoy */}

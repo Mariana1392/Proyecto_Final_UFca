@@ -74,7 +74,7 @@ export function useAhorroPermanenteAportes({
   const handleRegistrarAporte = () => {
     const monto = parseCurrencyInput(formAporteMonto);
     if (!monto || monto <= 0)      { toast.error('El monto debe ser mayor a cero'); return; }
-    if (monto < 100_000)           { toast.error('El monto mínimo es $100.000 COP'); return; }
+    if (monto < 100_000)           { toast.error('El valor ingresado es menor al monto estipulado para este asociado'); return; }
     if (!formAporteFecha)          { toast.error('Selecciona la fecha del aporte'); return; }
     if (!selectedItem)             return;
     if (monto < montoObligatorio)  { setIsConfirmAporteBajoOpen(true); return; }
