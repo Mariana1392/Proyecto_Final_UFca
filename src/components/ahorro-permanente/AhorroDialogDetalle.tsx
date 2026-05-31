@@ -1,7 +1,7 @@
 // ── AhorroDialogDetalle.tsx ───────────────────────────────────────────────────
 // Diálogo de detalle del ahorro permanente: información + historial de depósitos.
 
-import { PiggyBank, History, DollarSign } from 'lucide-react';
+import { PiggyBank, History, DollarSign, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Label } from '../ui/label';
@@ -83,6 +83,18 @@ export default function AhorroDialogDetalle({
                       {formatCurrency(saldoRealDetalle)}
                     </p>
                   </div>
+                  {selectedItem.enMora && (
+                    <div className="col-span-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <AlertTriangle className="size-4 text-red-600 shrink-0" />
+                        <Label className="text-red-700 text-xs font-semibold">Mora acumulada</Label>
+                      </div>
+                      <p className="text-red-700 font-bold text-base">{formatCurrency(selectedItem.montoMora)}</p>
+                      <p className="text-red-600 text-xs mt-0.5">
+                        {selectedItem.diasMora} día{selectedItem.diasMora !== 1 ? 's' : ''} de mora desde el día 16 · $2.000 COP/día
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <Label className="text-slate-500 text-xs">Cuota mensual</Label>
                     <p className="text-slate-900">{formatCurrency(selectedItem.cuotaMensual)}</p>

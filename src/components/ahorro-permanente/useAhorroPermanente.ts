@@ -134,22 +134,50 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
         }
       }
 
-      const mapeados = (data || []).map((a: any) => ({
-        id:              a.id,
-        asociado:        a.usuarios?.nombre  ?? 'Sin nombre',
-        cedula:          a.usuarios?.cedula  ?? '',
-        asociado_id:     a.asociado_id,
-        montoAhorrado:   Number(a.monto_ahorrado) || 0,
-        cuotaMensual:    a.cuota_mensual,
-        fechaInicio:     a.created_at
-          ? (() => { const d = new Date(a.created_at); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })()
-          : '',
-        estado:          a.estado === 'activo',
-        anulado:         a.anulado,
-        motivoAnulacion: a.motivo_anulacion || '',
-        observaciones:   a.observaciones || '',
-        createdAt:       a.created_at,
-      }));
+      // ── Cálculo de mora ────────────────────────────────────────────────────
+      // Regla: si hoy >= día 17 y el asociado no tiene aporte en el mes actual
+      // → en mora. Mora = $2.000 COP × (diaHoy - 16) días.
+      const MORA_DIARIA = 2_000;
+      const hoy         = new Date();
+      const diaHoy      = hoy.getDate();
+      const diasMoraGlobal = diaHoy >= 17 ? diaHoy - 16 : 0;
+
+      let ahorrosConPagoEsteMes: Set<string> = new Set();
+      if (diasMoraGlobal > 0) {
+        const primerDiaMes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
+        const { data: pagos } = await (supabaseAdmin ?? supabase)
+          .from('transacciones')
+          .select('ahorro_id')
+          .eq('tipo', 'aporte_permanente')
+          .eq('anulado', false)
+          .gte('fecha_pago', primerDiaMes);
+        (pagos || []).forEach((p: any) => ahorrosConPagoEsteMes.add(p.ahorro_id));
+      }
+
+      const mapeados = (data || []).map((a: any) => {
+        const activo  = a.estado === 'activo' && !a.anulado;
+        const enMora  = activo && diasMoraGlobal > 0 && !ahorrosConPagoEsteMes.has(a.id);
+        return {
+          id:              a.id,
+          asociado:        a.usuarios?.nombre  ?? 'Sin nombre',
+          cedula:          a.usuarios?.cedula  ?? '',
+          asociado_id:     a.asociado_id,
+          montoAhorrado:   Number(a.monto_ahorrado) || 0,
+          cuotaMensual:    a.cuota_mensual,
+          fechaInicio:     a.created_at
+            ? (() => { const d = new Date(a.created_at); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })()
+            : '',
+          estado:          activo,
+          anulado:         a.anulado,
+          motivoAnulacion: a.motivo_anulacion || '',
+          observaciones:   a.observaciones || '',
+          createdAt:       a.created_at,
+          // Mora
+          enMora,
+          diasMora:  enMora ? diasMoraGlobal : 0,
+          montoMora: enMora ? diasMoraGlobal * MORA_DIARIA : 0,
+        };
+      });
 
       setAhorros(mapeados);
 

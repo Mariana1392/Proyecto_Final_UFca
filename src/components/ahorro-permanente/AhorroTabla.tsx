@@ -6,7 +6,7 @@
 
 import { Fragment } from 'react';
 import {
-  Plus, Edit, Ban, PiggyBank, FileText, Loader2, ChevronDown, ChevronLeft, ChevronRight,
+  Plus, Edit, Ban, PiggyBank, FileText, Loader2, ChevronDown, ChevronLeft, ChevronRight, AlertTriangle,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -108,22 +108,34 @@ export default function AhorroTabla({
                     {/* Nombre */}
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <div className={`p-2 rounded-lg ${
+                        <div className={`p-2 rounded-lg shrink-0 ${
                           isAnulados
                             ? 'bg-slate-100'
-                            : ahorro.estado
-                              ? 'bg-emerald-100'
-                              : 'bg-yellow-50'
+                            : ahorro.enMora
+                              ? 'bg-red-100'
+                              : ahorro.estado
+                                ? 'bg-emerald-100'
+                                : 'bg-yellow-50'
                         }`}>
                           <PiggyBank className={`size-4 ${
                             isAnulados
                               ? 'text-slate-600'
-                              : ahorro.estado
-                                ? 'text-emerald-600'
-                                : 'text-yellow-500'
+                              : ahorro.enMora
+                                ? 'text-red-600'
+                                : ahorro.estado
+                                  ? 'text-emerald-600'
+                                  : 'text-yellow-500'
                           }`} />
                         </div>
-                        <p className="text-slate-900">{ahorro.asociado}</p>
+                        <div>
+                          <p className="text-slate-900">{ahorro.asociado}</p>
+                          {ahorro.enMora && (
+                            <p className="flex items-center gap-1 text-xs text-red-600 font-medium mt-0.5">
+                              <AlertTriangle className="size-3 shrink-0" />
+                              En mora · {ahorro.diasMora} día{ahorro.diasMora !== 1 ? 's' : ''} · {formatCurrency(ahorro.montoMora)}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
 

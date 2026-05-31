@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from '../ui/dialog';
-import { AlertTriangle, Paperclip, XCircle } from 'lucide-react';
+import { AlertTriangle, Paperclip, XCircle, Clock } from 'lucide-react';
 import { formatCurrency, parseCurrencyInput } from '../../lib/formatters';
 
 const fmtMonto = (v: string) => {
@@ -77,6 +77,21 @@ export default function AhorroDialogAporte({
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
+
+          {/* Alerta de mora */}
+          {selectedItem?.enMora && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg space-y-1">
+              <div className="flex items-center gap-2">
+                <Clock className="size-4 text-red-600 shrink-0" />
+                <p className="text-sm font-semibold text-red-700">Este asociado tiene mora pendiente</p>
+              </div>
+              <p className="text-xs text-red-600">
+                {selectedItem.diasMora} día{selectedItem.diasMora !== 1 ? 's' : ''} desde el día 16 ·{' '}
+                <span className="font-bold">{formatCurrency(selectedItem.montoMora)}</span> de mora
+                ($2.000 COP/día)
+              </p>
+            </div>
+          )}
 
           {/* Monto */}
           <div className="space-y-1.5">
