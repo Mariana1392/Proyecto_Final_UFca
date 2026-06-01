@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Diagnóstico UFCA — Informe Técnico</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;font-size:11pt;color:#1a1a2e;background:#f8f9fa;line-height:1.55}
+  .page{max-width:900px;margin:0 auto;background:#fff;padding:48px 56px;box-shadow:0 2px 24px #0001}
+
+  /* PORTADA */
+  .cover{text-align:center;padding:80px 0 60px;border-bottom:3px solid #064e3b;margin-bottom:48px}
+  .cover .logo-box{width:80px;height:80px;background:#064e3b;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:24px}
+  .cover .logo-box span{font-size:32px}
+  .cover h1{font-size:26pt;color:#064e3b;font-weight:800;margin-bottom:8px}
+  .cover h2{font-size:14pt;color:#374151;font-weight:400;margin-bottom:32px}
+  .cover .meta{display:flex;justify-content:center;gap:40px;font-size:10pt;color:#6b7280}
+  .cover .meta div strong{display:block;color:#1a1a2e;margin-bottom:2px}
+
+  /* RESUMEN */
+  .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:32px 0}
+  .stat-card{border-radius:12px;padding:20px 16px;text-align:center;border:2px solid}
+  .stat-card.crit{background:#fef2f2;border-color:#dc2626;color:#991b1b}
+  .stat-card.alta{background:#fff7ed;border-color:#ea580c;color:#9a3412}
+  .stat-card.media{background:#fffbeb;border-color:#d97706;color:#92400e}
+  .stat-card.baja{background:#f0fdf4;border-color:#16a34a;color:#14532d}
+  .stat-card .num{font-size:28pt;font-weight:800;line-height:1}
+  .stat-card .lbl{font-size:9pt;font-weight:600;margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+
+  /* SECCIONES */
+  h2.section{font-size:15pt;color:#064e3b;font-weight:700;margin:40px 0 16px;padding-bottom:8px;border-bottom:2px solid #d1fae5;display:flex;align-items:center;gap:10px}
+  h2.section .icon{font-size:18pt}
+
+  /* HALLAZGOS */
+  .finding{margin-bottom:20px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}
+  .finding-header{display:flex;align-items:center;gap:12px;padding:12px 16px;background:#f9fafb;border-bottom:1px solid #e5e7eb}
+  .badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:8.5pt;font-weight:700;letter-spacing:.3px;white-space:nowrap}
+  .badge.CRITICA{background:#dc2626;color:#fff}
+  .badge.ALTA{background:#ea580c;color:#fff}
+  .badge.MEDIA{background:#d97706;color:#fff}
+  .badge.BAJA{background:#16a34a;color:#fff}
+  .badge.cat{background:#e5e7eb;color:#374151;font-weight:600}
+  .finding-id{font-size:9pt;font-weight:700;color:#6b7280;font-family:monospace}
+  .finding-title{font-weight:700;font-size:11pt;color:#111827;flex:1}
+  .finding-body{padding:14px 16px;font-size:10.5pt}
+  .finding-body .file{font-family:monospace;font-size:9.5pt;color:#4f46e5;background:#f0f0ff;padding:2px 7px;border-radius:4px;display:inline-block;margin-bottom:8px}
+  .finding-body p{color:#374151;margin-bottom:8px}
+  .finding-body .rec{background:#f0fdf4;border-left:3px solid #16a34a;padding:10px 14px;border-radius:0 6px 6px 0;color:#14532d;font-size:10pt}
+  .finding-body .rec strong{display:block;margin-bottom:3px;color:#064e3b}
+
+  /* PRIORIDADES */
+  .priority-table{width:100%;border-collapse:collapse;margin-top:16px;font-size:10pt}
+  .priority-table th{background:#064e3b;color:#fff;padding:10px 14px;text-align:left;font-weight:600}
+  .priority-table td{padding:10px 14px;border-bottom:1px solid #e5e7eb;vertical-align:top}
+  .priority-table tr:nth-child(even) td{background:#f9fafb}
+  .priority-table .code{font-family:monospace;font-size:9pt;color:#4f46e5;font-weight:700}
+
+  /* TOC */
+  .toc{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:24px 28px;margin-bottom:40px}
+  .toc h3{color:#064e3b;font-size:12pt;margin-bottom:16px;font-weight:700}
+  .toc-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .toc-item{font-size:10pt;color:#374151;padding:3px 0}
+  .toc-item span{color:#064e3b;font-weight:700;margin-right:6px}
+
+  /* FOOTER */
+  .footer{margin-top:60px;padding-top:20px;border-top:1px solid #e5e7eb;font-size:9pt;color:#9ca3af;text-align:center}
+
+  @media print{
+    body{background:#fff}
+    .page{box-shadow:none;padding:32px 40px}
+    .finding{break-inside:avoid}
+    h2.section{break-before:auto}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- PORTADA -->
+<div class="cover">
+  <div class="logo-box"><span>🏦</span></div>
+  <h1>UFCA — Diagnóstico Técnico Integral</h1>
+  <h2>Backend · Frontend · Base de Datos · Seguridad</h2>
+  <div class="meta">
+    <div><strong>Fecha</strong>18 mayo 2026</div>
+    <div><strong>Versión</strong>1.0</div>
+    <div><strong>Stack</strong>React 18 · TypeScript · Supabase · Vite</div>
+    <div><strong>Total hallazgos</strong>39</div>
+  </div>
+</div>
+
+<!-- RESUMEN EJECUTIVO -->
+<h2 class="section"><span class="icon">📊</span>Resumen Ejecutivo</h2>
+<p style="color:#374151;margin-bottom:16px">Se analizaron 25+ archivos fuente, el esquema de base de datos, políticas RLS, capa de API, lógica de negocio y experiencia de usuario. A continuación el resumen por severidad:</p>
+
+<div class="summary-grid">
+  <div class="stat-card crit"><div class="num">3</div><div class="lbl">Críticas</div></div>
+  <div class="stat-card alta"><div class="num">20</div><div class="lbl">Altas</div></div>
+  <div class="stat-card media"><div class="num">12</div><div class="lbl">Medias</div></div>
+  <div class="stat-card baja"><div class="num">4</div><div class="lbl">Bajas</div></div>
+</div>
+
+<!-- TABLA DE CONTENIDOS -->
+<div class="toc">
+  <h3>Contenido del informe</h3>
+  <div class="toc-grid">
+    <div class="toc-item"><span>1.</span>Seguridad (S-01 → S-11)</div>
+    <div class="toc-item"><span>2.</span>Arquitectura (A-01 → A-08)</div>
+    <div class="toc-item"><span>3.</span>Base de Datos (B-01 → B-08)</div>
+    <div class="toc-item"><span>4.</span>Rendimiento (R-01 → R-06)</div>
+    <div class="toc-item"><span>5.</span>Calidad de Código (Q-01 → Q-08)</div>
+    <div class="toc-item"><span>6.</span>Experiencia de Usuario (U-01 → U-07)</div>
+    <div class="toc-item"><span>7.</span>Hallazgos Adicionales (X-01 → X-04)</div>
+    <div class="toc-item"><span>8.</span>Plan de Acción Priorizado</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2 class="section"><span class="icon">🔒</span>1. Seguridad</h2>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">S-01</span>
+    <span class="badge CRITICA">CRÍTICA</span>
+    <span class="badge cat">SEGURIDAD</span>
+    <span class="finding-title">Archivo .env incluido en el proyecto / backups</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">.env</div>
+    <p>El archivo <code>.env</code> con la URL y la anon key de Supabase existe dentro del directorio del proyecto. Al compartir el proyecto en ZIP (como el backup actual) o subir a GitHub sin <code>.gitignore</code> correcto, las credenciales quedan expuestas públicamente.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Agregar <code>.env</code> al <code>.gitignore</code>. Nunca incluirlo en backups compartidos. Documentar las variables en un archivo <code>.env.example</code> con valores de ejemplo, no reales.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">S-02</span>
+    <span class="badge CRITICA">CRÍTICA</span>
+    <span class="badge cat">SEGURIDAD</span>
+    <span class="finding-title">Inserción de usuario + rol desde el cliente en el registro</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/Login.tsx — líneas 182–210</div>
+    <p>El registro llama a <code>supabase.auth.signUp()</code> y luego inserta manualmente en la tabla <code>usuarios</code> incluyendo el <code>rol_id</code>. Un atacante que intercepte la petición puede modificar el payload y asignarse el rol de administrador si las políticas RLS no lo impiden completamente.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>El INSERT en <code>usuarios</code> debe realizarse desde un trigger PostgreSQL (<code>AFTER INSERT ON auth.users</code>) con <code>SECURITY DEFINER</code>. El cliente nunca debe controlar el <code>rol_id</code> de un usuario nuevo.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">S-03</span>
+    <span class="badge CRITICA">CRÍTICA</span>
+    <span class="badge cat">SEGURIDAD</span>
+    <span class="finding-title">Cliente puede seleccionar su propio rol durante el registro</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/Login.tsx — líneas 199–210</div>
+    <p>El código busca el rol "usuario" en BD y lo inserta como <code>rol_id</code>. Si el usuario manipula la petición de red (con DevTools o Burp Suite) antes de que se ejecute el INSERT, puede reemplazar el UUID del rol "usuario" por el UUID del rol "admin".</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Usar un trigger de BD que asigne automáticamente el rol "usuario" a todo registro nuevo. El rol solo debe cambiarse mediante funciones RPC con <code>SECURITY DEFINER</code> ejecutadas por el administrador.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">S-04</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">SEGURIDAD</span>
+    <span class="finding-title">loading: false hardcodeado — ventana de acceso sin autenticar</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/contexts/AuthContext.tsx — línea 165</div>
+    <p>El contexto inicia con <code>loading: false</code> sin esperar a que Supabase confirme si hay sesión activa. Existe un frame temporal donde <code>isAuthenticated = false</code> y <code>loading = false</code> simultáneamente, haciendo que los guards de ruta fallen y muestren contenido público brevemente.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Inicializar <code>loading: true</code>. Cambiar a <code>false</code> solo después de que <code>supabase.auth.getSession()</code> resuelva. Mostrar un spinner global mientras se verifica la sesión.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">S-05</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">SEGURIDAD</span>
+    <span class="finding-title">catch {} vacío en funciones críticas de autenticación</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/contexts/AuthContext.tsx — líneas 84, 141</div>
+    <p>Los bloques <code>catch {}</code> en <code>cargarPerfil</code> y <code>recargarPerfil</code> absorben silenciosamente errores de BD, errores de red y tokens expirados. En <code>cargarPerfil</code> un fallo no llama a <code>setU(null)</code>, dejando al usuario en estado indeterminado.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Capturar y loguear el error con <code>console.error</code>. En <code>cargarPerfil</code>, llamar <code>setU(null)</code> ante cualquier error para garantizar estado limpio y seguro.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">S-06</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">SEGURIDAD</span>
+    <span class="finding-title">INSERT anónimo irrestricto en solicitudes_asociados (spam)</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">supabase_rls_policies.sql — líneas 291–293</div>
+    <p>La política RLS permite inserción con <code>WITH CHECK (true)</code> a cualquier visitante. Un atacante puede automatizar el envío masivo de solicitudes de afiliación, saturando la tabla y el flujo de trabajo del administrador.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Implementar rate limiting en una Supabase Edge Function. Como mínimo, verificar que <code>cedula</code>, <code>nombres</code> y <code>email</code> no sean vacíos mediante una función RPC con validación.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">S-07</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">SEGURIDAD</span>
+    <span class="finding-title">RLS no cubre tablas de ventas, compras, pedidos, eventos</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/lib/api.ts — líneas 376–776 | supabase_rls_policies.sql</div>
+    <p>El archivo de API hace operaciones sobre tablas como <code>ventas</code>, <code>compras</code>, <code>pedidos</code>, <code>eventos</code>, <code>productos</code>, <code>proveedores</code>, entre otras. No existen políticas RLS definidas para estas tablas. Si RLS está habilitado, todas las queries fallan. Si está deshabilitado, cualquier usuario autenticado tiene acceso total.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Auditar en Supabase Dashboard el estado de RLS de cada tabla. Definir políticas explícitas para todas las tablas que usa la aplicación o deshabilitar RLS donde sea justificado y documentado.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">S-08</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">SEGURIDAD</span>
+    <span class="finding-title">Fallback en pagosCreditoApi que bypasea RLS y atomicidad</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/lib/api.ts — líneas 333–369</div>
+    <p>La función intenta un RPC con <code>SECURITY DEFINER</code> y, si falla, ejecuta un INSERT directo en <code>pagos_credito</code> con una actualización separada del saldo. Esto crea dos problemas: (1) bypasea RLS y las validaciones del RPC, y (2) si el INSERT es exitoso pero el UPDATE del saldo falla, los datos quedan inconsistentes.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Eliminar el fallback completamente. Si el RPC falla, propagar el error al usuario. Las operaciones financieras deben ser atómicas en una única transacción de BD.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">S-09</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">SEGURIDAD</span>
+    <span class="finding-title">Lógica de negocio financiera ejecutada exclusivamente en el cliente</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/Creditos.tsx | src/services/businessRules.ts</div>
+    <p>El cálculo de cuotas, tablas de amortización y validaciones de reglas de negocio ocurren en el frontend. Un usuario malintencionado puede manipular los datos en la consola del navegador antes de enviarlos, enviando montos, saldos o tasas incorrectas directamente a Supabase.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Implementar RPCs PostgreSQL con <code>SECURITY DEFINER</code> para toda operación financiera crítica (registrar pago, calcular cuota, aplicar mora). El cliente solo envía los parámetros; el servidor valida y calcula.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">S-10</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">SEGURIDAD</span>
+    <span class="finding-title">Auditoría escrita desde el cliente — debe ser trigger de BD</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/services/businessRules.ts — líneas 447–453</div>
+    <p>Los registros de auditoría se insertan directamente desde el frontend. Esto significa que un administrador malintencionado puede omitir registrar sus acciones o falsificar entradas. La auditoría solo es confiable si ocurre server-side y es inmutable.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Crear triggers PostgreSQL (<code>AFTER INSERT/UPDATE/DELETE</code>) en las tablas críticas que escriban automáticamente en <code>auditoria</code>. La tabla de auditoría no debe permitir UPDATE ni DELETE.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">S-11</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">SEGURIDAD</span>
+    <span class="finding-title">Checkbox "Recordarme" en Login — promesa visual sin implementación</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/Login.tsx — líneas 449–451</div>
+    <p>El checkbox "Recordarme" no tiene lógica asociada. La sesión siempre usa <code>sessionStorage</code> (se pierde al cerrar la pestaña). El checkbox genera una expectativa de usuario que no se cumple.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Implementar persistencia real con <code>localStorage</code> cuando esté marcado, o eliminar el checkbox hasta que se implemente.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2 class="section"><span class="icon">🏗️</span>2. Arquitectura</h2>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">A-01</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">ARQUITECTURA</span>
+    <span class="finding-title">Navegación con useState en lugar de React Router</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/App.tsx — líneas 31–179</div>
+    <p>La aplicación usa un <code>useState&lt;View&gt;</code> para navegar entre las 20+ páginas. Consecuencias: el botón "Atrás" del navegador no funciona, no existen URLs directas (no se puede compartir un enlace a un módulo específico), y toda la app vive en <code>/</code>.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Migrar a React Router v6 con rutas protegidas (<code>&lt;PrivateRoute&gt;</code>). Cada módulo debe tener su propia URL (<code>/dashboard</code>, <code>/asociados</code>, <code>/creditos</code>).</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">A-02</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">ARQUITECTURA</span>
+    <span class="finding-title">userData: any como prop en 13+ componentes</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/Dashboard.tsx, Layout.tsx, Creditos.tsx, MiPerfil.tsx (y más)</div>
+    <p>El tipo <code>any</code> para <code>userData</code> elimina toda la protección de TypeScript. Ya se observan inconsistencias: <code>userData.nombre ?? userData.name</code> indica que el campo tiene dos nombres distintos dependiendo del contexto.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Reemplazar <code>userData?: any</code> con el tipo <code>AuthUser</code> ya definido en <code>AuthContext.tsx</code> en todos los componentes.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">A-03</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">ARQUITECTURA</span>
+    <span class="finding-title">Doble fuente de verdad: user y userData en AuthContext</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/contexts/AuthContext.tsx — líneas 155–161</div>
+    <p>El contexto expone <code>user</code> (tipo <code>AuthUser</code>) y <code>userData</code> (objeto con campos duplicados y renombrados: <code>name</code>/<code>nombre</code>, <code>role</code>/<code>rol</code>/<code>rol_nombre</code>). Dos fuentes de verdad para los mismos datos inevitablemente generan inconsistencias.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Eliminar <code>userData</code> del contexto y exponer solo <code>user</code> con el tipo <code>AuthUser</code>. Los componentes deben adaptarse para leer de <code>user</code>.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">A-04</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">ARQUITECTURA</span>
+    <span class="finding-title">Dead code: Dashboard-simple-backup.tsx y UserManagementContext.tsx</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/Dashboard-simple-backup.tsx | src/contexts/UserManagementContext.tsx</div>
+    <p>Archivos de respaldo y contextos no utilizados dentro del directorio <code>src/</code> productivo. Inflan el bundle y confunden a futuros desarrolladores.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Eliminar ambos archivos. Si se necesitan como referencia, guardarlos fuera del directorio <code>src/</code> o en una rama separada de git.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">A-05</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">ARQUITECTURA</span>
+    <span class="finding-title">api.ts incluye módulos no implementados (ventas, compras, pedidos, eventos)</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/lib/api.ts — líneas 375–776</div>
+    <p>El archivo exporta APIs para módulos (<code>ventas</code>, <code>compras</code>, <code>pedidos</code>, <code>eventos</code>, <code>productos</code>) que no tienen vistas en <code>App.tsx</code>. Es código muerto que infla el bundle e introduce consultas a tablas que pueden no existir o no tener RLS.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Separar <code>api.ts</code> por dominio (<code>api/creditos.ts</code>, <code>api/ahorros.ts</code>) y eliminar o mover a una rama los módulos no implementados.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">A-06</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">ARQUITECTURA</span>
+    <span class="finding-title">Sin React.StrictMode en main.tsx</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/main.tsx</div>
+    <p>La aplicación no usa <code>React.StrictMode</code>, lo que impide detectar en desarrollo efectos secundarios involuntarios, uso de APIs obsoletas y llamadas duplicadas a APIs.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Envolver <code>&lt;App /&gt;</code> con <code>&lt;React.StrictMode&gt;</code> en <code>main.tsx</code>.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">A-07</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">ARQUITECTURA</span>
+    <span class="finding-title">VIEW_PERMISO incompleto — vista mi-perfil sin guard de permiso</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/lib/permissions.ts — líneas 51–65</div>
+    <p>La vista <code>'mi-perfil'</code> está en el tipo <code>View</code> de <code>App.tsx</code> pero no está en el mapa <code>VIEW_PERMISO</code>. El guard de permisos no evalúa nada para esa ruta.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Agregar <code>'mi-perfil': [PERM.DASHBOARD, PERM.SOLICITUD_ASOCIACION]</code> al mapa <code>VIEW_PERMISO</code>.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">A-08</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">ARQUITECTURA</span>
+    <span class="finding-title">Vite config con aliases de versión específica frágiles</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">vite.config.ts — líneas 12–49</div>
+    <p>Los aliases mapean <code>'sonner@2.0.3': 'sonner'</code>, <code>'recharts@2.15.2': 'recharts'</code>, etc. Si las versiones de las dependencias cambian, los aliases dejan de funcionar silenciosamente en producción.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Identificar qué dependencia importa con versión pinneada, actualizarla, y eliminar los aliases de versión del config de Vite.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2 class="section"><span class="icon">🗄️</span>3. Base de Datos</h2>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">B-01</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">BD</span>
+    <span class="finding-title">Columna referido_por_id ausente en migración principal de asociados</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">supabase_migration_completa_ufca.sql — tabla asociados</div>
+    <p>El tipo TypeScript <code>Asociado</code> define <code>referido_por_id?: string</code>, el componente <code>Referidos.tsx</code> hace un self-join y <code>asociadosApi.getReferidos()</code> filtra por esta columna. Si la columna no existe en la BD, todas las operaciones de referidos fallarán con error de PostgREST en producción. Se requiere ejecutar <code>supabase_referidos.sql</code> que agrega la columna.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Ejecutar <code>supabase_referidos.sql</code> en Supabase SQL Editor. Verificar que la columna existe con: <code>SELECT column_name FROM information_schema.columns WHERE table_name='asociados' AND column_name='referido_por_id';</code></div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">B-02</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">BD</span>
+    <span class="finding-title">Falta de índices en columnas FK críticas</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">supabase_migration_completa_ufca.sql — sección de índices</div>
+    <p>Columnas sin índice detectadas: <code>creditos.asociado_id</code>, <code>creditos.estado</code> (filtrada en casi todas las queries del dashboard), <code>ahorros_permanentes.asociado_id</code>, <code>ahorros_voluntarios.asociado_id</code>, <code>usuarios.email</code> (usada en login), <code>usuarios.rol_id</code>, <code>pagos_credito.credito_id</code>.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Agregar <code>CREATE INDEX IF NOT EXISTS</code> para todas las columnas mencionadas. Los índices en FK mejoran dramáticamente el rendimiento de JOINs y filtros frecuentes.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">B-03</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">BD</span>
+    <span class="finding-title">liquidaciones.detalle como JSONB para datos financieros críticos</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">supabase_migration_completa_ufca.sql | src/lib/supabase.ts — líneas 162–168</div>
+    <p>La columna <code>detalle</code> de <code>liquidaciones</code> es <code>JSONB</code> y almacena campos como <code>estado</code>, montos y conceptos financieros. Usar JSONB para datos financieros críticos rompe la integridad referencial, impide validaciones <code>CHECK</code>, dificulta queries y hace imposibles los índices eficientes en esos campos.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Extraer los campos críticos (<code>estado</code>, <code>monto_total</code>, <code>tipo</code>) a columnas tipadas con <code>NOT NULL</code> y <code>CHECK</code> constraints. El JSONB puede conservarse solo para metadatos adicionales opcionales.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">B-04</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">BD</span>
+    <span class="finding-title">CHECK de monto mínimo hardcodeado en BD vs configurable en tabla configuracion</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">supabase_migration_completa_ufca.sql — tabla pagos_ahorro_voluntario</div>
+    <p>La restricción <code>CHECK (monto >= 50000)</code> está hardcodeada en el schema. Si el administrador cambia el monto mínimo desde la UI (tabla <code>configuracion</code>), la restricción de BD no se actualiza, causando errores de inserción que el usuario no puede resolver.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Eliminar el CHECK hardcodeado. La validación del monto mínimo debe realizarse en la función RPC que lea el valor de <code>configuracion</code> en tiempo de ejecución.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">B-05</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">BD</span>
+    <span class="finding-title">Query a tabla 'ahorros' inexistente en Dashboard stats</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/Dashboard.tsx — líneas 191–196</div>
+    <p>La función <code>cargarStatsAsociado</code> hace un join <code>asociados(...,ahorros(monto_ahorrado,tipo))</code>. La tabla <code>ahorros</code> no existe — el schema usa <code>ahorros_permanentes</code> y <code>ahorros_voluntarios</code> separadas. Esta query fallará con error de PostgREST en producción.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Corregir la query para usar las dos tablas correctas, igual que hace <code>DashboardAsociado.tsx</code>.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">B-06</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">BD</span>
+    <span class="finding-title">solicitudes_asociados sin restricción UNIQUE en cedula</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">supabase_migration_completa_ufca.sql — tabla solicitudes_asociados</div>
+    <p>A diferencia de <code>asociados.cedula</code> que tiene <code>UNIQUE</code>, la tabla de solicitudes no tiene restricción de unicidad. Un visitante puede enviar múltiples solicitudes con la misma cédula, saturando el flujo de trabajo del comité.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Agregar: <code>ALTER TABLE solicitudes_asociados ADD CONSTRAINT uq_solicitudes_cedula UNIQUE(cedula) WHERE estado = 'pendiente';</code></div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">B-07</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">BD</span>
+    <span class="finding-title">auditoria.detalle con tipo inconsistente (JSONB o string)</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/lib/supabase.ts — línea 211 | src/services/businessRules.ts</div>
+    <p>El tipo TypeScript declara <code>detalle: Record&lt;string,any&gt; | string</code>. En <code>businessRules.ts</code> se inserta como string plano. Esto provoca que algunos registros de auditoría sean JSONB y otros strings, dificultando queries y reportes.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Normalizar <code>detalle</code> siempre como JSONB con estructura fija: <code>{"accion", "actor_id", "descripcion", "datos_anteriores", "datos_nuevos"}</code>.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">B-08</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">BD</span>
+    <span class="finding-title">Eliminación física de registros financieros (créditos y pagos)</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/lib/api.ts — líneas 276–281</div>
+    <p><code>creditosApi.eliminar()</code> hace DELETE físico de créditos y sus pagos asociados. Los registros financieros nunca deben borrarse físicamente por razones de auditoría, compliance y trazabilidad.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Eliminar la función <code>eliminar()</code>. La anulación lógica (<code>anulado: true</code>) es suficiente. Agregar un constraint de BD que impida DELETE en tablas financieras.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2 class="section"><span class="icon">⚡</span>4. Rendimiento</h2>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">R-01</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">RENDIMIENTO</span>
+    <span class="finding-title">Sumas de ahorros calculadas en JavaScript sobre todas las filas</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/lib/api.ts — líneas 828–887 (dashboardApi.getStats)</div>
+    <p>Las queries de ahorros traen TODAS las filas con <code>monto_ahorrado</code> para sumarlas en JavaScript con <code>.reduce()</code>. Con cientos de asociados, esto descarga miles de filas innecesariamente desde Supabase.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Usar agregación en BD: <code>.select('monto_ahorrado.sum()')</code> o crear una función RPC que devuelva los totales calculados directamente en PostgreSQL.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">R-02</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">RENDIMIENTO</span>
+    <span class="finding-title">asociadosApi.getAll() sin paginación — descarga toda la tabla</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/lib/api.ts — líneas 55–62 | src/components/Asociados.tsx</div>
+    <p><code>getAll()</code> hace <code>.select('*').order('nombre')</code> sin <code>.range()</code> ni <code>.limit()</code>. Con 500+ asociados se descarga toda la tabla en memoria del cliente. La paginación y búsqueda se hacen filtrando un array local en JavaScript.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Implementar paginación real con <code>.range(from, to)</code> y <code>.count('exact')</code>. Los filtros de búsqueda deben aplicarse con <code>.ilike('nombre', '%term%')</code> en BD.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">R-03</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">RENDIMIENTO</span>
+    <span class="finding-title">Suscripción Realtime dispara 11 queries por cada cambio en créditos</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/Dashboard.tsx — líneas 52–61</div>
+    <p>La suscripción en tiempo real a <code>creditos</code> dispara <code>cargarDatosGraficas()</code> Y <code>cargarStatsAdmin()</code> en cada cambio, ejecutando hasta 11 queries simultáneas por cada UPDATE en la tabla.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Consolidar todas las queries del dashboard en una función RPC. Usar <code>debounce</code> (mínimo 2 segundos) para las suscripciones en tiempo real.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">R-04</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">RENDIMIENTO</span>
+    <span class="finding-title">cargarSolicitudesPendientes se ejecuta en cada cambio de vista</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/Layout.tsx — líneas 110–124</div>
+    <p>El <code>useEffect</code> que carga el badge de solicitudes pendientes tiene <code>currentView</code> como dependencia, ejecutando una query a BD cada vez que el usuario navega a cualquier módulo.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Eliminar <code>currentView</code> de las dependencias. Usar suscripción Realtime de Supabase para el badge o un intervalo de 60 segundos.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">R-05</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">RENDIMIENTO</span>
+    <span class="finding-title">select('*') generalizado en múltiples APIs</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/lib/api.ts — líneas 58, 67, 132, 181, 230, 421, 462</div>
+    <p>Varias funciones usan <code>select('*')</code> cargando todas las columnas incluyendo campos pesados o innecesarios para el caso de uso (ej: <code>ocupacion</code>, <code>direccion</code>, <code>motivo_anulacion</code> en listas de asociados).</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Especificar solo las columnas necesarias. Para listas: columnas de presentación. Para detalle: <code>select('*')</code> es aceptable.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">R-06</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">RENDIMIENTO</span>
+    <span class="finding-title">Clases Tailwind dinámicas no detectables en el build de producción</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/DashboardAsociado.tsx — líneas 339–343</div>
+    <p>Se usan interpolaciones dinámicas como <code>hover:bg-${color}-50</code> y <code>bg-${color}-100</code>. Tailwind CSS purga clases no detectadas estáticamente, lo que puede provocar que en producción esos estilos no se generen correctamente.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Usar un mapa de clases estático: <code>const colorMap = &#123; emerald: 'bg-emerald-100 hover:bg-emerald-50', ... &#125;</code>.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2 class="section"><span class="icon">💻</span>5. Calidad de Código (TypeScript)</h2>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">Q-01</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">CALIDAD</span>
+    <span class="finding-title">Omit&lt;any, ...&gt; anula TypeScript completamente en la capa API</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/lib/api.ts — líneas 74, 138, 187, 236, 386, 427, 468</div>
+    <p><code>Omit&lt;any, 'id' | 'created_at'&gt;</code> evalúa a <code>any</code>, por lo que no hay verificación de tipos en los parámetros de creación. Permite pasar objetos con campos incorrectos sin error en compilación.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Usar los tipos definidos en <code>supabase.ts</code>: <code>Omit&lt;Asociado, 'id' | 'created_at'&gt;</code>, etc. Para tipos no definidos, crear interfaces explícitas.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">Q-02</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">CALIDAD</span>
+    <span class="finding-title">Casting (data as any) generalizado en funciones críticas de auth</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/contexts/AuthContext.tsx — líneas 63–70, 120–126</div>
+    <p>El código usa <code>(data as any)</code> para acceder a campos de relaciones Supabase en <code>cargarPerfil</code> y <code>recargarPerfil</code>, las dos funciones más críticas del sistema.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Definir una interfaz para el resultado de la query o usar el cliente Supabase tipado con tipos generados (<code>supabase gen types typescript --project-id &lt;id&gt;</code>).</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">Q-03</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">CALIDAD</span>
+    <span class="finding-title">handleMenuClick con 20+ condicionales else-if en cascada</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/Layout.tsx — líneas 192–241</div>
+    <p>La función de navegación usa una cadena de <code>else if</code> que debería ser un objeto de mapeo. También contiene casos muertos: <code>id === "gestion-acceso"</code> navega a <code>"acceso"</code> que no existe como vista.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Reemplazar con <code>const navMap: Record&lt;string, string&gt; = &#123;...&#125;</code> y llamar <code>onNavigate(navMap[id] ?? id)</code>. Eliminar los casos muertos.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">Q-04</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">CALIDAD</span>
+    <span class="finding-title">bonificacion: 50000 hardcodeado en Referidos.tsx</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/Referidos.tsx — línea 60</div>
+    <p>El valor de bonificación por referido está hardcodeado. Si el administrador cambia el valor en la tabla <code>configuracion</code>, no se refleja en la UI.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Cargar el valor desde <code>configuracion</code> con la clave correspondiente, igual que hace <code>businessRules.ts</code> con otros parámetros.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">Q-05</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">CALIDAD</span>
+    <span class="finding-title">index.html con lang="en" — app en español</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">index.html — línea 3</div>
+    <p>El HTML declara <code>lang="en"</code> aunque toda la aplicación está en español. Esto afecta accesibilidad, lectores de pantalla y la detección automática del navegador (que ofrece traducción aunque ya está en español).</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Cambiar a <code>&lt;html lang="es"&gt;</code>. Agregar metaetiquetas de descripción y, opcionalmente, una política CSP básica.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">Q-06</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">CALIDAD</span>
+    <span class="finding-title">BusinessRulesEngine singleton con estado mutable y sin manejo de concurrencia</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/services/businessRules.ts — líneas 61–62, 507–509</div>
+    <p><code>this.config</code> es estado mutable compartido. Si <code>loadConfigFromDB()</code> falla silenciosamente, el singleton mantiene valores por defecto sin notificar. Múltiples llamadas concurrentes pueden crear race conditions.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Hacer <code>loadConfigFromDB</code> idempotente con un flag <code>cargando</code>. Exponer <code>configCargada: boolean</code> para que la UI pueda mostrar un aviso si la configuración no está disponible.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">Q-07</span>
+    <span class="badge BAJA">BAJA</span>
+    <span class="badge cat">CALIDAD</span>
+    <span class="finding-title">ErrorBoundary no protege el nivel de createRoot</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/main.tsx</div>
+    <p>El <code>ErrorBoundary</code> está dentro de <code>App</code>, pero si <code>App</code> falla antes de montar el boundary, el error no se captura de forma amigable.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Mover el <code>ErrorBoundary</code> al nivel del <code>createRoot(...).render()</code> en <code>main.tsx</code>.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">Q-08</span>
+    <span class="badge BAJA">BAJA</span>
+    <span class="badge cat">CALIDAD</span>
+    <span class="finding-title">Links de redes sociales y footer sin funcionalidad real</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/Layout.tsx — líneas 551–582</div>
+    <p>Los iconos de Facebook, Twitter, Instagram y LinkedIn son <code>href="#"</code>. Los items del footer son <code>&lt;span&gt;</code> con <code>cursor-pointer</code> sin <code>onClick</code>, decorativos sin funcionalidad.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Configurar las URLs reales de redes sociales o eliminar los elementos hasta que estén disponibles.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2 class="section"><span class="icon">🎨</span>6. Experiencia de Usuario</h2>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">U-01</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">UX</span>
+    <span class="finding-title">Botón "Ver Reportes" navega a vista inexistente</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/Dashboard.tsx — línea 396</div>
+    <p><code>onNavigate?.('reportes')</code> navega a una vista que no existe en el switch de <code>App.tsx</code>. El default renderiza el componente <code>Hero</code>, llevando al usuario de vuelta a la pantalla de inicio sin mensaje de error.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Deshabilitar el botón con <code>disabled</code> o eliminarlo hasta que el módulo de reportes esté implementado.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">U-02</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">UX</span>
+    <span class="finding-title">Sin feedback de carga global al iniciar la app</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/contexts/AuthContext.tsx | src/App.tsx</div>
+    <p>Con <code>loading: false</code> hardcodeado, si el usuario tiene sesión en Supabase, la app muestra brevemente la pantalla pública antes de redirigir al dashboard (flash visual).</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Mostrar un spinner hasta que <code>getSession()</code> resuelva (relacionado con S-04).</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">U-03</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">UX</span>
+    <span class="finding-title">Sin mensaje explicativo para asociados sin asociado_id vinculado</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/DashboardAsociado.tsx — líneas 40–42</div>
+    <p>Si <code>userData.asociado_id</code> es null (usuario registrado pero no aprobado aún), los componentes muestran datos vacíos sin explicar al usuario por qué no ve información.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Mostrar un banner claro: <em>"Tu solicitud está en revisión. Cuando sea aprobada, podrás ver toda tu información aquí."</em></div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">U-04</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">UX</span>
+    <span class="finding-title">Tarjetas de crédito muestran "Crédito activo" aunque esté en mora</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/DashboardAsociado.tsx — línea 373</div>
+    <p>Las tarjetas siempre muestran el título "Crédito activo" sin importar el estado real. Si el crédito está en mora, el badge lo indica pero el título contradice la información.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Usar <code>c.estado === 'en_mora' ? 'Crédito en mora' : 'Crédito activo'</code> en el título de cada tarjeta.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">U-05</span>
+    <span class="badge BAJA">BAJA</span>
+    <span class="badge cat">UX</span>
+    <span class="finding-title">Botón "Reportar aporte" en MisAhorros sin funcionalidad definida</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/components/MisAhorros.tsx</div>
+    <p>Existen botones de acción que no tienen funcionalidad completa definida, creando expectativas en el usuario que no se cumplen.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Implementar la funcionalidad o marcar el botón como <code>disabled</code> con tooltip "Próximamente".</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2 class="section"><span class="icon">🔍</span>7. Hallazgos Adicionales</h2>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">X-01</span>
+    <span class="badge ALTA">ALTA</span>
+    <span class="badge cat">BD</span>
+    <span class="finding-title">validarAfiliacionUnica verifica existencia en lugar de duplicidad</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">src/services/businessRules.ts — líneas 155–178</div>
+    <p>La función busca si el <code>asociadoId</code> ya existe activo y lo marca como violación. La lógica para prevenir duplicados debería buscar por <strong>cédula o email del solicitante</strong>, no por el mismo ID (que por definición sería diferente para cada persona nueva).</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Revisar la lógica de negocio. La búsqueda de duplicados debe hacerse por <code>cedula</code> o <code>email</code> en la tabla <code>asociados</code>.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">X-02</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">ARQUITECTURA</span>
+    <span class="finding-title">supabase gen types no está configurado — tipos de BD no sincronizados</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">package.json (ausencia de script gen:types)</div>
+    <p>Los tipos en <code>src/lib/supabase.ts</code> se mantienen manualmente. Si el schema de BD cambia, los tipos de TypeScript no se actualizan automáticamente, generando divergencia entre código y BD.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Agregar al <code>package.json</code>: <code>"gen:types": "supabase gen types typescript --project-id &lt;id&gt; &gt; src/lib/database.types.ts"</code> y ejecutarlo al hacer cambios de schema.</div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">X-03</span>
+    <span class="badge MEDIA">MEDIA</span>
+    <span class="badge cat">SEGURIDAD</span>
+    <span class="finding-title">Sin política de Content Security Policy (CSP)</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">index.html</div>
+    <p>No hay cabeceras CSP ni meta tag CSP. Sin CSP, ataques XSS pueden ejecutar scripts arbitrarios en el contexto de la aplicación, con acceso al <code>localStorage</code>, <code>sessionStorage</code> y tokens de Supabase.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Configurar CSP a nivel de servidor (Netlify/Vercel headers) o como meta tag. Política mínima: <code>default-src 'self'; connect-src 'self' *.supabase.co;</code></div>
+  </div>
+</div>
+
+<div class="finding">
+  <div class="finding-header">
+    <span class="finding-id">X-04</span>
+    <span class="badge BAJA">BAJA</span>
+    <span class="badge cat">CALIDAD</span>
+    <span class="finding-title">Sin tests unitarios ni de integración</span>
+  </div>
+  <div class="finding-body">
+    <div class="file">package.json — ausencia de Vitest / Jest / Cypress</div>
+    <p>No existe ningún test en el proyecto. Cambios en componentes críticos (AuthContext, businessRules, api.ts) no tienen cobertura automática, lo que hace que regresiones pasen desapercibidas.</p>
+    <div class="rec"><strong>✅ Recomendación</strong>Agregar Vitest para pruebas unitarias de <code>businessRules.ts</code> y <code>permissions.ts</code>. Como mínimo, tests de las funciones de cálculo financiero.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2 class="section"><span class="icon">📋</span>8. Plan de Acción Priorizado</h2>
+
+<h3 style="color:#064e3b;margin:16px 0 12px;font-size:12pt">🔴 Semana 1 — Crítico e inmediato</h3>
+<table class="priority-table">
+  <thead><tr><th>ID</th><th>Hallazgo</th><th>Acción</th></tr></thead>
+  <tbody>
+    <tr><td class="code">S-02/S-03</td><td>Inserción de rol desde el cliente</td><td>Crear trigger <code>AFTER INSERT ON auth.users</code> que asigne rol "usuario" automáticamente</td></tr>
+    <tr><td class="code">S-08</td><td>Fallback no atómico en pagos</td><td>Eliminar el bloque fallback de <code>pagosCreditoApi.registrar()</code></td></tr>
+    <tr><td class="code">B-01</td><td>Columna referido_por_id ausente</td><td>Ejecutar <code>supabase_referidos.sql</code> en Supabase SQL Editor</td></tr>
+    <tr><td class="code">B-05</td><td>Query a tabla 'ahorros' inexistente</td><td>Corregir <code>cargarStatsAsociado</code> en Dashboard.tsx</td></tr>
+    <tr><td class="code">U-01</td><td>Botón "Ver Reportes" roto</td><td>Deshabilitar o eliminar el botón</td></tr>
+    <tr><td class="code">S-01</td><td>.env en backups</td><td>Agregar <code>.env</code> al <code>.gitignore</code>. Rotar credenciales si fueron expuestas</td></tr>
+  </tbody>
+</table>
+
+<h3 style="color:#d97706;margin:28px 0 12px;font-size:12pt">🟡 Semana 2-3 — Alta prioridad</h3>
+<table class="priority-table">
+  <thead><tr><th>ID</th><th>Hallazgo</th><th>Acción</th></tr></thead>
+  <tbody>
+    <tr><td class="code">S-04</td><td>loading: false hardcodeado</td><td>Implementar estado de carga real en AuthContext</td></tr>
+    <tr><td class="code">S-05</td><td>catch {} vacío en auth</td><td>Agregar logging y <code>setU(null)</code> en cargarPerfil</td></tr>
+    <tr><td class="code">R-01</td><td>Sumas en JavaScript</td><td>Reemplazar por <code>SUM()</code> en BD o RPC</td></tr>
+    <tr><td class="code">R-02</td><td>Sin paginación en asociados</td><td>Implementar paginación real con <code>.range()</code></td></tr>
+    <tr><td class="code">B-02</td><td>Índices FK faltantes</td><td>Agregar <code>CREATE INDEX</code> para columnas críticas</td></tr>
+    <tr><td class="code">B-04</td><td>CHECK hardcodeado en BD</td><td>Eliminar constraint y mover validación a RPC</td></tr>
+    <tr><td class="code">A-02</td><td>userData: any generalizado</td><td>Reemplazar con tipo <code>AuthUser</code> en todos los componentes</td></tr>
+    <tr><td class="code">Q-05</td><td>lang="en" en app española</td><td>Cambiar a <code>lang="es"</code> en index.html</td></tr>
+  </tbody>
+</table>
+
+<h3 style="color:#374151;margin:28px 0 12px;font-size:12pt">⚪ Sprint siguiente — Mediano plazo</h3>
+<table class="priority-table">
+  <thead><tr><th>ID</th><th>Hallazgo</th><th>Acción</th></tr></thead>
+  <tbody>
+    <tr><td class="code">A-01</td><td>Navegación con useState</td><td>Migrar a React Router v6 con rutas protegidas</td></tr>
+    <tr><td class="code">A-03</td><td>Doble fuente userData/user</td><td>Eliminar <code>userData</code> del contexto, unificar en <code>user</code></td></tr>
+    <tr><td class="code">A-04</td><td>Dead code en src/</td><td>Eliminar <code>Dashboard-simple-backup.tsx</code> y <code>UserManagementContext.tsx</code></td></tr>
+    <tr><td class="code">S-06</td><td>Spam en solicitudes</td><td>Implementar rate limiting o Supabase Edge Function</td></tr>
+    <tr><td class="code">B-03</td><td>JSONB para datos financieros</td><td>Extraer campos críticos de <code>liquidaciones.detalle</code></td></tr>
+    <tr><td class="code">S-09/S-10</td><td>Lógica financiera en cliente</td><td>Crear RPCs PostgreSQL para operaciones financieras</td></tr>
+    <tr><td class="code">X-02</td><td>Tipos BD no sincronizados</td><td>Configurar <code>supabase gen types</code> en package.json</td></tr>
+    <tr><td class="code">X-04</td><td>Sin tests</td><td>Agregar Vitest para funciones de cálculo financiero</td></tr>
+  </tbody>
+</table>
+
+<div class="footer">
+  <p>Informe generado el 18 de mayo de 2026 · UFCA — Unión Familiar de Crédito y Ahorro</p>
+  <p style="margin-top:4px">Para exportar a PDF: abrir este archivo en el navegador → Ctrl+P → Guardar como PDF · Márgenes: Predeterminado · Sin cabeceras/pies de página</p>
+</div>
+
+</div><!-- .page -->
+</body>
+</html>

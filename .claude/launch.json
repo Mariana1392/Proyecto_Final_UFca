@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ufca-dev",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "start-dev.cmd"],
+      "port": 5173
+    }
+  ]
+}
