@@ -133,10 +133,11 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
         cedula, telefono,
       });
     } catch (err: any) {
+      const msg = typeof err?.message === 'string' ? err.message : '';
       setError(
-        err.message === 'Invalid login credentials'
+        msg === 'Invalid login credentials'
           ? 'Correo o contraseña incorrectos'
-          : err.message || 'Error al iniciar sesión'
+          : msg || 'Error al iniciar sesión'
       );
     }
 
