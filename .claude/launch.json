@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "ufca-dev",
-      "runtimeExecutable": "cmd.exe",
-      "runtimeArgs": ["/c", "start-dev.cmd"],
-      "port": 5173
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
     }
   ]
 }

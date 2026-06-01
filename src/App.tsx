@@ -1,34 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Shield } from 'lucide-react';
 import Layout from './components/Layout';
 import Hero from './components/Hero';
-import Dashboard from './components/Dashboard';
-import DashboardAsociado from './components/DashboardAsociado';
 import Login from './components/Login';
-import RecuperarPassword from './components/RecuperarPassword';
-import CrearPassword from './components/CrearPassword';
-import Roles from './components/Roles';
-// Asociados.tsx y AsociadoDetalle.tsx eliminados del menú principal.
-// La gestión de asociados ahora está integrada en GestionUsuarios.
-import AhorroPermanente from './components/ahorro-permanente/AhorroPermanente';
-import AhorroVoluntario from './components/ahorro-voluntario/AhorroVoluntario';
-import Liquidacion from './components/Liquidacion';
-import ComiteEvaluador from './components/ComiteEvaluador';
-import Creditos from './components/creditos/Creditos';
-import Referidos from './components/Referidos';
-import GestionUsuarios from './components/GestionUsuarios';
-import Configuracion from './components/Configuracion';
-import MiSolicitud from './components/MiSolicitud';
-import MiPerfil from './components/MiPerfil';
-import PerfilAdmin from './components/PerfilAdmin';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
-import MisAhorros from './components/MisAhorros';
-import CuentaPendienteActivacion from './components/CuentaPendienteActivacion';
 import { VIEW_PERMISO } from './lib/permissions';
 import { businessRules } from './services/businessRules';
+import { supabase } from './lib/supabase';
 import { Toaster } from 'sonner';
+
+// Módulos cargados bajo demanda — no se descargan hasta que el usuario navega a ellos
+const Dashboard             = lazy(() => import('./components/Dashboard'));
+const DashboardAsociado     = lazy(() => import('./components/DashboardAsociado'));
+const RecuperarPassword     = lazy(() => import('./components/RecuperarPassword'));
+const CrearPassword         = lazy(() => import('./components/CrearPassword'));
+const Roles                 = lazy(() => import('./components/Roles'));
+const AhorroPermanente      = lazy(() => import('./components/ahorro-permanente/AhorroPermanente'));
+const AhorroVoluntario      = lazy(() => import('./components/ahorro-voluntario/AhorroVoluntario'));
+const Liquidacion           = lazy(() => import('./components/Liquidacion'));
+const ComiteEvaluador       = lazy(() => import('./components/ComiteEvaluador'));
+const Creditos              = lazy(() => import('./components/creditos/Creditos'));
+const Referidos             = lazy(() => import('./components/Referidos'));
+const GestionUsuarios       = lazy(() => import('./components/GestionUsuarios'));
+const Configuracion         = lazy(() => import('./components/Configuracion'));
+const MiSolicitud           = lazy(() => import('./components/MiSolicitud'));
+const MiPerfil              = lazy(() => import('./components/MiPerfil'));
+const PerfilAdmin           = lazy(() => import('./components/PerfilAdmin'));
+const MisAhorros            = lazy(() => import('./components/MisAhorros'));
+const CuentaPendienteActivacion = lazy(() => import('./components/CuentaPendienteActivacion'));
 
 type View = 'home' | 'solicitud' | 'login' | 'recuperar-password' | 'crear-password' | 'mi-solicitud' | 'mi-perfil' | 'dashboard' | 'roles' | 'usuarios' | 'asociados' | 'asociado-detalle' | 'ahorro-permanente' | 'ahorro-voluntario' | 'liquidacion' | 'comite-evaluador' | 'creditos' | 'referidos' | 'parametros';
 
@@ -261,14 +262,21 @@ function AppContent() {
     }
   };
 
+  // Spinner reutilizable para Suspense y carga de sesión
+  const Spinner = (
+    <div className="flex items-center justify-center min-h-[40vh]">
+      <div className="flex flex-col items-center gap-3">
+        <div className="size-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-slate-500">Cargando…</p>
+      </div>
+    </div>
+  );
+
   // U-02: mostrar spinner mientras Supabase resuelve la sesión inicial
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="flex flex-col items-center gap-3">
-          <div className="size-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-slate-500">Cargando…</p>
-        </div>
+        {Spinner}
       </div>
     );
   }
@@ -283,7 +291,9 @@ function AppContent() {
       userData={userData}
       userPermisos={userPermisos}
     >
-      {renderContent()}
+      <Suspense fallback={Spinner}>
+        {renderContent()}
+      </Suspense>
     </Layout>
   );
 }
