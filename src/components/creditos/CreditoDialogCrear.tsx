@@ -232,7 +232,10 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
                   </Label>
                   <Input id="monto" type="text" placeholder="5.000.000"
                     value={formMonto}
-                    onChange={(e) => setFormMonto(e.target.value.replace(/[^\d.]/g, ''))}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\./g, '').replace(/[^\d]/g, '');
+                      setFormMonto(raw ? parseInt(raw, 10).toLocaleString('es-CO') : '');
+                    }}
                     disabled={bloqueado}
                   />
                 </div>
@@ -269,7 +272,7 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
                   </div>
                   <div className="ml-auto text-right text-xs text-blue-500">
                     <p>{formTipoInteres === 'simple' ? 'Interés simple' : 'Amortización francesa'}</p>
-                    <p>{formTasa ? `${formTasa}% EA` : 'Sin interés'}</p>
+                    <p>{formTasa ? `${formTasa}% ${formTipoInteres === 'simple' ? 'N.A.' : 'EA'}` : 'Sin interés'}</p>
                   </div>
                 </div>
               )}
@@ -280,6 +283,7 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
                     <Calendar className="size-3.5 text-slate-500" /> Fecha de desembolso <span className="text-red-500">*</span>
                   </Label>
                   <Input id="fecha" type="date" value={formFecha}
+                    min={!selectedItem ? new Date().toISOString().split('T')[0] : undefined}
                     onChange={(e) => setFormFecha(e.target.value)}
                     disabled={bloqueado} />
                 </div>

@@ -208,7 +208,7 @@ export default function Layout({
     setExpandedMenus((prev) =>
       prev.includes(menuId)
         ? prev.filter((id) => id !== menuId)
-        : [...prev, menuId],
+        : [menuId],   // acordeón: cierra todos los demás al abrir uno nuevo
     );
   };
 
@@ -266,7 +266,7 @@ export default function Layout({
               <img src={logo} alt="UFCA" className="h-9 w-9 sm:h-11 sm:w-11 object-contain drop-shadow-md shrink-0" />
               <div className="hidden sm:flex flex-col leading-tight min-w-0">
                 <span className="text-lg font-bold text-slate-900 dark:text-white tracking-wide">UFCA</span>
-                <span className="text-[10px] text-emerald-600 font-medium tracking-widest uppercase hidden md:block">Unión Familiar de Crédito y Ahorro</span>
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium tracking-widest uppercase hidden md:block">Unión Familiar de Crédito y Ahorro</span>
               </div>
             </div>
           </div>
@@ -297,13 +297,13 @@ export default function Layout({
 
             {/* Badge de Usuario y Rol — solo texto en pantallas medianas+ */}
             {isAuthenticated && userData && (
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg shadow-sm">
-                <UserCircle className="size-5 text-emerald-600 shrink-0" />
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 border border-emerald-200 dark:border-emerald-700 rounded-lg shadow-sm">
+                <UserCircle className="size-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <div className="flex flex-col min-w-0">
-                  <span className="text-sm font-semibold text-slate-900 truncate max-w-[120px]">
+                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[120px]">
                     {userData.name}
                   </span>
-                  <span className="text-xs text-emerald-600 hidden md:block">
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 hidden md:block">
                     {userData?.rol_nombre === 'admin'    ? 'Administrador'
                      : userData?.rol_nombre === 'asociado' ? 'Asociado'
                      : userData?.rol_nombre === 'usuario'  ? 'Usuario Normal'
@@ -323,7 +323,7 @@ export default function Layout({
             <Button
               variant="ghost"
               onClick={() => onNavigate("home")}
-              className="gap-2 px-2 sm:px-3"
+              className="gap-2 px-2 sm:px-3 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white"
               aria-label="Inicio"
             >
               <Home className="size-4" />
@@ -343,7 +343,7 @@ export default function Layout({
               <Button
                 variant="outline"
                 onClick={onLogout}
-                className="gap-2 px-2 sm:px-4"
+                className="gap-2 px-2 sm:px-4 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
                 aria-label="Cerrar sesión"
               >
                 <LogOut className="size-4" />
@@ -367,7 +367,7 @@ export default function Layout({
         {/* Sidebar */}
         {isAuthenticated && (
           <aside
-            className={`fixed left-0 top-16 bottom-0 z-40 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 transition-transform duration-300 overflow-y-auto w-64 ${
+            className={`fixed left-0 top-16 bottom-0 z-40 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 transition-transform duration-300 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] w-64 ${
               sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
           >

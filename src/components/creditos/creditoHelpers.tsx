@@ -176,7 +176,7 @@ export const descargarPDFAmortizacion = (
   // ── Tarjetas KPI ────────────────────────────────────────────────────────
   const kpis = [
     { l: 'Monto solicitado', v: fmtCOP(opts.monto) },
-    { l: 'Tasa EA',          v: `${opts.tasa}%` },
+    { l: esSimple ? 'Tasa N.A.' : 'Tasa EA', v: `${opts.tasa}%` },
     { l: 'Plazo',            v: `${opts.plazo} meses` },
     { l: 'Cuota mensual',    v: fmtCOP(cuota) },
     { l: 'Total intereses',  v: fmtCOP(totalInteres) },

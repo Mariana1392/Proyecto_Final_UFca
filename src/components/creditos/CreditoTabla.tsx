@@ -43,7 +43,7 @@ export default function CreditoTabla({ list, isAnulados = false, hook }: Credito
             <TableHead>Asociado</TableHead>
             <TableHead>Tipo</TableHead>
             <TableHead>Monto</TableHead>
-            <TableHead>Tasa EA</TableHead>
+            <TableHead>Tasa anual</TableHead>
             <TableHead>Plazo</TableHead>
             <TableHead>Cuota mensual</TableHead>
             <TableHead>Saldo</TableHead>

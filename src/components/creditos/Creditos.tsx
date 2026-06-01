@@ -596,7 +596,7 @@ export default function Creditos({ userData }: CreditosProps) {
                         </div>
                         <div className="hidden sm:flex flex-col items-end text-right">
                           <p className="font-bold text-purple-700 text-sm">{formatCurrency(sim.monto)}</p>
-                          <p className="text-xs text-slate-500">{sim.plazo} meses · {sim.tasaInteres}% EA</p>
+                          <p className="text-xs text-slate-500">{sim.plazo} meses · {sim.tasaInteres}% {(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'N.A.' : 'EA'}</p>
                         </div>
                         <div className="hidden md:block text-right">
                           <p className="font-semibold text-slate-700 text-sm">{formatCurrency(sim.cuotaMensual)}</p>
@@ -641,8 +641,10 @@ export default function Creditos({ userData }: CreditosProps) {
                         <BarChart2 className="size-6 text-white" />
                       </div>
                       <div>
-                        <h2 className="text-white font-black text-lg leading-tight">Tabla de Amortización Francesa</h2>
-                        <p className="text-purple-200 text-sm">{tipoLabel} · {sim.plazo} meses · {sim.tasaInteres}% EA</p>
+                        <h2 className="text-white font-black text-lg leading-tight">
+                          {(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'Tabla de Pagos — Interés Simple' : 'Tabla de Amortización Francesa'}
+                        </h2>
+                        <p className="text-purple-200 text-sm">{tipoLabel} · {sim.plazo} meses · {sim.tasaInteres}% {(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'N.A.' : 'EA'}</p>
                       </div>
                     </div>
                     <button onClick={() => setIsSimDetalleOpen(false)} className="p-2 hover:bg-white/20 rounded-lg transition-colors">

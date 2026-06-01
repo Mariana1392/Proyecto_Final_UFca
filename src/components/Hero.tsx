@@ -1084,7 +1084,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
       </section>
 
       {/* ══ SECCIÓN SOBRE UFCA ══ */}
-      <section className="relative bg-[#eef6f2] overflow-hidden -mt-1">
+      <section className="relative bg-[#eef6f2] dark:bg-slate-900 overflow-hidden -mt-1">
         {/* Orbe decorativo sutil */}
         <div className="absolute top-0 right-0 w-[600px] h-[500px] rounded-full bg-emerald-100/50 blur-3xl -translate-y-1/3 translate-x-1/4 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full bg-teal-100/30 blur-3xl translate-y-1/3 -translate-x-1/4 pointer-events-none" />
@@ -1097,10 +1097,10 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
               <Shield className="size-3.5" />
               Acerca de UFCA
             </span>
-            <h2 className="text-4xl lg:text-5xl font-black text-slate-900 leading-tight mb-4">
-              Fondo de <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#054030] to-[#0f8c62]">Beneficio</span> Familiar
+            <h2 className="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white leading-tight mb-4">
+              Fondo de <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#054030] to-[#0f8c62] dark:from-emerald-400 dark:to-teal-400">Beneficio</span> Familiar
             </h2>
-            <p className="text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed">
               Una sociedad conformada por familiares y amigos dedicada a gestionar microinversiones, préstamos y ahorros con transparencia y confianza.
             </p>
           </div>
@@ -1156,16 +1156,16 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
               {/* Tarjetas de datos clave */}
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { icon: <Users className="size-5 text-emerald-600"/>, label: 'Tipo de organización', val: 'Fondo familiar', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-                  { icon: <Award className="size-5 text-amber-600"/>, label: 'Valor central', val: 'Confianza y cercanía', bg: 'bg-amber-50', border: 'border-amber-200' },
-                  { icon: <Target className="size-5 text-blue-600"/>, label: 'Enfoque', val: 'Crecer juntos como familia', bg: 'bg-blue-50', border: 'border-blue-200' },
-                  { icon: <Calendar className="size-5 text-purple-600"/>, label: 'Fundación', val: '2023 · Medellín', bg: 'bg-purple-50', border: 'border-purple-200' },
+                  { icon: <Users className="size-5 text-emerald-600"/>, label: 'Tipo de organización', val: 'Fondo familiar', bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-200 dark:border-emerald-700' },
+                  { icon: <Award className="size-5 text-amber-600"/>, label: 'Valor central', val: 'Confianza y cercanía', bg: 'bg-amber-50 dark:bg-amber-900/30', border: 'border-amber-200 dark:border-amber-700' },
+                  { icon: <Target className="size-5 text-blue-600"/>, label: 'Enfoque', val: 'Crecer juntos como familia', bg: 'bg-blue-50 dark:bg-blue-900/30', border: 'border-blue-200 dark:border-blue-700' },
+                  { icon: <Calendar className="size-5 text-purple-600"/>, label: 'Fundación', val: '2023 · Medellín', bg: 'bg-purple-50 dark:bg-purple-900/30', border: 'border-purple-200 dark:border-purple-700' },
                 ].map((item) => (
                   <div key={item.label} className={`flex items-start gap-3 p-4 rounded-2xl border ${item.bg} ${item.border}`}>
-                    <div className="p-2 bg-white rounded-xl shadow-sm shrink-0">{item.icon}</div>
+                    <div className="p-2 bg-white dark:bg-slate-700 rounded-xl shadow-sm shrink-0">{item.icon}</div>
                     <div className="min-w-0">
-                      <p className="text-xs text-slate-500 font-medium leading-none mb-1">{item.label}</p>
-                      <p className="text-sm font-bold text-slate-900 leading-tight">{item.val}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-none mb-1">{item.label}</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight">{item.val}</p>
                     </div>
                   </div>
                 ))}
@@ -1225,7 +1225,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
       </section>
 
       {/* ══ SERVICIOS ══ */}
-      <section className="relative overflow-hidden bg-white -mt-1">
+      <section className="relative overflow-hidden bg-white dark:bg-slate-900 -mt-1">
         {/* Fondo sutil */}
         <div className="absolute inset-0"
           style={{backgroundImage:'radial-gradient(circle at 20% 50%, #f0fdf4 0%, transparent 60%), radial-gradient(circle at 80% 50%, #f0f9ff 0%, transparent 60%)'}} />
@@ -1237,10 +1237,10 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
               <Sparkles className="size-3.5 text-[#0f8c62]" />
               Descubre nuestros servicios
             </span>
-            <h2 className="text-4xl lg:text-5xl font-black text-slate-900 mb-4">
-              Todo lo que <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#054030] to-[#0f8c62]">necesitas</span>
+            <h2 className="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white mb-4">
+              Todo lo que <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#054030] to-[#0f8c62] dark:from-emerald-400 dark:to-teal-400">necesitas</span>
             </h2>
-            <p className="text-lg text-slate-500 max-w-xl mx-auto">
+            <p className="text-lg text-slate-500 dark:text-slate-100 max-w-xl mx-auto">
               Gestiona tus finanzas personales en una sola plataforma moderna, segura y accesible.
             </p>
           </div>
@@ -1290,16 +1290,16 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
               },
             ].map((s) => (
               <div key={s.title}
-                className={`group relative bg-white rounded-3xl p-7 ring-2 ${s.ring} hover:shadow-2xl ${s.shadow} hover:-translate-y-2 transition-all duration-300 cursor-default`}>
+                className={`group relative bg-white dark:bg-slate-800 rounded-3xl p-7 ring-2 ${s.ring} hover:shadow-2xl ${s.shadow} hover:-translate-y-2 transition-all duration-300 cursor-default`}>
                 {/* Icono */}
                 <div className={`size-16 bg-gradient-to-br ${s.gradient} rounded-2xl flex items-center justify-center mb-5 shadow-lg ${s.shadow} group-hover:scale-110 transition-transform duration-300`}>
                   {s.icon}
                 </div>
                 {/* Contenido */}
-                <h3 className="text-xl font-black text-slate-900 mb-2">{s.title}</h3>
-                <p className="text-slate-500 text-sm leading-relaxed mb-4">{s.desc}</p>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">{s.title}</h3>
+                <p className="text-slate-500 dark:text-slate-300 text-sm leading-relaxed mb-4">{s.desc}</p>
                 {/* Tag */}
-                <span className={`inline-flex text-[10px] font-bold px-3 py-1 rounded-full bg-slate-100 ${s.accent}`}>
+                <span className={`inline-flex text-[10px] font-bold px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-700 ${s.accent}`}>
                   {s.tag}
                 </span>
                 {/* Línea decorativa inferior */}

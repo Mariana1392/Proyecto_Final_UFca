@@ -61,7 +61,7 @@ export function useCreditos(userData?: any) {
   const [misSolicitudes, setMisSolicitudes]         = useState<any[]>([]);
 
   // ── Utilidades ────────────────────────────────────────────────────────────
-  const parseMonto = (v: string) => parseFloat(v.replace(/[^\d.]/g, '')) || 0;
+  const parseMonto = (v: string) => parseInt(v.replace(/\./g, '').replace(/[^\d]/g, ''), 10) || 0;
 
   // ── Carga de datos desde Supabase ─────────────────────────────────────────
   async function cargarDatos() {

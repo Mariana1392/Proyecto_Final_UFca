@@ -71,7 +71,7 @@ export function useCreditosCRUD({
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const acSuggestions = asociadosDisponibles
-    .filter(a => a.estado && (
+    .filter(a => a.estado_cuenta !== 'inactivo' && (
       a.nombre.toLowerCase().includes(autocompleteSearch.toLowerCase()) ||
       a.cedula.includes(autocompleteSearch)
     ))

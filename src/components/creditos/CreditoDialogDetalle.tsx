@@ -190,7 +190,9 @@ export default function CreditoDialogDetalle({ hook }: CreditoDialogDetalleProps
                     <span className="text-slate-400">Tasa de interés</span>
                     <p className="font-bold text-orange-700">
                       {tasaAnual > 0
-                        ? `${tasaAnual}% EA (${(tasaMensual * 100).toFixed(4)}% m.e.)`
+                        ? tipoInteres === 'simple'
+                          ? `${tasaAnual}% N.A. (${(tasaMensual * 100).toFixed(4)}% m.)`
+                          : `${tasaAnual}% EA (${(tasaMensual * 100).toFixed(4)}% m.e.)`
                         : 'Sin interés'}
                     </p>
                     <p className="text-[10px] text-slate-400 mt-0.5">
