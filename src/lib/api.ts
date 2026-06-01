@@ -141,7 +141,7 @@ export const asociadosApi = {
     const rolAsociadoId = rolAsoc?.id ?? null;
     let query = supabase
       .from('usuarios')
-      .select('id,nombre,cedula,telefono,email,fecha_ingreso,estado_cuenta,referido_por_id,created_at')
+      .select('id,nombre,cedula,telefono,email,fecha_ingreso,estado_cuenta,activo,referido_por_id,created_at')
       .order('nombre');
     if (rolAsociadoId) query = (query as any).eq('rol_id', rolAsociadoId);
     const { data, error } = await query;

@@ -100,7 +100,7 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
           .select('*')
           .eq('tipo', 'permanente')
           .order('created_at', { ascending: false }),
-        asociadosApi.getAll(),
+        asociadosApi.getAll().catch(() => []),
         supabase
           .from('configuracion')
           .select('valor')

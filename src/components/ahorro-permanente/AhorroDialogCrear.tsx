@@ -78,7 +78,7 @@ export default function AhorroDialogCrear({
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {asociadosDisponibles.filter(a => a.estado_cuenta === 'activo').map(asociado => (
+                {asociadosDisponibles.filter(a => a.activo !== false || a.estado_cuenta === 'activo').map(asociado => (
                   <SelectItem key={asociado.id} value={asociado.id}>
                     {asociado.nombre} ({asociado.cedula})
                   </SelectItem>
