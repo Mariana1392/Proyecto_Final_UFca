@@ -83,15 +83,15 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
 
   return (
     <>
-    <div className="p-6 md:p-8 bg-slate-50 min-h-screen">
+    <div className="p-6 md:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen">
       <div className="max-w-4xl mx-auto space-y-6">
 
         {/* ── Encabezado personal ── */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-slate-900 mb-1">Mis Créditos</h1>
-            <p className="text-slate-500 text-sm">
-              Bienvenido, <span className="font-semibold text-slate-700">{userData?.nombre ?? userData?.email}</span>
+            <h1 className="text-slate-900 dark:text-slate-100 mb-1">Mis Créditos</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">
+              Bienvenido, <span className="font-semibold text-slate-700 dark:text-slate-200">{userData?.nombre ?? userData?.email}</span>
             </p>
           </div>
           <Button
@@ -207,36 +207,36 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
 
         {/* ── KPIs personales ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Card className="border-0 shadow-sm bg-white">
+          <Card className="border-0 shadow-sm bg-white dark:bg-slate-800">
             <CardContent className="p-4">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total créditos</p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">{misActivos.length}</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">
+              <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Total créditos</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{misActivos.length}</p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
                 {misCreditosBase.filter(c => c.anulado).length} anulado{misCreditosBase.filter(c => c.anulado).length !== 1 ? 's' : ''}
               </p>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm bg-white">
+          <Card className="border-0 shadow-sm bg-white dark:bg-slate-800">
             <CardContent className="p-4">
               <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider">Saldo total</p>
-              <p className="text-lg font-bold text-indigo-700 mt-1">{formatCurrency(miSaldoTotal)}</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">Capital pendiente</p>
+              <p className="text-lg font-bold text-indigo-700 dark:text-indigo-400 mt-1">{formatCurrency(miSaldoTotal)}</p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Capital pendiente</p>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm bg-white">
+          <Card className="border-0 shadow-sm bg-white dark:bg-slate-800">
             <CardContent className="p-4">
               <p className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider">Cuota mensual</p>
-              <p className="text-lg font-bold text-emerald-700 mt-1">{miCuotaMensual > 0 ? formatCurrency(miCuotaMensual) : '—'}</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">Próximo pago</p>
+              <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400 mt-1">{miCuotaMensual > 0 ? formatCurrency(miCuotaMensual) : '—'}</p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Próximo pago</p>
             </CardContent>
           </Card>
-          <Card className={`border-0 shadow-sm ${misEnMora > 0 ? 'bg-red-50' : 'bg-white'}`}>
+          <Card className={`border-0 shadow-sm ${misEnMora > 0 ? 'bg-red-50 dark:bg-red-950' : 'bg-white dark:bg-slate-800'}`}>
             <CardContent className="p-4">
-              <p className={`text-[10px] font-semibold uppercase tracking-wider ${misEnMora > 0 ? 'text-red-400' : 'text-slate-400'}`}>En mora</p>
+              <p className={`text-[10px] font-semibold uppercase tracking-wider ${misEnMora > 0 ? 'text-red-400' : 'text-slate-400 dark:text-slate-500'}`}>En mora</p>
               <p className={`text-2xl font-bold mt-1 ${misEnMora > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                 {misEnMora > 0 ? misEnMora : '✓'}
               </p>
-              <p className={`text-[10px] mt-0.5 ${misEnMora > 0 ? 'text-red-400' : 'text-slate-400'}`}>
+              <p className={`text-[10px] mt-0.5 ${misEnMora > 0 ? 'text-red-400' : 'text-slate-400 dark:text-slate-500'}`}>
                 {misEnMora > 0 ? `crédito${misEnMora !== 1 ? 's' : ''} vencido${misEnMora !== 1 ? 's' : ''}` : 'Al día'}
               </p>
             </CardContent>
@@ -244,7 +244,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
         </div>
 
         {/* ── Barra de búsqueda y filtros ── */}
-        <Card className="border-0 shadow-sm bg-white">
+        <Card className="border-0 shadow-sm bg-white dark:bg-slate-800">
           <CardContent className="p-3 space-y-2.5">
             <div className="flex gap-2 items-center">
               <div className="relative flex-1">
@@ -292,7 +292,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
             </div>
 
             <div className="flex gap-2 items-center">
-              <span className="text-[11px] text-slate-400 shrink-0">Periodo:</span>
+              <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0">Periodo:</span>
               <div className="relative flex-1">
                 <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
                 <Input
@@ -301,7 +301,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                   onChange={(e) => setAsocFechaDesde(e.target.value)}
                 />
               </div>
-              <span className="text-[11px] text-slate-400 shrink-0">–</span>
+              <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0">–</span>
               <div className="relative flex-1">
                 <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
                 <Input
@@ -318,13 +318,13 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                   <X className="size-3" /> Limpiar
                 </button>
               )}
-              <span className="text-[11px] text-slate-400 shrink-0 ml-auto">
+              <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0 ml-auto">
                 {misCreditosFiltrados.length} crédito{misCreditosFiltrados.length !== 1 ? 's' : ''}
               </span>
             </div>
 
             {hayFiltros && (
-              <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
+              <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700">
                 {asocSearch.trim() && (
                   <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
                     <Search className="size-2.5" />
@@ -362,10 +362,10 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
             )}
 
             <div className="flex items-center justify-between pt-0.5">
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {misCreditosFiltrados.length === misCreditosBase.length
-                  ? <><span className="font-semibold text-slate-700">{misCreditosBase.length}</span> crédito{misCreditosBase.length !== 1 ? 's' : ''} en total</>
-                  : <><span className="font-semibold text-blue-700">{misCreditosFiltrados.length}</span> de <span className="font-semibold">{misCreditosBase.length}</span> crédito{misCreditosBase.length !== 1 ? 's' : ''} coinciden con la búsqueda</>
+                  ? <><span className="font-semibold text-slate-700 dark:text-slate-200">{misCreditosBase.length}</span> crédito{misCreditosBase.length !== 1 ? 's' : ''} en total</>
+                  : <><span className="font-semibold text-blue-700">{misCreditosFiltrados.length}</span> de <span className="font-semibold text-slate-700 dark:text-slate-200">{misCreditosBase.length}</span> crédito{misCreditosBase.length !== 1 ? 's' : ''} coinciden con la búsqueda</>
                 }
               </p>
               {misCreditosFiltrados.length !== misCreditosBase.length && (
@@ -377,17 +377,17 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
 
         {/* ── Lista de créditos ── */}
         {misCreditosFiltrados.length === 0 ? (
-          <Card className="border-0 shadow-sm bg-white">
+          <Card className="border-0 shadow-sm bg-white dark:bg-slate-800">
             <CardContent className="py-16 text-center">
               <div className="flex flex-col items-center gap-3 text-slate-400">
                 <div className={`p-4 rounded-full ${hayFiltros ? 'bg-blue-50' : 'bg-slate-100'}`}>
                   <Search className={`size-8 ${hayFiltros ? 'text-blue-400' : 'text-slate-400'}`} />
                 </div>
                 <div>
-                  <p className="text-base font-semibold text-slate-600">
+                  <p className="text-base font-semibold text-slate-600 dark:text-slate-300">
                     {hayFiltros ? 'No se encontraron créditos' : 'No tienes créditos registrados'}
                   </p>
-                  <p className="text-sm text-slate-400 mt-1">
+                  <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
                     {hayFiltros
                       ? 'Ningún crédito coincide con los criterios ingresados'
                       : 'Cuando se apruebe un crédito a tu nombre aparecerá aquí'}
@@ -430,10 +430,10 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                 <Card
                   key={c.id}
                   className={`border shadow-sm cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 ${
-                    c.anulado ? 'opacity-60 bg-slate-50' :
-                    c.estadoAprobacion === 'en_mora' ? 'border-red-200 bg-red-50/30' :
-                    c.estadoAprobacion === 'pagado'  ? 'border-emerald-200 bg-emerald-50/20' :
-                    'bg-white border-slate-200'
+                    c.anulado ? 'opacity-60 bg-slate-50 dark:bg-slate-800/50' :
+                    c.estadoAprobacion === 'en_mora' ? 'border-red-200 bg-red-50/30 dark:bg-red-950/30 dark:border-red-800' :
+                    c.estadoAprobacion === 'pagado'  ? 'border-emerald-200 bg-emerald-50/20 dark:bg-emerald-950/20 dark:border-emerald-800' :
+                    'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
                   }`}
                   onClick={async () => {
                     setSelectedItem(c);
@@ -463,8 +463,8 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                           }`} />
                         </div>
                         <div>
-                          <p className="text-xs font-mono font-bold text-slate-500 tracking-wider">{numCredito}</p>
-                          <p className="text-[10px] text-slate-400">{TIPOS_CREDITO.find(t => t.value === c.tipo)?.label ?? 'Libre inversión'}</p>
+                          <p className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 tracking-wider">{numCredito}</p>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500">{TIPOS_CREDITO.find(t => t.value === c.tipo)?.label ?? 'Libre inversión'}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -482,29 +482,29 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                       <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Monto aprobado</p>
-                        <p className="text-sm font-bold text-indigo-700">{formatCurrency(c.monto)}</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">Monto aprobado</p>
+                        <p className="text-sm font-bold text-indigo-700 dark:text-indigo-400">{formatCurrency(c.monto)}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Plazo</p>
-                        <p className="text-sm font-bold text-slate-700">{c.plazo} meses</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">Plazo</p>
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{c.plazo} meses</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Cuotas</p>
-                        <p className="text-sm font-bold text-blue-700">
-                          {cuotasPag}<span className="text-xs font-normal text-slate-400"> pagadas</span>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">Cuotas</p>
+                        <p className="text-sm font-bold text-blue-700 dark:text-blue-400">
+                          {cuotasPag}<span className="text-xs font-normal text-slate-400 dark:text-slate-500"> pagadas</span>
                           {cuotasPend > 0 && <span className="text-xs font-semibold text-amber-600"> · {cuotasPend} pend.</span>}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Saldo pendiente</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">Saldo pendiente</p>
                         <p className={`text-sm font-bold ${c.saldo <= 0 ? 'text-emerald-600' : 'text-orange-600'}`}>
                           {c.saldo <= 0 ? 'Pagado ✓' : formatCurrency(c.saldo)}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500 mb-3">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400 mb-3">
                       {c.tasaInteres > 0 && (
                         <span className="flex items-center gap-1">
                           <Percent className="size-3 text-orange-400" />
@@ -538,7 +538,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
 
                     {c.plazo > 0 && (
                       <div>
-                        <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                        <div className="flex justify-between text-[10px] text-slate-400 dark:text-slate-500 mb-1">
                           <span>{cuotasPag} de {c.plazo} cuotas pagadas</span>
                           <span className="font-semibold">{progreso.toFixed(0)}%</span>
                         </div>
@@ -555,7 +555,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100"
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-700"
                       onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="outline" size="sm"
@@ -614,7 +614,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
         {/* ── Mis Solicitudes ── */}
         {misSolicitudes.length > 0 && (
           <div>
-            <h2 className="text-base font-semibold text-slate-700 mb-3 flex items-center gap-2">
+            <h2 className="text-base font-semibold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
               <Clock className="size-4 text-amber-500" /> Mis Solicitudes
             </h2>
             <div className="space-y-2">
@@ -627,21 +627,21 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                   s.estado === 'aprobada'  ? 'Aprobada' :
                   s.estado === 'rechazada' ? 'Rechazada' : 'Pendiente';
                 return (
-                  <Card key={s.id} className="border-0 shadow-sm bg-white">
+                  <Card key={s.id} className="border-0 shadow-sm bg-white dark:bg-slate-800">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-semibold text-slate-800">
+                            <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                               {s.tipoCreditoLabel}
                             </span>
                             <Badge variant="outline" className={`text-[11px] ${estadoColor}`}>
                               {estadoLabel}
                             </Badge>
                           </div>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
                             Monto solicitado:{' '}
-                            <span className="font-semibold text-slate-700">{formatCurrency(s.monto)}</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-200">{formatCurrency(s.monto)}</span>
                             {' · '}
                             Plazo: <span className="font-semibold text-slate-700">{s.plazoMeses} meses</span>
                           </p>
