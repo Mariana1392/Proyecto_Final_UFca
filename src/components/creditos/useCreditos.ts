@@ -79,7 +79,7 @@ export function useCreditos(userData?: any) {
       const usuariosMap: Record<string, { nombre: string; cedula: string }> = {};
       if (asocIds.length > 0) {
         const { data: usrsData } = await supabase
-          .from('usuarios').select('id, nombre, cedula').in('id', asocIds);
+          .from('usuarios').select('id, nombre, cedula, identificacion').in('id', asocIds);
         (usrsData || []).forEach((u: any) => { usuariosMap[u.id] = u; });
       }
       const creditosData = {
@@ -163,7 +163,7 @@ export function useCreditos(userData?: any) {
       const mapeados = (creditosData.data || []).map((c: any) => ({
         id:                 c.id,
         asociado:           c.usuarios?.nombre ?? 'Sin nombre',
-        cedula:             c.usuarios?.cedula ?? '',
+        cedula:             c.usuarios?.cedula || c.usuarios?.identificacion || '',
         asociado_id:        c.asociado_id,
         tipo:               c.tipo ?? 'libre_inversion',
         monto:              c.monto,

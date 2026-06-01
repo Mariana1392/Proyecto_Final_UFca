@@ -43,6 +43,12 @@ const traducirErrorAuth = (msg: string): string => {
   if (msg.includes('Too many requests'))               return 'Demasiados intentos. Espera un momento e intenta de nuevo';
   if (msg.includes('signup is disabled'))              return 'El registro de nuevos usuarios está deshabilitado';
   if (msg.includes('Email rate limit exceeded'))       return 'Límite de correos superado. Intenta más tarde';
+  if (msg.includes('security purposes') || msg.includes('only request this after')) {
+    const segundos = msg.match(/(\d+)\s*second/)?.[1];
+    return segundos
+      ? `Por seguridad, debes esperar ${segundos} segundos antes de crear otro usuario`
+      : 'Por seguridad, debes esperar unos segundos antes de crear otro usuario';
+  }
   if (msg.includes('weak_password'))                   return 'La contraseña es demasiado débil. Usa al menos 6 caracteres con letras y números';
   return msg; // fallback: mostrar mensaje original si no se reconoce
 };
@@ -459,6 +465,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
           email:          formData.email.trim(),
           username:       formData.username.trim().toLowerCase(),
           identificacion: formData.identificacion.trim(),
+          cedula:         formData.identificacion.trim(),
           rol_id:         rolSeleccionado?.id,
         })
         .eq('id', selectedUsuario.id);

@@ -320,12 +320,18 @@ export function useAhorroPermanenteCRUD({
             : `Sin cambios en "${selectedItem.asociado}"`,
         });
       } else {
+        const periodoIdCreacion = await resolverPeriodoId();
+        if (!periodoIdCreacion) {
+          toast.error('No hay un período contable activo. Activa un período antes de crear el ahorro.');
+          return;
+        }
         const nuevo = await ahorroPermanenteApi.create({
           asociado_id:    formAsociadoId,
           cuota_mensual:  cuota,
           monto_ahorrado: saldo,
           estado:         'activo',
           anulado:        false,
+          periodo_id:     periodoIdCreacion,
         });
 
         if (saldo > 0) {
