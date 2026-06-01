@@ -188,9 +188,10 @@ export default function AhorroTabla({
                         {!isAnulados && userRole === 'admin' && ahorro.estado && (
                           <Button
                             size="sm"
-                            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                            title="Registrar aporte"
+                            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={ahorro.pagadoEsteMes ? 'Ya se registró el aporte de este mes' : 'Registrar aporte'}
                             onClick={() => openAporteDialog(ahorro)}
+                            disabled={ahorro.pagadoEsteMes}
                           >
                             <Plus className="size-3.5" />
                             Aporte
