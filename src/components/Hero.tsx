@@ -1075,9 +1075,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
         {/* Onda doble: sombra + principal */}
         <div className="absolute bottom-0 left-0 right-0 leading-none">
           <svg viewBox="0 0 1440 90" className="w-full block" preserveAspectRatio="none">
-            {/* Capa sombra */}
             <path d="M0,45 C480,90 960,0 1440,45 L1440,90 L0,90 Z" fill="rgba(5,64,48,0.18)"/>
-            {/* Capa principal */}
             <path d="M0,55 C360,90 1080,20 1440,55 L1440,90 L0,90 Z" fill="#eef6f2"/>
           </svg>
         </div>
@@ -1138,7 +1136,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                 </div>
               </div>
 
-              {/* Badge flotante: Años — abajo derecha (alejado del texto) */}
+              {/* Badge flotante: Años — abajo derecha */}
               <div className="absolute -bottom-4 -right-4 bg-[#054030] shadow-xl rounded-2xl px-4 py-3 flex items-center gap-2.5">
                 <div className="p-2 bg-white/15 rounded-xl">
                   <Clock className="size-4 text-[#f0c040]" />
@@ -1173,7 +1171,6 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
 
               {/* Servicios */}
               <div className="rounded-3xl overflow-hidden border border-slate-200 shadow-sm bg-white">
-                {/* Header del bloque */}
                 <div className="bg-gradient-to-r from-[#054030] to-[#0a7050] px-6 py-4 flex items-center gap-3">
                   <div className="p-2 bg-white/15 rounded-xl">
                     <CheckCircle className="size-5 text-[#f0c040]" />
@@ -1183,7 +1180,6 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                     <p className="text-emerald-200 text-xs">Lo que ofrecemos a nuestros asociados</p>
                   </div>
                 </div>
-                {/* Lista */}
                 <div className="divide-y divide-slate-100">
                   {[
                     { icon: <CreditCard className="size-4 text-blue-600"/>, text: 'Préstamos', tag: 'Crédito' },
