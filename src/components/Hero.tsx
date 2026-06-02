@@ -506,10 +506,10 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                         { n: '4', icon: <Trophy className="size-5 text-purple-600" />, title: '¡Bienvenido a UFCA!', desc: 'Una vez activa tu cuenta tendrás acceso a ahorros, créditos y todos los beneficios del fondo.', color: 'purple' },
                       ].map(({ n, icon, title, desc, color }) => (
                         <div key={n} className={`flex gap-4 p-4 rounded-xl border ${
-                          color === 'emerald' ? 'bg-emerald-50 border-emerald-200' :
-                          color === 'amber'   ? 'bg-amber-50 border-amber-200' :
-                          color === 'blue'    ? 'bg-blue-50 border-blue-200' :
-                                               'bg-purple-50 border-purple-200'
+                          color === 'emerald' ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/40 dark:border-emerald-600' :
+                          color === 'amber'   ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/40 dark:border-amber-600' :
+                          color === 'blue'    ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/40 dark:border-blue-600' :
+                                               'bg-purple-50 border-purple-200 dark:bg-purple-900/40 dark:border-purple-600'
                         }`}>
                           <div className={`size-8 rounded-full flex items-center justify-center shrink-0 font-bold text-sm ${
                             color === 'emerald' ? 'bg-emerald-600 text-white' :
@@ -518,8 +518,8 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                                                  'bg-purple-600 text-white'
                           }`}>{n}</div>
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">{icon}<p className="font-semibold text-slate-800 text-sm">{title}</p></div>
-                            <p className="text-xs text-slate-600 leading-relaxed">{desc}</p>
+                            <div className="flex items-center gap-2 mb-1">{icon}<p className="font-bold text-slate-900 dark:text-white text-sm">{title}</p></div>
+                            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{desc}</p>
                           </div>
                         </div>
                       ))}
@@ -1051,14 +1051,14 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
               </div>
 
               {/* Badge seguro */}
-              <div className="absolute -bottom-5 -left-5 bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-2xl border border-emerald-100">
+              <div className="absolute -bottom-5 -left-5 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm p-4 rounded-2xl shadow-2xl border border-emerald-100 dark:border-emerald-800">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg shadow-emerald-500/30">
                     <Shield className="size-5 text-white" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-900">100% Seguro</p>
-                    <p className="text-xs text-slate-500">Tus datos protegidos</p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">100% Seguro</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-300">Tus datos protegidos</p>
                   </div>
                 </div>
               </div>
@@ -1091,7 +1091,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
 
           {/* Encabezado centrado */}
           <div className="text-center mb-16">
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#054030]/8 border border-[#054030]/15 text-[#054030] text-sm font-semibold tracking-wide mb-4">
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#054030]/8 dark:bg-emerald-400/15 border border-[#054030]/15 dark:border-emerald-400/40 text-[#054030] dark:text-emerald-300 text-sm font-semibold tracking-wide mb-4">
               <Shield className="size-3.5" />
               Acerca de UFCA
             </span>
@@ -1229,14 +1229,14 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
         <div className="relative max-w-7xl mx-auto px-8 py-24">
           {/* Encabezado */}
           <div className="text-center mb-16">
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#054030]/20 bg-[#054030]/6 text-[#054030] text-sm font-semibold mb-5">
-              <Sparkles className="size-3.5 text-[#0f8c62]" />
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#054030]/20 dark:border-emerald-400/40 bg-[#054030]/6 dark:bg-emerald-400/15 text-[#054030] dark:text-emerald-300 text-sm font-semibold mb-5">
+              <Sparkles className="size-3.5 text-[#0f8c62] dark:text-emerald-400" />
               Descubre nuestros servicios
             </span>
             <h2 className="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white mb-4">
               Todo lo que <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#054030] to-[#0f8c62] dark:from-emerald-400 dark:to-teal-400">necesitas</span>
             </h2>
-            <p className="text-lg text-slate-500 dark:text-slate-100 max-w-xl mx-auto">
+            <p className="text-lg text-slate-500 dark:text-white dark:font-bold dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.6)] max-w-xl mx-auto">
               Gestiona tus finanzas personales en una sola plataforma moderna, segura y accesible.
             </p>
           </div>
@@ -1329,18 +1329,18 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
               <div className="flex flex-col items-center gap-4 shrink-0">
                 {/* Badges info */}
                 <div className="flex gap-3">
-                  <div className="flex items-center gap-3 px-5 py-3 bg-white border border-white rounded-2xl">
-                    <Shield className="size-5 text-[#032a1e] shrink-0" />
+                  <div className="flex items-center gap-3 px-5 py-3 bg-white dark:bg-slate-700 border border-white dark:border-slate-600 rounded-2xl">
+                    <Shield className="size-5 text-[#032a1e] dark:text-emerald-400 shrink-0" />
                     <div>
-                      <p className="text-[#032a1e] font-bold text-sm leading-none">100% Seguro</p>
-                      <p className="text-[#065f46] text-xs mt-0.5">Datos protegidos</p>
+                      <p className="text-[#032a1e] dark:text-white font-bold text-sm leading-none">100% Seguro</p>
+                      <p className="text-[#065f46] dark:text-slate-300 text-xs mt-0.5">Datos protegidos</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 px-5 py-3 bg-white border border-white rounded-2xl">
-                    <Award className="size-5 text-[#032a1e] shrink-0" />
+                  <div className="flex items-center gap-3 px-5 py-3 bg-white dark:bg-slate-700 border border-white dark:border-slate-600 rounded-2xl">
+                    <Award className="size-5 text-[#032a1e] dark:text-emerald-400 shrink-0" />
                     <div>
-                      <p className="text-[#032a1e] font-bold text-sm leading-none">Confiable</p>
-                      <p className="text-[#065f46] text-xs mt-0.5">2 años de trayectoria</p>
+                      <p className="text-[#032a1e] dark:text-white font-bold text-sm leading-none">Confiable</p>
+                      <p className="text-[#065f46] dark:text-slate-300 text-xs mt-0.5">2 años de trayectoria</p>
                     </div>
                   </div>
                 </div>
@@ -1354,7 +1354,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                 </button>
                 <button
                   onClick={() => onNavigateToLogin()}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white hover:bg-slate-100 border-2 border-white text-[#032a1e] text-sm font-bold transition-all duration-200"
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border-2 border-white dark:border-slate-500 text-[#032a1e] dark:text-white text-sm font-bold transition-all duration-200"
                 >
                   <UserCircle2 className="size-4" />
                   Ya soy asociado — Ingresar

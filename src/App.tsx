@@ -30,8 +30,9 @@ const MiPerfil              = lazy(() => import('./components/MiPerfil'));
 const PerfilAdmin           = lazy(() => import('./components/PerfilAdmin'));
 const MisAhorros            = lazy(() => import('./components/MisAhorros'));
 const CuentaPendienteActivacion = lazy(() => import('./components/CuentaPendienteActivacion'));
+const Servicios                 = lazy(() => import('./components/Servicios'));
 
-type View = 'home' | 'solicitud' | 'login' | 'recuperar-password' | 'crear-password' | 'mi-solicitud' | 'mi-perfil' | 'dashboard' | 'roles' | 'usuarios' | 'asociados' | 'asociado-detalle' | 'ahorro-permanente' | 'ahorro-voluntario' | 'liquidacion' | 'comite-evaluador' | 'creditos' | 'referidos' | 'parametros';
+type View = 'home' | 'solicitud' | 'login' | 'recuperar-password' | 'crear-password' | 'mi-solicitud' | 'mi-perfil' | 'dashboard' | 'roles' | 'usuarios' | 'asociados' | 'asociado-detalle' | 'ahorro-permanente' | 'ahorro-voluntario' | 'liquidacion' | 'comite-evaluador' | 'creditos' | 'referidos' | 'parametros' | 'servicios';
 
 function AppContent() {
   const [currentView, setCurrentView]         = useState<View>('home');
@@ -121,6 +122,7 @@ function AppContent() {
   };
 
   const handleNavigate = (view: string, asociadoId?: string) => {
+    // Soporta "servicios#creditos" — guarda la vista con el hash para scroll
     setCurrentView(view as View);
     if (asociadoId) {
       setSelectedAsociadoId(asociadoId);
@@ -130,6 +132,10 @@ function AppContent() {
   // handleViewAsociadoDetails eliminado — detalle de asociado integrado en GestionUsuarios
 
   const renderContent = () => {
+    // Extraer la vista base sin hash (ej: "servicios#creditos" → "servicios")
+    const vistaBase = (currentView as string).split('#')[0] as View;
+    const vistaHash = (currentView as string).split('#')[1];
+
     // Proteger módulos que requieren autenticación
     const rutasProtegidas: View[] = [
       'dashboard', 'mi-solicitud', 'mi-perfil',
@@ -184,7 +190,7 @@ function AppContent() {
       return <DashboardAsociado userData={userData} onNavigate={handleNavigate} />;
     }
 
-    switch (currentView) {
+    switch (vistaBase) {
       case 'mi-solicitud':
         return <MiSolicitud />;
       case 'mi-perfil':
@@ -193,6 +199,8 @@ function AppContent() {
           : <MiPerfil userData={userData} />;
       case 'home':
         return <Hero onNavigateToDashboard={() => handleNavigate('dashboard')} onNavigateToLogin={() => handleNavigate('login')} />;
+      case 'servicios':
+        return <Servicios onNavigateToLogin={() => handleNavigate('login')} seccionInicial={vistaHash as any} />;
       case 'solicitud':
         return <Hero onNavigateToDashboard={() => handleNavigate('dashboard')} onNavigateToLogin={() => handleNavigate('login')} autoOpenForm />;
       case 'login':
