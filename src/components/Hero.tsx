@@ -276,6 +276,13 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
     e.preventDefault();
 
     // ── Validaciones de campos (inline + toast resumen) ──────────────────────
+    // Validar ingreso mensual obligatorio
+    if (!formData.ingresoMensual || formData.ingresoMensual.trim() === '' || formData.ingresoMensual === '0') {
+      setFormErrors(prev => ({ ...prev, ingresoMensual: 'El ingreso mensual es obligatorio' }));
+      toast.error('El ingreso mensual aproximado es obligatorio.');
+      return;
+    }
+
     const camposRequeridos = ['nombres', 'apellidos', 'cedula', 'telefono', 'email'] as const;
     const nuevosErrores: Record<string, string> = {};
     let hayErrores = false;
@@ -425,7 +432,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
       await supabase.from('notificaciones').insert({
         titulo:      'Nueva solicitud de afiliación',
         mensaje:     `${formData.nombres.trim()} ${formData.apellidos.trim()} ha enviado una solicitud de membresía y está pendiente de revisión.`,
-        tipo:        'general',
+        tipo:        'solicitud_afiliacion',
         leida:       false,
         para_admin:  true,
       }).then(() => {}).catch(() => {});
@@ -477,7 +484,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
       {/* Modal de Solicitud */}
       {showSolicitudModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
 
             {/* ── PASO 1: Pantalla informativa ────────────────────────────── */}
             {modalStep === 'intro' && (
@@ -611,7 +618,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
 
             {/* ── PASO 2: Formulario ───────────────────────────────────────── */}
             {modalStep === 'form' && (<>
-            <div className="sticky top-0 bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-6 rounded-t-2xl flex items-center justify-between">
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-6 rounded-t-2xl flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <UserPlus className="size-8" />
                 <div>
@@ -777,7 +784,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                     )}
                   </div>
                   <div>
-                    <Label htmlFor="direccion">Dirección</Label>
+                    <Label htmlFor="direccion">Dirección <span className="text-slate-400 font-normal text-xs">(opcional)</span></Label>
                     <Input
                       id="direccion"
                       name="direccion"
@@ -799,7 +806,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                 </h3>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="ocupacion">Ocupación</Label>
+                    <Label htmlFor="ocupacion">Ocupación <span className="text-slate-400 font-normal text-xs">(opcional)</span></Label>
                     <Input
                       id="ocupacion"
                       name="ocupacion"
@@ -809,7 +816,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                     />
                   </div>
                   <div>
-                    <Label htmlFor="ingresoMensual">Ingreso Mensual Aproximado</Label>
+                    <Label htmlFor="ingresoMensual">Ingreso Mensual Aproximado <span className="text-red-500">*</span></Label>
                     <Input
                       id="ingresoMensual"
                       name="ingresoMensual"
@@ -824,7 +831,14 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                         if (formErrors['ingresoMensual']) setFormErrors(prev => ({ ...prev, ingresoMensual: '' }));
                       }}
                       placeholder="Ej: 2.000.000"
+                      className={formErrors['ingresoMensual'] ? 'border-red-400 focus-visible:ring-red-400/20' : ''}
                     />
+                    {formErrors['ingresoMensual'] && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="size-3 shrink-0" />
+                        {formErrors['ingresoMensual']}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -878,7 +892,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                   <div className="size-6 bg-emerald-100 rounded-full flex items-center justify-center">
                     <span className="text-emerald-700 text-sm">4</span>
                   </div>
-                  Motivación
+                  Motivación <span className="text-emerald-600/60 font-normal text-sm">(opcional)</span>
                 </h3>
                 <div>
                   <Label htmlFor="motivacion">¿Por qué deseas ser parte de UFCA?</Label>
@@ -1043,7 +1057,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
               <div className="absolute -inset-6 bg-gradient-to-tr from-[#f0c040]/15 to-emerald-300/15 rounded-3xl blur-2xl" />
               <div className="relative rounded-3xl overflow-hidden shadow-2xl ring-2 ring-white/15">
                 <ImageWithFallback
-                  src="https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=900&q=85"
+                  src="https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=700&q=60&fm=webp&auto=format"
                   alt="Gestión Financiera Familiar"
                   className="w-full object-cover aspect-[4/3]"
                 />
@@ -1074,15 +1088,28 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
 
         {/* Onda doble: sombra + principal */}
         <div className="absolute bottom-0 left-0 right-0 leading-none">
-          <svg viewBox="0 0 1440 90" className="w-full block" preserveAspectRatio="none">
+          {/* LIGHT MODE */}
+          <svg viewBox="0 0 1440 90" className="w-full block dark:hidden" preserveAspectRatio="none">
             <path d="M0,45 C480,90 960,0 1440,45 L1440,90 L0,90 Z" fill="rgba(5,64,48,0.18)"/>
-            <path d="M0,55 C360,90 1080,20 1440,55 L1440,90 L0,90 Z" fill="#eef6f2"/>
+            <path d="M0,55 C360,90 1080,20 1440,55 L1440,90 L0,90 Z" fill="#e2e8f0"/>
+          </svg>
+          {/* DARK MODE — mismo degradado horizontal del hero */}
+          <svg viewBox="0 0 1440 90" className="w-full hidden dark:block" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="waveDark" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%"   stopColor="#021810"/>
+                <stop offset="50%"  stopColor="#032a1e"/>
+                <stop offset="100%" stopColor="#054030"/>
+              </linearGradient>
+            </defs>
+            <path d="M0,45 C480,90 960,0 1440,45 L1440,90 L0,90 Z" fill="rgba(5,64,48,0.18)"/>
+            <path d="M0,55 C360,90 1080,20 1440,55 L1440,90 L0,90 Z" fill="url(#waveDark)"/>
           </svg>
         </div>
       </section>
 
       {/* ══ SECCIÓN SOBRE UFCA ══ */}
-      <section className="relative bg-[#eef6f2] dark:bg-slate-900 overflow-hidden -mt-1">
+      <section className="relative bg-[#e2e8f0] dark:bg-[#054030] overflow-hidden -mt-1">
         {/* Orbe decorativo sutil */}
         <div className="absolute top-0 right-0 w-[600px] h-[500px] rounded-full bg-emerald-100/50 blur-3xl -translate-y-1/3 translate-x-1/4 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full bg-teal-100/30 blur-3xl translate-y-1/3 -translate-x-1/4 pointer-events-none" />
@@ -1112,7 +1139,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
               {/* Marco con borde dorado */}
               <div className="relative rounded-3xl overflow-hidden shadow-2xl ring-4 ring-[#f0c040]/30">
                 <ImageWithFallback
-                  src="https://images.unsplash.com/photo-1551836022-4c4c79ecde51?w=800&q=80"
+                  src="https://images.unsplash.com/photo-1551836022-4c4c79ecde51?w=700&q=60&fm=webp&auto=format"
                   alt="Equipo UFCA"
                   className="w-full object-cover aspect-[4/3]"
                 />

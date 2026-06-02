@@ -130,7 +130,7 @@ export default function Roles({ userRole }: RolesProps) {
         { data: permisosData },
       ] = await Promise.all([
         supabase.from('roles')
-          .select('id, nombre, label, descripcion, activo, es_sistema, created_at, rol_permisos(permiso_clave, activo)')
+          .select('id, nombre, label, descripcion, activo, es_sistema, created_at, updated_at, rol_permisos(permiso_clave, activo)')
           .order('label, nombre'),
         supabase.from('usuarios').select('rol_id').eq('activo', true),
         supabase.from('auditoria').select('*')
@@ -186,7 +186,8 @@ export default function Roles({ userRole }: RolesProps) {
           cantidadUsuarios: conteoMap[r.id] ?? 0,
           estado:           r.activo ?? true,
           esSistema:        r.es_sistema === true || ['admin', 'administrador', 'asociado', 'usuario'].includes(r.nombre),
-          fechaCreacion:    r.created_at ? new Date(r.created_at).toLocaleDateString('es-CO') : '—',
+          fechaCreacion:    r.created_at ? new Date(r.created_at).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' }) : '—',
+          fechaModificacion: r.updated_at ? new Date(r.updated_at).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' }) : '—',
         };
       });
       setRoles(mapeados);
@@ -1401,6 +1402,16 @@ export default function Roles({ userRole }: RolesProps) {
                           {selectedItem.esSistema ? 'Rol del sistema' : 'Rol personalizado'}
                         </Badge>
                       </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-500 text-xs">Fecha de creación</Label>
+                      <p className="text-sm font-medium mt-1 text-slate-700">{selectedItem.fechaCreacion}</p>
+                    </div>
+                    <div>
+                      <Label className="text-slate-500 text-xs">Última modificación</Label>
+                      <p className="text-sm font-medium mt-1 text-slate-700">{selectedItem.fechaModificacion}</p>
                     </div>
                   </div>
                   <div>

@@ -120,7 +120,7 @@ export default function AhorroDialogAporte({
                 placeholder="100.000"
                 value={formAporteMonto}
                 onChange={e => setFormAporteMonto(fmtMonto(e.target.value))}
-                className={`pl-8 ${montoError ? 'border-red-400 focus-visible:ring-red-400/20' : ''}`}
+                className={`pl-8 ${montoError ? 'border-amber-400 focus-visible:ring-amber-400/20' : ''}`}
               />
             </div>
             {montoError && (
@@ -241,7 +241,7 @@ export default function AhorroDialogAporte({
           <Button
             className="bg-emerald-600 hover:bg-emerald-700"
             onClick={handleRegistrarAporte}
-            disabled={savingAporte || montoError || !formAporteMonto || !formAporteFecha || (selectedItem?.pagadoEsteMes && !selectedItem?.enMora)}
+            disabled={savingAporte || !formAporteMonto || !formAporteFecha || (selectedItem?.pagadoEsteMes && !selectedItem?.enMora)}
           >
             {savingAporte ? 'Guardando...' : 'Registrar'}
           </Button>

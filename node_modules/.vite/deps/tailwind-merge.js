@@ -305,15 +305,27 @@ var createConfigUtils = (config) => ({
   cache: createLruCache(config.cacheSize),
   parseClassName: createParseClassName(config),
   sortModifiers: createSortModifiers(config),
+  postfixLookupClassGroupIds: createPostfixLookupClassGroupIds(config),
   ...createClassGroupUtils(config)
 });
+var createPostfixLookupClassGroupIds = (config) => {
+  const lookup = /* @__PURE__ */ Object.create(null);
+  const classGroupIds = config.postfixLookupClassGroups;
+  if (classGroupIds) {
+    for (let i = 0; i < classGroupIds.length; i++) {
+      lookup[classGroupIds[i]] = true;
+    }
+  }
+  return lookup;
+};
 var SPLIT_CLASSES_REGEX = /\s+/;
 var mergeClassList = (classList, configUtils) => {
   const {
     parseClassName,
     getClassGroupId,
     getConflictingClassGroupIds,
-    sortModifiers
+    sortModifiers,
+    postfixLookupClassGroupIds
   } = configUtils;
   const classGroupsInConflict = [];
   const classNames = classList.trim().split(SPLIT_CLASSES_REGEX);
@@ -332,7 +344,18 @@ var mergeClassList = (classList, configUtils) => {
       continue;
     }
     let hasPostfixModifier = !!maybePostfixModifierPosition;
-    let classGroupId = getClassGroupId(hasPostfixModifier ? baseClassName.substring(0, maybePostfixModifierPosition) : baseClassName);
+    let classGroupId;
+    if (hasPostfixModifier) {
+      const baseClassNameWithoutPostfix = baseClassName.substring(0, maybePostfixModifierPosition);
+      classGroupId = getClassGroupId(baseClassNameWithoutPostfix);
+      const classGroupIdWithPostfix = classGroupId && postfixLookupClassGroupIds[classGroupId] ? getClassGroupId(baseClassName) : void 0;
+      if (classGroupIdWithPostfix && classGroupIdWithPostfix !== classGroupId) {
+        classGroupId = classGroupIdWithPostfix;
+        hasPostfixModifier = false;
+      }
+    } else {
+      classGroupId = getClassGroupId(baseClassName);
+    }
     if (!classGroupId) {
       if (!hasPostfixModifier) {
         result = originalClassName + (result.length > 0 ? " " + result : result);
@@ -447,6 +470,7 @@ var isNever = () => false;
 var isShadow = (value) => shadowRegex.test(value);
 var isImage = (value) => imageRegex.test(value);
 var isAnyNonArbitrary = (value) => !isArbitraryValue(value) && !isArbitraryVariable(value);
+var isNamedContainerQuery = (value) => value.startsWith("@container") && (value[10] === "/" && value[11] !== void 0 || value[11] === "s" && value[16] !== void 0 && value.startsWith("-size/", 10) || value[11] === "n" && value[18] !== void 0 && value.startsWith("-normal/", 10));
 var isArbitrarySize = (value) => getIsArbitraryValue(value, isLabelSize, isNever);
 var isArbitraryValue = (value) => arbitraryValueRegex.test(value);
 var isArbitraryLength = (value) => getIsArbitraryValue(value, isLabelLength, isLengthOnly);
@@ -515,6 +539,7 @@ var validators = Object.defineProperty({
   isArbitraryWeight,
   isFraction,
   isInteger,
+  isNamedContainerQuery,
   isNumber,
   isPercent,
   isTshirtSize
@@ -654,6 +679,18 @@ var getDefaultConfig = () => {
        * @deprecated since Tailwind CSS v4.0.0
        */
       container: ["container"],
+      /**
+       * Container Type
+       * @see https://tailwindcss.com/docs/responsive-design#container-queries
+       */
+      "container-type": [{
+        "@container": ["", "normal", "size", isArbitraryVariable, isArbitraryValue]
+      }],
+      /**
+       * Container Name
+       * @see https://tailwindcss.com/docs/responsive-design#named-containers
+       */
+      "container-named": [isNamedContainerQuery],
       /**
        * Columns
        * @see https://tailwindcss.com/docs/columns
@@ -1596,6 +1633,13 @@ var getDefaultConfig = () => {
        */
       indent: [{
         indent: scaleUnambiguousSpacing()
+      }],
+      /**
+       * Tab Size
+       * @see https://tailwindcss.com/docs/tab-size
+       */
+      "tab-size": [{
+        tab: [isInteger, isArbitraryVariable, isArbitraryValue]
       }],
       /**
        * Vertical Alignment
@@ -2822,6 +2866,13 @@ var getDefaultConfig = () => {
        * @see https://tailwindcss.com/docs/translate
        */
       "translate-none": ["translate-none"],
+      /**
+       * Zoom
+       * @see https://tailwindcss.com/docs/zoom
+       */
+      zoom: [{
+        zoom: [isInteger, isArbitraryVariable, isArbitraryValue]
+      }],
       // ---------------------
       // --- Interactivity ---
       // ---------------------
@@ -2887,6 +2938,34 @@ var getDefaultConfig = () => {
        */
       "scroll-behavior": [{
         scroll: ["auto", "smooth"]
+      }],
+      /**
+       * Scrollbar Thumb Color
+       * @see https://tailwindcss.com/docs/scrollbar-color
+       */
+      "scrollbar-thumb-color": [{
+        "scrollbar-thumb": scaleColor()
+      }],
+      /**
+       * Scrollbar Track Color
+       * @see https://tailwindcss.com/docs/scrollbar-color
+       */
+      "scrollbar-track-color": [{
+        "scrollbar-track": scaleColor()
+      }],
+      /**
+       * Scrollbar Gutter
+       * @see https://tailwindcss.com/docs/scrollbar-gutter
+       */
+      "scrollbar-gutter": [{
+        "scrollbar-gutter": ["auto", "stable", "both"]
+      }],
+      /**
+       * Scrollbar Width
+       * @see https://tailwindcss.com/docs/scrollbar-width
+       */
+      "scrollbar-w": [{
+        scrollbar: ["auto", "thin", "none"]
       }],
       /**
        * Scroll Margin
@@ -3146,6 +3225,7 @@ var getDefaultConfig = () => {
       }]
     },
     conflictingClassGroups: {
+      "container-named": ["container-type"],
       overflow: ["overflow-x", "overflow-y"],
       overscroll: ["overscroll-x", "overscroll-y"],
       inset: ["inset-x", "inset-y", "inset-bs", "inset-be", "start", "end", "top", "right", "bottom", "left"],
@@ -3198,6 +3278,7 @@ var getDefaultConfig = () => {
     conflictingClassGroupModifiers: {
       "font-size": ["leading"]
     },
+    postfixLookupClassGroups: ["container-type"],
     orderSensitiveModifiers: ["*", "**", "after", "backdrop", "before", "details-content", "file", "first-letter", "first-line", "marker", "placeholder", "selection"]
   };
 };
@@ -3215,11 +3296,13 @@ var mergeConfigs = (baseConfig, {
   overrideConfigProperties(baseConfig.classGroups, override.classGroups);
   overrideConfigProperties(baseConfig.conflictingClassGroups, override.conflictingClassGroups);
   overrideConfigProperties(baseConfig.conflictingClassGroupModifiers, override.conflictingClassGroupModifiers);
+  overrideProperty(baseConfig, "postfixLookupClassGroups", override.postfixLookupClassGroups);
   overrideProperty(baseConfig, "orderSensitiveModifiers", override.orderSensitiveModifiers);
   mergeConfigProperties(baseConfig.theme, extend.theme);
   mergeConfigProperties(baseConfig.classGroups, extend.classGroups);
   mergeConfigProperties(baseConfig.conflictingClassGroups, extend.conflictingClassGroups);
   mergeConfigProperties(baseConfig.conflictingClassGroupModifiers, extend.conflictingClassGroupModifiers);
+  mergeArrayProperties(baseConfig, extend, "postfixLookupClassGroups");
   mergeArrayProperties(baseConfig, extend, "orderSensitiveModifiers");
   return baseConfig;
 };
