@@ -29,6 +29,7 @@ import { generateCreditoPDF } from '../utils/pdfGenerator';
 import { pagosCreditoApi } from '../../lib/api';
 import { toast } from 'sonner';
 import type { CreditosHook } from './useCreditos';
+import CreditoDialogPago from './CreditoDialogPago';
 
 interface CreditoVistaAsociadoProps {
   hook: CreditosHook;
@@ -59,14 +60,16 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
     // Solicitud dialog
     isSolicitudDialogOpen, setIsSolicitudDialogOpen,
     solMonto, setSolMonto,
-    solTipo, setSolTipo,
+    solTipo,
     solPlazo, setSolPlazo,
-    solTasa, setSolTasa,
+    solTasa,
     solDestino, setSolDestino,
     solObs, setSolObs,
     solBanco, setSolBanco,
     solTipoCuenta, setSolTipoCuenta,
     solNumeroCuenta, setSolNumeroCuenta,
+    tasasParametrizadas,
+    handleSolTipoChange,
     parseMonto,
     tablaSolSim, setTablaSolSim,
     isSolSimOpen, setIsSolSimOpen,
@@ -855,7 +858,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
             <Label>Tipo de crédito <span className="text-red-500">*</span></Label>
-            <Select value={solTipo} onValueChange={setSolTipo}>
+            <Select value={solTipo} onValueChange={handleSolTipoChange}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {TIPOS_CREDITO.map(t => (
@@ -863,14 +866,32 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                 ))}
               </SelectContent>
             </Select>
+            {/* Tasa parametrizada — solo informativa */}
+            {solTasa && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-100">
+                <Percent className="size-3.5 text-blue-500 shrink-0" />
+                <p className="text-xs text-blue-700">
+                  Tasa aplicada para este tipo de crédito:{' '}
+                  <strong>{solTasa}% EA</strong> — definida por el fondo
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Monto solicitado <span className="text-red-500">*</span></Label>
               <div className="relative">
-                <Download className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
-                <Input className="pl-8" placeholder="0" value={solMonto} onChange={(e) => setSolMonto(e.target.value)} />
+                <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
+                <Input
+                  className="pl-8"
+                  placeholder="0"
+                  value={solMonto}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\./g, '').replace(/[^\d]/g, '');
+                    setSolMonto(raw ? parseInt(raw, 10).toLocaleString('es-CO') : '');
+                  }}
+                />
               </div>
             </div>
             <div className="space-y-1.5">
@@ -880,14 +901,6 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                 <Input className="pl-8" type="number" min={1} placeholder="12" value={solPlazo} onChange={(e) => setSolPlazo(e.target.value)} />
               </div>
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-1">
-              <Percent className="size-3.5 text-slate-400" /> Tasa de interés anual (%) — opcional
-            </Label>
-            <Input type="number" min={0} step={0.1} placeholder="Ej. 12" value={solTasa} onChange={(e) => setSolTasa(e.target.value)} />
-            <p className="text-[11px] text-slate-400">Déjalo en blanco si no conoces la tasa; el admin la definirá.</p>
           </div>
 
           {parseMonto(solMonto) > 0 && parseInt(solPlazo) > 0 && (() => {
@@ -951,7 +964,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
           })()}
 
           <div className="space-y-1.5">
-            <Label>Destino del crédito <span className="text-red-500">*</span></Label>
+            <Label>Destino del crédito <span className="text-xs text-slate-400 font-normal">(opcional)</span></Label>
             <Input placeholder="Ej. Pago de matrícula universitaria" value={solDestino} onChange={(e) => setSolDestino(e.target.value)} />
           </div>
 
@@ -1427,6 +1440,9 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* ── Dialog de pago de cuota (asociado) ── */}
+    <CreditoDialogPago hook={hook} isAsociado />
     </>
   );
 }

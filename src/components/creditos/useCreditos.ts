@@ -382,6 +382,8 @@ export function useCreditos(userData?: any) {
     solBanco: solicitudes.solBanco, setSolBanco: solicitudes.setSolBanco,
     solTipoCuenta: solicitudes.solTipoCuenta, setSolTipoCuenta: solicitudes.setSolTipoCuenta,
     solNumeroCuenta: solicitudes.solNumeroCuenta, setSolNumeroCuenta: solicitudes.setSolNumeroCuenta,
+    tasasParametrizadas: solicitudes.tasasParametrizadas,
+    handleSolTipoChange: solicitudes.handleSolTipoChange,
     handleSolicitarCredito: solicitudes.handleSolicitarCredito,
     handlePonerEnRevision: solicitudes.handlePonerEnRevision,
     handleAprobarSolicitudCredito: solicitudes.handleAprobarSolicitudCredito,

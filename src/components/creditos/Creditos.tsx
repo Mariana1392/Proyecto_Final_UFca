@@ -1,13 +1,15 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { supabase } from '../../lib/supabase';
 import {
   Search, Plus, ChevronLeft, ChevronRight,
   CreditCard, FileText,
   DollarSign, Clock, X, BarChart2, Download,
-  Banknote, CheckCircle2,
+  Banknote, CheckCircle2, Percent,
   Landmark, XCircle, TrendingUp, Wallet, Users, Activity,
   PieChart, Table2, Check, FileSpreadsheet, AlertTriangle, Eye,
 } from 'lucide-react';
@@ -39,8 +41,31 @@ interface CreditosProps {
   userData?: any;
 }
 
+// Mapa tipo → clave en configuracion
+const TIPO_TASA: Record<string, string> = {
+  libre_inversion: 'tasa_libre_inversion',
+  educacion:       'tasa_educacion',
+  vivienda:        'tasa_vivienda',
+  calamidad:       'tasa_calamidad',
+};
+
 export default function Creditos({ userData }: CreditosProps) {
   const hook = useCreditos(userData);
+
+  // Tasas parametrizadas para mostrar simulación correcta en solicitudes
+  const [tasasAdmin, setTasasAdmin] = useState<Record<string, number>>({});
+  // Tipo de interés decidido por el admin por cada solicitud (id → 'simple' | 'compuesto')
+  const [tipoInteresAdmin, setTipoInteresAdmin] = useState<Record<string, 'simple' | 'compuesto'>>({});
+
+  useEffect(() => {
+    supabase.from('configuracion').select('clave, valor')
+      .in('clave', Object.values(TIPO_TASA))
+      .then(({ data }) => {
+        const mapa: Record<string, number> = {};
+        (data ?? []).forEach((r: any) => { mapa[r.clave] = parseFloat(r.valor) || 0; });
+        setTasasAdmin(mapa);
+      });
+  }, []);
   const {
     loading,
     esVistaPropia,
@@ -475,60 +500,50 @@ export default function Creditos({ userData }: CreditosProps) {
                 ) : (
                   <div className="space-y-3">
                     {solicitudesCredito.map(sol => {
-                      const cuotaEst  = calcularCuota(sol.monto, sol.tasaInteres, sol.plazoMeses);
+                      // Usar tasa guardada; si es 0 o nula, usar la parametrizada para ese tipo
+                      const tasaGuardada  = sol.tasaInteres ?? 0;
+                      const claveTasa     = TIPO_TASA[sol.tipo] ?? '';
+                      const tasa          = tasaGuardada > 0 ? tasaGuardada : (tasasAdmin[claveTasa] ?? 0);
+                      const tipoInt       = tipoInteresAdmin[sol.id] ?? 'compuesto';
+                      const r             = tasa > 0 ? (Math.pow(1 + tasa / 100, 1 / 12) - 1) : 0;
+                      const cuotaEst      = tipoInt === 'simple'
+                        ? (tasa > 0 ? Math.round(sol.monto / sol.plazoMeses + sol.monto * r) : Math.round(sol.monto / sol.plazoMeses))
+                        : calcularCuota(sol.monto, tasa, sol.plazoMeses);
+                      const totalPag   = cuotaEst * sol.plazoMeses;
+                      const totalInt   = totalPag - sol.monto;
+                      const tablaAmort = (() => {
+                        const rows = [];
+                        let saldo = sol.monto;
+                        for (let i = 1; i <= sol.plazoMeses; i++) {
+                          let interes: number; let capital: number;
+                          if (tipoInt === 'simple') {
+                            interes = Math.round(sol.monto * r);
+                            capital = i < sol.plazoMeses ? Math.round(sol.monto / sol.plazoMeses) : saldo;
+                          } else {
+                            interes = Math.round(saldo * r);
+                            capital = Math.min(cuotaEst - interes, saldo);
+                          }
+                          saldo = Math.max(0, saldo - capital);
+                          rows.push({ n: i, interes, capital, saldo, cuota: cuotaEst });
+                        }
+                        return rows;
+                      })();
                       const enRevision = sol.estadoAprobacion === 'en_revision';
                       return (
                         <Card key={sol.id} className={`border ${enRevision ? 'border-blue-200 bg-blue-50/30' : 'border-amber-200 bg-amber-50/30'}`}>
-                          <CardContent className="p-4">
+                          <CardContent className="p-4 space-y-4">
+
+                            {/* Encabezado asociado + estado + acciones */}
                             <div className="flex items-start justify-between gap-4">
-                              <div className="space-y-1.5 flex-1">
+                              <div className="space-y-1">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-semibold text-slate-900">{sol.asociado}</span>
+                                  <span className="font-bold text-slate-900">{sol.asociado}</span>
                                   <span className="text-xs text-slate-400">{sol.cedula}</span>
-                                  {enRevision ? (
-                                    <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 text-[11px]">
-                                      En revisión
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="bg-yellow-100 text-yellow-700 border-yellow-200 text-[11px]">
-                                      Pendiente
-                                    </Badge>
-                                  )}
+                                  {enRevision
+                                    ? <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 text-[11px]">En revisión</Badge>
+                                    : <Badge variant="outline" className="bg-yellow-100 text-yellow-700 border-yellow-200 text-[11px]">Pendiente</Badge>
+                                  }
                                 </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
-                                  <div>
-                                    <p className="text-[10px] font-semibold text-slate-400 uppercase">Tipo</p>
-                                    <p className="text-sm text-slate-700">{sol.tipoCreditoLabel}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] font-semibold text-slate-400 uppercase">Monto</p>
-                                    <p className="text-sm font-bold text-slate-900">{formatCurrency(sol.monto)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] font-semibold text-slate-400 uppercase">Plazo</p>
-                                    <p className="text-sm text-slate-700">{sol.plazoMeses} meses</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] font-semibold text-slate-400 uppercase">Cuota est.</p>
-                                    <p className="text-sm text-indigo-700 font-semibold">{formatCurrency(cuotaEst)}</p>
-                                  </div>
-                                </div>
-                                {sol.destino && (
-                                  <p className="text-xs text-slate-500 mt-1">
-                                    <span className="font-semibold">Destino:</span> {sol.destino}
-                                  </p>
-                                )}
-                                {sol.observaciones && (
-                                  <p className="text-xs text-slate-500">
-                                    <span className="font-semibold">Observaciones:</span> {sol.observaciones}
-                                  </p>
-                                )}
-                                {sol.banco && (
-                                  <div className="flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1.5 mt-1">
-                                    <Landmark className="size-3.5 shrink-0 text-indigo-500" />
-                                    <span><strong>Cuenta destino:</strong> {sol.banco} · {sol.tipoCuenta} · {sol.numeroCuenta}</span>
-                                  </div>
-                                )}
                                 <p className="text-[11px] text-slate-400">
                                   Solicitado: {new Date(sol.createdAt).toLocaleString('es-CO', {
                                     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -536,33 +551,116 @@ export default function Creditos({ userData }: CreditosProps) {
                                 </p>
                               </div>
                               <div className="flex flex-col gap-2 shrink-0">
-                                <Button
-                                  size="sm"
-                                  className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                  onClick={() => handleAprobarSolicitudCredito(sol)}
-                                >
+                                <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                  onClick={() => handleAprobarSolicitudCredito(sol, tipoInt)}>
                                   <Check className="size-3.5" /> Aprobar
                                 </Button>
                                 {!enRevision && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50"
-                                    onClick={() => handlePonerEnRevision(sol)}
-                                  >
+                                  <Button size="sm" variant="outline" className="gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50"
+                                    onClick={() => handlePonerEnRevision(sol)}>
                                     <Eye className="size-3.5" /> Revisar
                                   </Button>
                                 )}
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50"
-                                  onClick={() => { setSolicitudSeleccionada(sol); setNotaRechazoSol(''); setIsRechazarSolOpen(true); }}
-                                >
+                                <Button size="sm" variant="outline" className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50"
+                                  onClick={() => { setSolicitudSeleccionada(sol); setNotaRechazoSol(''); setIsRechazarSolOpen(true); }}>
                                   <X className="size-3.5" /> Rechazar
                                 </Button>
                               </div>
                             </div>
+
+                            {/* Selector tipo de interés — decisión del admin */}
+                            <div className="flex items-center gap-3 p-3 rounded-xl bg-violet-50 border border-violet-200">
+                              <div className="p-1.5 bg-violet-100 rounded-lg shrink-0">
+                                <Percent className="size-4 text-violet-600" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-xs font-semibold text-violet-800 mb-1">Tipo de interés — decisión del administrador</p>
+                                <div className="flex gap-2">
+                                  {(['compuesto', 'simple'] as const).map(tipo => (
+                                    <button
+                                      key={tipo}
+                                      onClick={() => setTipoInteresAdmin(prev => ({ ...prev, [sol.id]: tipo }))}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                                        tipoInt === tipo
+                                          ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+                                          : 'bg-white text-violet-700 border-violet-200 hover:bg-violet-50'
+                                      }`}
+                                    >
+                                      {tipo === 'compuesto' ? '📈 Interés compuesto (Francés)' : '📊 Interés simple'}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* KPIs financieros */}
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                              {[
+                                { l: 'Tipo',          v: sol.tipoCreditoLabel,       c: 'text-slate-700' },
+                                { l: 'Monto',         v: formatCurrency(sol.monto),  c: 'text-indigo-700 font-bold' },
+                                { l: 'Plazo',         v: `${sol.plazoMeses} meses`,  c: 'text-slate-700' },
+                                { l: tasa > 0 ? 'Tasa EA' : 'Tasa', v: tasa > 0 ? `${tasa}%` : 'Sin tasa', c: 'text-orange-600' },
+                                { l: 'Cuota mensual', v: formatCurrency(cuotaEst),   c: 'text-emerald-700 font-bold' },
+                              ].map(k => (
+                                <div key={k.l} className="bg-white rounded-lg border border-slate-100 px-3 py-2 text-center">
+                                  <p className="text-[10px] text-slate-400 uppercase tracking-wide">{k.l}</p>
+                                  <p className={`text-sm mt-0.5 ${k.c}`}>{k.v}</p>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Totales */}
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-center">
+                                <p className="text-[10px] text-amber-500 uppercase tracking-wide">Total intereses</p>
+                                <p className="text-sm font-bold text-amber-700">{formatCurrency(totalInt)}</p>
+                              </div>
+                              <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-center">
+                                <p className="text-[10px] text-indigo-500 uppercase tracking-wide">Total a pagar</p>
+                                <p className="text-sm font-bold text-indigo-700">{formatCurrency(totalPag)}</p>
+                              </div>
+                            </div>
+
+                            {/* Tabla de amortización colapsable */}
+                            <details className="group">
+                              <summary className="cursor-pointer text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 select-none">
+                                <Table2 className="size-3.5" />
+                                Ver tabla de amortización ({sol.plazoMeses} cuotas)
+                              </summary>
+                              <div className="mt-2 rounded-xl border border-slate-200 overflow-hidden">
+                                <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-slate-800 text-white sticky top-0">
+                                      <tr>
+                                        {['#','Cuota','Interés','Capital','Saldo'].map(h => (
+                                          <th key={h} className="px-3 py-2 text-left font-semibold whitespace-nowrap">{h}</th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                      {tablaAmort.map((f, idx) => (
+                                        <tr key={f.n} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                                          <td className="px-3 py-1.5 text-slate-400">{f.n}</td>
+                                          <td className="px-3 py-1.5 font-medium text-purple-700 whitespace-nowrap">{formatCurrency(f.cuota)}</td>
+                                          <td className="px-3 py-1.5 text-amber-600 whitespace-nowrap">{formatCurrency(f.interes)}</td>
+                                          <td className="px-3 py-1.5 text-blue-600 whitespace-nowrap">{formatCurrency(f.capital)}</td>
+                                          <td className="px-3 py-1.5 font-semibold whitespace-nowrap">{f.saldo === 0 ? <span className="text-emerald-600">Pagado</span> : formatCurrency(f.saldo)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </details>
+
+                            {/* Observaciones / destino */}
+                            {sol.descripcionSoporte && (
+                              <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                                <span className="font-semibold text-slate-700">Observaciones: </span>
+                                {sol.descripcionSoporte}
+                              </div>
+                            )}
+
                           </CardContent>
                         </Card>
                       );

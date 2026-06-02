@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency } from '../../lib/formatters';
 import { TIPOS_CREDITO } from '../../lib/constants';
 import { calcularCuota, FilaAmortizacion } from './creditoHelpers';
+
+// Mapa tipo de crédito → clave en tabla configuracion
+const TIPO_A_CLAVE: Record<string, string> = {
+  libre_inversion: 'tasa_libre_inversion',
+  educacion:       'tasa_educacion',
+  vivienda:        'tasa_vivienda',
+  calamidad:       'tasa_calamidad',
+};
 
 export interface UseCreditosSolicitudesParams {
   setCreditos: React.Dispatch<React.SetStateAction<any[]>>;
@@ -37,15 +45,38 @@ export function useCreditosSolicitudes({
   const [solBanco, setSolBanco]               = useState('');
   const [solTipoCuenta, setSolTipoCuenta]     = useState('ahorros');
   const [solNumeroCuenta, setSolNumeroCuenta] = useState('');
+  const [tasasParametrizadas, setTasasParametrizadas] = useState<Record<string, number>>({});
 
-  const parseMonto = (v: string) => parseFloat(v.replace(/[^\d.]/g, '')) || 0;
+  // Cargar tasas desde configuracion (al montar Y cada vez que se abre el dialog)
+  useEffect(() => {
+    const claves = Object.values(TIPO_A_CLAVE);
+    supabase.from('configuracion').select('clave, valor').in('clave', claves)
+      .then(({ data }) => {
+        const mapa: Record<string, number> = {};
+        (data ?? []).forEach((r: any) => { mapa[r.clave] = parseFloat(r.valor) || 0; });
+        setTasasParametrizadas(mapa);
+        // Aplicar tasa para el tipo actualmente seleccionado
+        const clave = TIPO_A_CLAVE[solTipo] ?? 'tasa_libre_inversion';
+        const tasa  = mapa[clave] ?? 0;
+        setSolTasa(tasa > 0 ? String(tasa) : '');
+      });
+  }, [isSolicitudDialogOpen]); // se recarga cada vez que el dialog abre/cierra
+
+  // Cuando cambia el tipo, actualizar la tasa automáticamente
+  const handleSolTipoChange = (tipo: string) => {
+    setSolTipo(tipo);
+    const clave = TIPO_A_CLAVE[tipo];
+    const tasa  = clave ? (tasasParametrizadas[clave] ?? 0) : 0;
+    setSolTasa(tasa > 0 ? String(tasa) : '');
+  };
+
+  const parseMonto = (v: string) => parseInt(v.replace(/\./g, '').replace(/[^\d]/g, ''), 10) || 0;
 
   const handleSolicitarCredito = async () => {
     const monto = parseMonto(solMonto);
     if (!monto || monto <= 0)      { toast.error('Ingresa un monto válido'); return; }
     const plazo = parseInt(solPlazo) || 0;
     if (plazo <= 0)                { toast.error('El plazo debe ser mayor a 0 meses'); return; }
-    if (!solDestino.trim())        { toast.error('Describe el destino del crédito'); return; }
 
     setSavingSolicitud(true);
     try {
@@ -59,6 +90,18 @@ export function useCreditosSolicitudes({
       const tasa  = parseFloat(solTasa) || 0;
       const cuota = calcularCuota(monto, tasa, plazo);
 
+      // Construir observaciones incluyendo datos bancarios si los ingresó
+      const parteDestino  = solDestino.trim();
+      const parteObs      = solObs.trim();
+      const parteBancaria = [
+        solBanco.trim()        && `Banco: ${solBanco.trim()}`,
+        solTipoCuenta          && `Tipo de cuenta: ${solTipoCuenta}`,
+        solNumeroCuenta.trim() && `N° cuenta: ${solNumeroCuenta.trim()}`,
+      ].filter(Boolean).join(' · ');
+
+      const observacionesFinal = [parteDestino, parteObs, parteBancaria]
+        .filter(Boolean).join('\n') || null;
+
       const { data, error } = await supabase
         .from('creditos')
         .insert({
@@ -70,13 +113,8 @@ export function useCreditosSolicitudes({
           cuota_mensual:  cuota,
           saldo:          monto,
           estado:         'pendiente',
-          observaciones:  (solDestino.trim() + (solObs.trim() ? '\n' + solObs.trim() : '')) || null,
+          observaciones:  observacionesFinal,
           anulado:        false,
-          periodo_id:     periodoId,
-          // Datos bancarios para el desembolso
-          banco:          solBanco.trim()        || null,
-          tipo_cuenta:    solTipoCuenta          || null,
-          numero_cuenta:  solNumeroCuenta.trim() || null,
         })
         .select('*')
         .single();
@@ -166,18 +204,21 @@ export function useCreditosSolicitudes({
     }
   };
 
-  const handleAprobarSolicitudCredito = async (sol: any) => {
+  const handleAprobarSolicitudCredito = async (sol: any, tipoInteres: 'simple' | 'compuesto' = 'compuesto') => {
     try {
-      const ahora   = new Date().toISOString();
-      const tasa    = sol.tasaInteres || 0;
-      const cuota   = calcularCuota(sol.monto, tasa, sol.plazoMeses);
-      void cuota;
+      const ahora = new Date().toISOString();
+      const tasa  = sol.tasaInteres || 0;
+      const cuota = tipoInteres === 'simple'
+        ? (tasa > 0 ? Math.round(sol.monto / sol.plazoMeses + sol.monto * (Math.pow(1 + tasa / 100, 1 / 12) - 1)) : Math.round(sol.monto / sol.plazoMeses))
+        : calcularCuota(sol.monto, tasa, sol.plazoMeses);
 
       const { data: creditoData, error: creditoErr } = await supabase
         .from('creditos')
         .update({
-          estado:              'aprobado',
-          fecha_estado_cambio: ahora,
+          estado:               'aprobado',
+          tipo_interes:         tipoInteres,
+          cuota_mensual:        cuota,
+          fecha_estado_cambio:  ahora,
           motivo_estado_cambio: 'Aprobado por administrador',
         })
         .eq('id', sol.id)
@@ -263,6 +304,8 @@ export function useCreditosSolicitudes({
     solBanco, setSolBanco,
     solTipoCuenta, setSolTipoCuenta,
     solNumeroCuenta, setSolNumeroCuenta,
+    tasasParametrizadas,
+    handleSolTipoChange,
     handleSolicitarCredito,
     handlePonerEnRevision,
     handleAprobarSolicitudCredito,
