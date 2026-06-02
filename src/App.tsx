@@ -1,7 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Shield } from 'lucide-react';
 import Layout from './components/Layout';
-import Hero from './components/Hero';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -12,6 +11,7 @@ import { supabase } from './lib/supabase';
 import { Toaster } from 'sonner';
 
 // Módulos cargados bajo demanda — no se descargan hasta que el usuario navega a ellos
+const Hero                  = lazy(() => import('./components/Hero'));
 const Dashboard             = lazy(() => import('./components/Dashboard'));
 const DashboardAsociado     = lazy(() => import('./components/DashboardAsociado'));
 const RecuperarPassword     = lazy(() => import('./components/RecuperarPassword'));

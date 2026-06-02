@@ -660,9 +660,13 @@ export default function ComiteEvaluador() {
 
     // Validaciones
     const montoNum = parseCurrencyInput(pagoMonto);
-    if (!montoNum || montoNum < 100_000) {
-      toast.error('Monto inválido', { description: 'El primer aporte debe ser mínimo $100.000 COP.' });
+    if (!montoNum || montoNum <= 0) {
+      toast.error('El monto debe ser mayor a cero');
       return;
+    }
+    // Advertencia informativa si es menor al mínimo — no bloquea
+    if (montoNum < 100_000) {
+      toast.warning('El monto es menor al estipulado, pero se registrará igualmente.');
     }
     if (!pagoFecha) {
       toast.error('Selecciona la fecha del pago');
@@ -678,13 +682,10 @@ export default function ComiteEvaluador() {
     }
     setSavingPago(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      // 1. Período activo
-      const { data: periodo, error: periodoErr } = await supabase
-        .from('periodos').select('id').eq('estado', 'activo').limit(1).maybeSingle();
-      if (periodoErr) throw periodoErr;
-      if (!periodo) throw new Error('No hay un período activo. Crea un período antes de registrar aportes.');
+      // 1. Período activo — si no hay uno, se usa null (campo nullable en la BD)
+      const { data: periodo } = await supabaseAdmin
+        .from('periodos').select('id').eq('estado', 'activo').order('fecha_inicio', { ascending: false }).limit(1).maybeSingle();
+      const periodoId: string | null = periodo?.id ?? null;
 
       // 2. Subir comprobante si se adjuntó (no bloquea el flujo si falla)
       let urlComprobante: string | null = null;
@@ -732,7 +733,7 @@ export default function ComiteEvaluador() {
           .insert({
             asociado_id: pagoSolicitud.usuario_id,
             tipo: 'permanente',
-            periodo_id: periodo.id,
+            periodo_id: periodoId,
             monto_ahorrado: montoNum,
             cuota_mensual: montoNum,
             estado: 'activo',
@@ -743,12 +744,13 @@ export default function ComiteEvaluador() {
       }
 
       // 4. Registrar transacción (supabaseAdmin para bypasear RLS en transacciones)
+      const { data: { user } } = await supabase.auth.getUser();
       const { error: txErr } = await supabaseAdmin.from('transacciones').insert({
         tipo: 'aporte_permanente',
         asociado_id: pagoSolicitud.usuario_id,
         registrado_por: user?.id ?? null,
         ahorro_id: cuentaId,
-        periodo_id: periodo.id,
+        periodo_id: periodoId,
         monto: montoNum,
         capital: montoNum,
         interes: 0,
@@ -763,8 +765,8 @@ export default function ComiteEvaluador() {
       });
       if (txErr) throw txErr;
 
-      // 5. Marcar solicitud como aprobada (ya no pendiente_activacion)
-      const { error: solErr } = await supabase
+      // 5. Marcar solicitud como aprobada — supabaseAdmin para evitar bloqueo RLS
+      const { error: solErr } = await supabaseAdmin
         .from('solicitudes_asociados').update({ estado: 'aprobada' }).eq('id', pagoSolicitud.id);
       if (solErr) throw solErr;
 
@@ -1273,7 +1275,7 @@ export default function ComiteEvaluador() {
       {/* ── Dialog: Detalle / Evaluación ─────────────────────────────────── */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
       <Dialog open={isDetailOpen} onOpenChange={open => { setIsDetailOpen(open); if (!open) { setSelectedSolicitud(null); setDocsStorage([]); setErrorDocs(null); } }}>
-        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
+        <DialogContent className="max-h-[92vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style={{width:'min(90vw, 1100px)', maxWidth:'min(90vw, 1100px)'}}>
           {selectedSolicitud && (
             <>
               <DialogHeader>
@@ -1352,7 +1354,7 @@ export default function ComiteEvaluador() {
                 </div>
 
                 {/* Información personal + laboral */}
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-2 gap-6">
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm flex items-center gap-2">
@@ -1373,9 +1375,9 @@ export default function ComiteEvaluador() {
                       ] as ([string,string] | null)[])
                         .filter((row): row is [string, string] => row !== null)
                         .map(([k, v]) => (
-                        <div key={k} className="flex justify-between border-b border-slate-50 pb-1.5 last:border-0">
-                          <span className="text-slate-500">{k}:</span>
-                          <span className="font-medium text-slate-800 text-right max-w-[55%] break-words">{v}</span>
+                        <div key={k} className="flex gap-4 border-b border-slate-50 pb-2 last:border-0">
+                          <span className="text-slate-500 shrink-0 w-24">{k}:</span>
+                          <span className="font-medium text-slate-800">{v}</span>
                         </div>
                       ))}
                     </CardContent>
@@ -1396,8 +1398,8 @@ export default function ComiteEvaluador() {
                           ] as ([string,string] | null)[])
                             .filter((row): row is [string,string] => row !== null)
                             .map(([k, v]) => (
-                            <div key={k} className="flex justify-between border-b border-slate-50 pb-1.5">
-                              <span className="text-slate-500">{k}:</span>
+                            <div key={k} className="flex gap-4 border-b border-slate-50 pb-2">
+                              <span className="text-slate-500 shrink-0 w-28">{k}:</span>
                               <span className="font-medium text-slate-800">{v}</span>
                             </div>
                           ))}
@@ -1413,14 +1415,6 @@ export default function ComiteEvaluador() {
                             </div>
                           )}
 
-                          {selectedSolicitud.ingresoMensual && (
-                            <div className="mt-2 p-3 bg-blue-50 rounded-lg">
-                              <p className="text-xs text-blue-600 font-medium">Capacidad de pago estimada (30%)</p>
-                              <p className="text-lg font-bold text-blue-700">
-                                ${(parseFloat(String(selectedSolicitud.ingresoMensual).replace(/[^0-9.]/g, '')) * 0.3 || 0).toLocaleString('es-CO')} COP
-                              </p>
-                            </div>
-                          )}
                         </>
                       ) : (
                         <p className="text-slate-400 text-xs italic">El aspirante no proporcionó información laboral.</p>
@@ -2221,7 +2215,7 @@ Comité Evaluador — UFCA`}
             <Button
               className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 gap-2 font-semibold shadow-md shadow-teal-900/20"
               onClick={handleRegistrarPrimerPago}
-              disabled={savingPago || parseCurrencyInput(pagoMonto) < 100_000 || !pagoFecha}
+              disabled={savingPago || !pagoMonto || !pagoFecha}
             >
               <PiggyBank className="size-4" />
               {savingPago ? 'Registrando...' : 'Registrar y activar cuenta'}

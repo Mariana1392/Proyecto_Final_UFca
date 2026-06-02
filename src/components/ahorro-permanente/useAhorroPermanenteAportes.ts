@@ -74,9 +74,11 @@ export function useAhorroPermanenteAportes({
   const handleRegistrarAporte = () => {
     const monto = parseCurrencyInput(formAporteMonto);
     if (!monto || monto <= 0)      { toast.error('El monto debe ser mayor a cero'); return; }
-    if (monto < 100_000)           { toast.error('El valor ingresado es menor al monto estipulado'); return; }
+    // Advertencia informativa — no bloquea el registro
+    if (monto < 100_000)           { toast.warning('El valor ingresado es menor al monto estipulado, pero se registrará igualmente.'); }
     if (!formAporteFecha)          { toast.error('Selecciona la fecha del aporte'); return; }
     if (!selectedItem)             return;
+    // Si es menor al obligatorio, mostrar confirmación pero siempre permitir continuar
     if (monto < montoObligatorio)  { setIsConfirmAporteBajoOpen(true); return; }
     ejecutarRegistrarAporte();
   };

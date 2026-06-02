@@ -35,11 +35,12 @@ interface AlertasWidgetProps {
 // Mapa tipo → vista de navegación
 const TIPO_VISTA: Record<string, string> = {
   solicitud_credito:   'creditos',
+  credito_pendiente:   'creditos',   // alias legacy
   credito_confirmado:  'creditos',
   credito_activo:      'creditos',
   credito_rechazado:   'creditos',
   simulacion:          'creditos',
-  solicitud_afiliacion:'asociados',
+  solicitud_afiliacion:'comite-evaluador',
   modificacion:        'creditos',
   anulacion:           'creditos',
   ahorro:              'ahorro-permanente',
@@ -279,6 +280,7 @@ export default function AlertasWidget({
     const labels: Record<string, string> = {
       'creditos':          'Ir a Créditos',
       'asociados':         'Ir a Asociados',
+      'comite-evaluador':  'Ir a Comité',
       'ahorro-permanente': 'Ir a Ahorros',
       'ahorro-voluntario': 'Ir a Ahorros',
     };

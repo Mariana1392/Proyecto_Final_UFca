@@ -148,7 +148,7 @@ export function useCreditosSolicitudes({
       supabase.from('notificaciones').insert({
         titulo:      '📋 Nueva solicitud de crédito',
         mensaje:     `${userData?.nombre ?? 'Un asociado'} solicitó un crédito por ${formatCurrency(monto)} a ${plazo} meses (${TIPOS_CREDITO.find(t => t.value === solTipo)?.label ?? solTipo}). Destino: ${solDestino.trim()}.`,
-        tipo:        'credito_pendiente',
+        tipo:        'solicitud_credito',
         leida:       false,
         para_admin:  true,
         asociado_id: userData?.id,
@@ -181,7 +181,7 @@ export function useCreditosSolicitudes({
 
       await supabase.from('notificaciones').insert({
         asociado_id: sol.asociadoId,
-        tipo:        'credito_pendiente',
+        tipo:        'solicitud_credito',
         titulo:      '🔍 Tu solicitud está en revisión',
         mensaje:     `Tu solicitud de crédito por ${formatCurrency(sol.monto)} está siendo revisada por el administrador.`,
         leida:       false,
@@ -229,7 +229,7 @@ export function useCreditosSolicitudes({
 
       await supabase.from('notificaciones').insert({
         asociado_id: sol.asociadoId,
-        tipo:        'credito_pendiente',
+        tipo:        'solicitud_credito',
         titulo:      '✅ Solicitud de crédito aprobada',
         mensaje:     `Tu solicitud de crédito por ${formatCurrency(sol.monto)} fue aprobada.`,
         leida:       false,
@@ -268,7 +268,7 @@ export function useCreditosSolicitudes({
 
       await supabase.from('notificaciones').insert({
         asociado_id: solicitudSeleccionada.asociadoId,
-        tipo:        'credito_pendiente',
+        tipo:        'solicitud_credito',
         titulo:      '❌ Solicitud de crédito rechazada',
         mensaje:     `Tu solicitud de crédito por ${formatCurrency(solicitudSeleccionada.monto)} fue rechazada. Motivo: ${notaRechazoSol.trim()}`,
         leida:       false,
