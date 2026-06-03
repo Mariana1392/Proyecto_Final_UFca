@@ -164,7 +164,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
       const ahIds = [...new Set((ahorrosRes.data || []).map((r: any) => r.asociado_id).filter(Boolean))];
       const ahUsrMap: Record<string, any> = {};
       if (ahIds.length > 0) {
-        const { data: ahUsrs } = await supabase.from('usuarios').select('id, nombre, cedula, identificacion, email').in('id', ahIds);
+        const { data: ahUsrs } = await supabase.from('usuarios').select('id, nombre, cedula, email').in('id', ahIds);
         (ahUsrs || []).forEach((u: any) => { ahUsrMap[u.id] = u; });
       }
       const data = (ahorrosRes.data || []).map((r: any) => ({ ...r, usuarios: ahUsrMap[r.asociado_id] ?? null }));
@@ -172,7 +172,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
       const mapeados = (data || []).map((a: any) => ({
         id:              a.id,
         asociado:        a.usuarios?.nombre  ?? 'Sin nombre',
-        cedula:          a.usuarios?.cedula || a.usuarios?.identificacion || '',
+        cedula:          a.usuarios?.cedula || '',
         email:           a.usuarios?.email   ?? '',
         asociado_id:     a.asociado_id,
         montoAhorrado:   a.monto_ahorrado,

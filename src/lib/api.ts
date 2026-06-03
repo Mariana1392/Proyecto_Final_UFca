@@ -231,7 +231,7 @@ export const ahorroPermanenteApi = {
     const ids = [...new Set(rows.map((r: any) => r.asociado_id).filter(Boolean))];
     const uMap: Record<string, any> = {};
     if (ids.length > 0) {
-      const { data: usrs } = await supabase.from('usuarios').select('id, nombre, cedula, identificacion').in('id', ids);
+      const { data: usrs } = await supabase.from('usuarios').select('id, nombre, cedula').in('id', ids);
       (usrs || []).forEach((u: any) => { uMap[u.id] = u; });
     }
     return rows.map((r: any) => ({ ...r, usuarios: uMap[r.asociado_id] ?? null }));
@@ -254,7 +254,7 @@ export const ahorroPermanenteApi = {
       .select('*')
       .single();
     if (error) throw error;
-    const { data: usr } = await supabase.from('usuarios').select('id, nombre, cedula, identificacion').eq('id', data.asociado_id).maybeSingle();
+    const { data: usr } = await supabase.from('usuarios').select('id, nombre, cedula').eq('id', data.asociado_id).maybeSingle();
     return { ...data, usuarios: usr ?? null };
   },
 
@@ -290,7 +290,7 @@ export const ahorroVoluntarioApi = {
     const ids = [...new Set(rows.map((r: any) => r.asociado_id).filter(Boolean))];
     const uMap: Record<string, any> = {};
     if (ids.length > 0) {
-      const { data: usrs } = await supabase.from('usuarios').select('id, nombre, cedula, identificacion').in('id', ids);
+      const { data: usrs } = await supabase.from('usuarios').select('id, nombre, cedula').in('id', ids);
       (usrs || []).forEach((u: any) => { uMap[u.id] = u; });
     }
     return rows.map((r: any) => ({ ...r, usuarios: uMap[r.asociado_id] ?? null }));
@@ -313,7 +313,7 @@ export const ahorroVoluntarioApi = {
       .select('*')
       .single();
     if (error) throw error;
-    const { data: usr } = await supabase.from('usuarios').select('id, nombre, cedula, identificacion').eq('id', data.asociado_id).maybeSingle();
+    const { data: usr } = await supabase.from('usuarios').select('id, nombre, cedula').eq('id', data.asociado_id).maybeSingle();
     return { ...data, usuarios: usr ?? null };
   },
 
@@ -348,7 +348,7 @@ export const creditosApi = {
     const ids = [...new Set(rows.map((r: any) => r.asociado_id).filter(Boolean))];
     const uMap: Record<string, any> = {};
     if (ids.length > 0) {
-      const { data: usrs } = await supabase.from('usuarios').select('id, nombre, cedula, identificacion').in('id', ids);
+      const { data: usrs } = await supabase.from('usuarios').select('id, nombre, cedula').in('id', ids);
       (usrs || []).forEach((u: any) => { uMap[u.id] = u; });
     }
     return rows.map((r: any) => ({ ...r, usuarios: uMap[r.asociado_id] ?? null }));
@@ -370,7 +370,7 @@ export const creditosApi = {
       .select('*')
       .single();
     if (error) throw error;
-    const { data: usr } = await supabase.from('usuarios').select('id, nombre, cedula, identificacion').eq('id', data.asociado_id).maybeSingle();
+    const { data: usr } = await supabase.from('usuarios').select('id, nombre, cedula').eq('id', data.asociado_id).maybeSingle();
     return { ...data, usuarios: usr ?? null };
   },
 
@@ -515,7 +515,7 @@ export const excepcionesApi = {
     const ids = [...new Set(rows.map((r: any) => r.asociado_id).filter(Boolean))];
     const uMap: Record<string, any> = {};
     if (ids.length > 0) {
-      const { data: usrs } = await supabase.from('usuarios').select('id, nombre, cedula, identificacion').in('id', ids);
+      const { data: usrs } = await supabase.from('usuarios').select('id, nombre, cedula').in('id', ids);
       (usrs || []).forEach((u: any) => { uMap[u.id] = u; });
     }
     return rows.map((r: any) => ({ ...r, usuarios: uMap[r.asociado_id] ?? null }));

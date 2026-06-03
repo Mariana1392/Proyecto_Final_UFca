@@ -85,7 +85,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
   const validarCampoUsuario = (name: string, value: string) => {
     let error = '';
     switch (name) {
-      case 'identificacion':
+      case 'cedula':
         if (!value.trim()) error = 'La identificación es obligatoria';
         else if (!/^\d+$/.test(value.trim())) error = 'Solo se permiten números';
         else if (value.trim().length > 15) error = 'Máximo 15 dígitos';
@@ -130,7 +130,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
   const [filterRol, setFilterRol]           = useState('');
   const [filterEstado, setFilterEstado]     = useState('');
   const [formData, setFormData]         = useState({
-    identificacion: '', username: '', nombre: '',
+    cedula: '', username: '', nombre: '',
     email: '', telefono: '', rol: '', password: '',
     direccion: '', fechaIngreso: '',
   });
@@ -170,7 +170,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       const rolDb = u.roles?.nombre ?? 'usuario';
       return {
         id:               u.id,
-        identificacion:   u.identificacion || u.cedula || '',
+        cedula:           u.cedula || '',
         username:         u.username || u.email?.split('@')[0] || '—',
         nombre:           u.nombre,
         email:            u.email,
@@ -220,7 +220,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       u.nombre.toLowerCase().includes(term) ||
       u.email.toLowerCase().includes(term) ||
       (u.username || '').toLowerCase().includes(term) ||
-      (u.identificacion || '').toLowerCase().includes(term) ||
+      (u.cedula || '').toLowerCase().includes(term) ||
       u.rol.toLowerCase().includes(term);
     const matchRol    = !filterRol    || u.rol === filterRol;
     const matchEstado = !filterEstado ||
@@ -364,15 +364,15 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
 
   // ── Crear ────────────────────────────────────────────────────────────────────
   const handleOpenCreate = () => {
-    setFormData({ identificacion: '', username: '', nombre: '', email: '', telefono: '', rol: '', password: '', direccion: '', fechaIngreso: '' });
+    setFormData({ cedula: '', username: '', nombre: '', email: '', telefono: '', rol: '', password: '', direccion: '', fechaIngreso: '' });
     setFormErrors({});
     setIsCreateModalOpen(true);
   };
 
   const handleCreate = async () => {
-    if (!formData.identificacion.trim()) { toast.error('La identificación es obligatoria'); return; }
-    if (!/^\d+$/.test(formData.identificacion.trim())) { toast.error('La identificación solo debe contener números'); return; }
-    if (formData.identificacion.trim().length > 15)    { toast.error('La identificación no puede superar 15 dígitos'); return; }
+    if (!formData.cedula.trim()) { toast.error('La identificación es obligatoria'); return; }
+    if (!/^\d+$/.test(formData.cedula.trim())) { toast.error('La identificación solo debe contener números'); return; }
+    if (formData.cedula.trim().length > 15)    { toast.error('La identificación no puede superar 15 dígitos'); return; }
     if (!formData.username.trim())       { toast.error('El nombre de usuario es obligatorio'); return; }
     if (!formData.nombre.trim())         { toast.error('El nombre es obligatorio'); return; }
     if (!formData.email.trim())          { toast.error('El correo electrónico es obligatorio'); return; }
@@ -391,8 +391,8 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email.trim())) { toast.error('El formato del email no es válido'); return; }
 
-    if (usuarios.some(u => u.identificacion === formData.identificacion.trim()))
-      { toast.error(`Ya existe un usuario con la identificación "${formData.identificacion}"`); return; }
+    if (usuarios.some(u => u.cedula === formData.cedula.trim()))
+      { toast.error(`Ya existe un usuario con la identificación "${formData.cedula}"`); return; }
     if (usuarios.some(u => u.username.toLowerCase() === formData.username.trim().toLowerCase()))
       { toast.error(`Ya existe un usuario con el nombre "${formData.username}"`); return; }
     if (usuarios.some(u => u.email.toLowerCase() === formData.email.trim().toLowerCase()))
@@ -415,7 +415,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
 
       // Campos adicionales para usuarios con rol Asociado
       const camposAsociado = formData.rol === 'Asociado' ? {
-        cedula:        formData.identificacion.trim(),
+        cedula:        formData.cedula.trim(),
         telefono:      formData.telefono.trim(),
         direccion:     formData.direccion.trim(),
         fecha_ingreso: formData.fechaIngreso.trim(),
@@ -427,7 +427,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         nombre:         formData.nombre.trim(),
         email:          formData.email.trim(),
         username:       formData.username.trim().toLowerCase(),
-        identificacion: formData.identificacion.trim(),
+        cedula:         formData.cedula.trim(),
         rol_id:         rolSeleccionado?.id,
         activo:         true,
         ...camposAsociado,
@@ -436,7 +436,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
 
       setUsuarios(prev => [...prev, {
         id:             authData.user!.id,
-        identificacion: formData.identificacion.trim(),
+        cedula:         formData.cedula.trim(),
         username:       formData.username.trim().toLowerCase(),
         nombre:         formData.nombre.trim(),
         email:          formData.email.trim(),
@@ -461,10 +461,10 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     setSelectedUsuario(usuario);
     // Si la identificación contiene letras (dato inválido), limpiarla
     // para obligar al admin a ingresar una identificación numérica válida.
-    const idActual = usuario.identificacion ?? '';
+    const idActual = usuario.cedula ?? '';
     const idLimpia = tieneLetrasId(idActual) ? '' : idActual;
     setFormData({
-      identificacion: idLimpia,
+      cedula: idLimpia,
       username:       usuario.username,
       nombre:         usuario.nombre,
       email:          usuario.email,
@@ -480,9 +480,9 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
   const handleEdit = async () => {
     if (!selectedUsuario) return;
     if (!formData.nombre.trim())         { toast.error('El nombre es obligatorio'); return; }
-    if (!formData.identificacion.trim()) { toast.error('La identificación es obligatoria'); return; }
-    if (!/^\d+$/.test(formData.identificacion.trim())) { toast.error('La identificación solo debe contener números'); return; }
-    if (formData.identificacion.trim().length > 15)    { toast.error('La identificación no puede superar 15 dígitos'); return; }
+    if (!formData.cedula.trim()) { toast.error('La identificación es obligatoria'); return; }
+    if (!/^\d+$/.test(formData.cedula.trim())) { toast.error('La identificación solo debe contener números'); return; }
+    if (formData.cedula.trim().length > 15)    { toast.error('La identificación no puede superar 15 dígitos'); return; }
     if (!formData.username.trim())       { toast.error('El nombre de usuario es obligatorio'); return; }
     if (!formData.email.trim())          { toast.error('El correo electrónico es obligatorio'); return; }
     if (formData.telefono.trim().length > 15) { toast.error('El teléfono no puede superar 15 caracteres'); return; }
@@ -493,8 +493,8 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
 
     // Solo comparar contra usuarios reales (no registros soloLectura de asociados sin cuenta)
     const usuariosReales = usuarios.filter(u => !u.soloLectura);
-    if (usuariosReales.some(u => u.identificacion === formData.identificacion.trim() && u.id !== selectedUsuario.id))
-      { toast.error(`Ya existe otro usuario con la identificación "${formData.identificacion}"`); return; }
+    if (usuariosReales.some(u => u.cedula === formData.cedula.trim() && u.id !== selectedUsuario.id))
+      { toast.error(`Ya existe otro usuario con la identificación "${formData.cedula}"`); return; }
     if (usuariosReales.some(u => (u.username || '').toLowerCase() === formData.username.trim().toLowerCase() && u.id !== selectedUsuario.id))
       { toast.error(`Ya existe otro usuario con el nombre de usuario "${formData.username}"`); return; }
     if (usuariosReales.some(u => u.email.toLowerCase() === formData.email.trim().toLowerCase() && u.id !== selectedUsuario.id))
@@ -510,8 +510,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
           nombre:         formData.nombre.trim(),
           email:          formData.email.trim(),
           username:       formData.username.trim().toLowerCase(),
-          identificacion: formData.identificacion.trim(),
-          cedula:         formData.identificacion.trim(),
+          cedula:         formData.cedula.trim(),
           rol_id:         rolSeleccionado?.id,
         })
         .eq('id', selectedUsuario.id);
@@ -523,7 +522,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
               nombre:         formData.nombre.trim(),
               email:          formData.email.trim(),
               username:       formData.username.trim().toLowerCase(),
-              identificacion: formData.identificacion.trim(),
+              cedula:         formData.cedula.trim(),
               telefono:       formData.telefono.trim(),
               direccion:      formData.direccion.trim(),
               rol:            formData.rol,
@@ -541,7 +540,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       comparar('Nombre',          selectedUsuario.nombre,         formData.nombre.trim());
       comparar('Usuario',         selectedUsuario.username,       formData.username.trim());
       comparar('Email',           selectedUsuario.email,          formData.email.trim());
-      comparar('Identificación',  selectedUsuario.identificacion, formData.identificacion.trim());
+      comparar('Identificación',  selectedUsuario.cedula, formData.cedula.trim());
       comparar('Teléfono',        selectedUsuario.telefono,       formData.telefono.trim());
       comparar('Dirección',       selectedUsuario.direccion,      formData.direccion.trim());
       comparar('Rol',             selectedUsuario.rol,            formData.rol);
@@ -685,7 +684,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     if (val.length < 5)  { setFixIdError('Mínimo 5 dígitos'); return; }
 
     // Verificar que no exista ya ese número en otro usuario
-    if (usuarios.some(u => u.identificacion === val && u.id !== fixIdUsuario.id)) {
+    if (usuarios.some(u => u.cedula === val && u.id !== fixIdUsuario.id)) {
       setFixIdError(`Ya existe otro usuario con la identificación "${val}"`);
       return;
     }
@@ -694,12 +693,12 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     try {
       const { error } = await supabase
         .from('usuarios')
-        .update({ identificacion: val })
+        .update({ cedula: val })
         .eq('id', fixIdUsuario.id);
       if (error) throw error;
 
       setUsuarios(prev => prev.map(u =>
-        u.id === fixIdUsuario.id ? { ...u, identificacion: val } : u
+        u.id === fixIdUsuario.id ? { ...u, cedula: val } : u
       ));
       toast.success(`Identificación de "${fixIdUsuario.nombre}" actualizada correctamente`);
       setIsFixIdModalOpen(false);
@@ -858,11 +857,11 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                         <TableCell>
                           <div className="flex items-center gap-1.5">
                             <p className="text-sm text-slate-600">
-                              {!usuario.identificacion
+                              {!usuario.cedula
                                 ? <span className="text-slate-400 italic">Sin registro</span>
-                                : usuario.identificacion}
+                                : usuario.cedula}
                             </p>
-                            {esAdmin && (tieneLetrasId(usuario.identificacion) || !usuario.identificacion) && (
+                            {esAdmin && (tieneLetrasId(usuario.cedula) || !usuario.cedula) && (
                               <button
                                 onClick={(e) => handleOpenFixId(usuario, e)}
                                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300 hover:bg-amber-200 transition-colors cursor-pointer"
@@ -1131,11 +1130,11 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                 <Label htmlFor="c-identificacion">Identificación * <span className="text-xs text-slate-400 font-normal">(solo números, máx. 15)</span></Label>
                 <Input id="c-identificacion" placeholder="1010123456"
                   inputMode="numeric" maxLength={15}
-                  value={formData.identificacion}
-                  onChange={(e) => { const v = e.target.value.replace(/\D/g,'').slice(0,15); handleFormChange('identificacion', v); }}
-                  onBlur={e => validarCampoUsuario('identificacion', e.target.value)}
-                  className={formErrors.identificacion ? 'border-red-400' : ''} />
-                {formErrors.identificacion && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.identificacion}</p>}
+                  value={formData.cedula}
+                  onChange={(e) => { const v = e.target.value.replace(/\D/g,'').slice(0,15); handleFormChange('cedula', v); }}
+                  onBlur={e => validarCampoUsuario('cedula', e.target.value)}
+                  className={formErrors.cedula ? 'border-red-400' : ''} />
+                {formErrors.cedula && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.cedula}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="c-username">Nombre de usuario *</Label>
@@ -1250,12 +1249,12 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
           </DialogHeader>
           <div className="space-y-4 py-4">
             {/* Alerta cuando la identificación es inválida (letras) o está vacía */}
-            {selectedUsuario && (tieneLetrasId(selectedUsuario.identificacion ?? '') || !selectedUsuario.identificacion) && (
+            {selectedUsuario && (tieneLetrasId(selectedUsuario.cedula ?? '') || !selectedUsuario.cedula) && (
               <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-300 rounded-lg text-amber-800 text-sm">
                 <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-600" />
                 <span>
-                  {tieneLetrasId(selectedUsuario.identificacion ?? '')
-                    ? <>Este usuario tenía la identificación <strong>"{selectedUsuario.identificacion}"</strong> con letras, lo cual no es válido.</>
+                  {tieneLetrasId(selectedUsuario.cedula ?? '')
+                    ? <>Este usuario tenía la identificación <strong>"{selectedUsuario.cedula}"</strong> con letras, lo cual no es válido.</>
                     : <>Este usuario no tiene número de identificación registrado.</>
                   }
                   {' '}Por favor ingresa el número de documento correcto (solo dígitos, máx. 15).
@@ -1268,10 +1267,10 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                 <Input id="e-identificacion" placeholder="1010123456"
                   inputMode="numeric"
                   maxLength={15}
-                  value={formData.identificacion}
+                  value={formData.cedula}
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, '').slice(0, 15);
-                    setFormData(prev => ({ ...prev, identificacion: val }));
+                    setFormData(prev => ({ ...prev, cedula: val }));
                   }} />
               </div>
               <div className="space-y-2">
@@ -1392,11 +1391,11 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                     <Label className="text-xs text-slate-500">Identificación</Label>
                     <div className="flex items-center gap-2 mt-0.5">
                       <p className="text-sm font-medium text-slate-900">
-                        {selectedUsuario.identificacion && !selectedUsuario.identificacion.includes('-')
-                          ? selectedUsuario.identificacion
+                        {selectedUsuario.cedula && !selectedUsuario.cedula.includes('-')
+                          ? selectedUsuario.cedula
                           : '—'}
                       </p>
-                      {(tieneLetrasId(selectedUsuario.identificacion ?? '') || !selectedUsuario.identificacion) && (
+                      {(tieneLetrasId(selectedUsuario.cedula ?? '') || !selectedUsuario.cedula) && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300">
                           <AlertTriangle className="size-2.5" />
                           Pendiente

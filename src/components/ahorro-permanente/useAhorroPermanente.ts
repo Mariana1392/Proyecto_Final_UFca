@@ -121,7 +121,7 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
       const ahIds = [...new Set((ahorrosRes.data || []).map((r: any) => r.asociado_id).filter(Boolean))];
       const ahUsrMap: Record<string, any> = {};
       if (ahIds.length > 0) {
-        const { data: ahUsrs } = await supabase.from('usuarios').select('id, nombre, cedula, identificacion').in('id', ahIds);
+        const { data: ahUsrs } = await supabase.from('usuarios').select('id, nombre, cedula').in('id', ahIds);
         (ahUsrs || []).forEach((u: any) => { ahUsrMap[u.id] = u; });
       }
       const data = (ahorrosRes.data || []).map((r: any) => ({ ...r, usuarios: ahUsrMap[r.asociado_id] ?? null }));
@@ -161,7 +161,7 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
         return {
           id:              a.id,
           asociado:        a.usuarios?.nombre  ?? 'Sin nombre',
-          cedula:          a.usuarios?.cedula || a.usuarios?.identificacion || '',
+          cedula:          a.usuarios?.cedula || '',
           asociado_id:     a.asociado_id,
           montoAhorrado:   Number(a.monto_ahorrado) || 0,
           cuotaMensual:    a.cuota_mensual,
