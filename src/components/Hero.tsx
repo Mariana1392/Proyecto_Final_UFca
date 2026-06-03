@@ -429,13 +429,13 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
       if (error) throw error;
 
       // ── 3. Notificar al admin ─────────────────────────────────────────────
-      await supabase.from('notificaciones').insert({
+      void Promise.resolve(supabase.from('notificaciones').insert({
         titulo:      'Nueva solicitud de afiliación',
         mensaje:     `${formData.nombres.trim()} ${formData.apellidos.trim()} ha enviado una solicitud de membresía y está pendiente de revisión.`,
         tipo:        'solicitud_afiliacion',
         leida:       false,
         para_admin:  true,
-      }).then(() => {}).catch(() => {});
+      })).catch(() => {});
 
       setSolicitudEnviada({
         nombre: `${formData.nombres.trim()} ${formData.apellidos.trim()}`,

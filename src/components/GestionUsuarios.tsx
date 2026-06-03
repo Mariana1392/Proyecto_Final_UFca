@@ -142,7 +142,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         fechaCreacion:    u.created_at?.split('T')[0] ?? '—',
         fechaModificacion: u.updated_at?.split('T')[0] ?? '—',
         soloLectura:      false,
-        esSistema:        u.roles?.es_sistema ?? false,
+        esSistema:        rolDb === 'admin' && (u.roles?.es_sistema ?? false),
       };
     });
 
@@ -859,22 +859,36 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           {esAdmin && !usuario.esSistema && (
                             <div className="flex gap-2 justify-end">
-                              {!usuario.soloLectura && (
+                              {/* Si está inactivo: solo ver detalle */}
+                              {!usuario.estado ? (
                                 <Button
                                   variant="outline" size="sm"
-                                  onClick={(e: { stopPropagation: () => void; }) => { e.stopPropagation(); handleOpenEdit(usuario); }}
-                                  title="Editar usuario"
+                                  onClick={(e: { stopPropagation: () => void; }) => { e.stopPropagation(); setSelectedUsuario(usuario); setIsDetailModalOpen(true); }}
+                                  title="Ver detalle (usuario inactivo)"
                                 >
-                                  <Edit className="size-4" />
+                                  <FileText className="size-4 text-slate-500" />
                                 </Button>
+                              ) : (
+                                /* Activo: editar + eliminar */
+                                <>
+                                  {!usuario.soloLectura && (
+                                    <Button
+                                      variant="outline" size="sm"
+                                      onClick={(e: { stopPropagation: () => void; }) => { e.stopPropagation(); handleOpenEdit(usuario); }}
+                                      title="Editar usuario"
+                                    >
+                                      <Edit className="size-4" />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    variant="outline" size="sm"
+                                    onClick={(e: { stopPropagation: () => void; }) => { e.stopPropagation(); setSelectedUsuario(usuario); setIsDeleteDialogOpen(true); }}
+                                    title="Eliminar usuario"
+                                  >
+                                    <Trash2 className="size-4 text-red-600" />
+                                  </Button>
+                                </>
                               )}
-                              <Button
-                                variant="outline" size="sm"
-                                onClick={(e: { stopPropagation: () => void; }) => { e.stopPropagation(); setSelectedUsuario(usuario); setIsDeleteDialogOpen(true); }}
-                                title="Eliminar usuario"
-                              >
-                                <Trash2 className="size-4 text-red-600" />
-                              </Button>
                             </div>
                           )}
                         </TableCell>

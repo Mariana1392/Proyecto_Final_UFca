@@ -115,13 +115,13 @@ export function useCreditosSimulacion({
         credito_id:  nuevo.id,
       }).then(() => {}, () => {});
 
-      void supabase.functions.invoke('enviar-simulacion-credito', {
+      void Promise.resolve(supabase.functions.invoke('enviar-simulacion-credito', {
         body: {
           destinatario:   usuarioAsoc?.email ?? asociado?.email ?? null,
           nombreAsociado: asociado?.nombre ?? 'Asociado',
           monto, tasa, plazo,
         },
-      }).catch(() => {});
+      })).catch(() => {});
 
       const ahora = new Date().toISOString();
       const simEntry = {
