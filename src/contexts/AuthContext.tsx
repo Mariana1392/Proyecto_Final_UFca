@@ -148,6 +148,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setU(null);
       } else if (event === 'SIGNED_IN' && session?.user && !cacheGet()) {
         cargarPerfil(session.user.id);
+      } else if (event === 'EMAIL_CHANGED' && session?.user) {
+        // El usuario confirmó el cambio de correo desde el enlace
+        import('sonner').then(({ toast }) => {
+          toast.success('✅ Correo actualizado correctamente', {
+            description: `Tu nuevo correo es: ${session.user.email}`,
+            duration: 6000,
+          });
+        });
+        // Recargar perfil para reflejar el nuevo correo
+        cargarPerfil(session.user.id);
       }
     });
     return () => subscription.unsubscribe();

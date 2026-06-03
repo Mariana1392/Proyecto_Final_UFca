@@ -4,7 +4,8 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
-import { User, Mail, AtSign, Shield, Edit, Save, X, Users, UserCheck, Clock, Phone, Lock } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { User, Mail, AtSign, Shield, Edit, Save, X, Users, UserCheck, Clock, Phone, Lock, SendHorizonal, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,6 +22,12 @@ export default function PerfilAdmin() {
   const [originalTelefono, setOriginalTelefono] = useState('');
 
   const [stats, setStats] = useState({ totalUsuarios: 0, totalAsociados: 0, solicitudesPendientes: 0 });
+
+  // ── Cambio de correo ──────────────────────────────────────────────────────
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [nuevoEmail, setNuevoEmail]         = useState('');
+  const [emailSent, setEmailSent]           = useState(false);
+  const [sendingEmail, setSendingEmail]     = useState(false);
 
   useEffect(() => { cargarStats(); cargarTelefono(); }, []);
 
@@ -107,8 +114,130 @@ export default function PerfilAdmin() {
     setIsEditing(false);
   }
 
+  function abrirModalEmail() {
+    setNuevoEmail('');
+    setEmailSent(false);
+    setShowEmailModal(true);
+  }
+
+  async function handleEmailChange() {
+    const emailTrimmed = nuevoEmail.trim().toLowerCase();
+
+    // Validaciones
+    if (!emailTrimmed) {
+      toast.error('Ingresa el nuevo correo electrónico');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailTrimmed)) {
+      toast.error('El formato del correo no es válido');
+      return;
+    }
+    if (emailTrimmed === user?.email?.toLowerCase()) {
+      toast.error('El nuevo correo debe ser diferente al actual');
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ email: emailTrimmed });
+      if (error) throw error;
+      setEmailSent(true);
+    } catch (err: any) {
+      toast.error('Error al enviar confirmación: ' + err.message);
+    } finally {
+      setSendingEmail(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#f4f6fb] p-4 sm:p-6 lg:p-8">
+
+      {/* ── Modal cambio de correo ── */}
+      <Dialog open={showEmailModal} onOpenChange={open => { setShowEmailModal(open); if (!open) { setNuevoEmail(''); setEmailSent(false); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Mail className="size-5 text-emerald-600" />
+              Cambiar correo electrónico
+            </DialogTitle>
+            <DialogDescription className="text-slate-500 text-sm">
+              Se enviará un enlace de confirmación al nuevo correo. El cambio solo aplica cuando hagas clic en ese enlace.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!emailSent ? (
+            <div className="space-y-4 pt-2">
+              {/* Correo actual */}
+              <div className="rounded-xl bg-slate-50 px-4 py-3 flex items-center gap-3">
+                <Mail className="size-4 text-slate-400 flex-shrink-0" />
+                <div>
+                  <p className="text-xs text-slate-400 font-medium">Correo actual</p>
+                  <p className="text-sm font-semibold text-slate-600">{user?.email}</p>
+                </div>
+              </div>
+
+              {/* Nuevo correo */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Nuevo correo electrónico</Label>
+                <Input
+                  type="email"
+                  placeholder="nuevo@correo.com"
+                  value={nuevoEmail}
+                  onChange={e => setNuevoEmail(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleEmailChange()}
+                  className="rounded-xl"
+                  autoFocus
+                />
+              </div>
+
+              {/* Aviso */}
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                <AlertCircle className="size-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-700">
+                  Recibirás un correo de confirmación. Debes hacer clic en el enlace para que el cambio se aplique. Tu sesión actual no se ve afectada.
+                </p>
+              </div>
+
+              {/* Botones */}
+              <div className="flex gap-2 justify-end pt-1">
+                <Button variant="outline" className="rounded-xl" onClick={() => setShowEmailModal(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  className="gap-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl"
+                  onClick={handleEmailChange}
+                  disabled={sendingEmail || !nuevoEmail.trim()}
+                >
+                  <SendHorizonal className="size-4" />
+                  {sendingEmail ? 'Enviando...' : 'Enviar confirmación'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* Estado: correo enviado */
+            <div className="space-y-4 pt-2 text-center">
+              <div className="flex justify-center">
+                <div className="size-16 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <CheckCircle2 className="size-8 text-emerald-600" />
+                </div>
+              </div>
+              <div>
+                <p className="font-bold text-slate-800">¡Correo de confirmación enviado!</p>
+                <p className="text-sm text-slate-500 mt-1">
+                  Revisa la bandeja de entrada de <span className="font-semibold text-slate-700">{nuevoEmail}</span> y haz clic en el enlace para confirmar el cambio.
+                </p>
+              </div>
+              <div className="bg-slate-50 rounded-xl px-4 py-3 text-xs text-slate-500">
+                Si no ves el correo, revisa tu carpeta de spam. El enlace expira en 24 horas.
+              </div>
+              <Button className="w-full bg-emerald-600 hover:bg-emerald-700 rounded-xl" onClick={() => { setShowEmailModal(false); setEmailSent(false); setNuevoEmail(''); }}>
+                Entendido
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
       <div className="max-w-4xl mx-auto space-y-5">
 
         {/* ── Tarjeta de perfil principal ── */}
@@ -120,7 +249,7 @@ export default function PerfilAdmin() {
             <div className="absolute top-4 left-1/2 size-28 rounded-full bg-teal-400/10" />
 
             {/* Botones arriba a la derecha */}
-            <div className="absolute top-4 right-4 flex gap-2">
+            <div className="absolute top-4 right-4 flex gap-2 z-20">
               {!isEditing ? (
                 <Button size="sm" className="gap-2 bg-white/15 hover:bg-white/25 text-white border border-white/20 backdrop-blur-sm rounded-xl" onClick={() => setIsEditing(true)}>
                   <Edit className="size-3.5" />Editar perfil
@@ -196,11 +325,17 @@ export default function PerfilAdmin() {
                   <div className="flex items-center gap-2 mb-2">
                     <Mail className="size-3.5 text-slate-400" />
                     <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Correo electrónico</span>
-                    <span className="ml-auto flex items-center gap-1 text-xs text-slate-400">
-                      <Lock className="size-3" />No editable
-                    </span>
                   </div>
-                  <p className="text-sm font-semibold text-slate-500">{user?.email ?? '—'}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-600">{user?.email ?? '—'}</p>
+                    <button
+                      onClick={abrirModalEmail}
+                      className="flex-shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-3 py-1 rounded-full transition-colors"
+                    >
+                      <Edit className="size-3" />
+                      Cambiar
+                    </button>
+                  </div>
                 </div>
 
                 {/* Username */}
