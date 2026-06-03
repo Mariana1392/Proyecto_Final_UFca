@@ -62,11 +62,28 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
     if (name === 'plazo') {
       if (!parseInt(value) || parseInt(value) <= 0) error = 'El plazo debe ser mayor a 0';
     }
+    if (name === 'tasa') {
+      const t = parseFloat(value);
+      if (isNaN(t) || t < 0 || t > 100) error = 'Tasa debe estar entre 0 y 100';
+    }
     if (name === 'fecha') {
       if (!value) error = 'La fecha de desembolso es obligatoria';
     }
     setFieldErrors(prev => ({ ...prev, [name]: error }));
   };
+
+  const isFormValid = useMemo(() => {
+    if (!formAsociadoId) return false;
+    const montoNum = parseFloat(formMonto.replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
+    if (montoNum <= 0) return false;
+    const plazoNum = parseInt(formPlazo) || 0;
+    if (plazoNum <= 0) return false;
+    const tasaNum = parseFloat(formTasa);
+    if (isNaN(tasaNum) || tasaNum < 0 || tasaNum > 100) return false;
+    if (!formFecha) return false;
+    if (Object.values(fieldErrors).some(e => e !== '')) return false;
+    return true;
+  }, [formAsociadoId, formMonto, formPlazo, formTasa, formFecha, fieldErrors]);
 
   // ── Capacidad de endeudamiento del asociado seleccionado ──────────────────
   const creditosActivosAsoc = useMemo(() => {
@@ -268,9 +285,15 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
                   <Input id="tasa" type="number" step="0.01" min="0" max="100"
                     placeholder="12.5"
                     value={formTasa}
-                    onChange={(e) => setFormTasa(e.target.value)}
+                    onChange={(e) => {
+                      setFormTasa(e.target.value);
+                      if (fieldErrors.tasa) validarCampo('tasa', e.target.value);
+                    }}
+                    onBlur={(e) => validarCampo('tasa', e.target.value)}
                     disabled={bloqueado}
+                    className={fieldErrors.tasa ? 'border-red-400' : ''}
                   />
+                  {fieldErrors.tasa && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{fieldErrors.tasa}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="plazo" className="flex items-center gap-1.5">
@@ -309,8 +332,15 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
                   </Label>
                   <Input id="fecha" type="date" value={formFecha}
                     min={!selectedItem ? new Date().toISOString().split('T')[0] : undefined}
-                    onChange={(e) => setFormFecha(e.target.value)}
-                    disabled={bloqueado} />
+                    onChange={(e) => {
+                      setFormFecha(e.target.value);
+                      if (fieldErrors.fecha) validarCampo('fecha', e.target.value);
+                    }}
+                    onBlur={(e) => validarCampo('fecha', e.target.value)}
+                    disabled={bloqueado}
+                    className={fieldErrors.fecha ? 'border-red-400' : ''}
+                  />
+                  {fieldErrors.fecha && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{fieldErrors.fecha}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5">
@@ -579,7 +609,7 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
               variant="outline"
               className="border-purple-300 text-purple-700 hover:bg-purple-50 gap-2"
               onClick={handleAbrirSimulacion}
-              disabled={saving}
+              disabled={saving || !isFormValid}
             >
               <BarChart2 className="size-4" />
               Ver simulación primero
@@ -587,7 +617,7 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
           )}
           {/* Ocultar botón guardar si el crédito está bloqueado */}
           {!(selectedItem && ['desembolsado', 'pagado'].includes(selectedItem.estadoAprobacion)) && (
-            <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleSaveCredito} disabled={saving}>
+            <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleSaveCredito} disabled={saving || !isFormValid}>
               {saving ? 'Guardando...' : selectedItem ? 'Actualizar crédito' : 'Registrar directamente'}
             </Button>
           )}

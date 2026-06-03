@@ -142,7 +142,8 @@ export function useCreditosCRUD({
     if (!formAsociadoId)      { toast.error('Selecciona un asociado'); return; }
     const monto = parseMonto(formMonto);
     if (!monto || monto <= 0) { toast.error('Ingresa un monto válido'); return; }
-    const tasa  = parseFloat(formTasa) || 0;
+    const tasa  = parseFloat(formTasa);
+    if (isNaN(tasa) || tasa < 0 || tasa > 100) { toast.error('La tasa de interés debe estar entre 0 y 100'); return; }
     const plazo = parseInt(formPlazo) || 0;
     if (plazo <= 0)           { toast.error('El plazo debe ser mayor a 0 meses'); return; }
     if (!formFecha)           { toast.error('Selecciona la fecha de desembolso'); return; }
