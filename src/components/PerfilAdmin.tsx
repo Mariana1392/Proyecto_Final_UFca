@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
-import { User, Mail, AtSign, Shield, Edit, Save, X, Users, UserCheck, Clock } from 'lucide-react';
+import { User, Mail, AtSign, Shield, Edit, Save, X, Users, UserCheck, Clock, Phone, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -108,183 +108,156 @@ export default function PerfilAdmin() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#f4f6fb] p-4 sm:p-6 lg:p-8">
+      <div className="max-w-4xl mx-auto space-y-5">
 
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Mi Perfil</h1>
-          <p className="text-slate-500 mt-1 text-sm">Información de tu cuenta de administrador</p>
-        </div>
+        {/* ── Tarjeta de perfil principal ── */}
+        <div className="bg-white rounded-2xl shadow-md overflow-hidden">
 
-        {/* Stats cards */}
-        <div className="grid sm:grid-cols-3 gap-4">
-          <Card className="border-slate-200">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="p-3 bg-emerald-100 rounded-xl">
-                <Users className="size-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Usuarios totales</p>
-                <p className="text-2xl font-bold text-slate-900">{stats.totalUsuarios}</p>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Banner — nombre y badges DENTRO del banner */}
+          <div className="relative bg-gradient-to-r from-slate-900 via-emerald-900 to-teal-800 px-6 pt-6 pb-12 overflow-hidden">
+            <div className="absolute -top-8 -right-8 size-40 rounded-full bg-emerald-500/15" />
+            <div className="absolute top-4 left-1/2 size-28 rounded-full bg-teal-400/10" />
 
-          <Card className="border-slate-200">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <UserCheck className="size-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Asociados activos</p>
-                <p className="text-2xl font-bold text-slate-900">{stats.totalAsociados}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-200">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="p-3 bg-amber-100 rounded-xl">
-                <Clock className="size-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Solicitudes pendientes</p>
-                <p className="text-2xl font-bold text-slate-900">{stats.solicitudesPendientes}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Perfil card */}
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-emerald-100 rounded-full">
-                  <Shield className="size-6 text-emerald-600" />
-                </div>
-                <div>
-                  <CardTitle className="text-base">{user?.nombre}</CardTitle>
-                  <CardDescription>Administrador del sistema</CardDescription>
-                </div>
-                <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 ml-2">
-                  Administrador
-                </Badge>
-              </div>
-
+            {/* Botones arriba a la derecha */}
+            <div className="absolute top-4 right-4 flex gap-2">
               {!isEditing ? (
-                <Button
-                  size="sm"
-                  className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                  onClick={() => setIsEditing(true)}
-                >
-                  <Edit className="size-4" />
-                  Editar
+                <Button size="sm" className="gap-2 bg-white/15 hover:bg-white/25 text-white border border-white/20 backdrop-blur-sm rounded-xl" onClick={() => setIsEditing(true)}>
+                  <Edit className="size-3.5" />Editar perfil
                 </Button>
               ) : (
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="gap-2" onClick={handleCancel}>
-                    <X className="size-4" />
-                    Cancelar
+                <>
+                  <Button size="sm" variant="outline" className="gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-xl" onClick={handleCancel}>
+                    <X className="size-3.5" />Cancelar
                   </Button>
-                  <Button
-                    size="sm"
-                    className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                    onClick={handleSave}
-                    disabled={saving}
-                  >
-                    <Save className="size-4" />
-                    {saving ? 'Guardando...' : 'Guardar'}
+                  <Button size="sm" className="gap-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl shadow-lg" onClick={handleSave} disabled={saving}>
+                    <Save className="size-3.5" />{saving ? 'Guardando...' : 'Guardar cambios'}
                   </Button>
-                </div>
+                </>
               )}
             </div>
-          </CardHeader>
 
-          <CardContent>
-            <div className="grid sm:grid-cols-2 gap-5">
+            {/* Nombre y badges dentro del banner */}
+            <div className="relative z-10">
+              <h2 className="text-2xl font-extrabold text-white tracking-tight">{user?.nombre ?? 'Administrador'}</h2>
+              <p className="text-emerald-300 text-sm mt-0.5">Administrador del sistema · UFCA</p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <span className="inline-flex items-center gap-1.5 bg-white/15 text-white text-xs font-semibold px-3 py-1 rounded-full border border-white/20">
+                  <Shield className="size-3" />Administrador
+                </span>
+                <span className="inline-flex items-center gap-1.5 bg-white/10 text-emerald-300 text-xs font-semibold px-3 py-1 rounded-full border border-white/10">
+                  <span className="size-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />Cuenta activa
+                </span>
+              </div>
+            </div>
+          </div>
 
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-2">
-                  Nombre completo
-                  {isEditing && <span className="text-xs text-emerald-600">(✅ Editable)</span>}
-                </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+          {/* Avatar sobresaliendo del banner */}
+          <div className="px-6 pb-6">
+            <div className="-mt-8 mb-5">
+              <div className="relative inline-block">
+                <div className="size-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg ring-4 ring-white">
+                  <Shield className="size-8 text-white" />
+                </div>
+                <span className="absolute -bottom-1 -right-1 size-5 rounded-full bg-emerald-400 border-2 border-white flex items-center justify-center">
+                  <span className="size-2 rounded-full bg-white inline-block animate-pulse" />
+                </span>
+              </div>
+            </div>
+
+            {/* Separador */}
+            <div className="border-t border-slate-100 pt-5">
+              <div className="flex items-center gap-2 mb-4">
+                <p className="text-sm font-bold text-slate-700">Datos de la cuenta</p>
+                {isEditing && (
+                  <span className="text-xs bg-emerald-100 text-emerald-700 font-medium px-2 py-0.5 rounded-full">Modo edición</span>
+                )}
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+
+                {/* Nombre completo */}
+                <div className={`rounded-xl p-4 transition-all ${isEditing ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'bg-slate-50'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <User className="size-3.5 text-slate-400" />
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Nombre completo</span>
+                    {isEditing && <span className="ml-auto text-xs text-emerald-600 font-medium">✏️ editable</span>}
+                  </div>
                   <Input
-                    className="pl-10"
+                    className={`border-0 p-0 h-auto text-sm font-semibold text-slate-800 bg-transparent focus-visible:ring-0 shadow-none ${!isEditing ? 'cursor-default' : ''}`}
                     value={nombre}
                     onChange={e => setNombre(e.target.value)}
                     disabled={!isEditing}
                   />
                 </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-2">
-                  Correo electrónico
-                  <span className="text-xs text-slate-400">(🔒 No editable)</span>
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                {/* Correo */}
+                <div className="rounded-xl p-4 bg-slate-50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Mail className="size-3.5 text-slate-400" />
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Correo electrónico</span>
+                    <span className="ml-auto flex items-center gap-1 text-xs text-slate-400">
+                      <Lock className="size-3" />No editable
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-500">{user?.email ?? '—'}</p>
+                </div>
+
+                {/* Username */}
+                <div className="rounded-xl p-4 bg-slate-50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AtSign className="size-3.5 text-slate-400" />
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Usuario</span>
+                    <span className="ml-auto flex items-center gap-1 text-xs text-slate-400">
+                      <Lock className="size-3" />No editable
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-500">{user?.username ?? '—'}</p>
+                </div>
+
+                {/* Teléfono */}
+                <div className={`rounded-xl p-4 transition-all ${isEditing ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'bg-slate-50'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Phone className="size-3.5 text-slate-400" />
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Teléfono</span>
+                    {isEditing && <span className="ml-auto text-xs text-emerald-600 font-medium">✏️ editable</span>}
+                  </div>
                   <Input
-                    className="pl-10 bg-slate-50 cursor-not-allowed text-slate-600"
-                    value={user?.email ?? ''}
-                    disabled
+                    className={`border-0 p-0 h-auto text-sm font-semibold text-slate-800 bg-transparent focus-visible:ring-0 shadow-none ${!isEditing ? 'cursor-default' : ''}`}
+                    placeholder="Sin teléfono registrado"
+                    value={telefono}
+                    onChange={e => setTelefono(e.target.value)}
+                    disabled={!isEditing}
                   />
                 </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-2">
-                  Nombre de usuario
-                  <span className="text-xs text-slate-400">(🔒 No editable)</span>
-                </Label>
-                <div className="relative">
-                  <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-                  <Input
-                    className="pl-10 bg-slate-50 cursor-not-allowed text-slate-600"
-                    value={user?.username ?? ''}
-                    disabled
-                  />
-                </div>
               </div>
-
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-2">
-                  Teléfono
-                  {isEditing && <span className="text-xs text-emerald-600">(✅ Editable)</span>}
-                </Label>
-                <Input
-                  placeholder="+57 300 000 0000"
-                  value={telefono}
-                  onChange={e => setTelefono(e.target.value)}
-                  disabled={!isEditing}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Rol</Label>
-                <div className="flex items-center h-10">
-                  <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">
-                    Administrador
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Estado de cuenta</Label>
-                <div className="flex items-center h-10">
-                  <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">
-                    ● Activo
-                  </Badge>
-                </div>
-              </div>
-
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
+        {/* ── Stats cards ── */}
+        <div className="grid sm:grid-cols-3 gap-4">
+          {[
+            { icon: Users,     label: 'Usuarios totales',       value: stats.totalUsuarios,          bg: 'bg-emerald-100', text: 'text-emerald-600', num: 'text-emerald-700', bar: 'bg-gradient-to-r from-emerald-500 to-teal-400' },
+            { icon: UserCheck, label: 'Asociados activos',      value: stats.totalAsociados,         bg: 'bg-blue-100',    text: 'text-blue-600',    num: 'text-blue-700',    bar: 'bg-gradient-to-r from-blue-500 to-indigo-400'  },
+            { icon: Clock,     label: 'Solicitudes pendientes', value: stats.solicitudesPendientes,  bg: 'bg-amber-100',   text: 'text-amber-600',   num: 'text-amber-700',   bar: 'bg-gradient-to-r from-amber-500 to-orange-400' },
+          ].map(({ icon: Icon, label, value, bg, text, num, bar }) => (
+            <div key={label} className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+              <div className={`h-1 ${bar}`} />
+              <div className="p-5 flex items-center gap-4">
+                <div className={`p-3 rounded-2xl ${bg}`}>
+                  <Icon className={`size-5 ${text}`} />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-medium">{label}</p>
+                  <p className={`text-3xl font-extrabold ${num}`}>{value}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
       </div>
     </div>
   );

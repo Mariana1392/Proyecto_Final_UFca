@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import {
   AreaChart, Area,
+  LineChart, Line,
   BarChart, Bar, LabelList, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
@@ -154,26 +155,21 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
 
       setMonthlyData(meses);
 
-      // Créditos de los últimos 3 meses agrupados por mes
-      const desde3m = new Date();
-      desde3m.setMonth(desde3m.getMonth() - 2);
-      desde3m.setDate(1);
-      const desde3mStr = desde3m.toISOString().split('T')[0];
+      // Siempre 3 barras: mes actual + 2 meses siguientes (se llenan con el tiempo)
+      const INICIO_FONDO = new Date(2026, 5, 1); // junio 2026
+      const hoy = new Date();
 
-      const { data: todosCreditos } = await supabase
-        .from('creditos')
-        .select('created_at, monto, estado')
-        .neq('anulado', true)
-        .gte('created_at', desde3mStr + 'T00:00:00')
-        .order('created_at', { ascending: true });
+      // Mes de inicio de la ventana: el más antiguo entre "hoy-2" y INICIO_FONDO
+      const ventanaInicio = new Date(Math.max(
+        new Date(hoy.getFullYear(), hoy.getMonth() - 2, 1).getTime(),
+        INICIO_FONDO.getTime(),
+      ));
 
-      // Construir los 3 meses fijos para que siempre aparezcan aunque no haya datos
+      // Construir siempre exactamente 3 barras desde ventanaInicio
       const meses3: { key: string; mes: string; creditos: number; cantidad: number }[] = [];
-      for (let i = 2; i >= 0; i--) {
-        const d = new Date();
-        d.setMonth(d.getMonth() - i);
+      for (let i = 0; i < 3; i++) {
+        const d = new Date(ventanaInicio.getFullYear(), ventanaInicio.getMonth() + i, 1);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        const label = d.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
         const mesCorto = d.toLocaleDateString('es-CO', { month: 'short' });
         meses3.push({
           key,
@@ -182,6 +178,14 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
           cantidad: 0,
         });
       }
+
+      const desde3mStr = meses3[0].key + '-01';
+      const { data: todosCreditos } = await supabase
+        .from('creditos')
+        .select('created_at, monto, estado')
+        .neq('anulado', true)
+        .gte('created_at', desde3mStr + 'T00:00:00')
+        .order('created_at', { ascending: true });
 
       (todosCreditos || []).forEach((c: any) => {
         const key = c.created_at?.substring(0, 7);
@@ -601,39 +605,27 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
                   <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />En vivo
                 </span>
               </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart
-                  data={allCreditosData}
-                  margin={{ left: 16, right: 16, top: 28, bottom: 4 }}
-                  barCategoryGap="35%"
-                >
+              <ResponsiveContainer width="100%" height={210}>
+                <BarChart data={allCreditosData} margin={{ left: 16, right: 16, top: 28, bottom: 4 }} barCategoryGap="40%">
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis
-                    dataKey="mes"
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 12, fill: '#64748b' }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
+                  <XAxis dataKey="mes" stroke="transparent" tick={{ fontSize: 12, fill: '#64748b' }} tickLine={false} />
                   <YAxis
-                    stroke="#94a3b8"
+                    stroke="transparent"
                     tick={{ fontSize: 11, fill: '#94a3b8' }}
-                    axisLine={false}
                     tickLine={false}
+                    axisLine={false}
                     tickFormatter={(v: number) =>
-                      new Intl.NumberFormat('es-CO', {
-                        style: 'currency', currency: 'COP', minimumFractionDigits: 0,
-                      }).format(v)
+                      new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v)
                     }
                   />
                   <Tooltip
                     cursor={{ fill: '#f8fafc', radius: 8 }}
                     contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: 12 }}
+                    labelStyle={{ fontWeight: 700, color: '#334155', marginBottom: 4 }}
                     formatter={(val: number, _n: string, props: any) => [
                       new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(val),
                       `${props.payload?.cantidad ?? 0} crédito${(props.payload?.cantidad ?? 0) !== 1 ? 's' : ''}`,
                     ]}
-                    labelStyle={{ fontWeight: 600, color: '#334155', marginBottom: 4 }}
                   />
                   <Bar dataKey="creditos" name="Créditos" radius={[8, 8, 0, 0]} maxBarSize={80}>
                     {allCreditosData.map((entry, index) => (
@@ -645,9 +637,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
                       style={{ fontSize: 11, fontWeight: 700, fill: '#b45309' }}
                       formatter={(v: number) =>
                         v > 0
-                          ? new Intl.NumberFormat('es-CO', {
-                              style: 'currency', currency: 'COP', minimumFractionDigits: 0,
-                            }).format(v)
+                          ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v)
                           : ''
                       }
                     />
@@ -660,9 +650,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
                   <div key={m.key} className="text-center">
                     <p className="text-xs text-slate-400 font-medium">{m.mes}</p>
                     <p className={`text-sm font-bold mt-0.5 ${m.cantidad > 0 ? 'text-amber-600' : 'text-slate-300'}`}>
-                      {m.cantidad > 0
-                        ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(m.creditos)
-                        : '$ 0'}
+                      {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(m.creditos)}
                     </p>
                     <p className="text-xs text-slate-400">{m.cantidad} crédito{m.cantidad !== 1 ? 's' : ''}</p>
                   </div>
