@@ -883,7 +883,7 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
 
   // ── Autocomplete asociados ────────────────────────────────────
   const acSuggestions = asociadosDisponibles
-    .filter(a => a.estado && (a.nombre.toLowerCase().includes(formAsocSearch.toLowerCase()) || a.cedula.includes(formAsocSearch)))
+    .filter(a => a.estado_cuenta !== 'inactivo' && (a.nombre.toLowerCase().includes(formAsocSearch.toLowerCase()) || a.cedula.includes(formAsocSearch)))
     .slice(0, 8);
 
   const handleSelectAsociado = (a: any) => {
