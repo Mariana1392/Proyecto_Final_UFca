@@ -19,7 +19,7 @@ const CrearPassword         = lazy(() => import('./components/CrearPassword'));
 const Roles                 = lazy(() => import('./components/Roles'));
 const AhorroPermanente      = lazy(() => import('./components/ahorro-permanente/AhorroPermanente'));
 const AhorroVoluntario      = lazy(() => import('./components/ahorro-voluntario/AhorroVoluntario'));
-const Liquidacion           = lazy(() => import('./components/Liquidacion'));
+const Liquidacion           = lazy(() => import('./components/liquidaciones'));
 const ComiteEvaluador       = lazy(() => import('./components/ComiteEvaluador'));
 const Creditos              = lazy(() => import('./components/creditos/Creditos'));
 const Referidos             = lazy(() => import('./components/Referidos'));
@@ -124,9 +124,6 @@ function AppContent() {
   const handleNavigate = (view: string, asociadoId?: string) => {
     // Soporta "servicios#creditos" — guarda la vista con el hash para scroll
     setCurrentView(view as View);
-    if (asociadoId) {
-      setSelectedAsociadoId(asociadoId);
-    }
   };
 
   // handleViewAsociadoDetails eliminado — detalle de asociado integrado en GestionUsuarios
@@ -235,7 +232,7 @@ function AppContent() {
       case 'asociados':
       case 'asociado-detalle':
         // Gestión de asociados unificada en Gestión de Usuarios
-        return <GestionUsuarios userRole={userRole ?? undefined} userData={userData} />;
+        return <GestionUsuarios userRole={userRole ?? undefined} />;
       case 'ahorro-permanente':
         // NOTA DE ARQUITECTURA: este bloque NO es una doble validación de permisos.
         //
