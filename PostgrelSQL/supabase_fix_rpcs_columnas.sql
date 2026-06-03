@@ -1,14 +1,24 @@
 -- =============================================================================
--- FIX FINAL: Actualizar_liquidacion, listar_liquidaciones y buscar_liquidaciones
+-- FIX DEFINITIVO: Eliminar TODAS las firmas de actualizar_liquidacion y recrearla
 -- =============================================================================
 
--- 1. Eliminar TODAS las versiones anteriores de actualizar_liquidacion para evitar
--- conflictos de sobrecarga de funciones (Could not choose the best candidate function).
-DROP FUNCTION IF EXISTS public.actualizar_liquidacion(UUID, JSONB, TEXT, BOOLEAN, TEXT, TEXT, TEXT);
-DROP FUNCTION IF EXISTS public.actualizar_liquidacion(UUID, TEXT, JSONB, BOOLEAN, TEXT, TEXT, TIMESTAMPTZ);
-DROP FUNCTION IF EXISTS public.actualizar_liquidacion(UUID, TEXT, BOOLEAN, TEXT, TEXT, TIMESTAMPTZ, JSONB);
-DROP FUNCTION IF EXISTS public.actualizar_liquidacion(UUID, TEXT, BOOLEAN, TEXT, TEXT, TEXT, JSONB);
+-- 1. Eliminar TODAS las versiones de actualizar_liquidacion sin importar sus tipos
+-- usando un bloque dinámico. Esto asegura solucionar cualquier error de "ambigüedad".
+DO $$ 
+DECLARE
+  func_rec RECORD;
+BEGIN
+  FOR func_rec IN 
+    SELECT oid::regprocedure AS func_sig
+    FROM pg_proc
+    WHERE proname = 'actualizar_liquidacion'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION ' || func_rec.func_sig;
+  END LOOP;
+END $$;
 
+-- 2. Crear la ÚNICA versión de actualizar_liquidacion
 CREATE OR REPLACE FUNCTION public.actualizar_liquidacion(
   p_id                      UUID,
   p_documentos              JSONB    DEFAULT NULL,
@@ -79,7 +89,7 @@ GRANT EXECUTE ON FUNCTION public.actualizar_liquidacion(UUID,JSONB,TEXT,BOOLEAN,
 DROP FUNCTION IF EXISTS public.listar_liquidaciones(INTEGER);
 DROP FUNCTION IF EXISTS public.buscar_liquidaciones(UUID[], TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INTEGER);
 
--- 2. listar_liquidaciones
+-- 3. listar_liquidaciones
 CREATE OR REPLACE FUNCTION public.listar_liquidaciones(p_limite INTEGER DEFAULT 500)
 RETURNS TABLE (
   id           UUID,
@@ -126,7 +136,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.listar_liquidaciones(INTEGER) TO authenticated;
 
--- 3. buscar_liquidaciones
+-- 4. buscar_liquidaciones
 CREATE OR REPLACE FUNCTION public.buscar_liquidaciones(
   p_asociado_ids UUID[]      DEFAULT NULL,
   p_tipo         TEXT        DEFAULT NULL,
