@@ -916,7 +916,6 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                 />
               </div>
               {solErrors.monto && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{solErrors.monto}</p>}
-              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Plazo (meses) <span className="text-red-500">*</span></Label>

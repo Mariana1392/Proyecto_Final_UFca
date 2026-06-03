@@ -1053,6 +1053,8 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
       setUploadDocFile(null);
       setUploadDocNombre('');
       if (uploadDocRef.current) uploadDocRef.current.value = '';
+      // Recargar lista desde BD para reflejar el nuevo estado en la tabla
+      void cargarDatos();
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -1136,6 +1138,8 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
       }
 
       toast.success(`Estado actualizado a "${nuevoEstado}"`);
+      // Recargar lista para reflejar el cambio en la tabla
+      void cargarDatos();
     } catch (err: any) {
       toast.error('Error al actualizar estado: ' + err.message);
     }
