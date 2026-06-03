@@ -190,7 +190,7 @@ export default function Roles({ userRole }: RolesProps) {
           fechaModificacion: r.updated_at ? new Date(r.updated_at).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' }) : '—',
         };
       });
-      setRoles(mapeados);
+      setRoles(mapeados.filter(r => r.nombre_db !== 'usuario'));
 
       // Cargar auditoría persistida
       const auditMapeada: AuditEntry[] = (auditoriaData || []).map((a: any) => ({
