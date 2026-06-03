@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -924,7 +924,9 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
   const handleSave = async () => {
     if (!formAsociadoId)    { toast.error('Selecciona un asociado'); return; }
     if (!formFechaCorte)    { toast.error('Ingresa la fecha de corte'); return; }
+    if (formConceptos.length === 0) { toast.error('Debes agregar al menos un concepto'); return; }
     if (formConceptos.some(c => !c.nombre.trim())) { toast.error('Todos los conceptos deben tener nombre'); return; }
+    if (formConceptos.some(c => isNaN(parseFloat(String(c.monto))) || parseFloat(String(c.monto)) <= 0)) { toast.error('Los montos de los conceptos deben ser mayores a cero'); return; }
     if (montoCalculado <= 0) { toast.error('El monto total debe ser mayor a cero'); return; }
 
     let urlFinal: string | null = null;
@@ -2443,7 +2445,11 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
                 {/* Botones de navegación */}
                 <div className="pt-3 border-t border-slate-100 flex justify-between">
                   <Button variant="outline" onClick={() => { setIsCreateOpen(false); resetForm(); }}>Cancelar</Button>
-                  <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={irAPaso2}>
+                  <Button 
+                    className="gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50" 
+                    onClick={irAPaso2}
+                    disabled={!formAsociadoId || !formFechaCorte}
+                  >
                     Siguiente → Saldos
                   </Button>
                 </div>
@@ -2647,9 +2653,16 @@ export default function Liquidacion({ userData }: LiquidacionProps) {
                     ← Anterior
                   </Button>
                   <Button
-                    className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                    className="gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
                     onClick={handleSave}
-                    disabled={saving}
+                    disabled={
+                      saving ||
+                      !formAsociadoId ||
+                      !formFechaCorte ||
+                      montoCalculado <= 0 ||
+                      formConceptos.length === 0 ||
+                      formConceptos.some(c => !c.nombre.trim() || isNaN(parseFloat(String(c.monto))) || parseFloat(String(c.monto)) <= 0)
+                    }
                   >
                     {saving
                       ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Guardando…</>
