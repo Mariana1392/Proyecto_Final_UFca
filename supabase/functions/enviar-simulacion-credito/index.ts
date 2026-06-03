@@ -7,6 +7,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const FROM_EMAIL     = Deno.env.get('FROM_EMAIL') ?? 'noreply@ufca.app';
+const APP_URL        = Deno.env.get('APP_URL') ?? 'https://ufca.app';
 const FROM_NAME      = 'UFCA – Unión Familiar de Crédito y Ahorro';
 
 interface Payload {
@@ -96,7 +97,7 @@ function buildHtml(p: Payload): string {
               Ingresa a la app para ver la tabla de amortización completa y decidir
               si deseas <strong>confirmar</strong> o <strong>rechazar</strong> esta propuesta.
             </p>
-            <a href="#"
+            <a href="${APP_URL}"
               style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:14px 36px;border-radius:8px;letter-spacing:0.3px;">
               Ver mi simulación en UFCA
             </a>
