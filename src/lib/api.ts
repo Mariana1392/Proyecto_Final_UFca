@@ -1,4 +1,4 @@
-﻿// src/lib/api.ts
+// src/lib/api.ts
 // ─────────────────────────────────────────────────────────
 // Funciones de acceso a datos para cada módulo de UFCA
 // Reemplaza los useState con datos mock en cada componente
@@ -58,6 +58,7 @@ export interface CreditoRow {
   tipo: string;
   monto: number;
   plazo_meses: number;
+  tipo_interes?: string | null;
   tasa_interes: number;
   cuota_mensual: number;
   saldo: number;

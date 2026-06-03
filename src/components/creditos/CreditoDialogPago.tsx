@@ -414,7 +414,16 @@ export default function CreditoDialogPago({ hook, isAsociado = false }: CreditoD
           <Button
             className="gap-2 bg-emerald-600 hover:bg-emerald-700"
             onClick={handleRegistrarPago}
-            disabled={pagando || !selectedItem || (selectedItem?.saldo ?? 0) <= 0}
+            disabled={
+              pagando ||
+              !selectedItem ||
+              (selectedItem?.saldo ?? 0) <= 0 ||
+              (parseFloat(pagoMonto.replace(/[^\d.]/g, '')) || 0) <= 0 ||
+              (selectedItem?.cuotaMensual > 0 && (parseFloat(pagoMonto.replace(/[^\d.]/g, '')) || 0) < selectedItem.cuotaMensual) ||
+              (parseFloat(pagoMonto.replace(/[^\d.]/g, '')) || 0) > (selectedItem?.saldo ?? 0) ||
+              !pagoFecha ||
+              (pagoMetodo === 'transferencia' && !pagoComprobante)
+            }
           >
             {pagando
               ? <><div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white" /> Procesando...</>
