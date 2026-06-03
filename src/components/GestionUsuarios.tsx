@@ -79,6 +79,51 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
   const [fixIdLoading, setFixIdLoading]                         = useState(false);
   const itemsPerPage = 10;
 
+  // ── Errores inline por campo ─────────────────────────────────────────────────
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const validarCampoUsuario = (name: string, value: string) => {
+    let error = '';
+    switch (name) {
+      case 'identificacion':
+        if (!value.trim()) error = 'La identificación es obligatoria';
+        else if (!/^\d+$/.test(value.trim())) error = 'Solo se permiten números';
+        else if (value.trim().length > 15) error = 'Máximo 15 dígitos';
+        break;
+      case 'username':
+        if (!value.trim()) error = 'El nombre de usuario es obligatorio';
+        break;
+      case 'nombre':
+        if (!value.trim()) error = 'El nombre completo es obligatorio';
+        break;
+      case 'email':
+        if (!value.trim()) error = 'El correo es obligatorio';
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) error = 'Formato de correo no válido';
+        break;
+      case 'telefono':
+        if (!value.trim()) error = 'El teléfono es obligatorio';
+        else if (value.trim().length > 15) error = 'Máximo 15 caracteres';
+        break;
+      case 'password':
+        if (!value.trim()) error = 'La contraseña es obligatoria';
+        else if (value.trim().length < 6) error = 'Mínimo 6 caracteres';
+        break;
+      case 'direccion':
+        if (!value.trim()) error = 'La dirección es obligatoria para asociados';
+        break;
+      case 'fechaIngreso':
+        if (!value.trim()) error = 'La fecha de ingreso es obligatoria';
+        break;
+    }
+    setFormErrors(prev => ({ ...prev, [name]: error }));
+    return error;
+  };
+
+  const handleFormChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (formErrors[name]) validarCampoUsuario(name, value);
+  };
+
   const [auditoria, setAuditoria]           = useState<any[]>([]);
   const [auditoriaPage, setAuditoriaPage]   = useState(1);
   const AUDITORIA_PER_PAGE = 5;
@@ -320,6 +365,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
   // ── Crear ────────────────────────────────────────────────────────────────────
   const handleOpenCreate = () => {
     setFormData({ identificacion: '', username: '', nombre: '', email: '', telefono: '', rol: '', password: '', direccion: '', fechaIngreso: '' });
+    setFormErrors({});
     setIsCreateModalOpen(true);
   };
 
@@ -1081,70 +1127,78 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="c-identificacion">Identificación * <span className="text-xs text-slate-400 font-normal">(solo números, máx. 15)</span></Label>
                 <Input id="c-identificacion" placeholder="1010123456"
-                  inputMode="numeric"
-                  maxLength={15}
+                  inputMode="numeric" maxLength={15}
                   value={formData.identificacion}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '').slice(0, 15);
-                    setFormData(prev => ({ ...prev, identificacion: val }));
-                  }} />
+                  onChange={(e) => { const v = e.target.value.replace(/\D/g,'').slice(0,15); handleFormChange('identificacion', v); }}
+                  onBlur={e => validarCampoUsuario('identificacion', e.target.value)}
+                  className={formErrors.identificacion ? 'border-red-400' : ''} />
+                {formErrors.identificacion && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.identificacion}</p>}
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="c-username">Nombre de usuario *</Label>
                 <Input id="c-username" placeholder="juan.perez"
                   value={formData.username}
-                  onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))} />
+                  onChange={e => handleFormChange('username', e.target.value)}
+                  onBlur={e => validarCampoUsuario('username', e.target.value)}
+                  className={formErrors.username ? 'border-red-400' : ''} />
+                {formErrors.username && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.username}</p>}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="c-nombre">Nombre completo *</Label>
                 <Input id="c-nombre" placeholder="Juan Pérez"
                   value={formData.nombre}
-                  onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))} />
+                  onChange={e => handleFormChange('nombre', e.target.value)}
+                  onBlur={e => validarCampoUsuario('nombre', e.target.value)}
+                  className={formErrors.nombre ? 'border-red-400' : ''} />
+                {formErrors.nombre && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.nombre}</p>}
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="c-email">Email *</Label>
                 <Input id="c-email" type="email" placeholder="juan.perez@ufca.com"
                   value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))} />
+                  onChange={e => handleFormChange('email', e.target.value)}
+                  onBlur={e => validarCampoUsuario('email', e.target.value)}
+                  className={formErrors.email ? 'border-red-400' : ''} />
+                {formErrors.email && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.email}</p>}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="c-telefono">Teléfono * <span className="text-xs text-slate-400 font-normal">(máx. 15 caracteres)</span></Label>
                 <Input id="c-telefono" placeholder="+57 300 111 2222"
-                  inputMode="tel"
-                  maxLength={15}
+                  inputMode="tel" maxLength={15}
                   value={formData.telefono}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/[^\d+\s\-()]/g, '').slice(0, 15);
-                    setFormData(prev => ({ ...prev, telefono: val }));
-                  }} />
+                  onChange={(e) => { const v = e.target.value.replace(/[^\d+\s\-()]/g,'').slice(0,15); handleFormChange('telefono', v); }}
+                  onBlur={e => validarCampoUsuario('telefono', e.target.value)}
+                  className={formErrors.telefono ? 'border-red-400' : ''} />
+                {formErrors.telefono && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.telefono}</p>}
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="c-rol">Rol *</Label>
                 <Select value={formData.rol} onValueChange={(v: string) => setFormData(prev => ({ ...prev, rol: v }))}>
                   <SelectTrigger><SelectValue placeholder="Seleccionar rol" /></SelectTrigger>
                   <SelectContent>
                     {roles.map(r => (
-                      <SelectItem key={r.id} value={rolLabel(r.nombre)}>
-                        {rolLabel(r.nombre)}
-                      </SelectItem>
+                      <SelectItem key={r.id} value={rolLabel(r.nombre)}>{rolLabel(r.nombre)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="c-password">Contraseña *</Label>
               <Input id="c-password" type="password" placeholder="••••••••"
                 autoComplete="new-password"
                 value={formData.password}
-                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))} />
+                onChange={e => handleFormChange('password', e.target.value)}
+                onBlur={e => validarCampoUsuario('password', e.target.value)}
+                className={formErrors.password ? 'border-red-400' : ''} />
+              {formErrors.password && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.password}</p>}
             </div>
             {formData.rol === 'Asociado' && (
               <>
@@ -1154,17 +1208,23 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                     Datos de asociado (requeridos al registrar con rol Asociado)
                   </p>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <Label htmlFor="c-direccion">Dirección *</Label>
                       <Input id="c-direccion" placeholder="Calle 10 # 5-20, Florencia"
                         value={formData.direccion}
-                        onChange={(e) => setFormData(prev => ({ ...prev, direccion: e.target.value }))} />
+                        onChange={e => handleFormChange('direccion', e.target.value)}
+                        onBlur={e => validarCampoUsuario('direccion', e.target.value)}
+                        className={formErrors.direccion ? 'border-red-400' : ''} />
+                      {formErrors.direccion && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.direccion}</p>}
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <Label htmlFor="c-fecha-ingreso">Fecha de ingreso *</Label>
                       <Input id="c-fecha-ingreso" type="date"
                         value={formData.fechaIngreso}
-                        onChange={(e) => setFormData(prev => ({ ...prev, fechaIngreso: e.target.value }))} />
+                        onChange={e => handleFormChange('fechaIngreso', e.target.value)}
+                        onBlur={e => validarCampoUsuario('fechaIngreso', e.target.value)}
+                        className={formErrors.fechaIngreso ? 'border-red-400' : ''} />
+                      {formErrors.fechaIngreso && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.fechaIngreso}</p>}
                     </div>
                   </div>
                 </div>

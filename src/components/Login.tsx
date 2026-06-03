@@ -29,6 +29,20 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
 
   // ── Visibilidad de contraseña ─────────────────────────────────────────────
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+
+  const validarCampoLogin = (name: 'email' | 'password', value: string) => {
+    let error = '';
+    if (name === 'email') {
+      if (!value.trim()) error = 'El correo es obligatorio';
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) error = 'Formato de correo no válido';
+    }
+    if (name === 'password') {
+      if (!value) error = 'La contraseña es obligatoria';
+      else if (value.length < 6) error = 'Mínimo 6 caracteres';
+    }
+    setFieldErrors(prev => ({ ...prev, [name]: error }));
+  };
 
   // ── Login con Supabase Auth ───────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
@@ -330,18 +344,23 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400"/>
                     <Input id="login-email" type="email" placeholder="tu@correo.com"
-                      className="pl-10 h-11 rounded-xl border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20 bg-slate-50"
-                      value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
+                      className={`pl-10 h-11 rounded-xl bg-slate-50 focus:border-[#054030] focus:ring-[#054030]/20 ${fieldErrors.email ? 'border-red-400' : 'border-slate-200'}`}
+                      value={loginEmail}
+                      onChange={e => { setLoginEmail(e.target.value); if (fieldErrors.email) validarCampoLogin('email', e.target.value); }}
+                      onBlur={e => validarCampoLogin('email', e.target.value)}
                       autoComplete="email" required disabled={isLoading}/>
                   </div>
+                  {fieldErrors.email && <p className="text-xs text-red-500 flex items-center gap-1 mt-1"><AlertCircle className="size-3 shrink-0"/>{fieldErrors.email}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="login-password" className="text-slate-700 font-semibold text-sm">Contraseña</Label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400"/>
                     <Input id="login-password" type={showLoginPassword ? 'text' : 'password'} placeholder="••••••••"
-                      className="pl-10 pr-11 h-11 rounded-xl border-slate-200 focus:border-[#054030] focus:ring-[#054030]/20 bg-slate-50"
-                      value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
+                      className={`pl-10 pr-11 h-11 rounded-xl bg-slate-50 focus:border-[#054030] focus:ring-[#054030]/20 ${fieldErrors.password ? 'border-red-400' : 'border-slate-200'}`}
+                      value={loginPassword}
+                      onChange={e => { setLoginPassword(e.target.value); if (fieldErrors.password) validarCampoLogin('password', e.target.value); }}
+                      onBlur={e => validarCampoLogin('password', e.target.value)}
                       required disabled={isLoading}/>
                     <button
                       type="button"
@@ -353,6 +372,7 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
                       {showLoginPassword ? <EyeOff className="size-4"/> : <Eye className="size-4"/>}
                     </button>
                   </div>
+                  {fieldErrors.password && <p className="text-xs text-red-500 flex items-center gap-1 mt-1"><AlertCircle className="size-3 shrink-0"/>{fieldErrors.password}</p>}
                 </div>
 
                 <div className="flex justify-end">

@@ -21,6 +21,21 @@ interface MiPerfilProps {
 export default function MiPerfil({ userData }: MiPerfilProps) {
   const [isEditing, setIsEditing]   = useState(false);
   const [saving, setSaving]         = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const validarCampoPerfil = (name: string, value: string) => {
+    let error = '';
+    if (name === 'email') {
+      if (!value.trim()) error = 'El correo es obligatorio';
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) error = 'Formato de correo no válido';
+    }
+    if (name === 'telefono') {
+      if (!value.trim()) error = 'El teléfono es obligatorio';
+      else if (!/^\d{7,15}$/.test(value.trim().replace(/[\s\-()+]/g, ''))) error = 'Debe contener entre 7 y 15 dígitos';
+    }
+    setFieldErrors(prev => ({ ...prev, [name]: error }));
+    return error;
+  };
   const [activeTab, setActiveTab]   = useState('info');
   const [formData, setFormData]     = useState({
     nombre:       userData?.nombre ?? userData?.name ?? '',
@@ -375,10 +390,13 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
                       <Input
                         type="email"
                         value={formData.email}
-                        onChange={e => setFormData({ ...formData, email: e.target.value })}
+                        onChange={e => { setFormData({ ...formData, email: e.target.value }); if (fieldErrors.email) validarCampoPerfil('email', e.target.value); }}
+                        onBlur={e => isEditing && validarCampoPerfil('email', e.target.value)}
                         disabled={!isEditing}
-                        className={`pl-10 ${isEditing ? 'border-emerald-300 focus-visible:ring-emerald-500' : ''}`}
+                        className={`pl-10 ${isEditing ? (fieldErrors.email ? 'border-red-400' : 'border-emerald-300 focus-visible:ring-emerald-500') : ''}`}
                       />
+                    </div>
+                    {fieldErrors.email && isEditing && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3 shrink-0"/>{fieldErrors.email}</p>}
                     </div>
                   </div>
 
@@ -391,11 +409,13 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
                       <Input
                         value={formData.telefono}
-                        onChange={e => setFormData({ ...formData, telefono: e.target.value })}
+                        onChange={e => { setFormData({ ...formData, telefono: e.target.value }); if (fieldErrors.telefono) validarCampoPerfil('telefono', e.target.value); }}
+                        onBlur={e => isEditing && validarCampoPerfil('telefono', e.target.value)}
                         disabled={!isEditing}
-                        className={`pl-10 ${isEditing ? 'border-emerald-300 focus-visible:ring-emerald-500' : ''}`}
+                        className={`pl-10 ${isEditing ? (fieldErrors.telefono ? 'border-red-400' : 'border-emerald-300 focus-visible:ring-emerald-500') : ''}`}
                       />
                     </div>
+                    {fieldErrors.telefono && isEditing && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3 shrink-0"/>{fieldErrors.telefono}</p>}
                   </div>
 
                   {/* Dirección */}

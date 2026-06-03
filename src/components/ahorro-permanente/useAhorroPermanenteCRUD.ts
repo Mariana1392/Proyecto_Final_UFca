@@ -73,11 +73,7 @@ export function useAhorroPermanenteCRUD({
     setFormSaldoInicial(raw);
     const num = parseFloat(raw.replace(/\./g, '').replace(',', '.')) || 0;
     if (num > 0 && num < montoObligatorio) {
-      setSaldoInicialError(
-        `El saldo inicial debe ser igual o mayor a ${montoObligatorio.toLocaleString('es-CO', {
-          style: 'currency', currency: 'COP', minimumFractionDigits: 0,
-        })}`
-      );
+      setSaldoInicialError('El monto ingresado es menor al estipulado');
     } else {
       setSaldoInicialError('');
     }
@@ -277,17 +273,18 @@ export function useAhorroPermanenteCRUD({
     }
 
     if (!selectedItem) {
+      // Buscar cualquier cuenta activa (no cerrada, no anulada)
       const { data: existente } = await supabase
         .from('cuentas_ahorro')
-        .select('id')
+        .select('id, estado, anulado')
         .eq('tipo', 'permanente')
         .eq('asociado_id', formAsociadoId)
-        .eq('estado', 'activo')
+        .neq('estado', 'cerrado')
         .eq('anulado', false)
         .limit(1);
       if (existente && existente.length > 0) {
         toast.error('El asociado ya tiene un ahorro permanente activo', {
-          description: 'No se puede crear otro hasta que el actual sea liquidado en la fecha de corte.',
+          description: 'No se puede crear otro hasta que el actual sea liquidado.',
         });
         return;
       }
@@ -376,7 +373,14 @@ export function useAhorroPermanenteCRUD({
         });
       }
     } catch (err: any) {
-      toast.error('Error al guardar ahorro: ' + err.message);
+      const msg: string = err.message ?? '';
+      if (msg.includes('uq_cuentas_ahorro_asociado_permanente') || msg.includes('duplicate key') || msg.includes('unique constraint')) {
+        toast.error('Este asociado ya tiene una cuenta de ahorro permanente', {
+          description: 'Solo se permite una cuenta de ahorro permanente por asociado.',
+        });
+      } else {
+        toast.error('Error al guardar ahorro: ' + msg);
+      }
     }
 
     setIsCreateDialogOpen(false);

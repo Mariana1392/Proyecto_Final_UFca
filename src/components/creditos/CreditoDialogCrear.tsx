@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useState } from 'react';
 import { CreditCard, Search, Check, DollarSign, Percent, Clock, Calendar, FileText, Paperclip, Upload, ExternalLink, AlertTriangle, BarChart2, X, Info } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -50,6 +50,23 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
     saving,
     creditos,
   } = hook;
+
+  // ── Errores inline ────────────────────────────────────────────────────────
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const validarCampo = (name: string, value: string) => {
+    let error = '';
+    if (name === 'monto') {
+      const n = parseFloat(value.replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
+      if (!n || n <= 0) error = 'Ingresa un monto válido';
+    }
+    if (name === 'plazo') {
+      if (!parseInt(value) || parseInt(value) <= 0) error = 'El plazo debe ser mayor a 0';
+    }
+    if (name === 'fecha') {
+      if (!value) error = 'La fecha de desembolso es obligatoria';
+    }
+    setFieldErrors(prev => ({ ...prev, [name]: error }));
+  };
 
   // ── Capacidad de endeudamiento del asociado seleccionado ──────────────────
   const creditosActivosAsoc = useMemo(() => {
@@ -234,10 +251,15 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
                     value={formMonto}
                     onChange={(e) => {
                       const raw = e.target.value.replace(/\./g, '').replace(/[^\d]/g, '');
-                      setFormMonto(raw ? parseInt(raw, 10).toLocaleString('es-CO') : '');
+                      const formatted = raw ? parseInt(raw, 10).toLocaleString('es-CO') : '';
+                      setFormMonto(formatted);
+                      if (fieldErrors.monto) validarCampo('monto', formatted);
                     }}
+                    onBlur={() => validarCampo('monto', formMonto)}
                     disabled={bloqueado}
+                    className={fieldErrors.monto ? 'border-red-400' : ''}
                   />
+                  {fieldErrors.monto && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{fieldErrors.monto}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="tasa" className="flex items-center gap-1.5">
@@ -256,9 +278,12 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
                   </Label>
                   <Input id="plazo" type="number" min="1" max="360" placeholder="36"
                     value={formPlazo}
-                    onChange={(e) => setFormPlazo(e.target.value)}
+                    onChange={(e) => { setFormPlazo(e.target.value); if (fieldErrors.plazo) validarCampo('plazo', e.target.value); }}
+                    onBlur={e => validarCampo('plazo', e.target.value)}
                     disabled={bloqueado}
+                    className={fieldErrors.plazo ? 'border-red-400' : ''}
                   />
+                  {fieldErrors.plazo && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{fieldErrors.plazo}</p>}
                 </div>
               </div>
 

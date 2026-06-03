@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Plus, Search, X, Calendar, CreditCard, BarChart2, Check, AlertTriangle,
   Eye, Banknote, FileText, Clock, Percent, Table2, Download, CheckCircle2,
@@ -37,6 +38,24 @@ interface CreditoVistaAsociadoProps {
 }
 
 export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAsociadoProps) {
+  const [solErrors, setSolErrors] = useState<Record<string, string>>({});
+
+  const validarSolCampo = (name: string, value: string) => {
+    let error = '';
+    if (name === 'monto') {
+      const n = parseInt(value.replace(/\./g, '').replace(/[^\d]/g, ''), 10) || 0;
+      if (!n || n <= 0) error = 'Ingresa un monto válido';
+    }
+    if (name === 'plazo') {
+      const n = parseInt(value) || 0;
+      if (!n || n <= 0) error = 'El plazo debe ser mayor a 0';
+    }
+    if (name === 'banco' && !value.trim()) error = 'El banco es obligatorio';
+    if (name === 'numeroCuenta' && !value.trim()) error = 'El número de cuenta es obligatorio';
+    setSolErrors(prev => ({ ...prev, [name]: error }));
+    return error;
+  };
+
   const {
     creditosSimulacion,
     setSimDetalleData, setIsSimDetalleOpen,
@@ -884,22 +903,34 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
               <div className="relative">
                 <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
                 <Input
-                  className="pl-8"
+                  className={`pl-8 ${solErrors.monto ? 'border-red-400' : ''}`}
                   placeholder="0"
                   value={solMonto}
                   onChange={(e) => {
                     const raw = e.target.value.replace(/\./g, '').replace(/[^\d]/g, '');
-                    setSolMonto(raw ? parseInt(raw, 10).toLocaleString('es-CO') : '');
+                    const formatted = raw ? parseInt(raw, 10).toLocaleString('es-CO') : '';
+                    setSolMonto(formatted);
+                    if (solErrors.monto) validarSolCampo('monto', formatted);
                   }}
+                  onBlur={() => validarSolCampo('monto', solMonto)}
                 />
+              </div>
+              {solErrors.monto && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{solErrors.monto}</p>}
               </div>
             </div>
             <div className="space-y-1.5">
               <Label>Plazo (meses) <span className="text-red-500">*</span></Label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
-                <Input className="pl-8" type="number" min={1} placeholder="12" value={solPlazo} onChange={(e) => setSolPlazo(e.target.value)} />
+                <Input
+                  className={`pl-8 ${solErrors.plazo ? 'border-red-400' : ''}`}
+                  type="number" min={1} placeholder="12"
+                  value={solPlazo}
+                  onChange={(e) => { setSolPlazo(e.target.value); if (solErrors.plazo) validarSolCampo('plazo', e.target.value); }}
+                  onBlur={e => validarSolCampo('plazo', e.target.value)}
+                />
               </div>
+              {solErrors.plazo && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{solErrors.plazo}</p>}
             </div>
           </div>
 
@@ -981,7 +1012,14 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
             <p className="text-[11px] text-slate-400 -mt-1">Si el crédito es aprobado, el dinero se transferirá a esta cuenta.</p>
             <div className="space-y-1.5">
               <Label>Banco <span className="text-red-500">*</span></Label>
-              <Input placeholder="Ej. Bancolombia, Nequi, Davivienda…" value={solBanco} onChange={(e) => setSolBanco(e.target.value)} />
+              <Input
+                placeholder="Ej. Bancolombia, Nequi, Davivienda…"
+                value={solBanco}
+                onChange={e => { setSolBanco(e.target.value); if (solErrors.banco) validarSolCampo('banco', e.target.value); }}
+                onBlur={e => validarSolCampo('banco', e.target.value)}
+                className={solErrors.banco ? 'border-red-400' : ''}
+              />
+              {solErrors.banco && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{solErrors.banco}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -997,7 +1035,14 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
               </div>
               <div className="space-y-1.5">
                 <Label>Número de cuenta <span className="text-red-500">*</span></Label>
-                <Input placeholder="Ej. 1234567890" value={solNumeroCuenta} onChange={(e) => setSolNumeroCuenta(e.target.value.replace(/\D/g, ''))} />
+                <Input
+                  placeholder="Ej. 1234567890"
+                  value={solNumeroCuenta}
+                  onChange={e => { const v = e.target.value.replace(/\D/g, ''); setSolNumeroCuenta(v); if (solErrors.numeroCuenta) validarSolCampo('numeroCuenta', v); }}
+                  onBlur={e => validarSolCampo('numeroCuenta', e.target.value)}
+                  className={solErrors.numeroCuenta ? 'border-red-400' : ''}
+                />
+                {solErrors.numeroCuenta && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{solErrors.numeroCuenta}</p>}
               </div>
             </div>
           </div>
