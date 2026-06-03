@@ -397,7 +397,6 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
                       />
                     </div>
                     {fieldErrors.email && isEditing && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3 shrink-0"/>{fieldErrors.email}</p>}
-                    </div>
                   </div>
 
                   {/* Teléfono */}
