@@ -149,14 +149,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else if (event === 'SIGNED_IN' && session?.user && !cacheGet()) {
         cargarPerfil(session.user.id);
       } else if (event === 'EMAIL_CHANGED' && session?.user) {
-        // El usuario confirmó el cambio de correo desde el enlace
+        // Sincronizar el nuevo correo en la tabla public.usuarios
+        // (auth.users se actualiza solo, pero usuarios no)
+        supabase
+          .from('usuarios')
+          .update({ email: session.user.email })
+          .eq('id', session.user.id)
+          .then(({ error }) => {
+            if (error) console.error('[UFCA] Error sincronizando email en usuarios:', error);
+          });
+
         import('sonner').then(({ toast }) => {
           toast.success('✅ Correo actualizado correctamente', {
             description: `Tu nuevo correo es: ${session.user.email}`,
-            duration: 6000,
+            duration: 8000,
           });
         });
-        // Recargar perfil para reflejar el nuevo correo
+
+        // Recargar perfil para que el UI refleje el nuevo correo
         cargarPerfil(session.user.id);
       }
     });

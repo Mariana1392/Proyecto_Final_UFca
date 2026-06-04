@@ -173,14 +173,23 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
       const { error: errUsr } = await supabase.from('usuarios').update(payload).eq('id', usuarioId);
       if (errUsr) throw errUsr;
 
-      if (formData.email.trim() !== originalData.email) {
+      const emailCambio = formData.email.trim() !== originalData.email;
+      if (emailCambio) {
         try { await supabase.auth.updateUser({ email: formData.email.trim() }); } catch { /* no crítico */ }
       }
 
       const nuevosDatos = { ...formData };
       setFormData(nuevosDatos);
       setOriginalData(nuevosDatos);
-      toast.success('✅ Perfil actualizado exitosamente');
+
+      if (emailCambio) {
+        toast.success('📧 Revisa tu nuevo correo', {
+          description: `Se envió un enlace de confirmación a ${formData.email.trim()}. Haz clic en él para completar el cambio.`,
+          duration: 10000,
+        });
+      } else {
+        toast.success('✅ Perfil actualizado exitosamente');
+      }
       setIsEditing(false);
     } catch (err: any) {
       toast.error('Error al guardar los cambios', { description: err.message });

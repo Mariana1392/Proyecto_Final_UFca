@@ -29,7 +29,8 @@ export default function PerfilAdmin() {
   const [emailSent, setEmailSent]           = useState(false);
   const [sendingEmail, setSendingEmail]     = useState(false);
 
-  useEffect(() => { cargarStats(); cargarTelefono(); }, []);
+  // Al montar, siempre recargar desde la BD para evitar mostrar datos del caché
+  useEffect(() => { recargarPerfil(); cargarStats(); cargarTelefono(); }, []);
 
   // Sincronizar estado local cuando el contexto de auth se actualiza
   useEffect(() => {
@@ -140,11 +141,31 @@ export default function PerfilAdmin() {
 
     setSendingEmail(true);
     try {
-      const { error } = await supabase.auth.updateUser({ email: emailTrimmed });
+      const { data, error } = await supabase.auth.updateUser(
+        { email: emailTrimmed },
+        { emailRedirectTo: window.location.origin },
+      );
+      console.log('[UFCA] updateUser response:', { data, error });
       if (error) throw error;
+
+      // Sincronizar el nuevo correo en la tabla usuarios de inmediato,
+      // sin esperar el evento EMAIL_CHANGED (que solo dispara al hacer clic en el link)
+      if (user?.id) {
+        const { error: errTbl } = await supabase
+          .from('usuarios')
+          .update({ email: emailTrimmed })
+          .eq('id', user.id);
+        if (errTbl) console.error('[UFCA] Error sincronizando email en usuarios:', errTbl);
+        else await recargarPerfil();
+      }
+
       setEmailSent(true);
     } catch (err: any) {
-      toast.error('Error al enviar confirmación: ' + err.message);
+      console.error('[UFCA] Error en cambio de correo:', err);
+      toast.error('Error: ' + (err.message ?? 'No se pudo enviar el correo'), {
+        description: 'Revisa la consola del navegador (F12) para más detalles.',
+        duration: 8000,
+      });
     } finally {
       setSendingEmail(false);
     }
