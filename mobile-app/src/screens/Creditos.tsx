@@ -26,6 +26,111 @@ import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency } from '../lib/formatters';
 import { TIPOS_CREDITO } from '../lib/constants';
 
+function tasaEAaMensual(ea: number) { return ea > 0 ? Math.pow(1 + ea / 100, 1 / 12) - 1 : 0; }
+function calcularCuota(monto: number, tasa: number, plazo: number): number {
+  if (!monto || !plazo) return 0;
+  if (!tasa) return Math.round(monto / plazo);
+  const i = tasaEAaMensual(tasa);
+  return Math.round(monto * (i * Math.pow(1 + i, plazo)) / (Math.pow(1 + i, plazo) - 1));
+}
+
+function CreditoDialogCrearMobile({ open, onClose, usuarios, onCreated }: { open: boolean, onClose: () => void, usuarios: any[], onCreated: () => void }) {
+  const [formAsoc, setFormAsoc] = useState('');
+  const [formMonto, setFormMonto] = useState('');
+  const [formPlazo, setFormPlazo] = useState('');
+  const [formTasa, setFormTasa] = useState('');
+  const [formTipo, setFormTipo] = useState('libre_inversion');
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    if (!formAsoc) return toast.error('Selecciona un asociado');
+    const monto = parseFloat(formMonto.replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
+    if (monto <= 0) return toast.error('Monto inválido');
+    const plazo = parseInt(formPlazo) || 0;
+    if (plazo <= 0) return toast.error('Plazo inválido');
+    const tasa = parseFloat(formTasa) || 0;
+    
+    setSaving(true);
+    try {
+      const cuota = calcularCuota(monto, tasa, plazo);
+      const { error } = await supabase.from('creditos').insert({
+        asociado_id: formAsoc,
+        tipo: formTipo,
+        monto,
+        tasa_interes: tasa,
+        plazo_meses: plazo,
+        cuota_mensual: cuota,
+        tipo_interes: 'compuesto',
+        saldo: monto,
+        estado: 'activo',
+        fecha_desembolso: new Date().toISOString().split('T')[0],
+      });
+      if (error) throw error;
+      toast.success('Crédito registrado con éxito');
+      onCreated();
+      onClose();
+    } catch (err: any) {
+      toast.error('Error al registrar crédito: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Nuevo Crédito</DialogTitle>
+          <DialogDescription>Registra un nuevo crédito para un asociado.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Asociado</Label>
+            <Select value={formAsoc} onValueChange={setFormAsoc}>
+              <SelectTrigger><SelectValue placeholder="Seleccione asociado" /></SelectTrigger>
+              <SelectContent>
+                {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.nombre} ({u.cedula})</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Tipo de crédito</Label>
+            <Select value={formTipo} onValueChange={setFormTipo}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {TIPOS_CREDITO.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Monto</Label>
+              <Input type="text" placeholder="Ej: 5.000.000" value={formMonto} onChange={e => {
+                const raw = e.target.value.replace(/\./g, '').replace(/[^\d]/g, '');
+                setFormMonto(raw ? parseInt(raw, 10).toLocaleString('es-CO') : '');
+              }} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tasa EA (%)</Label>
+              <Input type="number" step="0.1" value={formTasa} onChange={e => setFormTasa(e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Plazo (meses)</Label>
+            <Input type="number" value={formPlazo} onChange={e => setFormPlazo(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSave} disabled={saving}>
+            {saving ? 'Guardando...' : 'Registrar'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const ESTADOS_APROBACION = [
@@ -39,14 +144,6 @@ const ESTADOS_APROBACION = [
   { value: 'pagado',       label: 'Pagado',       color: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800' },
   { value: 'rechazado',    label: 'Rechazado',    color: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/50 dark:text-slate-300 dark:border-slate-700' },
 ];
-
-const tasaEAaMensual = (ea: number) => ea > 0 ? Math.pow(1 + ea / 100, 1 / 12) - 1 : 0;
-const calcularCuota  = (monto: number, tasa: number, plazo: number): number => {
-  if (!monto || !plazo) return 0;
-  if (!tasa) return Math.round(monto / plazo);
-  const i = tasaEAaMensual(tasa);
-  return Math.round(monto * (i * Math.pow(1 + i, plazo)) / (Math.pow(1 + i, plazo) - 1));
-};
 
 function estadoBadge(estado: string) {
   const e = ESTADOS_APROBACION.find(x => x.value === estado);
@@ -526,16 +623,18 @@ function CreditosAsociado({ userData }: { userData: any }) {
     try {
       const id = userData?.id;
       if (!id) return;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('creditos')
-        .select('id,tipo,monto,saldo,cuota_mensual,plazo_meses,tasa_interes,estado_aprobacion,estado,anulado,fecha_desembolso,tipo_interes,observaciones,descripcion_soporte,motivo_estado_cambio,created_at')
+        .select('id,tipo,monto,saldo,cuota_mensual,plazo_meses,tasa_interes,estado,anulado,fecha_desembolso,tipo_interes,observaciones,descripcion_soporte,motivo_estado_cambio,created_at')
         .eq('asociado_id', id)
         .order('created_at', { ascending: false });
+        
+      if (error) throw error;
 
       const rows = (data ?? []).map((c: any) => ({
         id: c.id, tipo: c.tipo, monto: c.monto, saldo: c.saldo,
         cuotaMensual: c.cuota_mensual, plazo: c.plazo_meses,
-        tasaInteres: c.tasa_interes, estadoAprobacion: c.estado_aprobacion,
+        tasaInteres: c.tasa_interes, estadoAprobacion: c.estado,
         estado: c.estado, anulado: !!c.anulado,
         fechaDesembolso: c.fecha_desembolso, tipoInteres: c.tipo_interes,
         observaciones: c.observaciones, descripcionSoporte: c.descripcion_soporte,
@@ -792,29 +891,36 @@ function CreditosAsociado({ userData }: { userData: any }) {
 function CreditosAdmin() {
   const [loading,    setLoading]   = useState(true);
   const [creditos,   setCreditos]  = useState<any[]>([]);
+  const [usuarios,   setUsuarios]  = useState<any[]>([]);
   const [search,     setSearch]    = useState('');
   const [filtroEst,  setFiltroEst] = useState('');
+  const [crearOpen,  setCrearOpen] = useState(false);
 
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await supabase
-        .from('creditos')
-        .select('id,tipo,monto,saldo,cuota_mensual,plazo_meses,tasa_interes,estado_aprobacion,estado,anulado,fecha_desembolso,tipo_interes,observaciones,descripcion_soporte,motivo_estado_cambio,created_at,nota_rechazo,asociado_id,usuarios(nombre,cedula)')
-        .order('created_at', { ascending: false });
+      const [cRes, uRes] = await Promise.all([
+        supabase.from('creditos').select('id,tipo,monto,saldo,cuota_mensual,plazo_meses,tasa_interes,estado,anulado,fecha_desembolso,tipo_interes,observaciones,descripcion_soporte,motivo_estado_cambio,created_at,nota_rechazo,asociado_id').order('created_at', { ascending: false }),
+        supabase.from('usuarios').select('id,nombre,cedula')
+      ]);
 
-      setCreditos((data ?? []).map((c: any) => ({
+      if (cRes.error) throw cRes.error;
+      
+      const asocMap = Object.fromEntries((uRes.data ?? []).map(u => [u.id, u]));
+
+      setCreditos((cRes.data ?? []).map((c: any) => ({
         id: c.id, tipo: c.tipo, monto: c.monto, saldo: c.saldo,
         cuotaMensual: c.cuota_mensual, plazo: c.plazo_meses,
-        tasaInteres: c.tasa_interes, estadoAprobacion: c.estado_aprobacion,
+        tasaInteres: c.tasa_interes, estadoAprobacion: c.estado,
         estado: c.estado, anulado: !!c.anulado,
         fechaDesembolso: c.fecha_desembolso, tipoInteres: c.tipo_interes,
         observaciones: c.observaciones, descripcionSoporte: c.descripcion_soporte,
         motivoEstadoCambio: c.motivo_estado_cambio, notaRechazo: c.nota_rechazo,
         asociado_id: c.asociado_id,
-        asociado: c.usuarios?.nombre ?? '—',
-        cedula: c.usuarios?.cedula ?? '',
+        asociado: asocMap[c.asociado_id]?.nombre ?? '—',
+        cedula: asocMap[c.asociado_id]?.cedula ?? '',
       })));
+      setUsuarios(uRes.data ?? []);
     } catch (err: any) {
       toast.error('Error: ' + err.message);
     } finally {
@@ -867,8 +973,13 @@ function CreditosAdmin() {
   return (
     <div className="space-y-4 pb-4">
       <div>
-        <h2 className="text-lg font-bold text-foreground">Gestión de Créditos</h2>
-        <p className="text-xs text-muted-foreground">Administra los créditos de los asociados</p>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-foreground">Gestión de Créditos</h2>
+          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 h-8 gap-1" onClick={() => setCrearOpen(true)}>
+            <Plus className="size-3.5" /> Nuevo
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">Administra los créditos del fondo</p>
       </div>
 
       {/* KPIs */}
@@ -987,6 +1098,8 @@ function CreditosAdmin() {
           ))}
         </TabsContent>
       </Tabs>
+
+      <CreditoDialogCrearMobile open={crearOpen} onClose={() => setCrearOpen(false)} usuarios={usuarios} onCreated={cargar} />
     </div>
   );
 }

@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Button } from '../components/ui/button';
+import { Label } from '../components/ui/label';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '../components/ui/dialog';
 import { PiggyBank, Wallet, History, ArrowUpCircle, Users, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
@@ -18,7 +23,7 @@ function AhorrosAsociado({ userData }: { userData: any }) {
   const [movsVol, setMovsVol]             = useState<any[]>([]);
   const [volSeleccionado, setVolSel]      = useState<any>(null);
 
-  useEffect(() => { cargar(); }, []);
+  useEffect(() => { cargar(); }, [userData?.id]);
 
   async function cargar() {
     setLoading(true);
@@ -31,6 +36,9 @@ function AhorrosAsociado({ userData }: { userData: any }) {
         supabase.from('cuentas_ahorro').select('*').eq('tipo','voluntario').eq('asociado_id', asocId).eq('anulado',false).order('created_at',{ascending:false}),
       ]);
 
+      if (permRes.error) throw permRes.error;
+      if (volRes.error) throw volRes.error;
+
       const listaPerm  = permRes.data ?? [];
       const activos    = listaPerm.filter((a: any) => a.estado === 'activo');
       const mejorPerm  = activos.length > 0
@@ -40,9 +48,10 @@ function AhorrosAsociado({ userData }: { userData: any }) {
       setAhorrosVol(volRes.data ?? []);
 
       if (mejorPerm?.id) {
-        const { data: movs } = await supabase.from('transacciones').select('*')
+        const { data: movs, error: movsErr } = await supabase.from('transacciones').select('*')
           .eq('tipo','aporte_permanente').eq('ahorro_id', mejorPerm.id)
           .order('fecha_pago',{ascending:false}).limit(5);
+        if (movsErr) throw movsErr;
         setMovsPerm(movs ?? []);
       }
     } catch (err: any) {
@@ -54,9 +63,10 @@ function AhorrosAsociado({ userData }: { userData: any }) {
 
   async function cargarMovsVol(ahorro: any) {
     setVolSel(ahorro);
-    const { data } = await supabase.from('transacciones').select('*')
+    const { data, error } = await supabase.from('transacciones').select('*')
       .eq('tipo','aporte_voluntario').eq('ahorro_id', ahorro.id)
       .order('fecha_pago',{ascending:false}).limit(5);
+    if (error) toast.error('Error al cargar movimientos: ' + error.message);
     setMovsVol(data ?? []);
   }
 
@@ -233,6 +243,93 @@ function PlanVoluntarioCard({ plan, movs, onSelect }: { plan: any; movs: any[]; 
   );
 }
 
+// ── Diálogo Registro de Aporte Móvil ───────────────────────────────────────────
+
+function AhorroDialogAporteMobile({ open, onClose, cuentas, onCreated }: { open: boolean, onClose: () => void, cuentas: any[], onCreated: () => void }) {
+  const [formCuenta, setFormCuenta] = useState('');
+  const [formMonto, setFormMonto]   = useState('');
+  const [saving, setSaving]         = useState(false);
+
+  async function handleSave() {
+    if (!formCuenta) return toast.error('Selecciona una cuenta');
+    const monto = parseFloat(formMonto.replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
+    if (monto <= 0) return toast.error('Monto inválido');
+    
+    setSaving(true);
+    try {
+      const cuenta = cuentas.find(c => c.id === formCuenta);
+      const tipoAporte = cuenta?.tipo === 'permanente' ? 'aporte_permanente' : 'aporte_voluntario';
+      
+      const payload = {
+        ahorro_id: formCuenta,
+        tipo: tipoAporte,
+        monto,
+        fecha_pago: new Date().toISOString().split('T')[0],
+        metodo_pago: 'efectivo',
+        registrado_por: (await supabase.auth.getUser()).data.user?.id,
+      };
+
+      const { error } = await supabase.from('transacciones').insert(payload);
+      if (error) throw error;
+      
+      toast.success('Aporte registrado correctamente');
+      onCreated();
+      onClose();
+    } catch (err: any) {
+      toast.error('Error al registrar aporte: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Registrar Aporte</DialogTitle>
+          <DialogDescription>Añade fondos a una cuenta de ahorros activa.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Cuenta de Ahorro</Label>
+            <select
+              value={formCuenta}
+              onChange={e => setFormCuenta(e.target.value)}
+              className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Seleccione cuenta...</option>
+              {cuentas.filter(c => c.estado === 'activo').map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.usuarios?.nombre} ({c.tipo}) - Saldo: {formatCurrency(c.monto_ahorrado)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Monto a depositar</Label>
+            <input
+              type="text"
+              placeholder="Ej: 50.000"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={formMonto}
+              onChange={e => {
+                const raw = e.target.value.replace(/\./g, '').replace(/[^\d]/g, '');
+                setFormMonto(raw ? parseInt(raw, 10).toLocaleString('es-CO') : '');
+              }}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSave} disabled={saving}>
+            {saving ? 'Guardando...' : 'Registrar'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Vista admin (resumen de todos los ahorros) ────────────────────────────────
 
 function AhorrosAdmin() {
@@ -240,20 +337,34 @@ function AhorrosAdmin() {
   const [cuentas, setCuentas]   = useState<any[]>([]);
   const [search, setSearch]     = useState('');
   const [filtroTipo, setFiltro] = useState<'todos' | 'permanente' | 'voluntario'>('todos');
+  const [crearOpen, setCrearOpen] = useState(false);
 
   useEffect(() => { cargar(); }, []);
 
   async function cargar() {
     setLoading(true);
     try {
-      const { data } = await supabase
-        .from('cuentas_ahorro')
-        .select('id,tipo,monto_ahorrado,cuota_mensual,estado,anulado,created_at,asociado_id,usuarios(nombre,cedula)')
-        .eq('anulado', false)
-        .order('monto_ahorrado', { ascending: false });
-      setCuentas(data ?? []);
-    } catch {
-      toast.error('Error al cargar ahorros');
+      const [cRes, uRes] = await Promise.all([
+        supabase
+          .from('cuentas_ahorro')
+          .select('id,tipo,monto_ahorrado,cuota_mensual,estado,anulado,created_at,asociado_id')
+          .eq('anulado', false)
+          .order('monto_ahorrado', { ascending: false }),
+        supabase.from('usuarios').select('id,nombre,cedula')
+      ]);
+
+      if (cRes.error) throw cRes.error;
+
+      const asocMap = Object.fromEntries((uRes.data ?? []).map(u => [u.id, u]));
+
+      const mapped = (cRes.data ?? []).map(c => ({
+        ...c,
+        usuarios: asocMap[c.asociado_id] || { nombre: '—', cedula: '' }
+      }));
+
+      setCuentas(mapped);
+    } catch (err: any) {
+      toast.error('Error al cargar ahorros: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -280,7 +391,12 @@ function AhorrosAdmin() {
   return (
     <div className="space-y-4 pb-4">
       <div>
-        <h2 className="text-lg font-bold text-foreground">Gestión de Ahorros</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-foreground">Gestión de Ahorros</h2>
+          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 h-8 gap-1" onClick={() => setCrearOpen(true)}>
+            <ArrowUpCircle className="size-3.5" /> Aporte
+          </Button>
+        </div>
         <p className="text-xs text-muted-foreground">Todos los ahorros registrados</p>
       </div>
 
@@ -362,6 +478,8 @@ function AhorrosAdmin() {
           </Card>
         ))}
       </div>
+      
+      <AhorroDialogAporteMobile open={crearOpen} onClose={() => setCrearOpen(false)} cuentas={cuentas} onCreated={cargar} />
     </div>
   );
 }

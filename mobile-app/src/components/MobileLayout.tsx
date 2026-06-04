@@ -33,7 +33,7 @@ export default function MobileLayout() {
   return (
     <div className="flex flex-col h-[100dvh] bg-background text-foreground pb-16">
       {/* Top Header */}
-      <header className="bg-card border-b border-border px-4 py-3 shadow-sm flex items-center justify-between sticky top-0 z-10">
+      <header className="bg-card border-b border-border px-4 pb-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] shadow-sm flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-2">
           <img src={logo} alt="UFCA" className="h-8 w-8 object-contain drop-shadow-md shrink-0" />
           <h1 className="text-xl font-bold tracking-wider">UFCA</h1>
