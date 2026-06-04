@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import logo from '../assets/logo.svg';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -39,11 +40,11 @@ export default function LoginScreen() {
     <div className="flex min-h-[100dvh] items-center justify-center p-4 bg-slate-50 dark:bg-slate-900">
       <Card className="w-full max-w-sm animate-fade-in shadow-xl border-slate-200 dark:border-slate-800">
         <CardHeader className="space-y-3 text-center pb-6">
-          <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto mb-2 animate-bounce-in">
-            <span className="text-2xl font-bold">UF</span>
+          <div className="flex justify-center mb-2 animate-bounce-in">
+            <img src={logo} alt="UFCA Logo" className="w-16 h-16 object-contain drop-shadow-md" />
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight">Bienvenido</CardTitle>
-          <CardDescription className="text-slate-500">Inicia sesión en tu cuenta UFca</CardDescription>
+          <CardTitle className="text-2xl font-bold tracking-widest">UFCA</CardTitle>
+          <CardDescription className="text-slate-500 font-medium text-[10px] tracking-[0.2em] uppercase">Unión Familiar de Crédito y Ahorro</CardDescription>
         </CardHeader>
 
         <CardContent>

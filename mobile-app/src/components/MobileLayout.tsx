@@ -1,34 +1,62 @@
-
 import { useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, Wallet, ReceiptText, CreditCard, UserCircle } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
+import { LayoutDashboard, Wallet, ReceiptText, CreditCard, UserCircle, Settings, Moon, Sun } from 'lucide-react';
 import { cn } from '../lib/utils';
+import logo from '../assets/logo.svg';
 
 export default function MobileLayout() {
   const { user, userData } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-    }
+    if (!user) navigate('/login');
   }, [user, navigate]);
 
   if (!user) return null;
 
   const isAdmin = userData?.rol === 'admin';
 
+  const navItems = [
+    { to: '/',              label: 'Inicio',    icon: LayoutDashboard },
+    { to: '/ahorros',       label: 'Ahorros',   icon: Wallet          },
+    { to: '/liquidaciones', label: 'Liquidar',  icon: ReceiptText     },
+    { to: '/creditos',      label: 'Créditos',  icon: CreditCard      },
+    ...(isAdmin
+      ? [{ to: '/configuracion', label: 'Config', icon: Settings }]
+      : [{ to: '/perfil',        label: 'Perfil',  icon: UserCircle }]
+    ),
+  ];
+
   return (
     <div className="flex flex-col h-[100dvh] bg-background text-foreground pb-16">
       {/* Top Header */}
       <header className="bg-card border-b border-border px-4 py-3 shadow-sm flex items-center justify-between sticky top-0 z-10">
-        <h1 className="text-xl font-bold tracking-tight">
-          UFca Mobile
-        </h1>
-        <span className="text-xs px-2.5 py-1 bg-primary/10 text-primary rounded-full font-medium">
-          {isAdmin ? 'Administrador' : 'Asociado'}
-        </span>
+        <div className="flex items-center gap-2">
+          <img src={logo} alt="UFCA" className="h-8 w-8 object-contain drop-shadow-md shrink-0" />
+          <h1 className="text-xl font-bold tracking-wider">UFCA</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleTheme}
+            className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          {isAdmin && (
+            <NavLink to="/perfil" className={({ isActive }) => cn(
+              'p-1.5 rounded-full transition-colors',
+              isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
+            )}>
+              <UserCircle size={20} />
+            </NavLink>
+          )}
+          <span className="text-xs px-2.5 py-1 bg-primary/10 text-primary rounded-full font-medium">
+            {isAdmin ? 'Administrador' : 'Asociado'}
+          </span>
+        </div>
       </header>
 
       {/* Main Content Area */}
@@ -37,46 +65,25 @@ export default function MobileLayout() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="bg-card border-t border-border fixed bottom-0 w-full h-16 px-2 pb-safe flex justify-between items-center z-50">
-        <NavLink to="/" className={({ isActive }) => cn(
-          "flex flex-col items-center justify-center w-full h-full text-[10px] gap-1 transition-all",
-          isActive ? "text-primary font-semibold" : "text-muted-foreground hover:text-foreground"
-        )}>
-          <LayoutDashboard size={22} className={cn("transition-transform", { "scale-110": location.pathname === "/" })} />
-          <span>Inicio</span>
-        </NavLink>
-        
-        <NavLink to="/ahorros" className={({ isActive }) => cn(
-          "flex flex-col items-center justify-center w-full h-full text-[10px] gap-1 transition-all",
-          isActive ? "text-primary font-semibold" : "text-muted-foreground hover:text-foreground"
-        )}>
-          <Wallet size={22} />
-          <span>Ahorros</span>
-        </NavLink>
-        
-        <NavLink to="/liquidaciones" className={({ isActive }) => cn(
-          "flex flex-col items-center justify-center w-full h-full text-[10px] gap-1 transition-all",
-          isActive ? "text-primary font-semibold" : "text-muted-foreground hover:text-foreground"
-        )}>
-          <ReceiptText size={22} />
-          <span>Liquidar</span>
-        </NavLink>
-
-        <NavLink to="/creditos" className={({ isActive }) => cn(
-          "flex flex-col items-center justify-center w-full h-full text-[10px] gap-1 transition-all",
-          isActive ? "text-primary font-semibold" : "text-muted-foreground hover:text-foreground"
-        )}>
-          <CreditCard size={22} />
-          <span>Créditos</span>
-        </NavLink>
-        
-        <NavLink to="/perfil" className={({ isActive }) => cn(
-          "flex flex-col items-center justify-center w-full h-full text-[10px] gap-1 transition-all",
-          isActive ? "text-primary font-semibold" : "text-muted-foreground hover:text-foreground"
-        )}>
-          <UserCircle size={22} />
-          <span>Perfil</span>
-        </NavLink>
+      <nav className="bg-card border-t border-border fixed bottom-0 w-full h-16 px-1 pb-safe flex justify-between items-center z-50">
+        {navItems.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            className={({ isActive }) => cn(
+              'flex flex-col items-center justify-center flex-1 h-full text-[10px] gap-1 transition-all',
+              isActive ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {({ isActive }) => (
+              <>
+                <Icon size={22} className={cn('transition-transform', isActive && 'scale-110')} />
+                <span>{label}</span>
+              </>
+            )}
+          </NavLink>
+        ))}
       </nav>
     </div>
   );
