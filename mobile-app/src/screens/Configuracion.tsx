@@ -5,6 +5,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import {
   Settings, Percent, DollarSign, Clock, Save, RotateCcw, AlertTriangle, Info, Loader2, CheckCircle,
+  Edit, Trash2, Shield,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
@@ -44,21 +45,30 @@ export default function ConfiguracionScreen() {
   const [saving,   setSaving]   = useState(false);
   const [dirty,    setDirty]    = useState(false);
 
+  const [roles,    setRoles]    = useState<any[]>([]);
+
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('configuracion').select('clave,valor').in('clave', CLAVES);
-      if (error) throw error;
+      const [confRes, rolesRes] = await Promise.all([
+        supabase.from('configuracion').select('clave,valor').in('clave', CLAVES),
+        supabase.from('roles').select('*').order('nombre')
+      ]);
+
+      if (confRes.error) throw confRes.error;
+      if (rolesRes.error) throw rolesRes.error;
+
       const mapa: Partial<Parametros> = {};
-      (data ?? []).forEach((row: { clave: string; valor: string }) => {
+      (confRes.data ?? []).forEach((row: { clave: string; valor: string }) => {
         if (CLAVES.includes(row.clave as keyof Parametros)) mapa[row.clave as keyof Parametros] = row.valor;
       });
       const merged: Parametros = { ...DEFAULTS, ...mapa };
       setParams(merged);
       setOriginal(merged);
       setDirty(false);
+      setRoles(rolesRes.data ?? []);
     } catch (err: any) {
-      toast.error('Error al cargar parámetros: ' + err.message);
+      toast.error('Error al cargar datos: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -155,10 +165,66 @@ export default function ConfiguracionScreen() {
           <Settings className="size-6 text-blue-600" />
         </div>
         <div>
-          <h2 className="text-lg font-bold text-foreground">Parámetros del sistema</h2>
-          <p className="text-xs text-muted-foreground">Tasas de interés y límites operativos</p>
+          <h2 className="text-lg font-bold text-foreground">Configuración</h2>
+          <p className="text-xs text-muted-foreground">Administración del sistema</p>
         </div>
       </div>
+
+      {/* Gestión de Roles */}
+      <Card className="border-0 shadow-sm mt-4">
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Shield className="size-4 text-emerald-500" /> Gestión de Roles
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">Perfiles de acceso</p>
+          </div>
+          <Button size="sm" variant="outline" className="h-8 text-xs text-emerald-700 bg-emerald-50 border-emerald-200" onClick={() => toast.info('La creación de roles complejos debe hacerse desde la plataforma web.')}>
+            Nuevo rol
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {roles.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-2">No hay roles definidos</p>
+          ) : (
+            roles.map(r => (
+              <div key={r.id} className="p-3 bg-muted/40 rounded-xl border border-border flex justify-between items-center">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-sm font-bold text-foreground">{r.nombre}</p>
+                    {r.es_sistema && (
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded">
+                        Sistema
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{r.descripcion || 'Sin descripción'}</p>
+                </div>
+                {!r.es_sistema && (
+                  <div className="flex gap-1">
+                    <Button size="icon" variant="ghost" className="size-8 text-slate-500" onClick={() => toast.info('Para editar permisos detallados, ingresa desde la plataforma web.')}>
+                      <Edit className="size-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="size-8 text-red-500 hover:bg-red-50" onClick={async () => {
+                      if(confirm(`¿Eliminar rol ${r.nombre}?`)) {
+                        const { error } = await supabase.from('roles').delete().eq('id', r.id);
+                        if (error) toast.error('Error al eliminar: ' + error.message);
+                        else {
+                          toast.success('Rol eliminado');
+                          setRoles(prev => prev.filter(x => x.id !== r.id));
+                        }
+                      }
+                    }}>
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
 
       {/* Banner cambios pendientes */}
       {dirty && (
@@ -307,6 +373,8 @@ export default function ConfiguracionScreen() {
           </div>
         </CardContent>
       </Card>
+
+
 
       {/* Footer informativo */}
       <div className="flex items-start gap-2.5 px-4 py-3 bg-muted/50 border border-border rounded-xl">

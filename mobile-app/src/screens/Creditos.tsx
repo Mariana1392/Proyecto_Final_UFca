@@ -86,21 +86,25 @@ function CreditoDialogCrearMobile({ open, onClose, usuarios, onCreated }: { open
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>Asociado</Label>
-            <Select value={formAsoc} onValueChange={setFormAsoc}>
-              <SelectTrigger><SelectValue placeholder="Seleccione asociado" /></SelectTrigger>
-              <SelectContent>
-                {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.nombre} ({u.cedula})</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <select
+              value={formAsoc}
+              onChange={e => setFormAsoc(e.target.value)}
+              className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Seleccione asociado</option>
+              {usuarios.map(u => <option key={u.id} value={u.id}>{u.nombre} ({u.cedula})</option>)}
+            </select>
           </div>
           <div className="space-y-1.5">
             <Label>Tipo de crédito</Label>
-            <Select value={formTipo} onValueChange={setFormTipo}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {TIPOS_CREDITO.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <select
+              value={formTipo}
+              onChange={e => setFormTipo(e.target.value)}
+              className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Seleccione tipo...</option>
+              {TIPOS_CREDITO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -209,7 +213,7 @@ function DetalleDialog({ credito, onClose, isAdmin }: { credito: any; onClose: (
     }
   }
 
-  const puedesPagar = !credito.anulado && credito.saldo > 0 && ['activo','desembolsado','en_mora'].includes(credito.estadoAprobacion);
+  const puedesPagar = isAdmin && !credito.anulado && credito.saldo > 0 && ['activo','desembolsado','en_mora'].includes(credito.estadoAprobacion);
 
   return (
     <>
@@ -625,7 +629,7 @@ function CreditosAsociado({ userData }: { userData: any }) {
       if (!id) return;
       const { data, error } = await supabase
         .from('creditos')
-        .select('id,tipo,monto,saldo,cuota_mensual,plazo_meses,tasa_interes,estado,anulado,fecha_desembolso,tipo_interes,observaciones,descripcion_soporte,motivo_estado_cambio,created_at')
+        .select('id,tipo,monto,saldo,cuota_mensual,plazo_meses,tasa_interes,estado,anulado,fecha_desembolso,tipo_interes,observaciones,motivo_estado_cambio,created_at')
         .eq('asociado_id', id)
         .order('created_at', { ascending: false });
         
@@ -637,7 +641,7 @@ function CreditosAsociado({ userData }: { userData: any }) {
         tasaInteres: c.tasa_interes, estadoAprobacion: c.estado,
         estado: c.estado, anulado: !!c.anulado,
         fechaDesembolso: c.fecha_desembolso, tipoInteres: c.tipo_interes,
-        observaciones: c.observaciones, descripcionSoporte: c.descripcion_soporte,
+        observaciones: c.observaciones, descripcionSoporte: '',
         motivoEstadoCambio: c.motivo_estado_cambio,
       }));
 
@@ -900,7 +904,7 @@ function CreditosAdmin() {
     setLoading(true);
     try {
       const [cRes, uRes] = await Promise.all([
-        supabase.from('creditos').select('id,tipo,monto,saldo,cuota_mensual,plazo_meses,tasa_interes,estado,anulado,fecha_desembolso,tipo_interes,observaciones,descripcion_soporte,motivo_estado_cambio,created_at,nota_rechazo,asociado_id').order('created_at', { ascending: false }),
+        supabase.from('creditos').select('id,tipo,monto,saldo,cuota_mensual,plazo_meses,tasa_interes,estado,anulado,fecha_desembolso,tipo_interes,observaciones,motivo_estado_cambio,created_at,asociado_id').order('created_at', { ascending: false }),
         supabase.from('usuarios').select('id,nombre,cedula')
       ]);
 
@@ -914,15 +918,15 @@ function CreditosAdmin() {
         tasaInteres: c.tasa_interes, estadoAprobacion: c.estado,
         estado: c.estado, anulado: !!c.anulado,
         fechaDesembolso: c.fecha_desembolso, tipoInteres: c.tipo_interes,
-        observaciones: c.observaciones, descripcionSoporte: c.descripcion_soporte,
-        motivoEstadoCambio: c.motivo_estado_cambio, notaRechazo: c.nota_rechazo,
+        observaciones: c.observaciones, descripcionSoporte: '',
+        motivoEstadoCambio: c.motivo_estado_cambio, notaRechazo: '',
         asociado_id: c.asociado_id,
         asociado: asocMap[c.asociado_id]?.nombre ?? '—',
         cedula: asocMap[c.asociado_id]?.cedula ?? '',
       })));
       setUsuarios(uRes.data ?? []);
     } catch (err: any) {
-      toast.error('Error: ' + err.message);
+      toast.error('Error al cargar créditos: ' + err.message);
     } finally {
       setLoading(false);
     }

@@ -3,9 +3,6 @@ import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '../components/ui/select';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import {
@@ -204,21 +201,24 @@ function LiquidacionDialogCrearMobile({ open, onClose, usuarios, onCreated }: { 
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>Asociado</Label>
-            <Select value={formAsoc} onValueChange={setFormAsoc}>
-              <SelectTrigger><SelectValue placeholder="Seleccione asociado..." /></SelectTrigger>
-              <SelectContent>
-                {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.nombre} ({u.cedula})</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <select
+              value={formAsoc}
+              onChange={e => setFormAsoc(e.target.value)}
+              className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Seleccione asociado...</option>
+              {usuarios.map(u => <option key={u.id} value={u.id}>{u.nombre} ({u.cedula})</option>)}
+            </select>
           </div>
           <div className="space-y-1.5">
             <Label>Motivo de Retiro</Label>
-            <Select value={formTipo} onValueChange={setFormTipo}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {TIPOS_LIQUIDACION.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <select
+              value={formTipo}
+              onChange={e => setFormTipo(e.target.value)}
+              className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              {TIPOS_LIQUIDACION.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
           </div>
           <div className="space-y-1.5">
             <Label>Monto a Liquidar</Label>
