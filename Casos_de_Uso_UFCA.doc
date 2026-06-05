@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Casos de Uso del Proyecto UFCA</title>
+<style>
+  body {
+    font-family: 'Calibri', 'Arial', sans-serif;
+    margin: 30px;
+    color: #333333;
+    line-height: 1.4;
+  }
+  h1.main-title {
+    text-align: center;
+    color: #1F497D;
+    font-size: 28px;
+    margin-bottom: 5px;
+    font-weight: bold;
+  }
+  h3.subtitle {
+    text-align: center;
+    color: #595959;
+    font-size: 16px;
+    margin-top: 0;
+    margin-bottom: 30px;
+    font-weight: normal;
+  }
+  h2.section-title {
+    color: #1F497D;
+    font-size: 20px;
+    border-bottom: 3px solid #1F497D;
+    padding-bottom: 5px;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    font-weight: bold;
+  }
+  h2.uc-title {
+    color: #1F497D;
+    font-size: 18px;
+    border-bottom: 2px dashed #1F497D;
+    padding-bottom: 5px;
+    margin-top: 35px;
+    margin-bottom: 15px;
+    font-weight: bold;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 15px;
+    font-size: 13px;
+  }
+  th, td {
+    border: 1px solid #BFBFBF;
+    padding: 6px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .matrix-table th {
+    background-color: #1F497D;
+    color: #FFFFFF;
+    font-weight: bold;
+    text-align: center;
+  }
+  .matrix-table td.center {
+    text-align: center;
+    font-weight: bold;
+  }
+  .matrix-table td.yes {
+    color: #2E7D32;
+    background-color: #E8F5E9;
+  }
+  .matrix-table td.no {
+    color: #C62828;
+    background-color: #FFEBEE;
+  }
+  .meta-table td.label-col {
+    font-weight: bold;
+    color: #1F497D;
+    background-color: #F2F5F8;
+    width: 25%;
+  }
+  .flow-table th {
+    background-color: #1F497D;
+    color: #FFFFFF;
+    font-weight: bold;
+    text-align: center;
+    padding: 8px;
+  }
+  .exc-table th {
+    background-color: #D9E1F2;
+    color: #1F497D;
+    font-weight: bold;
+    text-align: center;
+    padding: 8px;
+  }
+  .page-break {
+    page-break-after: always;
+  }
+  ol, ul {
+    margin: 0;
+    padding-left: 20px;
+  }
+  li {
+    margin-bottom: 4px;
+  }
+</style>
+</head>
+<body>
+
+<h1 class="main-title">DOCUMENTO DE CASOS DE USO</h1>
+<h3 class="subtitle">Proyecto: Unión Familiar de Crédito y Ahorro (UFCA)</h3>
+
+<!-- ==================== SECCIÓN: INTRODUCCIÓN Y MATRIZ ==================== -->
+<h2 class="section-title">Matriz de Distribución de Canales (Web vs. Aplicación Móvil)</h2>
+<p>
+  La plataforma de la cooperativa <strong>UFCA</strong> cuenta con dos interfaces principales para su operación: el portal de escritorio (<strong>Web</strong>) y la aplicación para smartphones (<strong>Móvil</strong> empaquetada con Capacitor).
+  A continuación, se detalla la disponibilidad de los casos de uso descritos en este documento en cada canal técnico:
+</p>
+
+<table class="matrix-table">
+  <thead>
+    <tr>
+      <th style="width: 10%;">ID</th>
+      <th style="width: 35%;">Caso de Uso</th>
+      <th style="width: 15%;">Canal Web</th>
+      <th style="width: 15%;">Canal Móvil</th>
+      <th style="width: 25%;">Enfoque y Detalle en el Canal</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="center">UC-001</td>
+      <td>Iniciar Sesión</td>
+      <td class="center yes">SÍ</td>
+      <td class="center yes">SÍ</td>
+      <td>Habilitado para todos los actores del sistema. Autenticación por correo.</td>
+    </tr>
+    <tr>
+      <td class="center">UC-002</td>
+      <td>Solicitar Afiliación</td>
+      <td class="center yes">SÍ</td>
+      <td class="center no">NO</td>
+      <td>Exclusivo Web. Formulario público denso para subida de múltiples archivos PDF.</td>
+    </tr>
+    <tr>
+      <td class="center">UC-003</td>
+      <td>Evaluar Solicitud de Afiliación</td>
+      <td class="center yes">SÍ</td>
+      <td class="center yes">SÍ</td>
+      <td>En móvil se limita a la consulta rápida del estado de los usuarios/afiliados.</td>
+    </tr>
+    <tr>
+      <td class="center">UC-004</td>
+      <td>Consultar Saldos de Ahorros</td>
+      <td class="center yes">SÍ</td>
+      <td class="center yes">SÍ</td>
+      <td>Orientado al asociado para ver saldos consolidados y estados de cuenta rápidos.</td>
+    </tr>
+    <tr>
+      <td class="center">UC-005</td>
+      <td>Registrar Aporte de Ahorro</td>
+      <td class="center yes">SÍ</td>
+      <td class="center yes">SÍ</td>
+      <td>Permite al asociado tomar fotos al comprobante de pago directo desde el móvil.</td>
+    </tr>
+    <tr>
+      <td class="center">UC-006</td>
+      <td>Solicitar Crédito</td>
+      <td class="center yes">SÍ</td>
+      <td class="center yes">SÍ</td>
+      <td>Simulación de créditos y carga de solicitudes amortizadas en formato móvil.</td>
+    </tr>
+    <tr>
+      <td class="center">UC-007</td>
+      <td>Evaluar Solicitud de Crédito</td>
+      <td class="center yes">SÍ</td>
+      <td class="center no">NO</td>
+      <td>Exclusivo Web. Panel complejo de scoring y checklist del Comité Evaluador.</td>
+    </tr>
+    <tr>
+      <td class="center">UC-008</td>
+      <td>Registrar Pago de Crédito</td>
+      <td class="center yes">SÍ</td>
+      <td class="center yes">SÍ</td>
+      <td>Reporte de abonos de cuota y control de deudas vigentes.</td>
+    </tr>
+    <tr>
+      <td class="center">UC-009</td>
+      <td>Registrar Referido</td>
+      <td class="center yes">SÍ</td>
+      <td class="center yes">SÍ</td>
+      <td>Disponible en el menú de Perfil del asociado en ambas plataformas.</td>
+    </tr>
+    <tr>
+      <td class="center">UC-010</td>
+      <td>Procesar Liquidación de Asociado</td>
+      <td class="center yes">SÍ</td>
+      <td class="center yes">SÍ</td>
+      <td>En móvil permite al asociado visualizar su liquidación y balance final.</td>
+    </tr>
+    <tr>
+      <td class="center">UC-011</td>
+      <td>Gestionar Excepciones</td>
+      <td class="center yes">SÍ</td>
+      <td class="center no">NO</td>
+      <td>Exclusivo Web. Panel administrativo complejo de auditoría de reglas.</td>
+    </tr>
+    <tr>
+      <td class="center">UC-012</td>
+      <td>Configurar Parámetros del Sistema</td>
+      <td class="center yes">SÍ</td>
+      <td class="center yes">SÍ</td>
+      <td>Permite cambios rápidos en parámetros de configuración.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ==================== UC-001 ==================== -->
+<h2 class="uc-title">Caso de Uso: UC-001 - Iniciar Sesión</h2>
+<table class="meta-table">
+  <tr>
+    <td class="label-col">Caso de Uso N°</td>
+    <td>UC-001</td>
+  </tr>
+  <tr>
+    <td class="label-col">Nombre del Caso de Uso</td>
+    <td><strong>Iniciar Sesión</strong></td>
+  </tr>
+  <tr>
+    <td class="label-col">Fecha</td>
+    <td>17 de Diciembre de 2025</td>
+  </tr>
+  <tr>
+    <td class="label-col">Elaborado por</td>
+    <td>Mariana Valencia Ospina - Dairo Montiel Tobar</td>
+  </tr>
+  <tr>
+    <td class="label-col">Actores</td>
+    <td>Usuario Registrado (Aspirante, Asociado, Administrador, Miembro de Comité)</td>
+  </tr>
+  <tr>
+    <td class="label-col">Objetivo</td>
+    <td>Permitir al usuario acceder al sistema mediante la autenticación de sus credenciales (correo electrónico y contraseña).</td>
+  </tr>
+  <tr>
+    <td class="label-col">Precondiciones</td>
+    <td>
+      <ol>
+        <li>El usuario debe estar registrado previamente en el sistema.</li>
+        <li>La cuenta del usuario debe estar en estado 'activo'.</li>
+        <li>El sistema debe contar con conexión a internet y acceso a los servicios de Supabase.</li>
+      </ol>
+    </td>
+  </tr>
+  <tr>
+    <td class="label-col">Postcondiciones</td>
+    <td>
+      <ol>
+        <li>El usuario ingresa a la interfaz (dashboard) correspondiente a su rol.</li>
+        <li>El sistema actualiza el campo <code>ultimo_acceso</code> en la tabla <code>usuarios</code>.</li>
+      </ol>
+    </td>
+  </tr>
+</table>
+
+<table class="flow-table">
+  <thead>
+    <tr>
+      <th style="width: 50%;">Acción del Actor</th>
+      <th style="width: 50%;">Respuesta del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1.</strong> Accede a la interfaz de inicio de sesión de la aplicación.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>2.</strong> Carga el formulario de login solicitando correo electrónico y contraseña.</td>
+    </tr>
+    <tr>
+      <td><strong>3.</strong> Ingresa su correo electrónico (<code>email</code>).</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>4.</strong> Ingresa su contraseña.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>5.</strong> Hace clic en el botón "Iniciar Sesión".</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>6.</strong> Envía las credenciales a Supabase Auth para su validación.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>7.</strong> Autentica al usuario y obtiene su rol y permisos de la base de datos.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>8.</strong> Actualiza el campo <code>ultimo_acceso</code> del usuario en la tabla <code>usuarios</code>.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>9.</strong> Redirige al usuario y carga el dashboard adecuado según su rol.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>10.</strong> Notifica mediante una alerta (toast) que el ingreso fue exitoso.</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="exc-table">
+  <thead>
+    <tr>
+      <th style="width: 40%;">Condición / Evento Excepcional</th>
+      <th style="width: 60%;">Reacción del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>6a.</strong> El usuario ingresó un correo o contraseña incorrectos.</td>
+      <td><strong>1.</strong> El sistema deniega el acceso.<br><strong>2.</strong> Muestra un mensaje de alerta: <em>"Correo o contraseña inválidos"</em>.</td>
+    </tr>
+    <tr>
+      <td><strong>6b.</strong> La cuenta del usuario se encuentra suspendida o inactiva (<code>estado_cuenta</code> != 'activo').</td>
+      <td><strong>1.</strong> El sistema bloquea el ingreso.<br><strong>2.</strong> Muestra una alerta: <em>"Tu cuenta no está activa. Contacta al administrador"</em>.</td>
+    </tr>
+    <tr>
+      <td><strong>6c.</strong> El sistema no puede conectarse con el servidor de base de datos/Supabase.</td>
+      <td><strong>1.</strong> Muestra un mensaje de error: <em>"Error de red. Intente de nuevo más tarde"</em>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ==================== UC-002 ==================== -->
+<h2 class="uc-title">Caso de Uso: UC-002 - Solicitar Afiliación</h2>
+<table class="meta-table">
+  <tr>
+    <td class="label-col">Caso de Uso N°</td>
+    <td>UC-002</td>
+  </tr>
+  <tr>
+    <td class="label-col">Nombre del Caso de Uso</td>
+    <td><strong>Solicitar Afiliación</strong></td>
+  </tr>
+  <tr>
+    <td class="label-col">Fecha</td>
+    <td>17 de Diciembre de 2025</td>
+  </tr>
+  <tr>
+    <td class="label-col">Elaborado por</td>
+    <td>Mariana Valencia Ospina - Dairo Montiel Tobar</td>
+  </tr>
+  <tr>
+    <td class="label-col">Actores</td>
+    <td>Aspirante (Usuario no registrado)</td>
+  </tr>
+  <tr>
+    <td class="label-col">Objetivo</td>
+    <td>Permitir a un aspirante registrar su información y documentos de soporte para postularse como asociado de UFCA.</td>
+  </tr>
+  <tr>
+    <td class="label-col">Precondiciones</td>
+    <td>
+      <ol>
+        <li>El aspirante no debe tener una cuenta activa o solicitud registrada previamente con la misma cédula o correo.</li>
+      </ol>
+    </td>
+  </tr>
+  <tr>
+    <td class="label-col">Postcondiciones</td>
+    <td>
+      <ol>
+        <li>Se crea un registro en la tabla <code>solicitudes_asociados</code> en estado 'pendiente'.</li>
+        <li>Se suben los archivos de soporte a Supabase Storage y se enlazan sus URLs.</li>
+      </ol>
+    </td>
+  </tr>
+</table>
+
+<table class="flow-table">
+  <thead>
+    <tr>
+      <th style="width: 50%;">Acción del Actor</th>
+      <th style="width: 50%;">Respuesta del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1.</strong> Accede al formulario público de registro de afiliación.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>2.</strong> Muestra el formulario con los campos de datos personales, laborales y financieros.</td>
+    </tr>
+    <tr>
+      <td><strong>3.</strong> Completa la información (nombres, apellidos, cédula, ocupación, ingresos, etc.).</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>4.</strong> Adjunta documentos requeridos (copia de identificación, soportes de ingresos).</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>5.</strong> Envía el formulario de solicitud.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>6.</strong> Valida que la cédula y correo no estén registrados previamente en <code>usuarios</code>.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>7.</strong> Almacena los archivos en Supabase Storage y obtiene sus URLs.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>8.</strong> Crea la fila en la tabla <code>solicitudes_asociados</code> y genera alerta en <code>notificaciones</code>.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>9.</strong> Muestra mensaje de éxito indicando que la solicitud está en evaluación.</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="exc-table">
+  <thead>
+    <tr>
+      <th style="width: 40%;">Condición / Evento Excepcional</th>
+      <th style="width: 60%;">Reacción del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>6a.</strong> La cédula o el correo ya se encuentran registrados en el sistema.</td>
+      <td><strong>1.</strong> El sistema detiene el proceso.<br><strong>2.</strong> Muestra alerta: <em>"Ya existe una afiliación activa o solicitud en curso con estos datos"</em>.</td>
+    </tr>
+    <tr>
+      <td><strong>7a.</strong> Falla la carga de archivos al almacenamiento (Storage).</td>
+      <td><strong>1.</strong> Muestra un mensaje de error: <em>"No se pudo cargar la documentación. Por favor intente de nuevo"</em>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ==================== UC-003 ==================== -->
+<h2 class="uc-title">Caso de Uso: UC-003 - Evaluar Solicitud de Afiliación</h2>
+<table class="meta-table">
+  <tr>
+    <td class="label-col">Caso de Uso N°</td>
+    <td>UC-003</td>
+  </tr>
+  <tr>
+    <td class="label-col">Nombre del Caso de Uso</td>
+    <td><strong>Evaluar Solicitud de Afiliación</strong></td>
+  </tr>
+  <tr>
+    <td class="label-col">Fecha</td>
+    <td>17 de Diciembre de 2025</td>
+  </tr>
+  <tr>
+    <td class="label-col">Elaborado por</td>
+    <td>Mariana Valencia Ospina - Dairo Montiel Tobar</td>
+  </tr>
+  <tr>
+    <td class="label-col">Actores</td>
+    <td>Comité Evaluador, Administrador</td>
+  </tr>
+  <tr>
+    <td class="label-col">Objetivo</td>
+    <td>Evaluar la solicitud del aspirante, realizar las verificaciones correspondientes y resolver su aprobación o rechazo.</td>
+  </tr>
+  <tr>
+    <td class="label-col">Precondiciones</td>
+    <td>
+      <ol>
+        <li>Debe existir al menos una solicitud en la tabla <code>solicitudes_asociados</code> en estado 'pendiente'.</li>
+      </ol>
+    </td>
+  </tr>
+  <tr>
+    <td class="label-col">Postcondiciones</td>
+    <td>
+      <ol>
+        <li>Si se aprueba: El estado de la solicitud cambia a 'pendiente_activacion', se crea la cuenta en <code>usuarios</code> y se envía la invitación por email.</li>
+        <li>Si se rechaza: El estado cambia a 'rechazada' indicando observaciones de rechazo.</li>
+      </ol>
+    </td>
+  </tr>
+</table>
+
+<table class="flow-table">
+  <thead>
+    <tr>
+      <th style="width: 50%;">Acción del Actor</th>
+      <th style="width: 50%;">Respuesta del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1.</strong> Accede al panel del Comité Evaluador.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>2.</strong> Carga el listado de solicitudes de ingreso pendientes.</td>
+    </tr>
+    <tr>
+      <td><strong>3.</strong> Selecciona una solicitud para revisar los detalles y soportes.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>4.</strong> Realiza el checklist de verificaciones (ingresos, referencias, documentos).</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>5.</strong> Digita el score de crédito asignado y escribe observaciones.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>6.</strong> Define la decisión ('aprobado' o 'rechazado') y confirma.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>7.</strong> Actualiza la tabla <code>comite_evaluador</code> con los datos de verificación.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>8.</strong> Cambia el estado en la tabla <code>solicitudes_asociados</code>.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>9.</strong> Si es aprobada, crea la cuenta en la tabla <code>usuarios</code> y despacha el correo de invitación.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>10.</strong> Notifica al aspirante sobre el resultado de la evaluación.</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="exc-table">
+  <thead>
+    <tr>
+      <th style="width: 40%;">Condición / Evento Excepcional</th>
+      <th style="width: 60%;">Reacción del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>9a.</strong> Error al registrar al usuario en Supabase Auth o al enviar el correo de invitación.</td>
+      <td><strong>1.</strong> Revierte los cambios de estado.<br><strong>2.</strong> Muestra alerta: <em>"Error al crear la cuenta del usuario. Verifique el servidor de correos"</em>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ==================== UC-004 ==================== -->
+<h2 class="uc-title">Caso de Uso: UC-004 - Consultar Saldos de Ahorros</h2>
+<table class="meta-table">
+  <tr>
+    <td class="label-col">Caso de Uso N°</td>
+    <td>UC-004</td>
+  </tr>
+  <tr>
+    <td class="label-col">Nombre del Caso de Uso</td>
+    <td><strong>Consultar Saldos de Ahorros</strong></td>
+  </tr>
+  <tr>
+    <td class="label-col">Fecha</td>
+    <td>17 de Diciembre de 2025</td>
+  </tr>
+  <tr>
+    <td class="label-col">Elaborado por</td>
+    <td>Mariana Valencia Ospina - Dairo Montiel Tobar</td>
+  </tr>
+  <tr>
+    <td class="label-col">Actores</td>
+    <td>Asociado, Administrador</td>
+  </tr>
+  <tr>
+    <td class="label-col">Objetivo</td>
+    <td>Permitir al asociado visualizar el estado, saldos y movimientos históricos de sus cuentas de ahorro permanente y voluntario.</td>
+  </tr>
+  <tr>
+    <td class="label-col">Precondiciones</td>
+    <td>
+      <ol>
+        <li>El asociado debe estar logueado y en estado activo.</li>
+      </ol>
+    </td>
+  </tr>
+  <tr>
+    <td class="label-col">Postcondiciones</td>
+    <td>
+      <ol>
+        <li>El sistema despliega los saldos vigentes y el listado de transacciones históricas asociadas a sus ahorros.</li>
+      </ol>
+    </td>
+  </tr>
+</table>
+
+<table class="flow-table">
+  <thead>
+    <tr>
+      <th style="width: 50%;">Acción del Actor</th>
+      <th style="width: 50%;">Respuesta del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1.</strong> Accede al módulo "Mis Ahorros" en su panel lateral.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>2.</strong> Consulta la tabla <code>cuentas_ahorro</code> filtrando por el <code>asociado_id</code>.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>3.</strong> Obtiene los últimos movimientos en la tabla <code>transacciones</code> correspondientes a sus ahorros.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>4.</strong> Muestra en pantalla los saldos acumulados de Ahorro Permanente y Voluntario.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>5.</strong> Despliega la tabla del historial de depósitos y retiros.</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="exc-table">
+  <thead>
+    <tr>
+      <th style="width: 40%;">Condición / Evento Excepcional</th>
+      <th style="width: 60%;">Reacción del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>2a.</strong> El asociado no posee una cuenta de ahorros creada para el periodo actual.</td>
+      <td><strong>1.</strong> Notifica la ausencia de cuentas.<br><strong>2.</strong> Muestra el mensaje: <em>"No posee cuentas de ahorro activas en este periodo"</em>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ==================== UC-005 ==================== -->
+<h2 class="uc-title">Caso de Uso: UC-005 - Registrar Aporte de Ahorro</h2>
+<table class="meta-table">
+  <tr>
+    <td class="label-col">Caso de Uso N°</td>
+    <td>UC-005</td>
+  </tr>
+  <tr>
+    <td class="label-col">Nombre del Caso de Uso</td>
+    <td><strong>Registrar Aporte de Ahorro</strong></td>
+  </tr>
+  <tr>
+    <td class="label-col">Fecha</td>
+    <td>17 de Diciembre de 2025</td>
+  </tr>
+  <tr>
+    <td class="label-col">Elaborado por</td>
+    <td>Mariana Valencia Ospina - Dairo Montiel Tobar</td>
+  </tr>
+  <tr>
+    <td class="label-col">Actores</td>
+    <td>Asociado (Reporta), Administrador (Aprueba)</td>
+  </tr>
+  <tr>
+    <td class="label-col">Objetivo</td>
+    <td>Registrar y aprobar un nuevo aporte mensual de ahorro permanente o voluntario para actualizar los saldos del asociado.</td>
+  </tr>
+  <tr>
+    <td class="label-col">Precondiciones</td>
+    <td>
+      <ol>
+        <li>La cuenta de ahorros del asociado debe estar activa en <code>cuentas_ahorro</code>.</li>
+        <li>El periodo contable actual debe estar abierto en la tabla <code>periodos</code>.</li>
+      </ol>
+    </td>
+  </tr>
+  <tr>
+    <td class="label-col">Postcondiciones</td>
+    <td>
+      <ol>
+        <li>Se crea una fila en la tabla <code>transacciones</code>.</li>
+        <li>Se actualiza el valor de <code>monto_ahorrado</code> en la tabla <code>cuentas_ahorro</code>.</li>
+      </ol>
+    </td>
+  </tr>
+</table>
+
+<table class="flow-table">
+  <thead>
+    <tr>
+      <th style="width: 50%;">Acción del Actor</th>
+      <th style="width: 50%;">Respuesta del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1.</strong> El asociado reporta el depósito de su aporte adjuntando comprobante.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>2.</strong> Almacena el soporte en Supabase Storage y crea la transacción en estado 'pendiente'.</td>
+    </tr>
+    <tr>
+      <td><strong>3.</strong> El administrador revisa el comprobante de pago y decide aprobar.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>4.</strong> Invoca al Motor de Reglas (`validarAporteMinimo()`) para verificar el monto del aporte.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>5.</strong> Cambia el estado de la transacción a 'aprobado' en la tabla <code>transacciones</code>.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>6.</strong> Incrementa el <code>monto_ahorrado</code> de la cuenta correspondiente en la tabla <code>cuentas_ahorro</code>.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>7.</strong> Envía una notificación automática al asociado informando la aprobación.</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="exc-table">
+  <thead>
+    <tr>
+      <th style="width: 40%;">Condición / Evento Excepcional</th>
+      <th style="width: 60%;">Reacción del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>4a.</strong> El monto ingresado es menor al aporte mínimo configurado en el sistema.</td>
+      <td><strong>1.</strong> El sistema detiene la aprobación.<br><strong>2.</strong> Genera un registro en la tabla <code>excepciones</code> y requiere autorización manual.</td>
+    </tr>
+    <tr>
+      <td><strong>5a.</strong> El periodo financiero de la cuenta se encuentra cerrado.</td>
+      <td><strong>1.</strong> Bloquea la transacción.<br><strong>2.</strong> Muestra alerta: <em>"Periodo cerrado, no se permiten movimientos"</em>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ==================== UC-006 ==================== -->
+<h2 class="uc-title">Caso de Uso: UC-006 - Solicitar Crédito</h2>
+<table class="meta-table">
+  <tr>
+    <td class="label-col">Caso de Uso N°</td>
+    <td>UC-006</td>
+  </tr>
+  <tr>
+    <td class="label-col">Nombre del Caso de Uso</td>
+    <td><strong>Solicitar Crédito</strong></td>
+  </tr>
+  <tr>
+    <td class="label-col">Fecha</td>
+    <td>17 de Diciembre de 2025</td>
+  </tr>
+  <tr>
+    <td class="label-col">Elaborado por</td>
+    <td>Mariana Valencia Ospina - Dairo Montiel Tobar</td>
+  </tr>
+  <tr>
+    <td class="label-col">Actores</td>
+    <td>Asociado</td>
+  </tr>
+  <tr>
+    <td class="label-col">Objetivo</td>
+    <td>Permitir al asociado simular las cuotas de un crédito según plazos e intereses y registrar una solicitud formal.</td>
+  </tr>
+  <tr>
+    <td class="label-col">Precondiciones</td>
+    <td>
+      <ol>
+        <li>El asociado debe estar activo y al día en sus obligaciones.</li>
+        <li>El asociado no debe registrar deudas activas en mora.</li>
+      </ol>
+    </td>
+  </tr>
+  <tr>
+    <td class="label-col">Postcondiciones</td>
+    <td>
+      <ol>
+        <li>Se crea una fila en la tabla <code>creditos</code> en estado 'pendiente'.</li>
+        <li>Se insertan los registros proyectados en la tabla <code>cuotas_credito</code>.</li>
+      </ol>
+    </td>
+  </tr>
+</table>
+
+<table class="flow-table">
+  <thead>
+    <tr>
+      <th style="width: 50%;">Acción del Actor</th>
+      <th style="width: 50%;">Respuesta del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1.</strong> Accede al módulo "Créditos" y selecciona "Nueva Solicitud".</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>2.</strong> Digita el monto del crédito, la línea y el plazo (1-12 meses).</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>3.</strong> Hace clic en el botón "Simular".</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>4.</strong> Consulta las tasas de interés configuradas y calcula las cuotas del crédito.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>5.</strong> Despliega en pantalla la tabla proyectada de amortización mensual.</td>
+    </tr>
+    <tr>
+      <td><strong>6.</strong> Completa los detalles de justificación y adjunta los soportes requeridos.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>7.</strong> Hace clic en "Enviar Solicitud".</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>8.</strong> Llama a <code>validarCreditosSinMora()</code> para garantizar que esté al día.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>9.</strong> Inserta la solicitud en <code>creditos</code> y genera las cuotas en <code>cuotas_credito</code>.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>10.</strong> Alerta al Comité Evaluador registrando una notificación.</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="exc-table">
+  <thead>
+    <tr>
+      <th style="width: 40%;">Condición / Evento Excepcional</th>
+      <th style="width: 60%;">Reacción del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>8a.</strong> El asociado registra un crédito activo en mora.</td>
+      <td><strong>1.</strong> Detiene la transacción.<br><strong>2.</strong> Muestra alerta: <em>"No es posible solicitar nuevos créditos si presenta deudas en mora"</em>.</td>
+    </tr>
+    <tr>
+      <td><strong>8b.</strong> El monto supera la capacidad máxima de endeudamiento del asociado.</td>
+      <td><strong>1.</strong> El sistema crea una alerta de excepción en la tabla <code>excepciones</code> y queda pendiente de evaluación administrativa.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ==================== UC-007 ==================== -->
+<h2 class="uc-title">Caso de Uso: UC-007 - Evaluar Solicitud de Crédito</h2>
+<table class="meta-table">
+  <tr>
+    <td class="label-col">Caso de Uso N°</td>
+    <td>UC-007</td>
+  </tr>
+  <tr>
+    <td class="label-col">Nombre del Caso de Uso</td>
+    <td><strong>Evaluar Solicitud de Crédito</strong></td>
+  </tr>
+  <tr>
+    <td class="label-col">Fecha</td>
+    <td>17 de Diciembre de 2025</td>
+  </tr>
+  <tr>
+    <td class="label-col">Elaborado por</td>
+    <td>Mariana Valencia Ospina - Dairo Montiel Tobar</td>
+  </tr>
+  <tr>
+    <td class="label-col">Actores</td>
+    <td>Comité Evaluador, Administrador</td>
+  </tr>
+  <tr>
+    <td class="label-col">Objetivo</td>
+    <td>Evaluar la viabilidad de la solicitud de préstamo del asociado y dictaminar su aprobación o rechazo.</td>
+  </tr>
+  <tr>
+    <td class="label-col">Precondiciones</td>
+    <td>
+      <ol>
+        <li>Debe existir al menos un crédito en estado 'pendiente' o 'en_revision' en la tabla <code>creditos</code>.</li>
+      </ol>
+    </td>
+  </tr>
+  <tr>
+    <td class="label-col">Postcondiciones</td>
+    <td>
+      <ol>
+        <li>El estado en la tabla <code>creditos</code> cambia a 'aprobado' o 'rechazado'.</li>
+        <li>Se genera un registro en la tabla <code>credito_historial_estados</code>.</li>
+      </ol>
+    </td>
+  </tr>
+</table>
+
+<table class="flow-table">
+  <thead>
+    <tr>
+      <th style="width: 50%;">Acción del Actor</th>
+      <th style="width: 50%;">Respuesta del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1.</strong> Accede al panel de revisión de créditos.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>2.</strong> Carga la lista de créditos pendientes y en evaluación.</td>
+    </tr>
+    <tr>
+      <td><strong>3.</strong> Selecciona el préstamo a evaluar para revisar amortización, justificación y saldos de ahorro.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>4.</strong> Digita su veredicto (Aprobar / Rechazar) e introduce justificaciones.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>5.</strong> Actualiza el campo <code>estado</code> en la tabla <code>creditos</code> y guarda el administrador responsable.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>6.</strong> Registra el movimiento histórico en la tabla <code>credito_historial_estados</code>.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>7.</strong> Envía una alerta en tiempo real al asociado informando la resolución de su crédito.</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="exc-table">
+  <thead>
+    <tr>
+      <th style="width: 40%;">Condición / Evento Excepcional</th>
+      <th style="width: 60%;">Reacción del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>5a.</strong> Error de conexión al actualizar la base de datos.</td>
+      <td><strong>1.</strong> No aplica cambios.<br><strong>2.</strong> Alerta al evaluador: <em>"Error de guardado. Intente de nuevo"</em>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ==================== UC-008 ==================== -->
+<h2 class="uc-title">Caso de Uso: UC-008 - Registrar Pago de Crédito</h2>
+<table class="meta-table">
+  <tr>
+    <td class="label-col">Caso de Uso N°</td>
+    <td>UC-008</td>
+  </tr>
+  <tr>
+    <td class="label-col">Nombre del Caso de Uso</td>
+    <td><strong>Registrar Pago de Crédito</strong></td>
+  </tr>
+  <tr>
+    <td class="label-col">Fecha</td>
+    <td>17 de Diciembre de 2025</td>
+  </tr>
+  <tr>
+    <td class="label-col">Elaborado por</td>
+    <td>Mariana Valencia Ospina - Dairo Montiel Tobar</td>
+  </tr>
+  <tr>
+    <td class="label-col">Actores</td>
+    <td>Administrador</td>
+  </tr>
+  <tr>
+    <td class="label-col">Objetivo</td>
+    <td>Registrar de forma transaccional el pago de la cuota mensual de un crédito disminuyendo los saldos de deuda de forma atómica.</td>
+  </tr>
+  <tr>
+    <td class="label-col">Precondiciones</td>
+    <td>
+      <ol>
+        <li>El crédito debe estar en estado 'desembolsado', 'activo' o 'en_mora'.</li>
+      </ol>
+    </td>
+  </tr>
+  <tr>
+    <td class="label-col">Postcondiciones</td>
+    <td>
+      <ol>
+        <li>Se crea una fila en la tabla <code>transacciones</code> (tipo = 'pago_credito' o 'abono_capital').</li>
+        <li>Se actualiza el estado de la cuota en <code>cuotas_credito</code> a 'pagada'.</li>
+        <li>Se deduce el valor amortizado de la columna <code>saldo</code> de la tabla <code>creditos</code>.</li>
+      </ol>
+    </td>
+  </tr>
+</table>
+
+<table class="flow-table">
+  <thead>
+    <tr>
+      <th style="width: 50%;">Acción del Actor</th>
+      <th style="width: 50%;">Respuesta del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1.</strong> Selecciona el asociado y el crédito correspondiente.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>2.</strong> Carga la tabla de cuotas vigentes con los saldos pendientes.</td>
+    </tr>
+    <tr>
+      <td><strong>3.</strong> Digita el monto del pago, método y adjunta el comprobante. Confirma la acción.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>4.</strong> Invoca la función almacenada (RPC) de PostgreSQL: <code>registrar_pago_credito</code>.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>5.</strong> El RPC calcula la distribución de intereses y capital amortizado.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>6.</strong> El RPC deduce la porción del saldo de deuda en <code>creditos</code> y actualiza el estado de la cuota.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>7.</strong> Inserta la fila en la tabla <code>transacciones</code> y notifica éxito al administrador y asociado.</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="exc-table">
+  <thead>
+    <tr>
+      <th style="width: 40%;">Condición / Evento Excepcional</th>
+      <th style="width: 60%;">Reacción del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>4a.</strong> La fecha del pago es posterior a la fecha de vencimiento de la cuota.</td>
+      <td><strong>1.</strong> El RPC calcula los días de mora transcurridos.<br><strong>2.</strong> Aplica la tasa de interés de mora e incrementa el campo <code>monto_mora</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>4b.</strong> El monto pagado excede el valor mensual de la cuota.</td>
+      <td><strong>1.</strong> El remanente del dinero es abonado directamente como abono extraordinario a capital.<br><strong>2.</strong> Recalcula la amortización restante del préstamo.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ==================== UC-009 ==================== -->
+<h2 class="uc-title">Caso de Uso: UC-009 - Registrar Referido</h2>
+<table class="meta-table">
+  <tr>
+    <td class="label-col">Caso de Uso N°</td>
+    <td>UC-009</td>
+  </tr>
+  <tr>
+    <td class="label-col">Nombre del Caso de Uso</td>
+    <td><strong>Registrar Referido</strong></td>
+  </tr>
+  <tr>
+    <td class="label-col">Fecha</td>
+    <td>17 de Diciembre de 2025</td>
+  </tr>
+  <tr>
+    <td class="label-col">Elaborado por</td>
+    <td>Mariana Valencia Ospina - Dairo Montiel Tobar</td>
+  </tr>
+  <tr>
+    <td class="label-col">Actores</td>
+    <td>Asociado</td>
+  </tr>
+  <tr>
+    <td class="label-col">Objetivo</td>
+    <td>Permitir a un asociado activo registrar a un referido en el sistema para vincularlo a beneficios del fondo.</td>
+  </tr>
+  <tr>
+    <td class="label-col">Precondiciones</td>
+    <td>
+      <ol>
+        <li>El asociado que registra el referido debe estar activo en la base de datos.</li>
+      </ol>
+    </td>
+  </tr>
+  <tr>
+    <td class="label-col">Postcondiciones</td>
+    <td>
+      <ol>
+        <li>Se crea una nueva fila en la tabla <code>referidos</code> enlazada al asociado creador.</li>
+      </ol>
+    </td>
+  </tr>
+</table>
+
+<table class="flow-table">
+  <thead>
+    <tr>
+      <th style="width: 50%;">Acción del Actor</th>
+      <th style="width: 50%;">Respuesta del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1.</strong> Accede al módulo "Mis Referidos" y hace clic en "Agregar".</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>2.</strong> Digita el nombre, cédula y teléfono de la persona recomendada. Confirma el guardado.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>3.</strong> Valida que el referido no exista como asociado activo o referido duplicado.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>4.</strong> Inserta la información en la tabla <code>referidos</code> estableciendo el estado a 'activo'.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>5.</strong> Actualiza la lista en el panel de visualización del asociado.</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="exc-table">
+  <thead>
+    <tr>
+      <th style="width: 40%;">Condición / Evento Excepcional</th>
+      <th style="width: 60%;">Reacción del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>3a.</strong> La cédula del referido ya corresponde a un asociado activo en el sistema.</td>
+      <td><strong>1.</strong> El sistema detiene el proceso.<br><strong>2.</strong> Muestra alerta: <em>"La persona ingresada ya cuenta con una afiliación activa"</em>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ==================== UC-010 ==================== -->
+<h2 class="uc-title">Caso de Uso: UC-010 - Procesar Liquidación de Asociado</h2>
+<table class="meta-table">
+  <tr>
+    <td class="label-col">Caso de Uso N°</td>
+    <td>UC-010</td>
+  </tr>
+  <tr>
+    <td class="label-col">Nombre del Caso de Uso</td>
+    <td><strong>Procesar Liquidación de Asociado</strong></td>
+  </tr>
+  <tr>
+    <td class="label-col">Fecha</td>
+    <td>17 de Diciembre de 2025</td>
+  </tr>
+  <tr>
+    <td class="label-col">Elaborado por</td>
+    <td>Mariana Valencia Ospina - Dairo Montiel Tobar</td>
+  </tr>
+  <tr>
+    <td class="label-col">Actores</td>
+    <td>Administrador</td>
+  </tr>
+  <tr>
+    <td class="label-col">Objetivo</td>
+    <td>Realizar el cierre fiscal de las cuentas de un asociado por causa de retiro, expulsión o fallecimiento, deduciendo deudas y calculando excedentes.</td>
+  </tr>
+  <tr>
+    <td class="label-col">Precondiciones</td>
+    <td>
+      <ol>
+        <li>El asociado debe estar registrado y sus cuentas en proceso de liquidación.</li>
+      </ol>
+    </td>
+  </tr>
+  <tr>
+    <td class="label-col">Postcondiciones</td>
+    <td>
+      <ol>
+        <li>Se guarda la liquidación en la tabla <code>liquidaciones</code>.</li>
+        <li>Se desactivan las cuentas en <code>cuentas_ahorro</code>.</li>
+        <li>El <code>estado_cuenta</code> del usuario en <code>usuarios</code> cambia a 'inactivo'.</li>
+      </ol>
+    </td>
+  </tr>
+</table>
+
+<table class="flow-table">
+  <thead>
+    <tr>
+      <th style="width: 50%;">Acción del Actor</th>
+      <th style="width: 50%;">Respuesta del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1.</strong> Accede al módulo "Liquidaciones" y selecciona "Procesar Liquidación".</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>2.</strong> Selecciona el asociado e indica la causa (retiro, expulsion, fallecimiento).</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>3.</strong> Realiza la consulta de saldos acumulados de ahorro y saldos de créditos vigentes en mora o activos.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>4.</strong> Realiza el cálculo neto: Ahorro Permanente + Ahorro Voluntario + Utilidades - Deudas.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>5.</strong> Carga la pre-visualización de los montos desglosados en pantalla.</td>
+    </tr>
+    <tr>
+      <td><strong>6.</strong> Escribe las justificaciones pertinentes y confirma la liquidación.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>7.</strong> Inserta la fila en la tabla <code>liquidaciones</code>.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>8.</strong> Cambia el estado de las cuentas de ahorro del asociado a 'cerrado' y el usuario a 'inactivo'.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>9.</strong> Genera un archivo PDF con la planilla del balance para soporte físico.</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="exc-table">
+  <thead>
+    <tr>
+      <th style="width: 40%;">Condición / Evento Excepcional</th>
+      <th style="width: 60%;">Reacción del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>3a.</strong> El asociado registra créditos activos cuyas deudas superan sus ahorros totales.</td>
+      <td><strong>1.</strong> Genera una advertencia en pantalla.<br><strong>2.</strong> El saldo neto final quedará negativo y requerirá cobro jurídico (la cuenta no quedará a paz y salvo).</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ==================== UC-011 ==================== -->
+<h2 class="uc-title">Caso de Uso: UC-011 - Gestionar Excepciones</h2>
+<table class="meta-table">
+  <tr>
+    <td class="label-col">Caso de Uso N°</td>
+    <td>UC-011</td>
+  </tr>
+  <tr>
+    <td class="label-col">Nombre del Caso de Uso</td>
+    <td><strong>Gestionar Excepciones</strong></td>
+  </tr>
+  <tr>
+    <td class="label-col">Fecha</td>
+    <td>17 de Diciembre de 2025</td>
+  </tr>
+  <tr>
+    <td class="label-col">Elaborado por</td>
+    <td>Mariana Valencia Ospina - Dairo Montiel Tobar</td>
+  </tr>
+  <tr>
+    <td class="label-col">Actores</td>
+    <td>Administrador</td>
+  </tr>
+  <tr>
+    <td class="label-col">Objetivo</td>
+    <td>Revisar y resolver de forma administrativa las solicitudes de excepciones generadas automáticamente por violar reglas operativas del fondo.</td>
+  </tr>
+  <tr>
+    <td class="label-col">Precondiciones</td>
+    <td>
+      <ol>
+        <li>Debe existir al menos un registro en la tabla <code>excepciones</code> con el estado 'pendiente'.</li>
+      </ol>
+    </td>
+  </tr>
+  <tr>
+    <td class="label-col">Postcondiciones</td>
+    <td>
+      <ol>
+        <li>El estado en la tabla <code>excepciones</code> cambia a 'aprobada' o 'rechazada'.</li>
+        <li>Se guarda el registro del evento en la tabla <code>auditoria</code>.</li>
+      </ol>
+    </td>
+  </tr>
+</table>
+
+<table class="flow-table">
+  <thead>
+    <tr>
+      <th style="width: 50%;">Acción del Actor</th>
+      <th style="width: 50%;">Respuesta del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1.</strong> Accede al módulo "Gestión de Excepciones".</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>2.</strong> Muestra todas las excepciones pendientes generadas en el periodo actual.</td>
+    </tr>
+    <tr>
+      <td><strong>3.</strong> Selecciona una excepción para analizar su impacto y la regla de negocio que fue violada.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>4.</strong> Escribe observaciones y hace clic en "Aprobar" o "Rechazar".</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>5.</strong> Modifica la fila en la tabla <code>excepciones</code> estableciendo el administrador resolutor.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>6.</strong> Si es aprobada, habilita la ejecución de la transacción bloqueada originalmente.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>7.</strong> Inserta una fila de log de control en la tabla <code>auditoria</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="exc-table">
+  <thead>
+    <tr>
+      <th style="width: 40%;">Condición / Evento Excepcional</th>
+      <th style="width: 60%;">Reacción del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>5a.</strong> La excepción seleccionada viola una regla de seguridad inalterable (sin posibilidad de bypass).</td>
+      <td><strong>1.</strong> Detiene la aprobación.<br><strong>2.</strong> Muestra alerta: <em>"Operación restringida: Esta regla no permite bypass de administrador"</em>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ==================== UC-012 ==================== -->
+<h2 class="uc-title">Caso de Uso: UC-012 - Configurar Parámetros del Sistema</h2>
+<table class="meta-table">
+  <tr>
+    <td class="label-col">Caso de Uso N°</td>
+    <td>UC-012</td>
+  </tr>
+  <tr>
+    <td class="label-col">Nombre del Caso de Uso</td>
+    <td><strong>Configurar Parámetros del Sistema</strong></td>
+  </tr>
+  <tr>
+    <td class="label-col">Fecha</td>
+    <td>17 de Diciembre de 2025</td>
+  </tr>
+  <tr>
+    <td class="label-col">Elaborado por</td>
+    <td>Mariana Valencia Ospina - Dairo Montiel Tobar</td>
+  </tr>
+  <tr>
+    <td class="label-col">Actores</td>
+    <td>Administrador</td>
+  </tr>
+  <tr>
+    <td class="label-col">Objetivo</td>
+    <td>Modificar valores globales del sistema como tasas de interés, plazos, topes de ahorro mensual y moras.</td>
+  </tr>
+  <tr>
+    <td class="label-col">Precondiciones</td>
+    <td>
+      <ol>
+        <li>El administrador debe tener rol con permisos activos de configuración.</li>
+      </ol>
+    </td>
+  </tr>
+  <tr>
+    <td class="label-col">Postcondiciones</td>
+    <td>
+      <ol>
+        <li>Se actualizan los valores configurados en la tabla <code>configuracion</code> de la base de datos.</li>
+        <li>El Motor de Reglas de Negocio se actualiza en tiempo de ejecución.</li>
+      </ol>
+    </td>
+  </tr>
+</table>
+
+<table class="flow-table">
+  <thead>
+    <tr>
+      <th style="width: 50%;">Acción del Actor</th>
+      <th style="width: 50%;">Respuesta del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1.</strong> Accede al módulo "Configuración" desde el menú administrativo.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>2.</strong> Carga los parámetros vigentes guardados en la tabla <code>configuracion</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>3.</strong> Modifica el valor correspondiente al parámetro (ej. tasa de interés libre inversión).</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>4.</strong> Hace clic en "Guardar Parámetros".</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>5.</strong> Actualiza los registros modificados en la tabla <code>configuracion</code>.</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>6.</strong> Recarga las variables en memoria en el Motor de Reglas local (<code>businessRules.ts</code>).</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td><strong>7.</strong> Registra el evento de cambio y los valores anteriores en la tabla <code>auditoria</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="exc-table">
+  <thead>
+    <tr>
+      <th style="width: 40%;">Condición / Evento Excepcional</th>
+      <th style="width: 60%;">Reacción del Sistema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>5a.</strong> Se introduce un tipo de dato erróneo (como texto en una celda de valor porcentual).</td>
+      <td><strong>1.</strong> Bloquea el guardado.<br><strong>2.</strong> Muestra mensaje de alerta indicando el campo erróneo y pide reingresar el valor.</td>
+    </tr>
+  </tbody>
+</table>
+
+</body>
+</html>
