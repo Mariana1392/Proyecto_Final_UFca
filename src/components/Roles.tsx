@@ -113,6 +113,31 @@ export default function Roles({ userRole }: RolesProps) {
     permisos: {} as Record<string, boolean>,
   });
 
+  // Validación en tiempo real del formulario crear/editar
+  const [formErrors, setFormErrors]   = useState({ nombre: '', descripcion: '' });
+  const [formTouched, setFormTouched] = useState({ nombre: false, descripcion: false });
+
+  const validateField = (campo: 'nombre' | 'descripcion', valor: string, isEdit = false) => {
+    if (campo === 'nombre') {
+      if (!valor.trim()) return 'El nombre del rol es obligatorio';
+      const duplicado = roles.some(r =>
+        r.nombre.toLowerCase() === valor.trim().toLowerCase() &&
+        (!isEdit || r.id !== selectedItem?.id)
+      );
+      if (duplicado) return `Ya existe un rol con el nombre "${valor.trim()}"`;
+    }
+    if (campo === 'descripcion') {
+      if (!valor.trim()) return 'La descripción es obligatoria';
+      if (valor.trim().length < 10) return 'La descripción debe tener al menos 10 caracteres';
+    }
+    return '';
+  };
+
+  const resetFormValidation = () => {
+    setFormErrors({ nombre: '', descripcion: '' });
+    setFormTouched({ nombre: false, descripcion: false });
+  };
+
   // ── Estado Supabase ───────────────────────────────────────────────────────
   const [roles, setRoles]   = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -279,9 +304,9 @@ export default function Roles({ userRole }: RolesProps) {
   const handleOpenCreate = () => {
     setFormData({
       nombre: '', descripcion: '',
-      // Inicializar todos los permisos del catálogo en false
       permisos: Object.fromEntries(permisosDisponibles.map(p => [p.clave, false])),
     });
+    resetFormValidation();
     setIsCreateDialogOpen(true);
   };
 
@@ -292,11 +317,11 @@ export default function Roles({ userRole }: RolesProps) {
     setFormData({
       nombre: rolActual.nombre,
       descripcion: rolActual.descripcion,
-      // Construir mapa desde el catálogo — true si el rol tiene ese permiso
       permisos: Object.fromEntries(
         permisosDisponibles.map(p => [p.clave, !!rolActual.permisos[p.clave]])
       ),
     });
+    resetFormValidation();
     setIsEditDialogOpen(true);
   };
 
@@ -1099,12 +1124,23 @@ export default function Roles({ userRole }: RolesProps) {
                   id="nombre"
                   placeholder="Ej: Contador, Vendedor, Supervisor..."
                   value={formData.nombre}
-                  onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormData(prev => ({ ...prev, nombre: val }));
+                    if (formTouched.nombre) {
+                      setFormErrors(prev => ({ ...prev, nombre: validateField('nombre', val) }));
+                    }
+                  }}
+                  onBlur={() => {
+                    setFormTouched(prev => ({ ...prev, nombre: true }));
+                    setFormErrors(prev => ({ ...prev, nombre: validateField('nombre', formData.nombre) }));
+                  }}
+                  className={formTouched.nombre && formErrors.nombre ? 'border-red-400 focus-visible:ring-red-400' : ''}
                 />
-                {roles.some(r => r.nombre.toLowerCase() === formData.nombre.trim().toLowerCase()) && formData.nombre.trim() && (
+                {formTouched.nombre && formErrors.nombre && (
                   <p className="text-sm text-red-500 flex items-center gap-1">
-                    <AlertTriangle className="size-3" />
-                    Ya existe un rol con este nombre
+                    <AlertTriangle className="size-3 shrink-0" />
+                    {formErrors.nombre}
                   </p>
                 )}
               </div>
@@ -1115,8 +1151,25 @@ export default function Roles({ userRole }: RolesProps) {
                   placeholder="Describe las responsabilidades y alcance de este rol..."
                   rows={3}
                   value={formData.descripcion}
-                  onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormData(prev => ({ ...prev, descripcion: val }));
+                    if (formTouched.descripcion) {
+                      setFormErrors(prev => ({ ...prev, descripcion: validateField('descripcion', val) }));
+                    }
+                  }}
+                  onBlur={() => {
+                    setFormTouched(prev => ({ ...prev, descripcion: true }));
+                    setFormErrors(prev => ({ ...prev, descripcion: validateField('descripcion', formData.descripcion) }));
+                  }}
+                  className={formTouched.descripcion && formErrors.descripcion ? 'border-red-400 focus-visible:ring-red-400' : ''}
                 />
+                {formTouched.descripcion && formErrors.descripcion && (
+                  <p className="text-sm text-red-500 flex items-center gap-1">
+                    <AlertTriangle className="size-3 shrink-0" />
+                    {formErrors.descripcion}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1234,14 +1287,32 @@ export default function Roles({ userRole }: RolesProps) {
                 <Input
                   id="edit-nombre"
                   value={formData.nombre}
-                  onChange={(e) => !selectedItem?.esSistema && setFormData(prev => ({ ...prev, nombre: e.target.value }))}
+                  onChange={(e) => {
+                    if (selectedItem?.esSistema) return;
+                    const val = e.target.value;
+                    setFormData(prev => ({ ...prev, nombre: val }));
+                    if (formTouched.nombre) {
+                      setFormErrors(prev => ({ ...prev, nombre: validateField('nombre', val, true) }));
+                    }
+                  }}
+                  onBlur={() => {
+                    if (selectedItem?.esSistema) return;
+                    setFormTouched(prev => ({ ...prev, nombre: true }));
+                    setFormErrors(prev => ({ ...prev, nombre: validateField('nombre', formData.nombre, true) }));
+                  }}
                   disabled={selectedItem?.esSistema}
-                  className={selectedItem?.esSistema ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}
+                  className={
+                    selectedItem?.esSistema
+                      ? 'bg-slate-50 text-slate-400 cursor-not-allowed'
+                      : formTouched.nombre && formErrors.nombre
+                        ? 'border-red-400 focus-visible:ring-red-400'
+                        : ''
+                  }
                 />
-                {!selectedItem?.esSistema && roles.some(r => r.nombre.toLowerCase() === formData.nombre.trim().toLowerCase() && r.id !== selectedItem?.id) && formData.nombre.trim() && (
+                {!selectedItem?.esSistema && formTouched.nombre && formErrors.nombre && (
                   <p className="text-sm text-red-500 flex items-center gap-1">
-                    <AlertTriangle className="size-3" />
-                    Ya existe otro rol con este nombre
+                    <AlertTriangle className="size-3 shrink-0" />
+                    {formErrors.nombre}
                   </p>
                 )}
               </div>
@@ -1251,8 +1322,25 @@ export default function Roles({ userRole }: RolesProps) {
                   id="edit-descripcion"
                   rows={3}
                   value={formData.descripcion}
-                  onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormData(prev => ({ ...prev, descripcion: val }));
+                    if (formTouched.descripcion) {
+                      setFormErrors(prev => ({ ...prev, descripcion: validateField('descripcion', val) }));
+                    }
+                  }}
+                  onBlur={() => {
+                    setFormTouched(prev => ({ ...prev, descripcion: true }));
+                    setFormErrors(prev => ({ ...prev, descripcion: validateField('descripcion', formData.descripcion) }));
+                  }}
+                  className={formTouched.descripcion && formErrors.descripcion ? 'border-red-400 focus-visible:ring-red-400' : ''}
                 />
+                {formTouched.descripcion && formErrors.descripcion && (
+                  <p className="text-sm text-red-500 flex items-center gap-1">
+                    <AlertTriangle className="size-3 shrink-0" />
+                    {formErrors.descripcion}
+                  </p>
+                )}
               </div>
             </div>
 

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { LayoutDashboard, Wallet, ReceiptText, CreditCard, UserCircle, Settings, Moon, Sun } from 'lucide-react';
+import { LayoutDashboard, Wallet, ReceiptText, CreditCard, UserCircle, Settings, Moon, Sun, Users } from 'lucide-react';
 import { cn } from '../lib/utils';
 import logo from '../assets/logo.svg';
 
@@ -25,15 +25,15 @@ export default function MobileLayout() {
     { to: '/liquidaciones', label: 'Liquidar',  icon: ReceiptText     },
     { to: '/creditos',      label: 'Créditos',  icon: CreditCard      },
     ...(isAdmin
-      ? [{ to: '/configuracion', label: 'Config', icon: Settings }]
-      : [{ to: '/perfil',        label: 'Perfil',  icon: UserCircle }]
+      ? [{ to: '/usuarios',      label: 'Usuarios', icon: Users }]
+      : [{ to: '/perfil',        label: 'Perfil',   icon: UserCircle }]
     ),
   ];
 
   return (
     <div className="flex flex-col h-[100dvh] bg-background text-foreground pb-16">
       {/* Top Header */}
-      <header className="bg-card border-b border-border px-4 py-3 shadow-sm flex items-center justify-between sticky top-0 z-10">
+      <header className="bg-card border-b border-border px-4 pb-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] shadow-sm flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-2">
           <img src={logo} alt="UFCA" className="h-8 w-8 object-contain drop-shadow-md shrink-0" />
           <h1 className="text-xl font-bold tracking-wider">UFCA</h1>
@@ -46,12 +46,20 @@ export default function MobileLayout() {
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
           {isAdmin && (
-            <NavLink to="/perfil" className={({ isActive }) => cn(
-              'p-1.5 rounded-full transition-colors',
-              isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
-            )}>
-              <UserCircle size={20} />
-            </NavLink>
+            <>
+              <NavLink to="/configuracion" className={({ isActive }) => cn(
+                'p-1.5 rounded-full transition-colors',
+                isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
+              )}>
+                <Settings size={20} />
+              </NavLink>
+              <NavLink to="/perfil" className={({ isActive }) => cn(
+                'p-1.5 rounded-full transition-colors',
+                isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
+              )}>
+                <UserCircle size={20} />
+              </NavLink>
+            </>
           )}
           <span className="text-xs px-2.5 py-1 bg-primary/10 text-primary rounded-full font-medium">
             {isAdmin ? 'Administrador' : 'Asociado'}

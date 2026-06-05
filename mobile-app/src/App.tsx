@@ -11,6 +11,7 @@ import LiquidacionesScreen from './screens/Liquidaciones';
 import CreditosScreen from './screens/Creditos';
 import PerfilScreen from './screens/Perfil';
 import ConfiguracionScreen from './screens/Configuracion';
+import UsuariosScreen from './screens/Usuarios';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
               <Route path="/ahorros" element={<AhorrosScreen />} />
               <Route path="/liquidaciones" element={<LiquidacionesScreen />} />
               <Route path="/creditos" element={<CreditosScreen />} />
+              <Route path="/usuarios" element={<UsuariosScreen />} />
               <Route path="/perfil" element={<PerfilScreen />} />
               <Route path="/configuracion" element={<ConfiguracionScreen />} />
             </Route>
