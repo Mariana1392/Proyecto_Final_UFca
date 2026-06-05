@@ -25,6 +25,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency } from '../lib/formatters';
 import { TIPOS_CREDITO } from '../lib/constants';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 function tasaEAaMensual(ea: number) { return ea > 0 ? Math.pow(1 + ea / 100, 1 / 12) - 1 : 0; }
 function calcularCuota(monto: number, tasa: number, plazo: number): number {
@@ -227,7 +228,7 @@ function DetalleDialog({ credito, onClose, isAdmin }: { credito: any; onClose: (
               : TIPOS_CREDITO.find(t => t.value === credito.tipo)?.label ?? credito.tipo}
           </DialogTitle>
           <DialogDescription>
-            CRE-{credito.id.substring(0, 8).toUpperCase()}
+            CRE-{String(credito.id).substring(0, 8).toUpperCase()}
             {isAdmin && credito.asociado ? ` · ${credito.asociado}` : ''}
           </DialogDescription>
         </DialogHeader>
@@ -383,7 +384,7 @@ function CreditoCard({ c, isAdmin, onReload }: { c: any; isAdmin: boolean; onRel
               <div>
                 {isAdmin && <p className="text-sm font-semibold text-foreground">{c.asociado}</p>}
                 <p className="text-xs text-muted-foreground">{TIPOS_CREDITO.find(t => t.value === c.tipo)?.label ?? c.tipo}</p>
-                <p className="text-[10px] font-mono text-muted-foreground">CRE-{c.id.substring(0, 8).toUpperCase()}</p>
+                <p className="text-[10px] font-mono text-muted-foreground">CRE-{String(c.id).substring(0, 8).toUpperCase()}</p>
               </div>
             </div>
             <Badge variant="outline" className={`text-[10px] shrink-0 ${estadoBadge(c.anulado ? 'rechazado' : c.estadoAprobacion)}`}>
@@ -701,9 +702,9 @@ function CreditosAsociado({ userData }: { userData: any }) {
   const filtrados = creditos.filter(c => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
-    return TIPOS_CREDITO.find(t => t.value === c.tipo)?.label.toLowerCase().includes(q) ||
-      (c.estadoAprobacion ?? '').toLowerCase().includes(q) ||
-      c.id.toLowerCase().includes(q);
+    return (TIPOS_CREDITO.find(t => t.value === c.tipo)?.label || '').toLowerCase().includes(q) ||
+      (c.estadoAprobacion || '').toLowerCase().includes(q) ||
+      String(c.id).toLowerCase().includes(q);
   });
 
   if (loading) return (
@@ -1194,6 +1195,10 @@ function SolicitudAdminCard({
 
 export default function CreditosScreen() {
   const { userRole, userData } = useAuth();
-  if (userRole === 'admin') return <CreditosAdmin />;
-  return <CreditosAsociado userData={userData} />;
+  
+  const content = userRole === 'admin' 
+    ? <CreditosAdmin /> 
+    : <CreditosAsociado userData={userData} />;
+
+  return <ErrorBoundary>{content}</ErrorBoundary>;
 }
