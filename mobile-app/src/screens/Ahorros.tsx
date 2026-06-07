@@ -4,9 +4,7 @@ import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, } from '../components/ui/dialog';
 import { PiggyBank, Wallet, History, ArrowUpCircle, Users, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
@@ -16,12 +14,12 @@ import { formatCurrency } from '../lib/formatters';
 // ── Vista asociado (porta MisAhorros) ─────────────────────────────────────────
 
 function AhorrosAsociado({ userData }: { userData: any }) {
-  const [loading, setLoading]             = useState(true);
+  const [loading, setLoading] = useState(true);
   const [ahorroPermanente, setAhorroPerm] = useState<any>(null);
-  const [ahorrosVol, setAhorrosVol]       = useState<any[]>([]);
-  const [movsPerm, setMovsPerm]           = useState<any[]>([]);
-  const [movsVol, setMovsVol]             = useState<any[]>([]);
-  const [volSeleccionado, setVolSel]      = useState<any>(null);
+  const [ahorrosVol, setAhorrosVol] = useState<any[]>([]);
+  const [movsPerm, setMovsPerm] = useState<any[]>([]);
+  const [movsVol, setMovsVol] = useState<any[]>([]);
+  const [volSeleccionado, setVolSel] = useState<any>(null);
 
   useEffect(() => { cargar(); }, [userData?.id]);
 
@@ -32,16 +30,16 @@ function AhorrosAsociado({ userData }: { userData: any }) {
       if (!asocId) return;
 
       const [permRes, volRes] = await Promise.all([
-        supabase.from('cuentas_ahorro').select('*').eq('tipo','permanente').eq('asociado_id', asocId).eq('anulado',false).order('created_at',{ascending:false}),
-        supabase.from('cuentas_ahorro').select('*').eq('tipo','voluntario').eq('asociado_id', asocId).eq('anulado',false).order('created_at',{ascending:false}),
+        supabase.from('cuentas_ahorro').select('*').eq('tipo', 'permanente').eq('asociado_id', asocId).eq('anulado', false).order('created_at', { ascending: false }),
+        supabase.from('cuentas_ahorro').select('*').eq('tipo', 'voluntario').eq('asociado_id', asocId).eq('anulado', false).order('created_at', { ascending: false }),
       ]);
 
       if (permRes.error) throw permRes.error;
       if (volRes.error) throw volRes.error;
 
-      const listaPerm  = permRes.data ?? [];
-      const activos    = listaPerm.filter((a: any) => a.estado === 'activo');
-      const mejorPerm  = activos.length > 0
+      const listaPerm = permRes.data ?? [];
+      const activos = listaPerm.filter((a: any) => a.estado === 'activo');
+      const mejorPerm = activos.length > 0
         ? activos.reduce((best: any, curr: any) => curr.monto_ahorrado > best.monto_ahorrado ? curr : best, activos[0])
         : listaPerm[0] ?? null;
       setAhorroPerm(mejorPerm);
@@ -49,8 +47,8 @@ function AhorrosAsociado({ userData }: { userData: any }) {
 
       if (mejorPerm?.id) {
         const { data: movs, error: movsErr } = await supabase.from('transacciones').select('*')
-          .eq('tipo','aporte_permanente').eq('ahorro_id', mejorPerm.id)
-          .order('fecha_pago',{ascending:false}).limit(5);
+          .eq('tipo', 'aporte_permanente').eq('ahorro_id', mejorPerm.id)
+          .order('fecha_pago', { ascending: false }).limit(5);
         if (movsErr) throw movsErr;
         setMovsPerm(movs ?? []);
       }
@@ -64,8 +62,8 @@ function AhorrosAsociado({ userData }: { userData: any }) {
   async function cargarMovsVol(ahorro: any) {
     setVolSel(ahorro);
     const { data, error } = await supabase.from('transacciones').select('*')
-      .eq('tipo','aporte_voluntario').eq('ahorro_id', ahorro.id)
-      .order('fecha_pago',{ascending:false}).limit(5);
+      .eq('tipo', 'aporte_voluntario').eq('ahorro_id', ahorro.id)
+      .order('fecha_pago', { ascending: false }).limit(5);
     if (error) toast.error('Error al cargar movimientos: ' + error.message);
     setMovsVol(data ?? []);
   }
@@ -90,6 +88,7 @@ function AhorrosAsociado({ userData }: { userData: any }) {
             <div className={`p-2.5 rounded-xl ${ahorroPermanente ? 'bg-emerald-100' : 'bg-muted'}`}>
               <PiggyBank className={`size-5 ${ahorroPermanente ? 'text-emerald-600' : 'text-muted-foreground'}`} />
             </div>
+
             <div className="flex-1">
               <CardTitle className="text-sm">Ahorro Permanente</CardTitle>
               <p className="text-xs text-muted-foreground">Aporte mensual obligatorio</p>
@@ -247,19 +246,19 @@ function PlanVoluntarioCard({ plan, movs, onSelect }: { plan: any; movs: any[]; 
 
 function AhorroDialogAporteMobile({ open, onClose, cuentas, onCreated }: { open: boolean, onClose: () => void, cuentas: any[], onCreated: () => void }) {
   const [formCuenta, setFormCuenta] = useState('');
-  const [formMonto, setFormMonto]   = useState('');
-  const [saving, setSaving]         = useState(false);
+  const [formMonto, setFormMonto] = useState('');
+  const [saving, setSaving] = useState(false);
 
   async function handleSave() {
     if (!formCuenta) return toast.error('Selecciona una cuenta');
     const monto = parseFloat(formMonto.replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
     if (monto <= 0) return toast.error('Monto inválido');
-    
+
     setSaving(true);
     try {
       const cuenta = cuentas.find(c => c.id === formCuenta);
       const tipoAporte = cuenta?.tipo === 'permanente' ? 'aporte_permanente' : 'aporte_voluntario';
-      
+
       const payload = {
         ahorro_id: formCuenta,
         tipo: tipoAporte,
@@ -271,7 +270,7 @@ function AhorroDialogAporteMobile({ open, onClose, cuentas, onCreated }: { open:
 
       const { error } = await supabase.from('transacciones').insert(payload);
       if (error) throw error;
-      
+
       toast.success('Aporte registrado correctamente');
       onCreated();
       onClose();
@@ -333,9 +332,9 @@ function AhorroDialogAporteMobile({ open, onClose, cuentas, onCreated }: { open:
 // ── Vista admin (resumen de todos los ahorros) ────────────────────────────────
 
 function AhorrosAdmin() {
-  const [loading, setLoading]   = useState(true);
-  const [cuentas, setCuentas]   = useState<any[]>([]);
-  const [search, setSearch]     = useState('');
+  const [loading, setLoading] = useState(true);
+  const [cuentas, setCuentas] = useState<any[]>([]);
+  const [search, setSearch] = useState('');
   const [filtroTipo, setFiltro] = useState<'todos' | 'permanente' | 'voluntario'>('todos');
   const [crearOpen, setCrearOpen] = useState(false);
 
@@ -371,7 +370,7 @@ function AhorrosAdmin() {
   }
 
   const totalPerm = cuentas.filter(c => c.tipo === 'permanente' && c.estado === 'activo').reduce((s, c) => s + (c.monto_ahorrado || 0), 0);
-  const totalVol  = cuentas.filter(c => c.tipo === 'voluntario'  && c.estado === 'activo').reduce((s, c) => s + (c.monto_ahorrado || 0), 0);
+  const totalVol = cuentas.filter(c => c.tipo === 'voluntario' && c.estado === 'activo').reduce((s, c) => s + (c.monto_ahorrado || 0), 0);
 
   const filtradas = cuentas.filter(c => {
     if (filtroTipo !== 'todos' && c.tipo !== filtroTipo) return false;
@@ -404,9 +403,9 @@ function AhorrosAdmin() {
       <div className="grid grid-cols-2 gap-3">
         {[
           { label: 'Ahorro permanente', value: formatCurrency(totalPerm), icon: PiggyBank, bg: 'bg-emerald-100', text: 'text-emerald-600' },
-          { label: 'Ahorro voluntario',  value: formatCurrency(totalVol),  icon: Wallet,    bg: 'bg-blue-100',    text: 'text-blue-600'    },
-          { label: 'Total ahorros',       value: formatCurrency(totalPerm + totalVol), icon: TrendingUp, bg: 'bg-indigo-100', text: 'text-indigo-600' },
-          { label: 'Cuentas activas',     value: String(cuentas.filter(c => c.estado === 'activo').length), icon: Users, bg: 'bg-slate-100', text: 'text-slate-600' },
+          { label: 'Ahorro voluntario', value: formatCurrency(totalVol), icon: Wallet, bg: 'bg-blue-100', text: 'text-blue-600' },
+          { label: 'Total ahorros', value: formatCurrency(totalPerm + totalVol), icon: TrendingUp, bg: 'bg-indigo-100', text: 'text-indigo-600' },
+          { label: 'Cuentas activas', value: String(cuentas.filter(c => c.estado === 'activo').length), icon: Users, bg: 'bg-slate-100', text: 'text-slate-600' },
         ].map(({ label, value, icon: Icon, bg, text }) => (
           <Card key={label} className="border-0 shadow-sm">
             <CardContent className="p-3">
@@ -478,7 +477,7 @@ function AhorrosAdmin() {
           </Card>
         ))}
       </div>
-      
+
       <AhorroDialogAporteMobile open={crearOpen} onClose={() => setCrearOpen(false)} cuentas={cuentas} onCreated={cargar} />
     </div>
   );

@@ -73,5 +73,6 @@ export const TIPOS_LIQUIDACION = [
   { value: 'retiro',        label: 'Retiro voluntario' },
   { value: 'expulsion',     label: 'Expulsión' },
   { value: 'fallecimiento', label: 'Fallecimiento' },
+  { value: 'anual',         label: 'Liquidación anual' },
   { value: 'otro',          label: 'Otro' },
 ] as const;

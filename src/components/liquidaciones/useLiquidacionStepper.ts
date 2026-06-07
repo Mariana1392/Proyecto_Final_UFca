@@ -237,6 +237,17 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
       const { data, error } = await supabase.from('liquidaciones').insert([payload]).select().single();
       if (error) throw error;
 
+      // Procesar acciones automáticas según el tipo de liquidación
+      if (['retiro', 'fallecimiento'].includes(formTipo)) {
+        // Desactivar el usuario
+        const { error: errUsr } = await supabase.from('usuarios').update({ estado_cuenta: 'inactivo' }).eq('id', formAsociadoId);
+        if (errUsr) console.error('Error al desactivar usuario:', errUsr);
+      } else if (formTipo === 'anual') {
+        // Reiniciar ahorros sin desactivar al usuario
+        const { error: errAh } = await supabase.from('cuentas_ahorro').update({ monto_ahorrado: 0 }).eq('asociado_id', formAsociadoId).eq('anulado', false);
+        if (errAh) console.error('Error al reiniciar ahorros:', errAh);
+      }
+
       await registrarAuditLiq(data.id, formAsociadoId, 'CREACION_LIQUIDACION', {
         tipo: formTipo, montoTotal: montoCalculado, estado: formEstado,
         fechaCorte: formFechaCorte, cantConceptos: formConceptos.length, docSubido: !!urlFinal
