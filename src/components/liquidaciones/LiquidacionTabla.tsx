@@ -8,7 +8,7 @@ import { Badge } from '../ui/badge';
 import {
   Search, Plus, Eye, ChevronLeft, ChevronRight,
   Calculator, CheckCircle2, Clock, AlertTriangle, Activity,
-  FileX, RefreshCw
+  FileX, TrendingUp, ListFilter
 } from 'lucide-react';
 import { getEstadoBadge, fmtCOP, numLiq } from './liquidacionUtils';
 import { LiquidacionRecord } from './liquidacionTypes';
@@ -66,53 +66,136 @@ export function LiquidacionTabla({
   setIsCreateOpen, setSelectedItem, setIsDetailOpen, setIsAnularOpen
 }: LiquidacionTablaProps) {
 
-  return (
-    <div className="space-y-6">
-      {/* ── KPIs ── */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Liquidado', value: fmtCOP(montoTotal), icon: Calculator, bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-l-emerald-500' },
-          { label: 'Pagadas',         value: cantPagadas,        icon: CheckCircle2, bg: 'bg-blue-50',    text: 'text-blue-600',    border: 'border-l-blue-500'    },
-          { label: 'En proceso',      value: cantPendientes,     icon: Clock,        bg: 'bg-amber-50',   text: 'text-amber-600',   border: 'border-l-amber-500'   },
-          { label: 'Total Registros', value: liquidaciones.length, icon: Activity,   bg: 'bg-slate-50',   text: 'text-slate-600',   border: 'border-l-slate-400'   },
-        ].map(({ label, value, icon: Icon, bg, text, border }) => (
-          <Card key={label} className={`bg-white border-0 shadow-sm border-l-4 ${border}`}>
-            <CardContent className="p-4 flex items-center space-x-4">
-              <div className={`p-3 ${bg} ${text} rounded-xl flex-shrink-0`}><Icon className="w-5 h-5" /></div>
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-slate-500">{label}</p>
-                {loading
-                  ? <div className="h-6 w-20 bg-slate-200 animate-pulse rounded mt-1" />
-                  : <h3 className={`text-xl font-bold ${text}`}>{value}</h3>}
-              </div>
-            </CardContent>
-          </Card>
-        ))}</div>
+  const kpis = [
+    {
+      label: 'Total Liquidado',
+      value: fmtCOP(montoTotal),
+      icon: Calculator,
+      gradient: 'from-emerald-500 to-emerald-600',
+      subColor: 'text-emerald-100',
+      hint: 'Suma de montos activos',
+    },
+    {
+      label: 'Pagadas',
+      value: cantPagadas,
+      icon: CheckCircle2,
+      gradient: 'from-blue-500 to-blue-600',
+      subColor: 'text-blue-100',
+      hint: 'Liquidaciones completadas',
+    },
+    {
+      label: 'En Proceso',
+      value: cantPendientes,
+      icon: Clock,
+      gradient: 'from-amber-500 to-orange-500',
+      subColor: 'text-amber-100',
+      hint: 'Pendientes de pago',
+    },
+    {
+      label: 'Total Registros',
+      value: liquidaciones.length,
+      icon: Activity,
+      gradient: 'from-slate-600 to-slate-700',
+      subColor: 'text-slate-300',
+      hint: 'Incluye anuladas',
+    },
+  ];
 
-      <Card className="border-0 shadow-sm bg-white overflow-hidden">
-        <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <Calculator className="w-5 h-5 text-emerald-600" /> Liquidaciones {esVistaPropia && 'de mi cuenta'}
-              </CardTitle>
+  return (
+    <div className="flex flex-col gap-6 p-6 min-h-0">
+
+      {/* ── Hero Header ── */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 shadow-xl">
+        <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/5 rounded-full" />
+        <div className="absolute -bottom-12 -left-6 w-56 h-56 bg-white/5 rounded-full" />
+        <div className="absolute top-4 right-32 w-16 h-16 bg-white/5 rounded-full" />
+
+        <div className="relative px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white/15 rounded-xl backdrop-blur-sm">
+              <Calculator className="w-6 h-6 text-white" />
             </div>
-            {!esVistaPropia && can('liquidacion') && (
-              <Button onClick={() => setIsCreateOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
-                <Plus className="w-4 h-4 mr-2" /> Nueva Liquidación
-              </Button>
-            )}
+            <div>
+              <h1 className="text-xl font-bold text-white tracking-tight">
+                Liquidaciones{esVistaPropia ? ' de mi cuenta' : ''}
+              </h1>
+              <p className="text-sm text-emerald-200 mt-0.5">
+                {loading
+                  ? 'Cargando registros...'
+                  : `${liquidaciones.length} registro${liquidaciones.length !== 1 ? 's' : ''} encontrado${liquidaciones.length !== 1 ? 's' : ''}`}
+              </p>
+            </div>
+          </div>
+          {!esVistaPropia && can('liquidacion') && (
+            <Button
+              onClick={() => setIsCreateOpen(true)}
+              className="bg-white text-emerald-700 hover:bg-emerald-50 font-semibold shadow-lg border-0 gap-2 shrink-0"
+            >
+              <Plus className="w-4 h-4" /> Nueva Liquidación
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {kpis.map(({ label, value, icon: Icon, gradient, subColor, hint }) => (
+          <div
+            key={label}
+            className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${gradient} shadow-lg p-5`}
+          >
+            <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/10 rounded-full" />
+            <div className="absolute top-2 right-10 w-8 h-8 bg-white/5 rounded-full" />
+
+            <div className="relative flex items-start justify-between">
+              <div>
+                <p className={`text-xs font-semibold uppercase tracking-wider ${subColor}`}>{label}</p>
+                {loading ? (
+                  <div className="h-8 w-24 bg-white/20 animate-pulse rounded-lg mt-2" />
+                ) : (
+                  <h3 className="text-2xl font-extrabold mt-1.5 text-white">{value}</h3>
+                )}
+              </div>
+              <div className="p-2.5 bg-white/20 rounded-xl">
+                <Icon className="w-5 h-5 text-white" />
+              </div>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-white/20 flex items-center gap-1.5">
+              <TrendingUp className="w-3 h-3 text-white/60" />
+              <span className={`text-[11px] ${subColor}`}>{hint}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Tabla principal ── */}
+      <Card className="border-0 shadow-md bg-white overflow-hidden rounded-2xl">
+        <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white pb-4 pt-5">
+          <div className="flex items-center gap-2 mb-4">
+            <ListFilter className="w-4 h-4 text-slate-500" />
+            <span className="text-sm font-semibold text-slate-600">Filtros de búsqueda</span>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <div className="md:col-span-3 relative">
               <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-              <Input placeholder={esVistaPropia ? "Buscar..." : "Nombre asociado, N°, cédula..."} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 bg-white" />
-              {isSearching && <div className="absolute right-3 top-3 w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />}
+              <Input
+                placeholder={esVistaPropia ? 'Buscar...' : 'Nombre, N° liquidación, cédula...'}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 bg-white border-slate-200 focus:border-emerald-400 rounded-xl"
+              />
+              {isSearching && (
+                <div className="absolute right-3 top-3 w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              )}
             </div>
+
             <div className="md:col-span-2">
               <Select value={filterEstado} onValueChange={setFilterEstado}>
-                <SelectTrigger className="bg-white"><SelectValue placeholder="Todos los estados" /></SelectTrigger>
+                <SelectTrigger className="bg-white border-slate-200 rounded-xl">
+                  <SelectValue placeholder="Todos los estados" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todas">Todos los estados</SelectItem>
                   <SelectItem value="En proceso">En proceso</SelectItem>
@@ -120,9 +203,12 @@ export function LiquidacionTabla({
                 </SelectContent>
               </Select>
             </div>
+
             <div className="md:col-span-2">
               <Select value={filterTipo} onValueChange={setFilterTipo}>
-                <SelectTrigger className="bg-white"><SelectValue placeholder="Cualquier tipo" /></SelectTrigger>
+                <SelectTrigger className="bg-white border-slate-200 rounded-xl">
+                  <SelectValue placeholder="Cualquier tipo" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todas">Cualquier tipo</SelectItem>
                   <SelectItem value="retiro">Retiro Definitivo</SelectItem>
@@ -132,21 +218,39 @@ export function LiquidacionTabla({
                 </SelectContent>
               </Select>
             </div>
+
             {!esVistaPropia && (
               <div className="md:col-span-3 flex flex-col">
                 <div className="flex gap-2">
-                  <Input type="date" title="Creado desde" value={filterRegDesde} onChange={(e) => setFilterRegDesde(e.target.value)} className="bg-white text-xs" />
-                  <Input type="date" title="Creado hasta" value={filterRegHasta} onChange={(e) => setFilterRegHasta(e.target.value)} className="bg-white text-xs" />
+                  <Input
+                    type="date"
+                    title="Creado desde"
+                    value={filterRegDesde}
+                    onChange={(e) => setFilterRegDesde(e.target.value)}
+                    className="bg-white border-slate-200 rounded-xl text-xs"
+                  />
+                  <Input
+                    type="date"
+                    title="Creado hasta"
+                    value={filterRegHasta}
+                    onChange={(e) => setFilterRegHasta(e.target.value)}
+                    className="bg-white border-slate-200 rounded-xl text-xs"
+                  />
                 </div>
-                {dateRangeError && <span className="text-[10px] text-red-500 mt-1">{dateRangeError}</span>}
+                {dateRangeError && (
+                  <span className="text-[10px] text-red-500 mt-1">{dateRangeError}</span>
+                )}
               </div>
             )}
+
             <div className="md:col-span-2">
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="bg-white"><SelectValue placeholder="Ordenar por" /></SelectTrigger>
+                <SelectTrigger className="bg-white border-slate-200 rounded-xl">
+                  <SelectValue placeholder="Ordenar por" />
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="fecha_desc">Más recientes (Corte)</SelectItem>
-                  <SelectItem value="fecha_asc">Más antiguos (Corte)</SelectItem>
+                  <SelectItem value="fecha_desc">Más recientes</SelectItem>
+                  <SelectItem value="fecha_asc">Más antiguos</SelectItem>
                   <SelectItem value="monto_desc">Mayor monto</SelectItem>
                   <SelectItem value="monto_asc">Menor monto</SelectItem>
                   <SelectItem value="estado_az">Estado (A-Z)</SelectItem>
@@ -159,45 +263,63 @@ export function LiquidacionTabla({
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead className="font-semibold text-slate-600">Liquidación</TableHead>
-                  {!esVistaPropia && <TableHead className="font-semibold text-slate-600">Asociado</TableHead>}
-                  <TableHead className="font-semibold text-slate-600">Fechas</TableHead>
-                  <TableHead className="font-semibold text-slate-600">Tipo</TableHead>
-                  <TableHead className="text-right font-semibold text-slate-600">Total a Pagar</TableHead>
-                  <TableHead className="text-center font-semibold text-slate-600">Estado</TableHead>
-                  <TableHead className="text-right font-semibold text-slate-600">Acciones</TableHead>
+              <TableHeader>
+                <TableRow className="bg-slate-50/80 border-b border-slate-100 hover:bg-slate-50/80">
+                  <TableHead className="font-semibold text-slate-500 text-xs uppercase tracking-wide py-3">Liquidación</TableHead>
+                  {!esVistaPropia && <TableHead className="font-semibold text-slate-500 text-xs uppercase tracking-wide">Asociado</TableHead>}
+                  <TableHead className="font-semibold text-slate-500 text-xs uppercase tracking-wide">Fechas</TableHead>
+                  <TableHead className="font-semibold text-slate-500 text-xs uppercase tracking-wide">Tipo</TableHead>
+                  <TableHead className="text-right font-semibold text-slate-500 text-xs uppercase tracking-wide">Total a Pagar</TableHead>
+                  <TableHead className="text-center font-semibold text-slate-500 text-xs uppercase tracking-wide">Estado</TableHead>
+                  <TableHead className="text-right font-semibold text-slate-500 text-xs uppercase tracking-wide">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
+
               <TableBody>
                 {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="h-48 text-center">
-                      <div className="flex flex-col items-center justify-center gap-3 text-slate-400">
-                        <RefreshCw className="w-8 h-8 animate-spin text-emerald-400" />
-                        <p className="text-sm font-medium">Cargando liquidaciones...</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i} className="animate-pulse border-b border-slate-50">
+                      <TableCell className="py-4">
+                        <div className="h-4 w-24 bg-slate-100 rounded" />
+                        <div className="h-3 w-32 bg-slate-100 rounded mt-2" />
+                      </TableCell>
+                      {!esVistaPropia && (
+                        <TableCell><div className="h-4 w-28 bg-slate-100 rounded" /></TableCell>
+                      )}
+                      <TableCell><div className="h-4 w-20 bg-slate-100 rounded" /></TableCell>
+                      <TableCell><div className="h-6 w-16 bg-slate-100 rounded-full" /></TableCell>
+                      <TableCell className="text-right"><div className="h-4 w-20 bg-slate-100 rounded ml-auto" /></TableCell>
+                      <TableCell className="text-center"><div className="h-6 w-16 bg-slate-100 rounded-full mx-auto" /></TableCell>
+                      <TableCell className="text-right"><div className="h-8 w-14 bg-slate-100 rounded ml-auto" /></TableCell>
+                    </TableRow>
+                  ))
                 ) : pagActivas.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-56 text-center">
-                      <div className="flex flex-col items-center justify-center gap-3 py-8">
-                        <div className="p-4 bg-slate-100 rounded-full">
-                          <FileX className="w-8 h-8 text-slate-400" />
+                    <TableCell colSpan={7} className="h-64 text-center">
+                      <div className="flex flex-col items-center justify-center gap-4 py-10">
+                        <div className="relative">
+                          <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center shadow-inner">
+                            <FileX className="w-9 h-9 text-slate-400" />
+                          </div>
+                          <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-emerald-100 rounded-full flex items-center justify-center">
+                            <Search className="w-3.5 h-3.5 text-emerald-600" />
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-slate-600">No se encontraron liquidaciones</p>
-                          <p className="text-xs text-slate-400 mt-1">
+                        <div className="space-y-1">
+                          <p className="text-base font-semibold text-slate-700">No se encontraron liquidaciones</p>
+                          <p className="text-sm text-slate-400 max-w-xs mx-auto">
                             {searchTerm || filterEstado || filterTipo || filterDesde || filterHasta
-                              ? 'Intenta ajustar los filtros de búsqueda'
-                              : 'Aún no hay liquidaciones registradas. Crea una nueva para comenzar.'}
+                              ? 'Intenta ajustar los filtros de búsqueda para ver más resultados.'
+                              : 'Aún no hay liquidaciones registradas en el sistema.'}
                           </p>
                         </div>
                         {!esVistaPropia && can('liquidacion') && !searchTerm && !filterEstado && !filterTipo && (
-                          <Button size="sm" onClick={() => setIsCreateOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white mt-1 gap-1.5">
-                            <Plus className="w-3.5 h-3.5" /> Nueva Liquidación
+                          <Button
+                            size="sm"
+                            onClick={() => setIsCreateOpen(true)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 rounded-xl shadow-sm"
+                          >
+                            <Plus className="w-4 h-4" /> Crear primera liquidación
                           </Button>
                         )}
                       </div>
@@ -205,26 +327,55 @@ export function LiquidacionTabla({
                   </TableRow>
                 ) : (
                   pagActivas.map((liq) => (
-                    <TableRow key={liq.id} className="hover:bg-slate-50 transition-colors">
-                      <TableCell>
-                        <div className="font-medium text-slate-900">{numLiq(liq.id)}</div>
-                        <div className="text-xs text-slate-500 mt-1 line-clamp-1" title={liq.motivo}>{liq.motivo || 'Sin motivo'}</div>
+                    <TableRow
+                      key={liq.id}
+                      className="hover:bg-emerald-50/30 transition-colors border-b border-slate-50 group"
+                    >
+                      <TableCell className="py-3.5">
+                        <div className="font-semibold text-slate-800 text-sm">{numLiq(liq.id)}</div>
+                        <div className="text-xs text-slate-400 mt-0.5 line-clamp-1" title={liq.motivo}>
+                          {liq.motivo || 'Sin motivo especificado'}
+                        </div>
                       </TableCell>
+
                       {!esVistaPropia && (
-                        <TableCell>
-                          <div className="font-medium text-slate-900">{liq.asociado}</div>
-                          <div className="text-xs text-slate-500">{liq.cedula}</div>
+                        <TableCell className="py-3.5">
+                          <div className="font-medium text-slate-800 text-sm">{liq.asociado}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">{liq.cedula}</div>
                         </TableCell>
                       )}
-                      <TableCell>
-                        <div className="text-sm">Corte: <span className="font-medium">{liq.fechaCorte}</span></div>
-                        <div className="text-xs text-slate-500">Reg: {new Date(liq.createdAt).toLocaleDateString()}</div>
+
+                      <TableCell className="py-3.5">
+                        <div className="text-sm text-slate-700">
+                          <span className="text-slate-400 text-xs">Corte: </span>
+                          <span className="font-medium">{liq.fechaCorte || '—'}</span>
+                        </div>
+                        <div className="text-xs text-slate-400 mt-0.5">
+                          Reg: {liq.createdAt ? new Date(liq.createdAt).toLocaleDateString('es-CO') : '—'}
+                        </div>
                       </TableCell>
-                      <TableCell><Badge variant="secondary" className="bg-slate-100 text-slate-700 font-normal">{liq.tipo}</Badge></TableCell>
-                      <TableCell className="text-right font-bold text-emerald-600">{fmtCOP(liq.montoFinal)}</TableCell>
-                      <TableCell className="text-center">{getEstadoBadge(liq.estado, liq.anulado)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" className="h-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => { setSelectedItem(liq); setIsDetailOpen(true); }}>
+
+                      <TableCell className="py-3.5">
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-normal text-xs border-0">
+                          {liq.tipo}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell className="text-right py-3.5">
+                        <span className="text-sm font-bold text-emerald-700">{fmtCOP(liq.montoFinal)}</span>
+                      </TableCell>
+
+                      <TableCell className="text-center py-3.5">
+                        {getEstadoBadge(liq.estado, liq.anulado)}
+                      </TableCell>
+
+                      <TableCell className="text-right py-3.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-3 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
+                          onClick={() => { setSelectedItem(liq); setIsDetailOpen(true); }}
+                        >
                           <Eye className="w-4 h-4 mr-1" /> Ver
                         </Button>
                       </TableCell>
@@ -235,54 +386,90 @@ export function LiquidacionTabla({
             </Table>
           </div>
 
-          {/* Paginación Activas */}
           {totalPagActivas > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50">
-              <span className="text-sm text-slate-500">Página {currentPage} de {totalPagActivas}</span>
-              <div className="flex gap-1">
-                <Button variant="outline" size="sm" onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1}><ChevronLeft className="w-4 h-4" /></Button>
-                <Button variant="outline" size="sm" onClick={() => setCurrentPage(Math.min(totalPagActivas, currentPage + 1))} disabled={currentPage === totalPagActivas}><ChevronRight className="w-4 h-4" /></Button>
+            <div className="flex items-center justify-between px-5 py-3.5 border-t border-slate-100 bg-slate-50/50">
+              <span className="text-xs text-slate-500 font-medium">
+                Página <span className="text-slate-700">{currentPage}</span> de <span className="text-slate-700">{totalPagActivas}</span>
+              </span>
+              <div className="flex gap-1.5">
+                <Button
+                  variant="outline" size="sm"
+                  className="h-8 w-8 p-0 rounded-lg border-slate-200"
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline" size="sm"
+                  className="h-8 w-8 p-0 rounded-lg border-slate-200"
+                  onClick={() => setCurrentPage(Math.min(totalPagActivas, currentPage + 1))}
+                  disabled={currentPage === totalPagActivas}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
               </div>
             </div>
           )}
         </CardContent>
       </Card>
 
+      {/* ── Anuladas ── */}
       {pagAnuladas.length > 0 && (
-        <Card className="border-0 shadow-sm bg-white overflow-hidden opacity-75">
-          <CardHeader className="border-b border-red-100 bg-red-50/30 pb-4">
-            <CardTitle className="text-lg font-bold text-red-800 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5" /> Liquidaciones Anuladas
-            </CardTitle>
+        <Card className="border-0 shadow-md bg-white overflow-hidden rounded-2xl">
+          <CardHeader className="border-b border-red-100 bg-gradient-to-r from-red-50 to-orange-50/30 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-100 rounded-xl">
+                <AlertTriangle className="w-4 h-4 text-red-600" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-bold text-red-800">Liquidaciones Anuladas</CardTitle>
+                <p className="text-xs text-red-400 mt-0.5">
+                  {pagAnuladas.length} registro{pagAnuladas.length !== 1 ? 's' : ''} anulado{pagAnuladas.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader className="bg-red-50/50">
-                  <TableRow>
-                    <TableHead className="font-semibold text-red-800">Liquidación</TableHead>
-                    {!esVistaPropia && <TableHead className="font-semibold text-red-800">Asociado</TableHead>}
-                    <TableHead className="font-semibold text-red-800">Corte</TableHead>
-                    <TableHead className="text-right font-semibold text-red-800">Total a Pagar</TableHead>
-                    <TableHead className="text-center font-semibold text-red-800">Estado</TableHead>
-                    <TableHead className="text-right font-semibold text-red-800">Acciones</TableHead>
+                <TableHeader>
+                  <TableRow className="bg-red-50/40 border-b border-red-100 hover:bg-red-50/40">
+                    <TableHead className="font-semibold text-red-700 text-xs uppercase tracking-wide py-3">Liquidación</TableHead>
+                    {!esVistaPropia && <TableHead className="font-semibold text-red-700 text-xs uppercase tracking-wide">Asociado</TableHead>}
+                    <TableHead className="font-semibold text-red-700 text-xs uppercase tracking-wide">Corte</TableHead>
+                    <TableHead className="text-right font-semibold text-red-700 text-xs uppercase tracking-wide">Total</TableHead>
+                    <TableHead className="text-center font-semibold text-red-700 text-xs uppercase tracking-wide">Estado</TableHead>
+                    <TableHead className="text-right font-semibold text-red-700 text-xs uppercase tracking-wide">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {pagAnuladas.map((liq) => (
-                    <TableRow key={liq.id} className="hover:bg-red-50/30 transition-colors">
-                      <TableCell><div className="font-medium text-slate-900">{numLiq(liq.id)}</div></TableCell>
+                    <TableRow key={liq.id} className="hover:bg-red-50/20 transition-colors border-b border-red-50 opacity-80 group">
+                      <TableCell className="py-3.5">
+                        <div className="font-semibold text-slate-700 text-sm">{numLiq(liq.id)}</div>
+                      </TableCell>
                       {!esVistaPropia && (
-                        <TableCell>
-                          <div className="font-medium text-slate-900">{liq.asociado}</div>
-                          <div className="text-xs text-slate-500">{liq.cedula}</div>
+                        <TableCell className="py-3.5">
+                          <div className="font-medium text-slate-700 text-sm">{liq.asociado}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">{liq.cedula}</div>
                         </TableCell>
                       )}
-                      <TableCell><div className="text-sm font-medium">{liq.fechaCorte}</div></TableCell>
-                      <TableCell className="text-right font-bold text-slate-600 line-through">{fmtCOP(liq.montoFinal)}</TableCell>
-                      <TableCell className="text-center">{getEstadoBadge(liq.estado, liq.anulado)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => { setSelectedItem(liq); setIsDetailOpen(true); }}>
+                      <TableCell className="py-3.5">
+                        <div className="text-sm font-medium text-slate-600">{liq.fechaCorte || '—'}</div>
+                      </TableCell>
+                      <TableCell className="text-right py-3.5">
+                        <span className="text-sm font-bold text-slate-400 line-through">{fmtCOP(liq.montoFinal)}</span>
+                      </TableCell>
+                      <TableCell className="text-center py-3.5">
+                        {getEstadoBadge(liq.estado, liq.anulado)}
+                      </TableCell>
+                      <TableCell className="text-right py-3.5">
+                        <Button
+                          variant="ghost" size="sm"
+                          className="h-8 px-3 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg opacity-60 group-hover:opacity-100"
+                          onClick={() => { setSelectedItem(liq); setIsDetailOpen(true); }}
+                        >
                           <Eye className="w-4 h-4 mr-1" /> Ver
                         </Button>
                       </TableCell>
@@ -291,12 +478,29 @@ export function LiquidacionTabla({
                 </TableBody>
               </Table>
             </div>
+
             {totalPagAn > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-red-100 bg-red-50/30">
-                <span className="text-sm text-red-500">Página {currentPageAnuladas} de {totalPagAn}</span>
-                <div className="flex gap-1">
-                  <Button variant="outline" size="sm" onClick={() => setCurrentPageAnuladas(Math.max(1, currentPageAnuladas - 1))} disabled={currentPageAnuladas === 1} className="border-red-200 text-red-600 hover:bg-red-100"><ChevronLeft className="w-4 h-4" /></Button>
-                  <Button variant="outline" size="sm" onClick={() => setCurrentPageAnuladas(Math.min(totalPagAn, currentPageAnuladas + 1))} disabled={currentPageAnuladas === totalPagAn} className="border-red-200 text-red-600 hover:bg-red-100"><ChevronRight className="w-4 h-4" /></Button>
+              <div className="flex items-center justify-between px-5 py-3.5 border-t border-red-100 bg-red-50/30">
+                <span className="text-xs text-red-400 font-medium">
+                  Página <span className="text-red-600">{currentPageAnuladas}</span> de <span className="text-red-600">{totalPagAn}</span>
+                </span>
+                <div className="flex gap-1.5">
+                  <Button
+                    variant="outline" size="sm"
+                    className="h-8 w-8 p-0 rounded-lg border-red-200 text-red-600 hover:bg-red-50"
+                    onClick={() => setCurrentPageAnuladas(Math.max(1, currentPageAnuladas - 1))}
+                    disabled={currentPageAnuladas === 1}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline" size="sm"
+                    className="h-8 w-8 p-0 rounded-lg border-red-200 text-red-600 hover:bg-red-50"
+                    onClick={() => setCurrentPageAnuladas(Math.min(totalPagAn, currentPageAnuladas + 1))}
+                    disabled={currentPageAnuladas === totalPagAn}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             )}
