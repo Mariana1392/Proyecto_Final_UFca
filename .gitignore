@@ -4,3 +4,5 @@ build/
 .vite/
 
 mariana
+.vercel
+.env*

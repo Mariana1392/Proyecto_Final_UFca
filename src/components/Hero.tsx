@@ -235,13 +235,17 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
       }
       case 'cedula':
         if (!value.trim()) error = 'La cédula es obligatoria.';
-        else if (!/^\d{5,12}$/.test(value.trim()))
-          error = 'Debe contener entre 5 y 12 dígitos numéricos.';
+        else if (value.trim().length !== 10)
+          error = 'La cédula debe tener exactamente 10 dígitos.';
+        else if (!/^\d{10}$/.test(value.trim()))
+          error = 'La cédula solo puede contener números.';
         break;
       case 'telefono':
         if (!value.trim()) error = 'El teléfono es obligatorio.';
-        else if (!/^\d{7,15}$/.test(value.trim()))
-          error = 'Debe contener entre 7 y 15 dígitos numéricos.';
+        else if (value.trim().length !== 10)
+          error = 'El teléfono debe tener exactamente 10 dígitos.';
+        else if (!/^\d{10}$/.test(value.trim()))
+          error = 'El teléfono solo puede contener números.';
         break;
       case 'email':
         if (!value.trim()) error = 'El correo electrónico es obligatorio.';
@@ -634,7 +638,21 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
               </button>
             </div>
 
-            <form onSubmit={handleSubmitSolicitud} className="p-6 space-y-6">
+            {submitting && (
+              <div className="p-12 flex flex-col items-center justify-center min-h-[50vh]">
+                <div className="p-5 bg-emerald-100 rounded-full animate-bounce mb-6 shadow-xl shadow-emerald-200/50 border-4 border-white">
+                  <PiggyBank className="size-16 text-emerald-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-800 mb-2 text-center">
+                  {uploadingDocs ? 'Subiendo documentos...' : 'Procesando solicitud...'}
+                </h3>
+                <p className="text-slate-500 text-center max-w-sm leading-relaxed">
+                  Estamos procesando tu información de forma segura. Por favor, no cierres esta ventana.
+                </p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmitSolicitud} className={`p-6 space-y-6 ${submitting ? 'hidden' : ''}`}>
               {/* Datos Personales */}
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
@@ -653,6 +671,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       onChange={handleInputChange}
                       onBlur={e => validarCampo('nombres', e.target.value)}
                       placeholder="Ingresa tus nombres"
+                      maxLength={50}
                       required
                       className={formErrors.nombres ? 'border-red-400 focus:border-red-500' : ''}
                     />
@@ -671,6 +690,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       onChange={handleInputChange}
                       onBlur={e => validarCampo('apellidos', e.target.value)}
                       placeholder="Ingresa tus apellidos"
+                      maxLength={50}
                       required
                       className={formErrors.apellidos ? 'border-red-400 focus:border-red-500' : ''}
                     />
@@ -689,7 +709,11 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       onChange={e => {
                         const soloDigitos = e.target.value.replace(/\D/g, '').slice(0, 12);
                         setFormData(prev => ({ ...prev, cedula: soloDigitos }));
-                        if (formErrors.cedula) setFormErrors(prev => ({ ...prev, cedula: '' }));
+                        if (soloDigitos.length > 10) {
+                          setFormErrors(prev => ({ ...prev, cedula: 'La cédula no debe exceder los 10 dígitos.' }));
+                        } else {
+                          if (formErrors.cedula) setFormErrors(prev => ({ ...prev, cedula: '' }));
+                        }
                         setExistenciaCedula(null);
                         if (debCedula.current) clearTimeout(debCedula.current);
                         if (soloDigitos.length >= 5)
@@ -730,7 +754,11 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       onChange={e => {
                         const soloDigitos = e.target.value.replace(/\D/g, '').slice(0, 15);
                         setFormData(prev => ({ ...prev, telefono: soloDigitos }));
-                        if (formErrors.telefono) setFormErrors(prev => ({ ...prev, telefono: '' }));
+                        if (soloDigitos.length > 10) {
+                          setFormErrors(prev => ({ ...prev, telefono: 'El teléfono no debe exceder los 10 dígitos.' }));
+                        } else {
+                          if (formErrors.telefono) setFormErrors(prev => ({ ...prev, telefono: '' }));
+                        }
                       }}
                       onBlur={e => validarCampo('telefono', e.target.value)}
                       placeholder="0987654321"
@@ -754,9 +782,18 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       value={formData.email}
                       onChange={e => {
                         handleInputChange(e);
+                        const val = e.target.value;
+                        if (val.trim() !== '') {
+                           if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+                             setFormErrors(prev => ({ ...prev, email: 'Formato de correo no válido.' }));
+                           } else {
+                             setFormErrors(prev => ({ ...prev, email: '' }));
+                           }
+                        } else {
+                           setFormErrors(prev => ({ ...prev, email: '' }));
+                        }
                         setExistenciaEmail(null);
                         if (debEmail.current) clearTimeout(debEmail.current);
-                        const val = e.target.value;
                         if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val))
                           debEmail.current = setTimeout(() => verificarExistencia('email', val), 800);
                       }}
@@ -975,17 +1012,8 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                   disabled={submitting}
                   className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 transition-all"
                 >
-                  {submitting ? (
-                    <>
-                      <div className="size-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                      {uploadingDocs ? 'Subiendo documentos...' : 'Enviando solicitud...'}
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="size-4" />
-                      Enviar Solicitud
-                    </>
-                  )}
+                  <UserPlus className="size-4" />
+                  Enviar Solicitud
                 </Button>
               </div>
             </form>
