@@ -105,32 +105,30 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
 
   async function cargarDatosGraficas() {
     try {
-      // Últimos 6 meses
+      // Rango: últimos 6 meses (cubre tanto el área chart como el bar chart de 3 meses)
       const desde = new Date();
       desde.setMonth(desde.getMonth() - 5);
       desde.setDate(1);
       const desdeStr = desde.toISOString().split('T')[0];
 
-      const [{ data: pagosPerm }, { data: pagosVol }, { data: credsMes }] = await Promise.all([
-        // Pagos ahorro permanente del período
+      // 3 consultas en paralelo — antes eran 4 (3 paralelas + 1 secuencial)
+      const [{ data: pagosPerm }, { data: pagosVol }, { data: todosCreditos }] = await Promise.all([
         supabase.from('transacciones')
           .select('fecha_pago, monto')
           .eq('tipo', 'aporte_permanente')
           .gte('fecha_pago', desdeStr),
-        // Pagos ahorro voluntario del período
         supabase.from('transacciones')
           .select('fecha_pago, monto')
           .eq('tipo', 'aporte_voluntario')
           .gte('fecha_pago', desdeStr),
         supabase.from('creditos')
-          .select('created_at, monto')
+          .select('created_at, monto, estado')
+          .neq('anulado', true)
           .gte('created_at', desdeStr + 'T00:00:00')
-          .neq('anulado', true),
+          .order('created_at', { ascending: true }),
       ]);
-      const movsPerm = pagosPerm || [];
-      const movsVol  = pagosVol  || [];
 
-      // Construir array de 6 meses
+      // ── Área chart: 6 meses ───────────────────────────────────────────────
       const meses: { key: string; mes: string; permanente: number; voluntario: number; creditos: number }[] = [];
       for (let i = 5; i >= 0; i--) {
         const d = new Date();
@@ -140,32 +138,29 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
         meses.push({ key, mes: mes.charAt(0).toUpperCase() + mes.slice(1, 3), permanente: 0, voluntario: 0, creditos: 0 });
       }
 
-      movsPerm.forEach((m: any) => {
+      (pagosPerm || []).forEach((m: any) => {
         const entry = meses.find(x => x.key === m.fecha_pago?.substring(0, 7));
         if (entry) entry.permanente += m.monto || 0;
       });
-      movsVol.forEach((m: any) => {
+      (pagosVol || []).forEach((m: any) => {
         const entry = meses.find(x => x.key === m.fecha_pago?.substring(0, 7));
         if (entry) entry.voluntario += m.monto || 0;
       });
-      (credsMes || []).forEach((c: any) => {
+      (todosCreditos || []).forEach((c: any) => {
         const entry = meses.find(x => x.key === c.created_at?.substring(0, 7));
         if (entry) entry.creditos += c.monto || 0;
       });
 
       setMonthlyData(meses);
 
-      // Siempre 3 barras: mes actual + 2 meses siguientes (se llenan con el tiempo)
-      const INICIO_FONDO = new Date(2026, 5, 1); // junio 2026
+      // ── Bar chart: ventana de 3 meses (filtra sobre los datos ya descargados) ─
+      const INICIO_FONDO = new Date(2026, 5, 1);
       const hoy = new Date();
-
-      // Mes de inicio de la ventana: el más antiguo entre "hoy-2" y INICIO_FONDO
       const ventanaInicio = new Date(Math.max(
         new Date(hoy.getFullYear(), hoy.getMonth() - 2, 1).getTime(),
         INICIO_FONDO.getTime(),
       ));
 
-      // Construir siempre exactamente 3 barras desde ventanaInicio
       const meses3: { key: string; mes: string; creditos: number; cantidad: number }[] = [];
       for (let i = 0; i < 3; i++) {
         const d = new Date(ventanaInicio.getFullYear(), ventanaInicio.getMonth() + i, 1);
@@ -179,14 +174,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
         });
       }
 
-      const desde3mStr = meses3[0].key + '-01';
-      const { data: todosCreditos } = await supabase
-        .from('creditos')
-        .select('created_at, monto, estado')
-        .neq('anulado', true)
-        .gte('created_at', desde3mStr + 'T00:00:00')
-        .order('created_at', { ascending: true });
-
+      // Reutiliza todosCreditos ya descargados — sin consulta extra a la BD
       (todosCreditos || []).forEach((c: any) => {
         const key = c.created_at?.substring(0, 7);
         const entry = meses3.find(x => x.key === key);

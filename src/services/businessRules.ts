@@ -106,7 +106,9 @@ class BusinessRulesEngine {
    * Debe llamarse una vez al iniciar la app (App.tsx useEffect).
    * Si la BD falla, se mantienen los valores por defecto y se avisa por consola.
    */
-  async loadConfigFromDB(): Promise<void> {
+  async loadConfigFromDB(force = false): Promise<void> {
+    if (this.configCargada && !force) return;
+
     const { data, error } = await supabase
       .from('configuracion')
       .select('clave, valor')

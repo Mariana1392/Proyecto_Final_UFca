@@ -100,7 +100,7 @@ export function useLiquidacionesCRUD({ esVistaPropia, userData }: UseLiquidacion
 
       const { data, error } = await supabase.rpc('buscar_liquidaciones', {
         p_asociado_ids: asociadoIds,
-        p_tipo: filterTipo || null,
+        p_tipo: (filterTipo && filterTipo !== 'todas') ? filterTipo : null,
         p_reg_desde: filterRegDesde ? filterRegDesde + 'T00:00:00' : null,
         p_reg_hasta: filterRegHasta ? filterRegHasta + 'T23:59:59' : null,
         p_limite: 500,
@@ -208,7 +208,7 @@ export function useLiquidacionesCRUD({ esVistaPropia, userData }: UseLiquidacion
           || nL.includes(term)
           || (l.motivo || '').toLowerCase().includes(term);
 
-        const matchEstado = !filterEstado || l.estado === filterEstado;
+        const matchEstado = !filterEstado || filterEstado === 'todas' || l.estado === filterEstado;
         const matchDesde = !filterDesde || (l.fechaCorte >= filterDesde);
         const matchHasta = !filterHasta || (l.fechaCorte <= filterHasta);
 

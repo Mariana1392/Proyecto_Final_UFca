@@ -602,14 +602,14 @@ export default function Layout({
                     <p className="text-[#f0c040] font-bold text-xs tracking-widest uppercase mb-5">Contacto</p>
                     <div className="space-y-3">
                       {[
-                        { icon: <Phone className="size-4 text-[#0f8c62]" />, text: '+57 314 758 7250' },
-                        { icon: <Mail className="size-4 text-[#0f8c62]" />, text: 'marboledalondono@gmail.com' },
-                        { icon: <MapPin className="size-4 text-[#0f8c62]" />, text: 'Calle 102c No. 77b 56, Medellín' },
+                        { icon: <Phone className="size-4 text-[#0f8c62]" />, text: '+57 314 758 7250', href: 'https://wa.me/573147587250' },
+                        { icon: <Mail className="size-4 text-[#0f8c62]" />, text: 'marboledalondono@gmail.com', href: 'https://mail.google.com/mail/?view=cm&fs=1&to=marboledalondono@gmail.com' },
+                        { icon: <MapPin className="size-4 text-[#0f8c62]" />, text: 'Calle 102c No. 77b 56, Medellín', href: 'https://www.google.com/maps/search/?api=1&query=Calle+102c+No.+77b+56,+Medell%C3%ADn,+Colombia' },
                       ].map((c) => (
-                        <div key={c.text} className="flex items-center gap-3 group cursor-pointer">
+                        <a key={c.text} href={c.href} target={c.href.startsWith('http') ? '_blank' : undefined} rel={c.href.startsWith('http') ? 'noopener noreferrer' : undefined} className="flex items-center gap-3 group cursor-pointer no-underline">
                           <div className="p-2 rounded-lg bg-white/5 group-hover:bg-[#0f8c62]/20 transition-colors shrink-0">{c.icon}</div>
                           <span className="text-slate-400 text-sm group-hover:text-white transition-colors">{c.text}</span>
-                        </div>
+                        </a>
                       ))}
                     </div>
                   </div>

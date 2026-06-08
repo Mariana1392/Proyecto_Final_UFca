@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../ui/badge';
 import {
   Search, Plus, Eye, ChevronLeft, ChevronRight,
-  Calculator, CheckCircle2, Clock, AlertTriangle, Activity
+  Calculator, CheckCircle2, Clock, AlertTriangle, Activity,
+  FileX, RefreshCw
 } from 'lucide-react';
 import { getEstadoBadge, fmtCOP, numLiq } from './liquidacionUtils';
 import { LiquidacionRecord } from './liquidacionTypes';
@@ -69,39 +70,24 @@ export function LiquidacionTabla({
     <div className="space-y-6">
       {/* ── KPIs ── */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-white border-0 shadow-sm">
-          <CardContent className="p-4 flex items-center space-x-4">
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><Calculator className="w-5 h-5" /></div>
-            <div><p className="text-sm font-medium text-slate-500">Total Liquidado</p>
-              <h3 className="text-xl font-bold text-slate-900">{fmtCOP(montoTotal)}</h3>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white border-0 shadow-sm">
-          <CardContent className="p-4 flex items-center space-x-4">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><CheckCircle2 className="w-5 h-5" /></div>
-            <div><p className="text-sm font-medium text-slate-500">Pagadas</p>
-              <h3 className="text-xl font-bold text-slate-900">{cantPagadas}</h3>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white border-0 shadow-sm">
-          <CardContent className="p-4 flex items-center space-x-4">
-            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl"><Clock className="w-5 h-5" /></div>
-            <div><p className="text-sm font-medium text-slate-500">En proceso</p>
-              <h3 className="text-xl font-bold text-slate-900">{cantPendientes}</h3>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white border-0 shadow-sm">
-          <CardContent className="p-4 flex items-center space-x-4">
-            <div className="p-3 bg-slate-50 text-slate-600 rounded-xl"><Activity className="w-5 h-5" /></div>
-            <div><p className="text-sm font-medium text-slate-500">Total Registros</p>
-              <h3 className="text-xl font-bold text-slate-900">{liquidaciones.length}</h3>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        {[
+          { label: 'Total Liquidado', value: fmtCOP(montoTotal), icon: Calculator, bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-l-emerald-500' },
+          { label: 'Pagadas',         value: cantPagadas,        icon: CheckCircle2, bg: 'bg-blue-50',    text: 'text-blue-600',    border: 'border-l-blue-500'    },
+          { label: 'En proceso',      value: cantPendientes,     icon: Clock,        bg: 'bg-amber-50',   text: 'text-amber-600',   border: 'border-l-amber-500'   },
+          { label: 'Total Registros', value: liquidaciones.length, icon: Activity,   bg: 'bg-slate-50',   text: 'text-slate-600',   border: 'border-l-slate-400'   },
+        ].map(({ label, value, icon: Icon, bg, text, border }) => (
+          <Card key={label} className={`bg-white border-0 shadow-sm border-l-4 ${border}`}>
+            <CardContent className="p-4 flex items-center space-x-4">
+              <div className={`p-3 ${bg} ${text} rounded-xl flex-shrink-0`}><Icon className="w-5 h-5" /></div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-500">{label}</p>
+                {loading
+                  ? <div className="h-6 w-20 bg-slate-200 animate-pulse rounded mt-1" />
+                  : <h3 className={`text-xl font-bold ${text}`}>{value}</h3>}
+              </div>
+            </CardContent>
+          </Card>
+        ))}</div>
 
       <Card className="border-0 shadow-sm bg-white overflow-hidden">
         <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
@@ -186,9 +172,37 @@ export function LiquidacionTabla({
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={7} className="h-32 text-center text-slate-500">Cargando liquidaciones...</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-48 text-center">
+                      <div className="flex flex-col items-center justify-center gap-3 text-slate-400">
+                        <RefreshCw className="w-8 h-8 animate-spin text-emerald-400" />
+                        <p className="text-sm font-medium">Cargando liquidaciones...</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
                 ) : pagActivas.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="h-32 text-center text-slate-500">No se encontraron liquidaciones.</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-56 text-center">
+                      <div className="flex flex-col items-center justify-center gap-3 py-8">
+                        <div className="p-4 bg-slate-100 rounded-full">
+                          <FileX className="w-8 h-8 text-slate-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-600">No se encontraron liquidaciones</p>
+                          <p className="text-xs text-slate-400 mt-1">
+                            {searchTerm || filterEstado || filterTipo || filterDesde || filterHasta
+                              ? 'Intenta ajustar los filtros de búsqueda'
+                              : 'Aún no hay liquidaciones registradas. Crea una nueva para comenzar.'}
+                          </p>
+                        </div>
+                        {!esVistaPropia && can('liquidacion') && !searchTerm && !filterEstado && !filterTipo && (
+                          <Button size="sm" onClick={() => setIsCreateOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white mt-1 gap-1.5">
+                            <Plus className="w-3.5 h-3.5" /> Nueva Liquidación
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   pagActivas.map((liq) => (
                     <TableRow key={liq.id} className="hover:bg-slate-50 transition-colors">
