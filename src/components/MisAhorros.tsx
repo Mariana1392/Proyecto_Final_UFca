@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -34,6 +35,7 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
 
   // ── Carga inicial ─────────────────────────────────────────────────────────
   useEffect(() => { cargarDatos(); }, []);
+  useRealtimeSubscription('mis_ahorros_realtime', ['cuentas_ahorro', 'transacciones'], cargarDatos);
 
   async function cargarDatos() {
     setLoading(true);

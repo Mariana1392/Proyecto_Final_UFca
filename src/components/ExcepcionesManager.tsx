@@ -2,6 +2,7 @@
  * Componente de Gestión de Excepciones Administrativas — migrado a Supabase
  */
 import { useState, useEffect } from 'react';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { AlertTriangle, CheckCircle, XCircle, Clock, Eye, FileText, Calendar, User, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -46,6 +47,7 @@ export default function ExcepcionesManager({ userRole, userId }: ExcepcionesMana
 
   useEffect(() => { cargarExcepciones(); }, [filtro]);
   useEffect(() => { cargarConteos(); }, []);
+  useRealtimeSubscription('excepciones_realtime', ['excepciones'], () => { cargarExcepciones(); cargarConteos(); });
 
   async function cargarConteos() {
     const estados = ['pendiente', 'aprobada', 'rechazada'] as const;

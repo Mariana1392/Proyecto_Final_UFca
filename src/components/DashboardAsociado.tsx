@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -40,6 +41,11 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
     if (userData?.id) cargar(userData.id);
     else setLoading(false);
   }, [userData]);
+  useRealtimeSubscription(
+    'dashboard_asociado_realtime',
+    ['cuentas_ahorro', 'creditos', 'transacciones'],
+    () => { if (userData?.id) cargar(userData.id); },
+  );
 
   async function cargar(asociadoId: string) {
     try {

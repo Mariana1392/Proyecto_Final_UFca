@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 
@@ -29,6 +30,7 @@ export function useAsociados() {
   const asociadosRef = useRef<AsociadoMapped[]>([]);
 
   useEffect(() => { asociadosRef.current = asociados; }, [asociados]);
+  useRealtimeSubscription('asociados_realtime', ['usuarios', 'cuentas_ahorro', 'creditos'], cargarAsociados);
 
   async function cargarAsociados() {
     try {

@@ -83,7 +83,7 @@ export default function Roles({ userRole }: RolesProps) {
   const [auditLog, setAuditLog]           = useState<AuditEntry[]>([]);
   const [auditPage, setAuditPage]         = useState(1);
   const [auditFiltro, setAuditFiltro]     = useState('todos');
-  const AUDIT_PER_PAGE = 5;
+  const AUDIT_PER_PAGE = 8;
 
   const addAuditEntry = async (accion: string, detalle: string, registroId?: string) => {
     // Persistir en BD primero, luego actualizar estado local con el ID real
@@ -965,133 +965,193 @@ export default function Roles({ userRole }: RolesProps) {
 
         {/* ===== HISTORIAL DE CAMBIOS ===== */}
         {(() => {
-          const accionesUnicas = ['todos', ...Array.from(new Set(auditLog.map(e => e.accion ?? 'SIN_ACCION').filter(Boolean)))];
           const auditFiltrado  = auditFiltro === 'todos' ? auditLog : auditLog.filter(e => e.accion === auditFiltro);
           const auditTotalPags = Math.ceil(auditFiltrado.length / AUDIT_PER_PAGE);
           const auditPagina    = auditFiltrado.slice((auditPage - 1) * AUDIT_PER_PAGE, auditPage * AUDIT_PER_PAGE);
-          const badgeColor = (accion: string | null) => {
-            if (!accion) return 'bg-slate-50 text-slate-700 border-slate-200';
-            return accion.includes('CREADO')    ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-            accion.includes('EDITADO') || accion.includes('AGREGADO') ? 'bg-blue-50 text-blue-700 border-blue-200' :
-            accion.includes('ELIMINADO') ? 'bg-red-50 text-red-700 border-red-200'   :
-            accion.includes('ACTIVADO')  ? 'bg-green-50 text-green-700 border-green-200' :
-            accion.includes('DESACTIVADO') ? 'bg-orange-50 text-orange-700 border-orange-200' :
-            'bg-slate-50 text-slate-700 border-slate-200';
+
+          const ACTION_CFG: Record<string, { icon: JSX.Element; color: string; bg: string; border: string; dot: string }> = {
+            'ROL CREADO':            { icon: <Plus className="size-3.5" />,       color: 'text-emerald-700', bg: 'bg-emerald-50',  border: 'border-emerald-200', dot: 'bg-emerald-500' },
+            'ROL EDITADO':           { icon: <Edit className="size-3.5" />,       color: 'text-blue-700',    bg: 'bg-blue-50',     border: 'border-blue-200',    dot: 'bg-blue-500'    },
+            'ROL ELIMINADO':         { icon: <Trash2 className="size-3.5" />,     color: 'text-red-700',     bg: 'bg-red-50',      border: 'border-red-200',     dot: 'bg-red-500'     },
+            'ROL ACTIVADO':          { icon: <Unlock className="size-3.5" />,     color: 'text-green-700',   bg: 'bg-green-50',    border: 'border-green-200',   dot: 'bg-green-500'   },
+            'ROL DESACTIVADO':       { icon: <Lock className="size-3.5" />,       color: 'text-orange-700',  bg: 'bg-orange-50',   border: 'border-orange-200',  dot: 'bg-orange-500'  },
+            'PERMISOS AGREGADOS':    { icon: <ShieldPlus className="size-3.5" />, color: 'text-blue-700',    bg: 'bg-blue-50',     border: 'border-blue-200',    dot: 'bg-blue-400'    },
+            'PERMISO(S) QUITADO(S)': { icon: <ShieldMinus className="size-3.5" />,color: 'text-amber-700',  bg: 'bg-amber-50',    border: 'border-amber-200',   dot: 'bg-amber-500'   },
+            'HISTORIAL LIMPIADO':    { icon: <RotateCcw className="size-3.5" />,  color: 'text-slate-600',   bg: 'bg-slate-50',    border: 'border-slate-200',   dot: 'bg-slate-400'   },
           };
+          const getCfg = (accion: string | null) =>
+            ACTION_CFG[accion ?? ''] ?? { icon: <History className="size-3.5" />, color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200', dot: 'bg-slate-400' };
+
+          const conteoPorAccion = auditLog.reduce((acc, e) => {
+            const k = e.accion ?? 'SIN_ACCION';
+            acc[k] = (acc[k] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
 
           return (
             <Card>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
+                    <div className="p-2 bg-blue-100 rounded-lg shrink-0">
                       <History className="size-5 text-blue-600" />
                     </div>
                     <div>
                       <CardTitle>Historial de Cambios</CardTitle>
                       <p className="text-sm text-slate-500 mt-0.5">
-                        {auditFiltrado.length} de {auditLog.length} registro(s)
-                        {auditFiltro !== 'todos' && (
-                          <button onClick={() => { setAuditFiltro('todos'); setAuditPage(1); }}
-                            className="ml-2 text-blue-600 hover:underline text-xs">
-                            Ver todos
-                          </button>
-                        )}
+                        {auditLog.length} registro{auditLog.length !== 1 ? 's' : ''} en total
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* Filtro por tipo de acción */}
-                    <select
-                      value={auditFiltro}
-                      onChange={e => { setAuditFiltro(e.target.value); setAuditPage(1); }}
-                      className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  {auditLog.length > 1 && (
+                    <Button variant="outline" size="sm"
+                      onClick={() => setIsClearHistoryDialogOpen(true)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 shrink-0"
                     >
-                      {accionesUnicas.map(a => (
-                        <option key={a} value={a}>{a === 'todos' ? 'Todas las acciones' : a}</option>
-                      ))}
-                    </select>
-                    {auditLog.length > 1 && (
-                      <Button variant="outline" size="sm"
-                        onClick={() => setIsClearHistoryDialogOpen(true)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs"
-                      >
-                        <Trash2 className="size-3.5 mr-1" />
-                        Limpiar
-                      </Button>
-                    )}
-                  </div>
+                      <Trash2 className="size-3.5 mr-1.5" />
+                      Limpiar historial
+                    </Button>
+                  )}
                 </div>
+
+                {/* Chips de filtro por tipo de acción */}
+                {auditLog.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    <button
+                      onClick={() => { setAuditFiltro('todos'); setAuditPage(1); }}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                        auditFiltro === 'todos'
+                          ? 'bg-slate-800 text-white border-slate-800'
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'
+                      }`}
+                    >
+                      Todos
+                      <span className={`font-bold ${auditFiltro === 'todos' ? 'text-slate-300' : 'text-slate-400'}`}>
+                        {auditLog.length}
+                      </span>
+                    </button>
+                    {Object.entries(conteoPorAccion).map(([accion, count]) => {
+                      const cfg = getCfg(accion);
+                      const activo = auditFiltro === accion;
+                      return (
+                        <button
+                          key={accion}
+                          onClick={() => { setAuditFiltro(activo ? 'todos' : accion); setAuditPage(1); }}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                            activo
+                              ? `${cfg.bg} ${cfg.border} ${cfg.color} ring-2 ring-offset-1 ring-current/40`
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          <span className={`size-2 rounded-full shrink-0 ${cfg.dot}`} />
+                          {accion}
+                          <span className={`font-bold ${activo ? '' : 'text-slate-400'}`}>{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </CardHeader>
+
               <CardContent>
                 {auditLog.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400">
-                    <History className="size-12 mx-auto mb-3 opacity-30" />
-                    <p className="font-medium">No hay cambios registrados</p>
-                    <p className="text-sm mt-1">Los cambios realizados aparecerán aquí automáticamente</p>
+                  <div className="text-center py-14">
+                    <div className="inline-flex items-center justify-center size-14 rounded-full bg-slate-100 mb-4">
+                      <History className="size-7 text-slate-300" />
+                    </div>
+                    <p className="font-medium text-slate-500">Sin registros aún</p>
+                    <p className="text-sm text-slate-400 mt-1">Los cambios en roles aparecerán aquí automáticamente</p>
                   </div>
-                ) : auditPagina.length === 0 ? (
-                  <div className="text-center py-8 text-slate-400 text-sm">
-                    No hay registros para esta acción.
+                ) : auditFiltrado.length === 0 ? (
+                  <div className="text-center py-10">
+                    <p className="text-sm text-slate-400">Sin registros para esta acción.</p>
+                    <button
+                      onClick={() => { setAuditFiltro('todos'); setAuditPage(1); }}
+                      className="mt-2 text-xs text-blue-600 hover:underline"
+                    >
+                      Ver todos los registros
+                    </button>
                   </div>
                 ) : (
                   <>
-                    <div className="space-y-2">
-                      {auditPagina.map((entry, index) => {
-                        const globalIndex = auditLog.findIndex(e => e.id === entry.id);
-                        return (
-                          <div key={entry.id}
-                            className="flex items-start gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
-                          >
-                            <div className="flex items-center justify-center size-8 bg-white border-2 border-blue-200 rounded-full shrink-0 mt-0.5">
-                              <span className="text-[10px] font-bold text-blue-600">#{auditLog.length - globalIndex}</span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap mb-1">
-                                <Badge variant="outline" className={`text-[10px] font-semibold ${badgeColor(entry.accion)}`}>
-                                  {entry.accion ?? '—'}
-                                </Badge>
-                                <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                                  <Clock className="size-3" />{entry.fecha}
-                                </span>
+                    {/* Timeline */}
+                    <div className="relative pl-1">
+                      {/* Línea vertical conectora */}
+                      <div className="absolute left-[19px] top-5 bottom-5 w-px bg-slate-200 dark:bg-slate-700" />
+
+                      <div className="space-y-3">
+                        {auditPagina.map((entry) => {
+                          const cfg = getCfg(entry.accion);
+                          return (
+                            <div key={entry.id} className="relative flex gap-3 items-start group">
+                              {/* Ícono de acción */}
+                              <div className={`relative z-10 flex items-center justify-center size-10 rounded-full border-2 border-white shadow-sm shrink-0 ${cfg.bg}`}>
+                                <span className={cfg.color}>{cfg.icon}</span>
                               </div>
-                              <p className="text-xs text-slate-700 mb-1 leading-relaxed">{entry.detalle}</p>
-                              <div className="flex items-center gap-1 text-[11px] text-slate-500">
-                                <UserCircle2 className="size-3" />
-                                <span>Por: <span className="font-medium text-slate-700">{entry.usuario}</span></span>
+
+                              {/* Tarjeta de contenido */}
+                              <div className={`flex-1 p-3.5 rounded-xl border transition-shadow group-hover:shadow-sm ${cfg.bg} ${cfg.border}`}>
+                                <div className="flex items-start justify-between gap-2 flex-wrap mb-1.5">
+                                  <span className={`text-[11px] font-bold uppercase tracking-wider ${cfg.color}`}>
+                                    {entry.accion ?? '—'}
+                                  </span>
+                                  <span className="text-[11px] text-slate-400 flex items-center gap-1 shrink-0">
+                                    <Clock className="size-3" />
+                                    {entry.fecha}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-slate-700 leading-relaxed">{entry.detalle}</p>
+                                <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-current/10">
+                                  <UserCircle2 className={`size-3.5 ${cfg.color} opacity-70`} />
+                                  <span className="text-xs text-slate-500">
+                                    <span className="font-semibold text-slate-600">{entry.usuario}</span>
+                                  </span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
 
                     {/* Paginación */}
                     {auditTotalPags > 1 && (
-                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+                      <div className="flex items-center justify-between mt-5 pt-4 border-t border-slate-100">
                         <p className="text-xs text-slate-500">
-                          Mostrando {(auditPage - 1) * AUDIT_PER_PAGE + 1}–{Math.min(auditPage * AUDIT_PER_PAGE, auditFiltrado.length)} de {auditFiltrado.length}
+                          {(auditPage - 1) * AUDIT_PER_PAGE + 1}–{Math.min(auditPage * AUDIT_PER_PAGE, auditFiltrado.length)} de {auditFiltrado.length} registro{auditFiltrado.length !== 1 ? 's' : ''}
+                          {auditFiltro !== 'todos' && (
+                            <button
+                              onClick={() => { setAuditFiltro('todos'); setAuditPage(1); }}
+                              className="ml-2 text-blue-600 hover:underline"
+                            >
+                              Ver todos
+                            </button>
+                          )}
                         </p>
                         <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setAuditPage(1)}
+                            disabled={auditPage === 1}
+                            className="px-2 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                          >«</button>
                           <button
                             onClick={() => setAuditPage(p => Math.max(1, p - 1))}
                             disabled={auditPage === 1}
                             className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                          >← Anterior</button>
-                          {Array.from({ length: auditTotalPags }, (_, i) => i + 1).map(p => (
-                            <button key={p} onClick={() => setAuditPage(p)}
-                              className={`w-7 h-7 text-xs rounded-lg border transition-colors ${
-                                p === auditPage
-                                  ? 'bg-blue-600 text-white border-blue-600 font-semibold'
-                                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                              }`}
-                            >{p}</button>
-                          ))}
+                          >‹ Ant.</button>
+                          <span className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 rounded-lg">
+                            {auditPage} / {auditTotalPags}
+                          </span>
                           <button
                             onClick={() => setAuditPage(p => Math.min(auditTotalPags, p + 1))}
                             disabled={auditPage === auditTotalPags}
                             className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                          >Siguiente →</button>
+                          >Sig. ›</button>
+                          <button
+                            onClick={() => setAuditPage(auditTotalPags)}
+                            disabled={auditPage === auditTotalPags}
+                            className="px-2 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                          >»</button>
                         </div>
                       </div>
                     )}

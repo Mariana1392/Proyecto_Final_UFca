@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -48,6 +49,7 @@ export default function Referidos({ userData }: ReferidosProps) {
   const [formObservaciones,setFormObservaciones]= useState('');
 
   useEffect(() => { cargarReferidos(); }, []);
+  useRealtimeSubscription('referidos_realtime', ['referidos', 'usuarios'], cargarReferidos);
 
   // ── Carga lista de asociados activos para el selector ────────────────────────
   async function cargarAsociadosList() {

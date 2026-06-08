@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
@@ -188,6 +189,7 @@ export default function MiSolicitud() {
   const [cedulaDuplicada, setCedulaDuplicada]   = useState(false);
 
   useEffect(() => { cargarSolicitud(); }, []);
+  useRealtimeSubscription('mi_solicitud_realtime', ['solicitudes_asociados'], cargarSolicitud);
 
   async function cargarSolicitud() {
     if (!user) return;
