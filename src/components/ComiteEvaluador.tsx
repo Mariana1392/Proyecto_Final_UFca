@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -209,6 +210,19 @@ export default function ComiteEvaluador() {
 
   useEffect(() => { loadAll(); }, []);
   useEffect(() => { applyFilter(); }, [solicitudes, searchTerm, filterEstado]);
+
+  // Tiempo real: recarga al instante cuando llega un INSERT/UPDATE/DELETE
+  useRealtimeSubscription(
+    'comite_solicitudes_realtime',
+    ['solicitudes_asociados'],
+    loadSolicitudes,
+  );
+
+  // Polling de respaldo: garantiza sincronía aunque el WebSocket falle
+  useEffect(() => {
+    const id = setInterval(loadSolicitudes, 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   // ── Load ──────────────────────────────────────────────────────────────────
   async function loadAll() {
