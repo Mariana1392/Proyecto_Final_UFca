@@ -22,7 +22,6 @@ import { toast } from 'sonner';
 
 // ── Supabase + Auth ───────────────────────────────────────────────────────────
 import { supabase } from '../lib/supabase';
-import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { useAuth } from '../contexts/AuthContext';
 import type { UserRole } from '../contexts/AuthContext';
 
@@ -72,7 +71,6 @@ export default function Roles({ userRole }: RolesProps) {
   const [isRemovePermisoDialogOpen, setIsRemovePermisoDialogOpen]     = useState(false);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
   const [isErrorDialogOpen, setIsErrorDialogOpen]     = useState(false);
-  const [isClearHistoryDialogOpen, setIsClearHistoryDialogOpen] = useState(false);
   const [resultMessage, setResultMessage]             = useState('');
   const [selectedItem, setSelectedItem]               = useState<any>(null);
   const [permisosToRemove, setPermisosToRemove]       = useState<PermisoKey[]>([]);
@@ -161,8 +159,10 @@ export default function Roles({ userRole }: RolesProps) {
         supabase.from('usuarios').select('rol_id').eq('activo', true),
         supabase.from('auditoria').select('*')
           .eq('tabla', 'roles')
+          .not('accion', 'is', null)
+          .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
           .order('created_at', { ascending: false })
-          .limit(50),
+          .limit(500),
         // ── Catálogo de permisos desde la tabla permisos ──────────────────────
         supabase.from('permisos')
           .select('clave, label, descripcion, grupo')
@@ -643,24 +643,6 @@ export default function Roles({ userRole }: RolesProps) {
   // Total de permisos disponibles según el catálogo de la BD
   const getTotalPermisosAplicables = () => permisosDisponibles.length;
 
-  const handleClearHistory = async () => {
-    // Usar supabaseAdmin para bypassear RLS en la tabla auditoria
-    const { error } = await supabaseAdmin
-      .from('auditoria')
-      .delete()
-      .eq('tabla', 'roles');
-
-    if (error) {
-      toast.error('No se pudo limpiar el historial: ' + error.message);
-      setIsClearHistoryDialogOpen(false);
-      return;
-    }
-
-    await addAuditEntry('HISTORIAL LIMPIADO', `El historial fue limpiado manualmente por ${usuarioActualNombre}`);
-    await cargarRoles();
-    setIsClearHistoryDialogOpen(false);
-    toast.success('Historial limpiado exitosamente', { duration: 4000 });
-  };
 
   if (loading) {
     return (
@@ -999,19 +981,10 @@ export default function Roles({ userRole }: RolesProps) {
                     <div>
                       <CardTitle>Historial de Cambios</CardTitle>
                       <p className="text-sm text-slate-500 mt-0.5">
-                        {auditLog.length} registro{auditLog.length !== 1 ? 's' : ''} en total
+                        Últimos 30 días · {auditLog.length} registro{auditLog.length !== 1 ? 's' : ''}
                       </p>
                     </div>
                   </div>
-                  {auditLog.length > 1 && (
-                    <Button variant="outline" size="sm"
-                      onClick={() => setIsClearHistoryDialogOpen(true)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 shrink-0"
-                    >
-                      <Trash2 className="size-3.5 mr-1.5" />
-                      Limpiar historial
-                    </Button>
-                  )}
                 </div>
 
                 {/* Chips de filtro por tipo de acción */}
@@ -2232,56 +2205,6 @@ export default function Roles({ userRole }: RolesProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ===== ALERT CONFIRMAR LIMPIAR HISTORIAL ===== */}
-      <AlertDialog open={isClearHistoryDialogOpen} onOpenChange={setIsClearHistoryDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-amber-700">
-              <AlertTriangle className="size-5" />
-              ¿Confirmar limpieza de historial?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <p className="text-slate-700">
-                Estás a punto de <strong>eliminar permanentemente</strong> todos los registros del historial de cambios.
-              </p>
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-amber-800 text-sm flex items-start gap-2">
-                  <AlertTriangle className="size-4 shrink-0 mt-0.5" />
-                  <span>Esta acción no se puede deshacer. Se perderá el registro de todas las acciones realizadas hasta el momento.</span>
-                </p>
-              </div>
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-blue-700 text-sm flex items-start gap-2">
-                  <Info className="size-4 shrink-0 mt-0.5" />
-                  <span>Se creará un nuevo registro indicando que el historial fue limpiado manualmente.</span>
-                </p>
-              </div>
-              <div className="text-sm text-slate-600 space-y-1">
-                <p className="flex items-center gap-2">
-                  <span className="font-medium">📊 Registros a eliminar:</span>
-                  <span className="font-bold text-slate-900">{auditLog.length - 1}</span>
-                </p>
-                <p className="flex items-center gap-2">
-                  <span className="font-medium">👤 Usuario:</span>
-                  <span>Administrador</span>
-                </p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setIsClearHistoryDialogOpen(false)}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleClearHistory}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              <Trash2 className="size-4 mr-1" />
-              Limpiar historial
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
