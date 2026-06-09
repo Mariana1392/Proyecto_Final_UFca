@@ -157,7 +157,7 @@ export function useAhorroPermanenteCRUD({
         toast.success(`Ahorro de "${asociado}" anulado`);
       } else {
         const esActivo = nuevoEstadoSeleccionado === 'activo';
-        await ahorroPermanenteApi.update(id, { estado: esActivo ? 'activo' : 'inactivo' });
+        await ahorroPermanenteApi.update(id, { estado: esActivo ? 'activo' : 'suspendido' });
         setAhorros(prev => prev.map(a => a.id === id ? { ...a, estado: esActivo } : a));
         await notificarAsociado(
           asociado_id,

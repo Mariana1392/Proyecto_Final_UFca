@@ -43,6 +43,7 @@ export interface CuentaAhorroRow {
   fecha_cierre?: string | null;
   anulado: boolean;
   motivo_anulacion?: string | null;
+  observaciones?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -481,7 +481,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
     const justificacion = justificacionAnulacion.trim();
     const desactivando  = ahorro.estado === 'activo';
     try {
-      const nuevoEstado = desactivando ? 'inactivo' : 'activo';
+      const nuevoEstado = desactivando ? 'suspendido' : 'activo';
       await ahorroVoluntarioApi.update(id, { estado: nuevoEstado });
       setAhorros(prev => prev.map(a => a.id === id ? { ...a, estado: nuevoEstado } : a));
       await supabase.from('notificaciones').insert({
@@ -521,7 +521,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
       });
       setAhorros(prev => prev.map(a =>
         a.id === selectedItem.id
-          ? { ...a, anulado: true, estado: 'inactivo', motivoAnulacion: justificacion }
+          ? { ...a, anulado: true, estado: 'suspendido', motivoAnulacion: justificacion }
           : a
       ));
       toast.success(`Ahorro de "${selectedItem.asociado}" anulado exitosamente`);

@@ -12,6 +12,7 @@ import CreditosScreen from './screens/Creditos';
 import PerfilScreen from './screens/Perfil';
 import ConfiguracionScreen from './screens/Configuracion';
 import UsuariosScreen from './screens/Usuarios';
+import ReportesScreen from './screens/Reportes';
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
               <Route path="/creditos" element={<CreditosScreen />} />
               <Route path="/usuarios" element={<UsuariosScreen />} />
               <Route path="/perfil" element={<PerfilScreen />} />
+              <Route path="/reportes" element={<ReportesScreen />} />
               <Route path="/configuracion" element={<ConfiguracionScreen />} />
             </Route>
 

@@ -64,6 +64,7 @@ export const VIEW_PERMISO: Record<string, string | string[]> = {
   parametros:          PERM.CONFIGURACION,
   // A-07: mi-perfil requiere estar autenticado (cualquier permiso activo)
   'mi-perfil':         [PERM.DASHBOARD, PERM.MIS_AHORROS, PERM.SOLICITUD_ASOCIACION],
+  reportes:            [PERM.DASHBOARD, PERM.MIS_AHORROS],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
