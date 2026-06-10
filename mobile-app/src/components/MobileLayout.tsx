@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { LayoutDashboard, Wallet, ReceiptText, CreditCard, UserCircle, Shield, Moon, Sun, Users, FileText } from 'lucide-react';
+import { LayoutDashboard, Wallet, ReceiptText, CreditCard, UserCircle, Settings, Moon, Sun, Users } from 'lucide-react';
 import { cn } from '../lib/utils';
 import logo from '../assets/logo.svg';
 
@@ -36,7 +36,6 @@ export default function MobileLayout() {
       <header className="bg-card border-b border-border px-4 pb-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] shadow-sm flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-2">
           <img src={logo} alt="UFCA" className="h-8 w-8 object-contain drop-shadow-md shrink-0" />
-          <h1 className="text-xl font-bold tracking-wider">UFCA</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -51,7 +50,7 @@ export default function MobileLayout() {
                 'p-1.5 rounded-full transition-colors',
                 isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
               )}>
-                <Shield size={20} />
+                <Settings size={20} />
               </NavLink>
               <NavLink to="/perfil" className={({ isActive }) => cn(
                 'p-1.5 rounded-full transition-colors',

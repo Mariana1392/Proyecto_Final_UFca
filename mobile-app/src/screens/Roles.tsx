@@ -4,8 +4,8 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import {
-  Settings, Percent, DollarSign, Clock, Save, RotateCcw, AlertTriangle, Info, Loader2, CheckCircle,
-  Edit, Trash2, Shield,
+  Percent, DollarSign, Clock, Save, RotateCcw, AlertTriangle, Info, Loader2, CheckCircle,
+  Edit, Trash2, Settings,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { toast } from 'sonner';
@@ -163,7 +163,7 @@ export default function RolesScreen() {
       {/* Encabezado */}
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2.5 bg-emerald-100 rounded-xl">
-          <Shield className="size-6 text-emerald-600" />
+          <Settings className="size-6 text-emerald-600" />
         </div>
         <div>
           <h2 className="text-lg font-bold text-foreground">Gestión de Roles</h2>
@@ -183,7 +183,7 @@ export default function RolesScreen() {
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Shield className="size-4 text-emerald-500" /> Gestión de Roles
+              <Settings className="size-4 text-emerald-500" /> Gestión de Roles
             </CardTitle>
             <p className="text-xs text-muted-foreground">Perfiles de acceso</p>
           </div>
