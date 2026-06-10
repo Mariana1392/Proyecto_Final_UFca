@@ -115,14 +115,16 @@ export default function Layout({
     }
     cargarSolicitudesPendientes();
 
-    // Suscripción Realtime para actualizar el badge sin polling
+    // Suscripción Realtime para actualizar el badge sin polling.
+    // Sin filtro: el filtro 'estado=eq.pendiente' solo dispara cuando el nuevo
+    // estado ES 'pendiente', por lo que los cambios de 'pendiente' → otro estado
+    // (aprobación/rechazo) nunca actualizaban el badge.
     const canal = supabase
       .channel('solicitudes_pendientes_badge')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'solicitudes_asociados',
-        filter: 'estado=eq.pendiente',
       }, () => cargarSolicitudesPendientes())
       .subscribe();
 

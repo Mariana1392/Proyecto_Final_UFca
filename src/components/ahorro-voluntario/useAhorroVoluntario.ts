@@ -204,7 +204,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
 
   // ── Computed ──────────────────────────────────────────────────────────────
   const ahorrosBase = userRole === 'asociado'
-    ? ahorros.filter(a => a.cedula === userData?.cedula && !a.anulado)
+    ? ahorros.filter(a => a.asociado_id === userData?.id && !a.anulado)
     : ahorros.filter(a => !a.anulado);
 
   const filteredAhorros = ahorrosBase.filter(a => {
@@ -230,7 +230,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
   });
 
   const ahorrosAnulados = userRole === 'asociado'
-    ? ahorros.filter(a => a.cedula === userData?.cedula && a.anulado)
+    ? ahorros.filter(a => a.asociado_id === userData?.id && a.anulado)
     : ahorros.filter(a => a.anulado);
 
   const filteredAhorrosAnulados = ahorrosAnulados.filter(a => {
@@ -482,10 +482,14 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
     const desactivando  = ahorro.estado === 'activo';
     try {
       const nuevoEstado = desactivando ? 'inactivo' : 'activo';
-      await ahorroVoluntarioApi.update(id, { estado: nuevoEstado });
-      setAhorros(prev => prev.map(a => a.id === id ? { ...a, estado: nuevoEstado } : a));
+      // Si se está reactivando una cuenta que estaba anulada, también limpiar el flag anulado
+      await ahorroVoluntarioApi.update(id, {
+        estado: nuevoEstado,
+        ...(!desactivando && { anulado: false, motivo_anulacion: null }),
+      });
+      setAhorros(prev => prev.map(a => a.id === id ? { ...a, estado: nuevoEstado, ...(!desactivando && { anulado: false }) } : a));
       await supabase.from('notificaciones').insert({
-        asociado_id: ahorro.asociado_id,
+        usuario_id: ahorro.asociado_id,
         titulo:  desactivando ? '⚠️ Ahorro voluntario desactivado' : '✅ Ahorro voluntario activado',
         mensaje: desactivando
           ? `Tu ahorro voluntario ha sido desactivado. Motivo: ${justificacion}`
@@ -514,7 +518,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
       const usuarioNombre = userData?.name || userData?.nombre || userData?.email || 'Administrador';
       const fechaHoy = new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' });
       await supabase.from('notificaciones').insert({
-        asociado_id: selectedItem.asociado_id,
+        usuario_id: selectedItem.asociado_id,
         titulo:  'Tu ahorro voluntario ha sido anulado',
         mensaje: `Estimado(a) ${selectedItem.asociado},\n\nEl administrador ${usuarioNombre} anuló tu plan de ahorro voluntario el ${fechaHoy}.\n\nMotivo: "${justificacion}"\n\nSaldo al momento de la anulación: ${formatCurrency(selectedItem.montoAhorrado)}`,
         tipo:    'anulacion',
@@ -702,7 +706,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
       await supabase.from('notificaciones').insert({
         titulo: '✅ Solicitud de ahorro voluntario aprobada',
         mensaje: 'Tu plan de ahorro voluntario fue aprobado.',
-        tipo: 'pago_registrado', leida: false, asociado_id: sol.asociado_id,
+        tipo: 'pago_registrado', leida: false, usuario_id: sol.asociado_id,
       });
       setSolicitudesVol(prev => prev.map(s => s.id === sol.id ? { ...s, estado: 'aprobada' } : s));
       const nowIso = new Date().toISOString();
@@ -727,7 +731,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
       await supabase.from('notificaciones').insert({
         titulo: '❌ Solicitud de ahorro voluntario rechazada',
         mensaje: `Tu solicitud fue rechazada. Motivo: ${notaRechazoVol.trim()}`,
-        tipo: 'ahorro_rechazado', leida: false, asociado_id: solVolSeleccionada.asociado_id,
+        tipo: 'ahorro_rechazado', leida: false, usuario_id: solVolSeleccionada.asociado_id,
       });
       setSolicitudesVol(prev => prev.map(s =>
         s.id === solVolSeleccionada.id ? { ...s, estado: 'rechazada', nota_admin: notaRechazoVol.trim() } : s

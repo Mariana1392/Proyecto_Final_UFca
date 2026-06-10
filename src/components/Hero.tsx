@@ -433,13 +433,8 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
       if (error) throw error;
 
       // ── 3. Notificar al admin ─────────────────────────────────────────────
-      void Promise.resolve(supabase.from('notificaciones').insert({
-        titulo:      'Nueva solicitud de afiliación',
-        mensaje:     `${formData.nombres.trim()} ${formData.apellidos.trim()} ha enviado una solicitud de membresía y está pendiente de revisión.`,
-        tipo:        'solicitud_afiliacion',
-        leida:       false,
-        para_admin:  true,
-      })).catch(() => {});
+      // La notificación se crea server-side vía trigger en solicitudes_asociados
+      // (el aspirante no está autenticado → el insert directo fallaría por RLS).
 
       setSolicitudEnviada({
         nombre: `${formData.nombres.trim()} ${formData.apellidos.trim()}`,
@@ -662,7 +657,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                   Datos Personales
                 </h3>
                 <div className="grid md:grid-cols-2 gap-4">
-                  <div>
+                  <div className="space-y-1.5">
                     <Label htmlFor="nombres">Nombres *</Label>
                     <Input
                       id="nombres"
@@ -681,7 +676,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       </p>
                     )}
                   </div>
-                  <div>
+                  <div className="space-y-1.5">
                     <Label htmlFor="apellidos">Apellidos *</Label>
                     <Input
                       id="apellidos"
@@ -700,7 +695,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       </p>
                     )}
                   </div>
-                  <div>
+                  <div className="space-y-1.5">
                     <Label htmlFor="cedula">Cédula *</Label>
                     <Input
                       id="cedula"
@@ -744,7 +739,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       </p>
                     )}
                   </div>
-                  <div>
+                  <div className="space-y-1.5">
                     <Label htmlFor="telefono">Teléfono *</Label>
                     <Input
                       id="telefono"
@@ -773,7 +768,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       </p>
                     )}
                   </div>
-                  <div>
+                  <div className="space-y-1.5">
                     <Label htmlFor="email">Correo Electrónico *</Label>
                     <Input
                       id="email"
@@ -820,7 +815,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       </p>
                     )}
                   </div>
-                  <div>
+                  <div className="space-y-1.5">
                     <Label htmlFor="direccion">Dirección <span className="text-slate-400 font-normal text-xs">(opcional)</span></Label>
                     <Input
                       id="direccion"
@@ -842,7 +837,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                   Información Laboral
                 </h3>
                 <div className="grid md:grid-cols-2 gap-4">
-                  <div>
+                  <div className="space-y-1.5">
                     <Label htmlFor="ocupacion">Ocupación <span className="text-slate-400 font-normal text-xs">(opcional)</span></Label>
                     <Input
                       id="ocupacion"
@@ -852,7 +847,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       placeholder="Ingeniero, Profesor, etc."
                     />
                   </div>
-                  <div>
+                  <div className="space-y-1.5">
                     <Label htmlFor="ingresoMensual">Ingreso Mensual Aproximado <span className="text-red-500">*</span></Label>
                     <Input
                       id="ingresoMensual"
@@ -931,7 +926,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                   </div>
                   Motivación <span className="text-emerald-600/60 font-normal text-sm">(opcional)</span>
                 </h3>
-                <div>
+                <div className="space-y-1.5">
                   <Label htmlFor="motivacion">¿Por qué deseas ser parte de UFCA?</Label>
                   <Textarea
                     id="motivacion"
@@ -978,20 +973,31 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
               </div>
 
               {/* Beneficios destacados */}
-              <div className="bg-emerald-50 p-4 rounded-xl">
-                <p className="text-sm text-emerald-900 font-semibold mb-2">Al ser aceptado tendrás acceso a:</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center gap-2 text-emerald-700 text-sm">
-                    <CheckCircle className="size-4" />
-                    <span>Ahorro permanente</span>
+              <div className="rounded-xl border border-emerald-200 overflow-hidden">
+                <div className="bg-emerald-600 px-4 py-2.5">
+                  <p className="text-sm font-semibold text-white tracking-wide">Al ser aceptado tendrás acceso a:</p>
+                </div>
+                <div className="grid grid-cols-3 divide-x divide-emerald-100 bg-white">
+                  <div className="flex flex-col items-center gap-1.5 px-3 py-4 text-center">
+                    <div className="size-9 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <PiggyBank className="size-4 text-emerald-600" />
+                    </div>
+                    <span className="text-xs font-semibold text-emerald-800">Ahorro Permanente</span>
+                    <span className="text-[10px] text-slate-400">Mensual y constante</span>
                   </div>
-                  <div className="flex items-center gap-2 text-emerald-700 text-sm">
-                    <CheckCircle className="size-4" />
-                    <span>Ahorro voluntario</span>
+                  <div className="flex flex-col items-center gap-1.5 px-3 py-4 text-center">
+                    <div className="size-9 rounded-full bg-teal-100 flex items-center justify-center">
+                      <CheckCircle className="size-4 text-teal-600" />
+                    </div>
+                    <span className="text-xs font-semibold text-teal-800">Ahorro Voluntario</span>
+                    <span className="text-[10px] text-slate-400">Flexible, cuando quieras</span>
                   </div>
-                  <div className="flex items-center gap-2 text-emerald-700 text-sm">
-                    <CheckCircle className="size-4" />
-                    <span>Créditos</span>
+                  <div className="flex flex-col items-center gap-1.5 px-3 py-4 text-center">
+                    <div className="size-9 rounded-full bg-blue-100 flex items-center justify-center">
+                      <CreditCard className="size-4 text-blue-600" />
+                    </div>
+                    <span className="text-xs font-semibold text-blue-800">Créditos</span>
+                    <span className="text-[10px] text-slate-400">Libre inversión y más</span>
                   </div>
                 </div>
               </div>

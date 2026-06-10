@@ -46,6 +46,9 @@ export function useCreditosSolicitudes({
   const [solTipoCuenta, setSolTipoCuenta]     = useState('ahorros');
   const [solNumeroCuenta, setSolNumeroCuenta] = useState('');
   const [tasasParametrizadas, setTasasParametrizadas] = useState<Record<string, number>>({});
+  // Documentos adjuntos a la solicitud (Mejora F)
+  const [solDocCartaLaboral, setSolDocCartaLaboral] = useState<File | null>(null);
+  const [solDocCedula, setSolDocCedula]             = useState<File | null>(null);
 
   // Cargar tasas desde configuracion (al montar Y cada vez que se abre el dialog)
   useEffect(() => {
@@ -121,6 +124,30 @@ export function useCreditosSolicitudes({
 
       if (error) throw error;
 
+      // ── Subir documentos a Supabase Storage (Mejora F) ──────────────────
+      const uploadDoc = async (file: File, tipo: 'carta-laboral' | 'cedula') => {
+        const ext  = file.name.split('.').pop()?.toLowerCase() ?? 'pdf';
+        const path = `${userData?.id}/${data.id}-${tipo}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from('creditos-docs')
+          .upload(path, file, { cacheControl: '3600', upsert: true });
+        if (upErr) { console.warn(`[uploadDoc] No se pudo subir ${tipo}:`, upErr.message); return null; }
+        const { data: urlData } = supabase.storage.from('creditos-docs').getPublicUrl(path);
+        return { tipo, url: urlData.publicUrl, nombre: file.name };
+      };
+
+      const docResultados = await Promise.all([
+        solDocCartaLaboral ? uploadDoc(solDocCartaLaboral, 'carta-laboral') : Promise.resolve(null),
+        solDocCedula        ? uploadDoc(solDocCedula,        'cedula')        : Promise.resolve(null),
+      ]);
+      const docsAdjuntos = docResultados.filter(Boolean);
+
+      if (docsAdjuntos.length > 0) {
+        void supabase.from('creditos')
+          .update({ documentos_adjuntos: docsAdjuntos })
+          .eq('id', data.id);
+      }
+
       const nuevaCred = {
         id:                 data.id,
         asociado:           userData?.nombre ?? '',
@@ -151,7 +178,7 @@ export function useCreditosSolicitudes({
         tipo:        'solicitud_credito',
         leida:       false,
         para_admin:  true,
-        asociado_id: userData?.id,
+        usuario_id:  userData?.id,   // usuario_id (no asociado_id) — compatible con RLS
       }).then(() => {}, () => {});
 
       toast.success('✅ Solicitud enviada al administrador', {
@@ -160,6 +187,7 @@ export function useCreditosSolicitudes({
       setIsSolicitudDialogOpen(false);
       setSolMonto(''); setSolTipo('libre_inversion'); setSolPlazo('');
       setSolTasa(''); setSolDestino(''); setSolObs('');
+      setSolDocCartaLaboral(null); setSolDocCedula(null);
     } catch (err: any) {
       toast.error('Error al enviar la solicitud: ' + err.message);
     } finally {
@@ -180,7 +208,7 @@ export function useCreditosSolicitudes({
         .eq('id', sol.id);
 
       await supabase.from('notificaciones').insert({
-        asociado_id: sol.asociadoId,
+        usuario_id:  sol.asociadoId,   // usuario_id — el auth.uid() del asociado
         tipo:        'solicitud_credito',
         titulo:      '🔍 Tu solicitud está en revisión',
         mensaje:     `Tu solicitud de crédito por ${formatCurrency(sol.monto)} está siendo revisada por el administrador.`,
@@ -228,12 +256,11 @@ export function useCreditosSolicitudes({
       if (creditoErr) throw creditoErr;
 
       await supabase.from('notificaciones').insert({
-        asociado_id: sol.asociadoId,
+        usuario_id:  sol.asociadoId,
         tipo:        'solicitud_credito',
         titulo:      '✅ Solicitud de crédito aprobada',
         mensaje:     `Tu solicitud de crédito por ${formatCurrency(sol.monto)} fue aprobada.`,
         leida:       false,
-        credito_id:  creditoData.id,
       });
 
       setSolicitudesCredito(prev => prev.filter(s => s.id !== sol.id));
@@ -267,7 +294,7 @@ export function useCreditosSolicitudes({
         .eq('id', solicitudSeleccionada.id);
 
       await supabase.from('notificaciones').insert({
-        asociado_id: solicitudSeleccionada.asociadoId,
+        usuario_id:  solicitudSeleccionada.asociadoId,
         tipo:        'solicitud_credito',
         titulo:      '❌ Solicitud de crédito rechazada',
         mensaje:     `Tu solicitud de crédito por ${formatCurrency(solicitudSeleccionada.monto)} fue rechazada. Motivo: ${notaRechazoSol.trim()}`,
@@ -305,6 +332,8 @@ export function useCreditosSolicitudes({
     solTipoCuenta, setSolTipoCuenta,
     solNumeroCuenta, setSolNumeroCuenta,
     tasasParametrizadas,
+    solDocCartaLaboral, setSolDocCartaLaboral,
+    solDocCedula, setSolDocCedula,
     handleSolTipoChange,
     handleSolicitarCredito,
     handlePonerEnRevision,

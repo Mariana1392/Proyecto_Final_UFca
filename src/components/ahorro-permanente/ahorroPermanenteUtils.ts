@@ -23,5 +23,5 @@ export const notificarAsociado = (
   tipo: string,
 ) =>
   supabase.from('notificaciones').insert({
-    titulo, mensaje, tipo, leida: false, asociado_id: asociadoId,
+    titulo, mensaje, tipo, leida: false, usuario_id: asociadoId,  // usuario_id — compatible con RLS
   });

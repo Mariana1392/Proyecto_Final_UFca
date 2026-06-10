@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
+import PiggyBankLoader from './ui/PiggyBankLoader';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -12,7 +13,7 @@ import {
   Users, AlertTriangle, Shield, Award,
   Calculator, FileCheck, UserPlus, Edit, Trash2,
   CalendarDays, Paperclip, ExternalLink,
-  ChevronRight, Flame, PiggyBank,
+  ChevronRight, Flame, PiggyBank, WifiOff, Wifi,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -148,11 +149,9 @@ export default function ComiteEvaluador() {
     nombre: string; email: string; error?: string; inviteLink?: string;
   } | null>(null);
 
-  // ── Temporizador de rate-limit de Gmail ────────────────────────────────────
-  const [rateLimitUntil, setRateLimitUntil] = useState<number>(() => {
-    const v = localStorage.getItem('ufca_invite_rate_limit_until');
-    return v ? parseInt(v, 10) : 0;
-  });
+  // ── Temporizador de rate-limit de invitaciones ───────────────────────────
+  // El estado es solo para el countdown visual; la fuente de verdad es la BD
+  const [rateLimitUntil, setRateLimitUntil] = useState<number>(0);
   const [rateLimitCountdown, setRateLimitCountdown] = useState('');
 
   useEffect(() => {
@@ -169,14 +168,19 @@ export default function ComiteEvaluador() {
     return () => clearInterval(id);
   }, [rateLimitUntil]);
 
-  const marcarRateLimit = () => {
+  /** Marca el rate-limit en estado local Y lo persiste en BD (por solicitud) */
+  const marcarRateLimit = (solId?: string) => {
     const until = Date.now() + 60 * 60 * 1000;
-    localStorage.setItem('ufca_invite_rate_limit_until', String(until));
     setRateLimitUntil(until);
+    // Persiste en BD: bypassear localStorage borrando caché ya no tiene efecto
+    if (solId) {
+      void supabase.from('solicitudes_asociados')
+        .update({ ultima_invitacion: new Date().toISOString() })
+        .eq('id', solId);
+    }
   };
 
   const limpiarRateLimit = () => {
-    localStorage.removeItem('ufca_invite_rate_limit_until');
     setRateLimitUntil(0);
     setRateLimitCountdown('');
   };
@@ -212,17 +216,14 @@ export default function ComiteEvaluador() {
   useEffect(() => { applyFilter(); }, [solicitudes, searchTerm, filterEstado]);
 
   // Tiempo real: recarga al instante cuando llega un INSERT/UPDATE/DELETE
-  useRealtimeSubscription(
+  // isConnected se usa para mostrar el indicador de reconexión en la UI (Mejora I)
+  const { isConnected: wsConectado } = useRealtimeSubscription(
     'comite_solicitudes_realtime',
     ['solicitudes_asociados'],
     loadSolicitudes,
   );
-
-  // Polling de respaldo: garantiza sincronía aunque el WebSocket falle
-  useEffect(() => {
-    const id = setInterval(loadSolicitudes, 30_000);
-    return () => clearInterval(id);
-  }, []);
+  // El setInterval de polling fue eliminado — useRealtimeSubscription ya maneja
+  // la reconexión automática y recarga datos al recuperar el WebSocket.
 
   // ── Load ──────────────────────────────────────────────────────────────────
   async function loadAll() {
@@ -457,6 +458,10 @@ export default function ComiteEvaluador() {
   // ── Aprobar ───────────────────────────────────────────────────────────────
   async function handleAprobar() {
     if (!selectedSolicitud || selectedSolicitud.estado !== 'pendiente') return;
+    if (verificacionesCompletas < 3) {
+      toast.error('Debes completar toda la lista de verificación antes de aprobar.');
+      return;
+    }
     setApproving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -485,6 +490,18 @@ export default function ComiteEvaluador() {
         .update({ estado: 'pendiente_activacion' })
         .eq('id', selectedSolicitud.id);
 
+      // 3.5 Notificar al aspirante por campanita (queda guardada para cuando active su cuenta)
+      const aspiranteId = (nuevoAsociadoId as string | null) || selectedSolicitud.usuario_id || null;
+      if (aspiranteId) {
+        void supabase.from('notificaciones').insert({
+          titulo:      '🎉 ¡Solicitud aprobada!',
+          mensaje:     `Hola ${selectedSolicitud.nombres}, tu solicitud de afiliación a UFCA ha sido aprobada. Revisa tu correo para activar tu cuenta y realizar el pago de activación.`,
+          tipo:        'afiliacion_aprobada',
+          leida:       false,
+          asociado_id: aspiranteId,
+        });
+      }
+
       // 4. Enviar invitación por email usando el template HTML de Supabase (inviteUserByEmail).
       let inviteEnviado = false;
       let inviteError: string | undefined;
@@ -504,7 +521,7 @@ export default function ComiteEvaluador() {
             inviteError = msg.includes('rate') || msg.includes('limit')
               ? 'RATE_LIMIT'
               : invErr.message;
-            if (inviteError === 'RATE_LIMIT') marcarRateLimit();
+            if (inviteError === 'RATE_LIMIT') marcarRateLimit(selectedSolicitud.id);
             console.warn('[ComiteEvaluador] Error al enviar invitación:', invErr.message);
           } else {
             inviteEnviado = true;
@@ -568,6 +585,18 @@ export default function ComiteEvaluador() {
           ? { ...s, estado: 'rechazada', fechaResolucion: fechaRes, observaciones: motivoFinal }
           : s
       ));
+
+      // Notificar al aspirante por campanita (solo si ya tenía usuario creado)
+      if (selectedSolicitud.usuario_id) {
+        void supabase.from('notificaciones').insert({
+          titulo:      '❌ Solicitud no aprobada',
+          mensaje:     `Hola ${selectedSolicitud.nombres}, lamentamos informarte que tu solicitud de afiliación a UFCA no fue aprobada. Motivo: ${motivoFinal}.`,
+          tipo:        'afiliacion_rechazada',
+          leida:       false,
+          asociado_id: selectedSolicitud.usuario_id,
+        });
+      }
+
       toast.success('Solicitud rechazada y registrada en el historial.');
       setIsRejectOpen(false);
       setIsDetailOpen(false);
@@ -593,12 +622,36 @@ export default function ComiteEvaluador() {
   // ── Reenviar invitación / recordatorio de activación ─────────────────────────
   async function handleReenviarInvitacion(sol: Solicitud) {
     if (!sol.email) { toast.error('Esta solicitud no tiene email registrado'); return; }
-    if (rateLimitUntil > Date.now()) {
+
+    // ── Verificar rate-limit por solicitud en BD (fuente de verdad) ──────────
+    const { data: solRateData } = await supabase
+      .from('solicitudes_asociados')
+      .select('ultima_invitacion')
+      .eq('id', sol.id)
+      .maybeSingle();
+
+    if (solRateData?.ultima_invitacion) {
+      const ultimaMs   = new Date(solRateData.ultima_invitacion).getTime();
+      const cooldownMs = ultimaMs + 60 * 60 * 1000;
+      if (cooldownMs > Date.now()) {
+        // Sincronizar estado local para mostrar el countdown visual correcto
+        setRateLimitUntil(cooldownMs);
+        const rem = cooldownMs - Date.now();
+        const m   = Math.floor(rem / 60000);
+        const s   = Math.floor((rem % 60000) / 1000);
+        toast.error('Correo aún no disponible', {
+          description: `Podrás reenviar en ${m}:${String(s).padStart(2, '0')}.`,
+        });
+        return;
+      }
+    } else if (rateLimitUntil > Date.now()) {
+      // Fallback al estado local si la BD no tiene el campo aún
       toast.error('Correo aún no disponible', {
         description: `Podrás reenviar en ${rateLimitCountdown}.`,
       });
       return;
     }
+
     setReenviando(true);
     try {
       // Si el usuario ya tiene cuenta creada, enviar correo de recuperación
@@ -609,6 +662,11 @@ export default function ComiteEvaluador() {
           { redirectTo: `${APP_URL}/?bienvenido=1` },
         );
         if (resetErr) throw resetErr;
+
+        // Registrar timestamp en BD para este solicitud
+        void supabase.from('solicitudes_asociados')
+          .update({ ultima_invitacion: new Date().toISOString() })
+          .eq('id', sol.id);
 
         limpiarRateLimit();
         setReenviadoSolicitudId(sol.id);
@@ -645,6 +703,11 @@ export default function ComiteEvaluador() {
 
       if (invErr) throw invErr;
 
+      // Registrar timestamp en BD para este solicitud
+      void supabase.from('solicitudes_asociados')
+        .update({ ultima_invitacion: new Date().toISOString() })
+        .eq('id', sol.id);
+
       limpiarRateLimit();
       setReenviadoSolicitudId(sol.id);
       setAprobacionEmailData({
@@ -656,7 +719,7 @@ export default function ComiteEvaluador() {
     } catch (err: any) {
       const msg = err.message ?? String(err);
       if (msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('limit')) {
-        marcarRateLimit();
+        marcarRateLimit(sol.id);
         toast.error('Límite de correos alcanzado', {
           description: 'El botón se habilitará automáticamente en 1 hora.',
         });
@@ -910,6 +973,19 @@ export default function ComiteEvaluador() {
             <h1 className="text-slate-900 mb-1">Comité Evaluador</h1>
             <p className="text-slate-500 text-sm">Gestiona las solicitudes de ingreso a la asociación</p>
           </div>
+
+          {/* Indicador de conexión WebSocket (Mejora I) */}
+          {wsConectado ? (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium">
+              <Wifi className="size-3.5" />
+              <span>En tiempo real</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-300 text-amber-700 text-xs font-medium animate-pulse">
+              <WifiOff className="size-3.5" />
+              <span>Reconectando…</span>
+            </div>
+          )}
         </div>
 
         {/* ── KPIs ── */}
@@ -1080,10 +1156,7 @@ export default function ComiteEvaluador() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mr-3" />
-                <p className="text-slate-500">Cargando solicitudes...</p>
-              </div>
+              <PiggyBankLoader title="Cargando solicitudes..." />
             ) : filteredSolicitudes.length === 0 ? (
               <div className="text-center py-16">
                 <FileText className="size-12 text-slate-300 mx-auto mb-3" />
@@ -1672,29 +1745,14 @@ export default function ComiteEvaluador() {
                             />
                           </div>
                         </div>
+                        {verificacionesCompletas < 3 && (
+                          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
+                            ⚠️ Debes marcar los 3 ítems para poder aprobar la solicitud.
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
 
-                    {/* Comentarios + guardar borrador */}
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                          <MessageSquare className="size-4 text-emerald-600" /> Comentarios del comité
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <Textarea
-                          value={comentariosComite}
-                          onChange={e => setComentariosComite(e.target.value)}
-                          rows={3}
-                          className="resize-none text-sm"
-                          placeholder="Observaciones internas del comité sobre esta solicitud..."
-                        />
-                        <Button variant="outline" className="w-full gap-2" onClick={handleGuardarEvaluacion}>
-                          <FileCheck className="size-4" /> Guardar evaluación (borrador)
-                        </Button>
-                      </CardContent>
-                    </Card>
                   </>
                 )}
               </div>
@@ -1745,8 +1803,10 @@ export default function ComiteEvaluador() {
                       <XCircle className="size-4" /> Rechazar
                     </Button>
                     <Button
-                      className="bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+                      className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={() => setIsApproveOpen(true)}
+                      disabled={verificacionesCompletas < 3}
+                      title={verificacionesCompletas < 3 ? 'Debes completar toda la lista de verificación antes de aprobar' : undefined}
                     >
                       <CheckCircle className="size-4" /> Aprobar solicitud
                     </Button>
@@ -2021,7 +2081,7 @@ Comité Evaluador — UFCA`}
           if (!open) { setIsPagoActivacionOpen(false); setPagoSolicitud(null); setPagoMonto(''); setPagoFecha(''); setPagoObservacion(''); setPagoComprobante(null); }
         }}
       >
-        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[480px] p-0 gap-0 overflow-hidden rounded-2xl">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[480px] p-0 gap-0 overflow-hidden rounded-2xl flex flex-col max-h-[90svh]">
 
           {/* ── Cabecera ─────────────────────────────────────────────────────── */}
           <div className="bg-gradient-to-r from-teal-600 to-emerald-600 px-5 py-4 sm:px-6 sm:py-5">
@@ -2043,7 +2103,7 @@ Comité Evaluador — UFCA`}
           </div>
 
           {/* ── Cuerpo scrollable ─────────────────────────────────────────────── */}
-          <div className="px-5 py-4 sm:px-6 sm:py-5 space-y-4 overflow-y-auto max-h-[calc(100svh-14rem)]">
+          <div className="px-5 py-4 sm:px-6 sm:py-5 space-y-4 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
 
             {/* Aviso de activación */}
             <div className="flex items-start gap-2.5 px-3.5 py-3 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 rounded-xl">

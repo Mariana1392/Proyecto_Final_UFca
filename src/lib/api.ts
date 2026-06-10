@@ -20,7 +20,8 @@ export interface AsociadoRow {
   direccion?: string | null;
   ocupacion?: string | null;
   fecha_ingreso?: string | null;
-  estado: string;
+  /** Campo real de la tabla usuarios — determina si la cuenta está operativa */
+  estado_cuenta?: 'activo' | 'inactivo' | 'suspendido';
   referido_por_id?: string | null;
   periodo_ingreso_id?: string | null;
   anulado: boolean;
@@ -202,7 +203,7 @@ export const asociadosApi = {
 
   /** Activa o desactiva un asociado (campo estado_cuenta en usuarios). */
   async toggleEstado(id: string, activo: boolean) {
-    return asociadosApi.update(id, { estado: activo ? 'activo' : 'inactivo' });
+    return asociadosApi.update(id, { estado_cuenta: activo ? 'activo' : 'inactivo' });
   },
 
   async getReferidos(asociadoId: string) {
@@ -599,7 +600,7 @@ export const dashboardApi = {
         .eq('anulado', false).in('estado', ['activo', 'aprobado', 'desembolsado', 'en_mora']),
       supabase.from('cuentas_ahorro').select('monto_ahorrado').eq('tipo', 'permanente').eq('estado', 'activo').eq('anulado', false),
       supabase.from('cuentas_ahorro').select('monto_ahorrado').eq('tipo', 'voluntario').eq('estado', 'activo').eq('anulado', false),
-      supabase.from('solicitudes_asociados').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
+      supabase.from('solicitudes_asociados').select('*', { count: 'exact', head: true }).in('estado', ['pendiente', 'pendiente_activacion']),
       // R-03: filtro sobre columna real 'estado' (post-migración JSONB→columnas)
       supabase.from('liquidaciones').select('*', { count: 'exact', head: true })
         .not('estado', 'in', '("Pagada","Rechazada","Borrador")'),

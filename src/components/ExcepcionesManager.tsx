@@ -37,6 +37,26 @@ interface ExcepcionesManagerProps {
   userId: string;
 }
 
+/** Deriva el nivel de impacto a partir del tipo de excepción en lugar de hardcodearlo */
+function getImpactoFromTipo(tipo: string): Excepcion['impacto'] {
+  const mapa: Record<string, Excepcion['impacto']> = {
+    // Crítico — comprometen directamente la cartera o la liquidez del fondo
+    'credito_con_mora':              'critico',
+    'retiro_con_deudas':             'critico',
+    // Alto — operaciones que violan reglas financieras importantes
+    'credito_asociado_inactivo':     'alto',
+    'eliminacion_credito_con_pagos': 'alto',
+    'pago_credito_no_desembolsado':  'alto',
+    // Medio — operaciones que violan reglas operativas pero con menor riesgo
+    'retiro_parcial':                'medio',
+    'operacion_periodo_cerrado':     'medio',
+    // Bajo — validaciones menores o de configuración
+    'aporte_menor_minimo':           'bajo',
+    'asociado_referido':             'bajo',
+  };
+  return mapa[tipo] ?? 'medio';
+}
+
 export default function ExcepcionesManager({ userRole, userId }: ExcepcionesManagerProps) {
   const [excepciones, setExcepciones]                     = useState<Excepcion[]>([]);
   const [conteos, setConteos]                             = useState({ pendiente: 0, aprobada: 0, rechazada: 0 });
@@ -89,7 +109,7 @@ export default function ExcepcionesManager({ userRole, userId }: ExcepcionesMana
         tipo:             e.tipo,
         descripcion:      e.descripcion,
         estado:           e.estado,
-        impacto:          'medio' as const,       // campo extra — se puede añadir a la tabla
+        impacto:          getImpactoFromTipo(e.tipo),
         descripcionRegla: e.descripcion,
         reglaViolada:     e.tipo,
         motivo:           e.descripcion,

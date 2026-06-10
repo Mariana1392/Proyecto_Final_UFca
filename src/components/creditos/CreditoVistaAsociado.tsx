@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Plus, Search, X, Calendar, CreditCard, BarChart2, Check, AlertTriangle,
   Eye, Banknote, FileText, Clock, Percent, Table2, Download, CheckCircle2,
-  History, Users,
+  History, Users, Upload, Paperclip,
 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -87,6 +88,8 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
     solBanco, setSolBanco,
     solTipoCuenta, setSolTipoCuenta,
     solNumeroCuenta, setSolNumeroCuenta,
+    solDocCartaLaboral, setSolDocCartaLaboral,
+    solDocCedula, setSolDocCedula,
     tasasParametrizadas,
     handleSolTipoChange,
     parseMonto,
@@ -102,6 +105,46 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
   } = hook;
 
   const hayFiltros = asocSearch.trim() || asocFilterEstado || asocFechaDesde || asocFechaHasta;
+
+  // ── Realtime: notificar al asociado cuando cambia el estado de su crédito ──
+  useEffect(() => {
+    if (!userData?.id) return;
+
+    const ETIQUETAS: Record<string, string> = {
+      aprobado:     '✅ Tu solicitud fue aprobada',
+      rechazado:    '❌ Tu solicitud fue rechazada',
+      en_revision:  '🔍 Tu solicitud está en revisión',
+      desembolsado: '💰 Tu crédito fue desembolsado',
+      en_mora:      '⚠️ Tu crédito entró en mora',
+    };
+
+    const canal = supabase
+      .channel(`creditos-asociado-${userData.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'creditos', filter: `asociado_id=eq.${userData.id}` },
+        (payload) => {
+          const c = payload.new as any;
+          // Actualiza el estado local sin recargar todo
+          hook.setCreditos((prev: any[]) => prev.map((cr: any) =>
+            cr.id === c.id
+              ? { ...cr, estado: c.estado, estadoAprobacion: c.estado, motivoEstadoCambio: c.motivo_estado_cambio ?? '' }
+              : cr
+          ));
+          // Muestra toast informativo si el estado tiene etiqueta
+          const label = ETIQUETAS[c.estado as string];
+          if (label) {
+            toast.info(label, {
+              description: `Crédito de ${formatCurrency(c.monto)}.`,
+              duration: 8000,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(canal); };
+  }, [userData?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -862,7 +905,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
     {/* ── Dialog solicitar crédito (asociado) ── */}
     <Dialog open={isSolicitudDialogOpen} onOpenChange={(open) => {
       setIsSolicitudDialogOpen(open);
-      if (!open) { setSolMonto(''); setSolTipo('libre_inversion'); setSolPlazo(''); setSolTasa(''); setSolDestino(''); setSolObs(''); setSolBanco(''); setSolTipoCuenta('ahorros'); setSolNumeroCuenta(''); }
+      if (!open) { setSolMonto(''); setSolTipo('libre_inversion'); setSolPlazo(''); setSolTasa(''); setSolDestino(''); setSolObs(''); setSolBanco(''); setSolTipoCuenta('ahorros'); setSolNumeroCuenta(''); setSolDocCartaLaboral(null); setSolDocCedula(null); }
     }}>
       <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto">
         <DialogHeader>
@@ -1001,6 +1044,72 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
           <div className="space-y-1.5">
             <Label>Observaciones adicionales</Label>
             <Textarea placeholder="Información adicional para el administrador..." value={solObs} onChange={(e) => setSolObs(e.target.value)} rows={3} />
+          </div>
+
+          {/* ── Documentos de soporte (Mejora F) ── */}
+          <div className="space-y-3 pt-1">
+            <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2 border-t border-slate-100 pt-3">
+              <Paperclip className="size-4 text-emerald-500" />
+              Documentos de soporte
+              <span className="text-xs text-slate-400 font-normal">(opcional pero recomendado)</span>
+            </h4>
+            <p className="text-[11px] text-slate-400 -mt-1">Se guardarán de forma segura en el sistema para revisión del administrador.</p>
+
+            {/* Carta laboral */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-600">Carta laboral / comprobante de ingresos</Label>
+              <label className={`flex items-center gap-3 px-4 py-3 rounded-lg border-2 border-dashed cursor-pointer transition-colors group ${solDocCartaLaboral ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-emerald-300 hover:bg-slate-50'}`}>
+                <Upload className={`size-4 shrink-0 ${solDocCartaLaboral ? 'text-emerald-600' : 'text-slate-400 group-hover:text-emerald-500'}`} />
+                <div className="flex-1 min-w-0">
+                  {solDocCartaLaboral ? (
+                    <span className="text-xs text-emerald-700 font-medium truncate block">{solDocCartaLaboral.name}</span>
+                  ) : (
+                    <span className="text-xs text-slate-500">Haz clic para subir PDF, JPG o PNG — máx. 5 MB</span>
+                  )}
+                </div>
+                {solDocCartaLaboral && (
+                  <button type="button" className="text-slate-400 hover:text-red-500 transition-colors" onClick={e => { e.preventDefault(); setSolDocCartaLaboral(null); }}>
+                    <X className="size-3.5" />
+                  </button>
+                )}
+                <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f && f.size > 5 * 1024 * 1024) { toast.error('El archivo supera 5 MB'); return; }
+                    setSolDocCartaLaboral(f ?? null);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
+
+            {/* Cédula */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-600">Cédula de ciudadanía</Label>
+              <label className={`flex items-center gap-3 px-4 py-3 rounded-lg border-2 border-dashed cursor-pointer transition-colors group ${solDocCedula ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-emerald-300 hover:bg-slate-50'}`}>
+                <Upload className={`size-4 shrink-0 ${solDocCedula ? 'text-emerald-600' : 'text-slate-400 group-hover:text-emerald-500'}`} />
+                <div className="flex-1 min-w-0">
+                  {solDocCedula ? (
+                    <span className="text-xs text-emerald-700 font-medium truncate block">{solDocCedula.name}</span>
+                  ) : (
+                    <span className="text-xs text-slate-500">Haz clic para subir PDF, JPG o PNG — máx. 5 MB</span>
+                  )}
+                </div>
+                {solDocCedula && (
+                  <button type="button" className="text-slate-400 hover:text-red-500 transition-colors" onClick={e => { e.preventDefault(); setSolDocCedula(null); }}>
+                    <X className="size-3.5" />
+                  </button>
+                )}
+                <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f && f.size > 5 * 1024 * 1024) { toast.error('El archivo supera 5 MB'); return; }
+                    setSolDocCedula(f ?? null);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
           </div>
 
           <div className="space-y-3 pt-1">

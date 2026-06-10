@@ -111,14 +111,14 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
       desde.setDate(1);
       const desdeStr = desde.toISOString().split('T')[0];
 
-      // 3 consultas en paralelo — antes eran 4 (3 paralelas + 1 secuencial)
-      const [{ data: pagosPerm }, { data: pagosVol }, { data: todosCreditos }] = await Promise.all([
+      // 5 consultas en paralelo — incluye cuentas anuladas y configuración del fondo
+      const [{ data: pagosPerm }, { data: pagosVol }, { data: todosCreditos }, { data: cuentasAnuladas }, { data: configFondo }] = await Promise.all([
         supabase.from('transacciones')
-          .select('fecha_pago, monto')
+          .select('fecha_pago, monto, ahorro_id')
           .eq('tipo', 'aporte_permanente')
           .gte('fecha_pago', desdeStr),
         supabase.from('transacciones')
-          .select('fecha_pago, monto')
+          .select('fecha_pago, monto, ahorro_id')
           .eq('tipo', 'aporte_voluntario')
           .gte('fecha_pago', desdeStr),
         supabase.from('creditos')
@@ -126,7 +126,19 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
           .neq('anulado', true)
           .gte('created_at', desdeStr + 'T00:00:00')
           .order('created_at', { ascending: true }),
+        supabase.from('cuentas_ahorro')
+          .select('id')
+          .eq('anulado', true),
+        supabase.from('configuracion')
+          .select('valor')
+          .eq('clave', 'fecha_inicio_fondo')
+          .maybeSingle(),
       ]);
+
+      // IDs de cuentas anuladas — sus transacciones no deben aparecer en la gráfica
+      const idsAnulados = new Set((cuentasAnuladas || []).map((c: any) => c.id));
+      const permFiltrado = (pagosPerm || []).filter((t: any) => !t.ahorro_id || !idsAnulados.has(t.ahorro_id));
+      const volFiltrado  = (pagosVol  || []).filter((t: any) => !t.ahorro_id || !idsAnulados.has(t.ahorro_id));
 
       // ── Área chart: 6 meses ───────────────────────────────────────────────
       const meses: { key: string; mes: string; permanente: number; voluntario: number; creditos: number }[] = [];
@@ -138,11 +150,11 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
         meses.push({ key, mes: mes.charAt(0).toUpperCase() + mes.slice(1, 3), permanente: 0, voluntario: 0, creditos: 0 });
       }
 
-      (pagosPerm || []).forEach((m: any) => {
+      permFiltrado.forEach((m: any) => {
         const entry = meses.find(x => x.key === m.fecha_pago?.substring(0, 7));
         if (entry) entry.permanente += m.monto || 0;
       });
-      (pagosVol || []).forEach((m: any) => {
+      volFiltrado.forEach((m: any) => {
         const entry = meses.find(x => x.key === m.fecha_pago?.substring(0, 7));
         if (entry) entry.voluntario += m.monto || 0;
       });
@@ -154,7 +166,10 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
       setMonthlyData(meses);
 
       // ── Bar chart: ventana de 3 meses (filtra sobre los datos ya descargados) ─
-      const INICIO_FONDO = new Date(2026, 5, 1);
+      // Lee fecha_inicio_fondo de la tabla configuracion; fallback al valor original hardcodeado
+      const INICIO_FONDO = configFondo?.valor
+        ? new Date((configFondo as any).valor + 'T00:00:00')
+        : new Date(2026, 5, 1);
       const hoy = new Date();
       const ventanaInicio = new Date(Math.max(
         new Date(hoy.getFullYear(), hoy.getMonth() - 2, 1).getTime(),

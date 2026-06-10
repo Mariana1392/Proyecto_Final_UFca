@@ -39,26 +39,34 @@ END;
 $$;
 
 -- Crear triggers en las tablas financieras críticas
+-- Tablas reales del esquema verificadas contra api.ts
 DO $do$
 DECLARE
   t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
+    -- Tablas base del documento (mejora H)
+    'usuarios',
     'creditos',
-    'pagos_credito',
-    'ahorros_permanentes',
-    'ahorros_voluntarios',
-    'pagos_ahorro_permanente',
-    'pagos_ahorro_voluntario',
-    'liquidaciones'
+    'cuentas_ahorro',
+    'transacciones',
+    -- Tablas adicionales ya existentes
+    'liquidaciones',
+    'solicitudes_asociados'
   ] LOOP
-    EXECUTE format(
-      'DROP TRIGGER IF EXISTS tg_auditoria_%1$s ON %1$s;
-       CREATE TRIGGER tg_auditoria_%1$s
-         AFTER INSERT OR UPDATE OR DELETE ON %1$s
-         FOR EACH ROW EXECUTE FUNCTION public.registrar_auditoria_automatica();',
-      t
-    );
+    -- Verificar que la tabla existe antes de crear el trigger
+    IF EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = t
+    ) THEN
+      EXECUTE format(
+        'DROP TRIGGER IF EXISTS tg_auditoria_%1$s ON %1$s;
+         CREATE TRIGGER tg_auditoria_%1$s
+           AFTER INSERT OR UPDATE OR DELETE ON %1$s
+           FOR EACH ROW EXECUTE FUNCTION public.registrar_auditoria_automatica();',
+        t
+      );
+    END IF;
   END LOOP;
 END;
 $do$;
@@ -90,18 +98,21 @@ DECLARE
 BEGIN
   FOREACH t IN ARRAY ARRAY[
     'creditos',
-    'pagos_credito',
-    'pagos_ahorro_permanente',
-    'pagos_ahorro_voluntario',
+    'transacciones',
     'liquidaciones'
   ] LOOP
-    EXECUTE format(
-      'DROP TRIGGER IF EXISTS tg_bloquear_delete_%1$s ON %1$s;
-       CREATE TRIGGER tg_bloquear_delete_%1$s
-         BEFORE DELETE ON %1$s
-         FOR EACH ROW EXECUTE FUNCTION public.bloquear_delete_financiero();',
-      t
-    );
+    IF EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = t
+    ) THEN
+      EXECUTE format(
+        'DROP TRIGGER IF EXISTS tg_bloquear_delete_%1$s ON %1$s;
+         CREATE TRIGGER tg_bloquear_delete_%1$s
+           BEFORE DELETE ON %1$s
+           FOR EACH ROW EXECUTE FUNCTION public.bloquear_delete_financiero();',
+        t
+      );
+    END IF;
   END LOOP;
 END;
 $do$;

@@ -228,7 +228,7 @@ export function useCreditosCRUD({
           cuota_mensual:             cuota,
           tipo_interes:              formTipoInteres,
           saldo:                     monto,
-          estado:                    'activo',
+          estado:                    formEstadoAprobacion,   // respeta lo elegido en el formulario
           anulado:                   false,
           fecha_desembolso:          formFecha || null,
           observaciones:             formDescSoporte.trim() || null,
@@ -247,7 +247,7 @@ export function useCreditosCRUD({
           estadoAprobacion:   formEstadoAprobacion,
           descripcionSoporte: formDescSoporte,
           urlDocumento:       urlFinal ?? '',
-          estado: 'activo', anulado: false, motivoAnulacion: '',
+          estado:             formEstadoAprobacion, anulado: false, motivoAnulacion: '',
           editadoPor: '', editadoEn: '',
           fechaEstadoCambio:  formFechaEstado || '',
           motivoEstadoCambio: formMotivoEstado || '',

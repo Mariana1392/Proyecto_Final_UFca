@@ -7,7 +7,7 @@ import { Badge } from './ui/badge';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Plus, ChevronLeft, ChevronRight, UserCircle, Edit, Trash2, Shield, Clock, FileText, AlertTriangle, User, Lock } from 'lucide-react';
+import { Search, Plus, ChevronLeft, ChevronRight, UserCircle, UserCircle2, Edit, Trash2, Shield, Clock, FileText, AlertTriangle, User, Lock, History, Unlock } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
@@ -84,35 +84,42 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
 
   const validarCampoUsuario = (name: string, value: string) => {
     let error = '';
+    const v = value.trim();
     switch (name) {
       case 'cedula':
-        if (!value.trim()) error = 'La identificación es obligatoria';
-        else if (!/^\d+$/.test(value.trim())) error = 'Solo se permiten números';
-        else if (value.trim().length > 15) error = 'Máximo 15 dígitos';
+        if (!v) error = 'La identificación es obligatoria';
+        else if (!/^\d+$/.test(v)) error = 'Solo se permiten números';
+        else if (v.length < 6) error = 'Mínimo 6 dígitos';
+        else if (v.length > 15) error = 'Máximo 15 dígitos';
+        else if (usuarios.some(u => u.cedula === v)) error = '⚠ Esta cédula ya está registrada';
         break;
       case 'username':
-        if (!value.trim()) error = 'El nombre de usuario es obligatorio';
+        if (!v) error = 'El nombre de usuario es obligatorio';
+        else if (v.length < 3) error = 'Mínimo 3 caracteres';
+        else if (usuarios.some(u => u.username?.toLowerCase() === v.toLowerCase())) error = '⚠ Este nombre de usuario ya está en uso';
         break;
       case 'nombre':
-        if (!value.trim()) error = 'El nombre completo es obligatorio';
+        if (!v) error = 'El nombre completo es obligatorio';
+        else if (v.length < 3) error = 'Mínimo 3 caracteres';
         break;
       case 'email':
-        if (!value.trim()) error = 'El correo es obligatorio';
-        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) error = 'Formato de correo no válido';
+        if (!v) error = 'El correo es obligatorio';
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) error = 'Formato de correo no válido';
+        else if (usuarios.some(u => u.email?.toLowerCase() === v.toLowerCase())) error = '⚠ Este correo ya está registrado';
         break;
       case 'telefono':
-        if (!value.trim()) error = 'El teléfono es obligatorio';
-        else if (value.trim().length > 15) error = 'Máximo 15 caracteres';
+        if (!v) error = 'El teléfono es obligatorio';
+        else if (v.length > 15) error = 'Máximo 15 caracteres';
         break;
       case 'password':
-        if (!value.trim()) error = 'La contraseña es obligatoria';
-        else if (value.trim().length < 6) error = 'Mínimo 6 caracteres';
+        if (!v) error = 'La contraseña es obligatoria';
+        else if (v.length < 6) error = 'Mínimo 6 caracteres';
         break;
       case 'direccion':
-        if (!value.trim()) error = 'La dirección es obligatoria para asociados';
+        if (!v) error = 'La dirección es obligatoria para asociados';
         break;
       case 'fechaIngreso':
-        if (!value.trim()) error = 'La fecha de ingreso es obligatoria';
+        if (!v) error = 'La fecha de ingreso es obligatoria';
         break;
     }
     setFormErrors(prev => ({ ...prev, [name]: error }));
@@ -121,11 +128,12 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
 
   const handleFormChange = (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (formErrors[name]) validarCampoUsuario(name, value);
+    validarCampoUsuario(name, value);
   };
 
   const [auditoria, setAuditoria]           = useState<any[]>([]);
   const [auditoriaPage, setAuditoriaPage]   = useState(1);
+  const [auditFiltro, setAuditFiltro]       = useState('todos');
   const AUDITORIA_PER_PAGE = 5;
   const [filterRol, setFilterRol]           = useState('');
   const [filterEstado, setFilterEstado]     = useState('');
@@ -158,13 +166,32 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       { data: usData, error: usErr },
       { data: rolesData },
       { data: auditoriaData },
+      { data: creditosData },
+      { data: cuentasData },
     ] = await Promise.all([
       supabase.from('usuarios').select('*, roles(nombre, es_sistema)').order('nombre'),
       supabase.from('roles').select('*').order('nombre'),
       supabase.from('auditoria').select('*').eq('tabla', 'usuarios').order('created_at', { ascending: false }).limit(100),
+      supabase.from('creditos').select('asociado_id, estado, anulado'),
+      supabase.from('cuentas_ahorro').select('asociado_id, tipo, estado, anulado, monto_ahorrado'),
     ]);
 
     if (usErr) throw usErr;
+
+    // Construir sets de estado financiero por usuario
+    const conHistorial    = new Set<string>();
+    const conObligaciones = new Set<string>();
+
+    for (const c of (creditosData || [])) {
+      conHistorial.add(c.asociado_id);
+      if (!c.anulado && ['activo', 'pendiente', 'aprobado'].includes(c.estado))
+        conObligaciones.add(c.asociado_id);
+    }
+    for (const ah of (cuentasData || [])) {
+      conHistorial.add(ah.asociado_id);
+      if (!ah.anulado && ah.tipo === 'permanente' && ah.estado === 'activo' && ah.monto_ahorrado > 0)
+        conObligaciones.add(ah.asociado_id);
+    }
 
     const usuariosMapeados = (usData || []).map((u: any) => {
       const rolDb = u.roles?.nombre ?? 'usuario';
@@ -188,6 +215,8 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         fechaModificacion: u.updated_at?.split('T')[0] ?? '—',
         soloLectura:      false,
         esSistema:        rolDb === 'admin' && (u.roles?.es_sistema ?? false),
+        tieneHistorialFinanciero: conHistorial.has(u.id),
+        tieneObligacionesActivas: conObligaciones.has(u.id),
       };
     });
 
@@ -196,6 +225,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
 
     // Cargar auditoría persistida desde Supabase
     const auditoriaFormateada = (auditoriaData || []).map((r: any) => ({
+      id:               r.id,
       usuarioId:        r.usuario_id,
       usuarioNombre:    r.datos_despues?.usuarioNombre ?? '—',
       estadoAnterior:   r.datos_despues?.estadoAnterior ?? '—',
@@ -263,7 +293,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         cambios:          registro.cambios ?? [],
       },
     });
-    setAuditoria(prev => [registro, ...prev]);
+    setAuditoria(prev => [{ ...registro, id: String(Date.now()) }, ...prev]);
     setAuditoriaPage(1);
   }
 
@@ -428,11 +458,17 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         email:          formData.email.trim(),
         username:       formData.username.trim().toLowerCase(),
         cedula:         formData.cedula.trim(),
+        telefono:       formData.telefono.trim(),
         rol_id:         rolSeleccionado?.id,
         activo:         true,
         ...camposAsociado,
       });
       if (userErr) throw userErr;
+
+      const fechaHoraCreacion = new Date().toLocaleString('es-CO', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+      });
 
       setUsuarios(prev => [...prev, {
         id:             authData.user!.id,
@@ -448,6 +484,16 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         fechaCreacion:  new Date().toISOString().split('T')[0],
         soloLectura:    false,
       }]);
+
+      guardarAuditoria({
+        usuarioId:        authData.user!.id,
+        usuarioNombre:    formData.nombre.trim(),
+        estadoAnterior:   '—',
+        estadoNuevo:      `Rol: ${formData.rol} | Email: ${formData.email.trim()}`,
+        fechaHora:        fechaHoraCreacion,
+        adminResponsable: authUser?.nombre ?? 'Desconocido',
+        accion:           'CREACIÓN',
+      });
 
       toast.success(`Usuario "${formData.nombre}" creado exitosamente`);
       setIsCreateModalOpen(false);
@@ -511,6 +557,8 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
           email:          formData.email.trim(),
           username:       formData.username.trim().toLowerCase(),
           cedula:         formData.cedula.trim(),
+          telefono:       formData.telefono.trim(),
+          direccion:      formData.direccion.trim(),
           rol_id:         rolSeleccionado?.id,
         })
         .eq('id', selectedUsuario.id);
@@ -578,37 +626,24 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       return;
     }
 
-    // Verificar que no existan registros vinculados en ninguna tabla relacionada
+    // Bloquear eliminación si el usuario tiene CUALQUIER historial financiero,
+    // sin importar el estado, saldo o si está anulado. En una cooperativa financiera
+    // los actores con historial nunca se eliminan — solo se desactivan.
     if (selectedUsuario.asociado_id) {
       try {
         const id = selectedUsuario.asociado_id;
         const [creditosRes, ahorrosRes] = await Promise.all([
-          // Solo bloquear si tiene créditos con saldo pendiente real (saldo > 0).
-          // Créditos en estado desembolsado/activo con saldo=0 ya están pagados
-          // y no deben impedir la eliminación.
-          supabase.from('creditos').select('id, saldo')
-            .eq('asociado_id', id)
-            .eq('anulado', false)
-            .in('estado', ['pendiente', 'aprobado', 'desembolsado', 'en_mora', 'activo'])
-            .gt('saldo', 0)
-            .limit(1),
-          // Solo bloquear si tiene ahorros permanentes activos con saldo real
-          supabase.from('cuentas_ahorro').select('id, monto_ahorrado')
-            .eq('tipo', 'permanente')
-            .eq('asociado_id', id)
-            .eq('estado', 'activo')
-            .eq('anulado', false)
-            .gt('monto_ahorrado', 0)
-            .limit(1),
+          supabase.from('creditos').select('id').eq('asociado_id', id).limit(1),
+          supabase.from('cuentas_ahorro').select('id').eq('asociado_id', id).limit(1),
         ]);
 
-        const bloqueos: string[] = [];
-        if ((creditosRes.data?.length ?? 0) > 0) bloqueos.push('créditos con saldo pendiente');
-        if ((ahorrosRes.data?.length  ?? 0) > 0) bloqueos.push('ahorros permanentes con saldo');
+        const tieneHistorial: string[] = [];
+        if ((creditosRes.data?.length ?? 0) > 0) tieneHistorial.push('créditos');
+        if ((ahorrosRes.data?.length  ?? 0) > 0) tieneHistorial.push('cuentas de ahorro');
 
-        if (bloqueos.length > 0) {
-          toast.error('No se puede eliminar este asociado', {
-            description: `Tiene registros vinculados: ${bloqueos.join(', ')}. Elimínalos primero desde sus módulos correspondientes.`,
+        if (tieneHistorial.length > 0) {
+          toast.error('No se puede eliminar este usuario', {
+            description: `Tiene historial financiero: ${tieneHistorial.join(', ')}. El flujo correcto es desactivar la cuenta, no eliminarla.`,
             duration: 8000,
           });
           setIsDeleteDialogOpen(false); setSelectedUsuario(null); return;
@@ -884,6 +919,12 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                                 <Lock className="size-3.5 text-slate-400" />
                                 <span className="text-sm text-slate-500">Siempre activo</span>
                               </div>
+                            ) : usuario.estado && usuario.tieneObligacionesActivas ? (
+                              /* Activo con obligaciones financieras: no se puede desactivar */
+                              <div className="flex items-center gap-2" title="Tiene créditos o ahorros activos — usa el flujo de liquidación para desactivar">
+                                <Lock className="size-3.5 text-amber-400" />
+                                <span className="text-sm text-slate-600">Activo</span>
+                              </div>
                             ) : (
                               <>
                                 <Switch
@@ -914,7 +955,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                                   <FileText className="size-4 text-slate-500" />
                                 </Button>
                               ) : (
-                                /* Activo: editar + eliminar */
+                                /* Activo: editar + eliminar (eliminar solo si no tiene historial financiero) */
                                 <>
                                   {!usuario.soloLectura && (
                                     <Button
@@ -925,13 +966,15 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                                       <Edit className="size-4" />
                                     </Button>
                                   )}
-                                  <Button
-                                    variant="outline" size="sm"
-                                    onClick={(e: { stopPropagation: () => void; }) => { e.stopPropagation(); setSelectedUsuario(usuario); setIsDeleteDialogOpen(true); }}
-                                    title="Eliminar usuario"
-                                  >
-                                    <Trash2 className="size-4 text-red-600" />
-                                  </Button>
+                                  {!usuario.tieneHistorialFinanciero && (
+                                    <Button
+                                      variant="outline" size="sm"
+                                      onClick={(e: { stopPropagation: () => void; }) => { e.stopPropagation(); setSelectedUsuario(usuario); setIsDeleteDialogOpen(true); }}
+                                      title="Eliminar usuario"
+                                    >
+                                      <Trash2 className="size-4 text-red-600" />
+                                    </Button>
+                                  )}
                                 </>
                               )}
                             </div>
@@ -976,137 +1019,200 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
           </CardContent>
         </Card>
 
-        {/* Registro de auditoría */}
-        {auditoria.length > 0 && (() => {
-          const totalAudPaginas = Math.ceil(auditoria.length / AUDITORIA_PER_PAGE);
-          const audPagina = auditoria.slice(
-            (auditoriaPage - 1) * AUDITORIA_PER_PAGE,
-            auditoriaPage * AUDITORIA_PER_PAGE,
-          );
+        {/* Historial de cambios — timeline */}
+        {(() => {
+          const ACTION_CFG: Record<string, { icon: JSX.Element; color: string; bg: string; border: string; dot: string }> = {
+            'CREACIÓN':     { icon: <Plus className="size-3.5" />,    color: 'text-emerald-700', bg: 'bg-emerald-50',  border: 'border-emerald-200', dot: 'bg-emerald-500' },
+            'EDICIÓN':      { icon: <Edit className="size-3.5" />,    color: 'text-blue-700',    bg: 'bg-blue-50',     border: 'border-blue-200',    dot: 'bg-blue-500'    },
+            'ELIMINACIÓN':  { icon: <Trash2 className="size-3.5" />,  color: 'text-red-700',     bg: 'bg-red-50',      border: 'border-red-200',     dot: 'bg-red-500'     },
+            'ACTIVACIÓN':   { icon: <Unlock className="size-3.5" />,  color: 'text-green-700',   bg: 'bg-green-50',    border: 'border-green-200',   dot: 'bg-green-500'   },
+            'DESACTIVACIÓN':{ icon: <Lock className="size-3.5" />,    color: 'text-orange-700',  bg: 'bg-orange-50',   border: 'border-orange-200',  dot: 'bg-orange-500'  },
+          };
+          const getCfg = (accion: string) =>
+            ACTION_CFG[accion] ?? { icon: <History className="size-3.5" />, color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200', dot: 'bg-slate-400' };
+
+          const getDetalle = (entry: any) => {
+            if (entry.accion === 'EDICIÓN') {
+              if (Array.isArray(entry.cambios) && entry.cambios.length > 0)
+                return entry.cambios.map((c: any) => `${c.campo}: ${c.antes} → ${c.despues}`).join(' · ');
+              return 'Sin cambios registrados';
+            }
+            return entry.estadoNuevo || '—';
+          };
+
+          const conteoPorAccion = auditoria.reduce((acc, e) => {
+            const k = e.accion ?? 'SIN_ACCION';
+            acc[k] = (acc[k] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+
+          const auditFiltrada   = auditFiltro === 'todos' ? auditoria : auditoria.filter(e => e.accion === auditFiltro);
+          const totalAudPaginas = Math.ceil(auditFiltrada.length / AUDITORIA_PER_PAGE);
+          const audPagina       = auditFiltrada.slice((auditoriaPage - 1) * AUDITORIA_PER_PAGE, auditoriaPage * AUDITORIA_PER_PAGE);
+
           return (
             <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="size-5 text-emerald-600" />
-                      Registro de Cambios de Estado
-                    </CardTitle>
-                    <p className="text-sm text-slate-600 mt-1">
-                      Historial de activaciones, desactivaciones y eliminaciones
-                    </p>
-                  </div>
-                  <span className="text-xs text-slate-400">{auditoria.length} registro(s)</span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-lg border border-slate-200 overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Usuario</TableHead>
-                        <TableHead>Acción</TableHead>
-                        <TableHead>Detalle de cambios</TableHead>
-                        <TableHead>Fecha y hora</TableHead>
-                        <TableHead>Admin responsable</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {audPagina.map((registro, index) => (
-                        <TableRow key={index} className="align-top">
-                          <TableCell>
-                            <div className="flex items-center gap-2 pt-0.5">
-                              <div className="p-1.5 bg-cyan-100 rounded-lg">
-                                <UserCircle className="size-3.5 text-cyan-600" />
-                              </div>
-                              <span className="text-sm font-medium text-slate-900">{registro.usuarioNombre}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="pt-1">
-                            <Badge className={
-                              registro.accion === 'ACTIVACIÓN'  ? 'bg-emerald-100 text-emerald-700' :
-                              registro.accion === 'ELIMINACIÓN' ? 'bg-red-100 text-red-700'         :
-                              registro.accion === 'EDICIÓN'     ? 'bg-blue-100 text-blue-700'       :
-                                                                   'bg-orange-100 text-orange-700'
-                            }>
-                              {registro.accion}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {registro.accion === 'EDICIÓN' && Array.isArray(registro.cambios) && registro.cambios.length > 0 ? (
-                              <div className="space-y-1">
-                                {registro.cambios.map((c: any, i: number) => (
-                                  <div key={i} className="flex items-start gap-1.5 text-xs">
-                                    <span className="font-semibold text-slate-600 shrink-0 w-24">{c.campo}:</span>
-                                    <span className="text-red-500 line-through truncate max-w-[100px]" title={c.antes}>{c.antes}</span>
-                                    <span className="text-slate-400">→</span>
-                                    <span className="text-emerald-600 font-medium truncate max-w-[100px]" title={c.despues}>{c.despues}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-sm text-slate-600">
-                                {registro.accion === 'EDICIÓN' ? 'Sin cambios registrados' : registro.estadoNuevo}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="pt-1">
-                            <div className="flex items-center gap-2 text-sm text-slate-700">
-                              <Clock className="size-3.5 text-slate-400" />
-                              {registro.fechaHora}
-                            </div>
-                          </TableCell>
-                          <TableCell className="pt-1">
-                            <div className="flex items-center gap-2">
-                              <div className="p-1.5 bg-emerald-100 rounded-lg">
-                                <Shield className="size-3.5 text-emerald-600" />
-                              </div>
-                              <span className="text-sm text-slate-700">{registro.adminResponsable}</span>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                {/* Paginación del historial */}
-                {totalAudPaginas > 1 && (
-                  <div className="flex items-center justify-between mt-4 px-1">
-                    <p className="text-xs text-slate-500">
-                      Mostrando {(auditoriaPage - 1) * AUDITORIA_PER_PAGE + 1}–
-                      {Math.min(auditoriaPage * AUDITORIA_PER_PAGE, auditoria.length)} de {auditoria.length}
-                    </p>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setAuditoriaPage(p => Math.max(1, p - 1))}
-                        disabled={auditoriaPage === 1}
-                        className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                      >
-                        ← Anterior
-                      </button>
-                      {Array.from({ length: totalAudPaginas }, (_, i) => i + 1).map(p => (
-                        <button
-                          key={p}
-                          onClick={() => setAuditoriaPage(p)}
-                          className={`w-8 h-8 text-xs rounded-lg border transition-colors ${
-                            p === auditoriaPage
-                              ? 'bg-emerald-600 text-white border-emerald-600 font-semibold'
-                              : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                          }`}
-                        >
-                          {p}
-                        </button>
-                      ))}
-                      <button
-                        onClick={() => setAuditoriaPage(p => Math.min(totalAudPaginas, p + 1))}
-                        disabled={auditoriaPage === totalAudPaginas}
-                        className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Siguiente →
-                      </button>
+              <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg shrink-0">
+                      <History className="size-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <CardTitle>Historial de Cambios</CardTitle>
+                      <p className="text-sm text-slate-500 mt-0.5">
+                        {auditoria.length} registro{auditoria.length !== 1 ? 's' : ''}
+                      </p>
                     </div>
                   </div>
+                </div>
+
+                {/* Chips de filtro */}
+                {auditoria.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    <button
+                      onClick={() => { setAuditFiltro('todos'); setAuditoriaPage(1); }}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                        auditFiltro === 'todos'
+                          ? 'bg-slate-800 text-white border-slate-800'
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'
+                      }`}
+                    >
+                      Todos
+                      <span className={`font-bold ${auditFiltro === 'todos' ? 'text-slate-300' : 'text-slate-400'}`}>
+                        {auditoria.length}
+                      </span>
+                    </button>
+                    {Object.entries(conteoPorAccion).map(([accion, count]) => {
+                      const cfg = getCfg(accion);
+                      const activo = auditFiltro === accion;
+                      return (
+                        <button
+                          key={accion}
+                          onClick={() => { setAuditFiltro(activo ? 'todos' : accion); setAuditoriaPage(1); }}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                            activo
+                              ? `${cfg.bg} ${cfg.border} ${cfg.color} ring-2 ring-offset-1 ring-current/40`
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          <span className={`size-2 rounded-full shrink-0 ${cfg.dot}`} />
+                          {accion}
+                          <span className={`font-bold ${activo ? '' : 'text-slate-400'}`}>{count as number}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardHeader>
+
+              <CardContent>
+                {auditoria.length === 0 ? (
+                  <div className="text-center py-14">
+                    <div className="inline-flex items-center justify-center size-14 rounded-full bg-slate-100 mb-4">
+                      <History className="size-7 text-slate-300" />
+                    </div>
+                    <p className="font-medium text-slate-500">Sin registros aún</p>
+                    <p className="text-sm text-slate-400 mt-1">Los cambios en usuarios aparecerán aquí automáticamente</p>
+                  </div>
+                ) : auditFiltrada.length === 0 ? (
+                  <div className="text-center py-10">
+                    <p className="text-sm text-slate-400">Sin registros para esta acción.</p>
+                    <button
+                      onClick={() => { setAuditFiltro('todos'); setAuditoriaPage(1); }}
+                      className="mt-2 text-xs text-blue-600 hover:underline"
+                    >
+                      Ver todos los registros
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Timeline */}
+                    <div className="relative pl-1">
+                      <div className="absolute left-[19px] top-5 bottom-5 w-px bg-slate-200 dark:bg-slate-700" />
+                      <div className="space-y-3">
+                        {audPagina.map((entry) => {
+                          const cfg = getCfg(entry.accion);
+                          return (
+                            <div key={entry.id} className="relative flex gap-3 items-start group">
+                              {/* Ícono */}
+                              <div className={`relative z-10 flex items-center justify-center size-10 rounded-full border-2 border-white shadow-sm shrink-0 ${cfg.bg}`}>
+                                <span className={cfg.color}>{cfg.icon}</span>
+                              </div>
+
+                              {/* Tarjeta */}
+                              <div className={`flex-1 p-3.5 rounded-xl border transition-shadow group-hover:shadow-sm ${cfg.bg} ${cfg.border}`}>
+                                <div className="flex items-start justify-between gap-2 flex-wrap mb-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-[11px] font-bold uppercase tracking-wider ${cfg.color}`}>
+                                      {entry.accion ?? '—'}
+                                    </span>
+                                    <span className="text-[11px] text-slate-500 font-medium">
+                                      · {entry.usuarioNombre}
+                                    </span>
+                                  </div>
+                                  <span className="text-[11px] text-slate-400 flex items-center gap-1 shrink-0">
+                                    <Clock className="size-3" />
+                                    {entry.fechaHora}
+                                  </span>
+                                </div>
+
+                                {/* Detalle */}
+                                {entry.accion === 'EDICIÓN' && Array.isArray(entry.cambios) && entry.cambios.length > 0 ? (
+                                  <div className="space-y-1 mt-1">
+                                    {entry.cambios.map((c: any, i: number) => (
+                                      <div key={i} className="flex items-center gap-1.5 text-xs">
+                                        <span className="font-semibold text-slate-600 shrink-0">{c.campo}:</span>
+                                        <span className="text-red-500 line-through truncate max-w-[120px]" title={c.antes}>{c.antes}</span>
+                                        <span className="text-slate-400">→</span>
+                                        <span className="text-emerald-600 font-medium truncate max-w-[120px]" title={c.despues}>{c.despues}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-slate-700 leading-relaxed">{getDetalle(entry)}</p>
+                                )}
+
+                                <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-current/10">
+                                  <UserCircle2 className={`size-3.5 ${cfg.color} opacity-70`} />
+                                  <span className="text-xs text-slate-500">
+                                    <span className="font-semibold text-slate-600">{entry.adminResponsable}</span>
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Paginación */}
+                    {totalAudPaginas > 1 && (
+                      <div className="flex items-center justify-between mt-5 pt-4 border-t border-slate-100">
+                        <p className="text-xs text-slate-500">
+                          {(auditoriaPage - 1) * AUDITORIA_PER_PAGE + 1}–{Math.min(auditoriaPage * AUDITORIA_PER_PAGE, auditFiltrada.length)} de {auditFiltrada.length} registro{auditFiltrada.length !== 1 ? 's' : ''}
+                          {auditFiltro !== 'todos' && (
+                            <button onClick={() => { setAuditFiltro('todos'); setAuditoriaPage(1); }} className="ml-2 text-blue-600 hover:underline">
+                              Ver todos
+                            </button>
+                          )}
+                        </p>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setAuditoriaPage(1)} disabled={auditoriaPage === 1}
+                            className="px-2 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">«</button>
+                          <button onClick={() => setAuditoriaPage(p => Math.max(1, p - 1))} disabled={auditoriaPage === 1}
+                            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">‹ Ant.</button>
+                          <span className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 rounded-lg">
+                            {auditoriaPage} / {totalAudPaginas}
+                          </span>
+                          <button onClick={() => setAuditoriaPage(p => Math.min(totalAudPaginas, p + 1))} disabled={auditoriaPage === totalAudPaginas}
+                            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Sig. ›</button>
+                          <button onClick={() => setAuditoriaPage(totalAudPaginas)} disabled={auditoriaPage === totalAudPaginas}
+                            className="px-2 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">»</button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -1497,10 +1603,10 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                 </ul>
               </span>
               <span className="block text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
-                ⚠️ <strong>Solo para asociados retirados o cuentas de prueba.</strong> Si el asociado
-                aún tiene créditos con saldo pendiente o ahorros activos con saldo, la eliminación
-                será bloqueada. El flujo correcto para un asociado activo es: cerrar créditos →
-                crear <strong>Liquidación</strong> → desactivar cuenta.
+                ⚠️ <strong>Solo para cuentas sin historial financiero</strong> (creadas por error o de prueba).
+                Si el usuario tiene créditos o cuentas de ahorro — aunque estén pagados o cerrados —
+                la eliminación será bloqueada. El flujo correcto es: cerrar créditos →
+                crear <strong>Liquidación</strong> → <strong>desactivar</strong> la cuenta.
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>

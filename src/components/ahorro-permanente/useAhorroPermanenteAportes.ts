@@ -216,7 +216,7 @@ export function useAhorroPermanenteAportes({
         mensaje:     `Tu aporte de ${formatCurrency(ap.monto)} (${ap.medio_pago ?? ''}) fue confirmado. Nuevo saldo: ${formatCurrency(saldoNuevo)}.`,
         tipo:        'pago_registrado',
         leida:       false,
-        asociado_id: ap.asociado_id,
+        usuario_id: ap.asociado_id,
       });
 
       setAportesPendientes(prev =>
@@ -245,7 +245,7 @@ export function useAhorroPermanenteAportes({
         mensaje:     `Tu reporte de aporte de ${formatCurrency(aporteSeleccionado.monto)} no fue confirmado. Motivo: ${notaRechazoAporte.trim()}`,
         tipo:        'general',
         leida:       false,
-        asociado_id: aporteSeleccionado.asociado_id,
+        usuario_id: aporteSeleccionado.asociado_id,
       });
 
       setAportesPendientes(prev =>

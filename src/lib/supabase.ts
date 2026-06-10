@@ -132,6 +132,8 @@ export type Credito = Timestamps & Anulable & {
   tasa_interes:              number;
   tasa_mora?:                number;
   estado:                    'pendiente' | 'en_revision' | 'aprobado' | 'desembolsado' | 'activo' | 'en_mora' | 'pagado' | 'rechazado' | 'cancelado' | 'simulacion';
+  /** Estado previo al paso a en_mora — se persiste en BD para restaurarlo al regularizar */
+  estado_anterior_mora?:     string | null;
   fecha_desembolso?:         string;
   fecha_primera_cuota?:      string;
   fecha_ultima_cuota?:       string;

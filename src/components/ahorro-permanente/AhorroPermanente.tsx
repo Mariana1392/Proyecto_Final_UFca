@@ -3,6 +3,7 @@
 // Toda la lógica de estado y handlers vive en useAhorroPermanente.
 // Los sub-componentes están en src/components/ahorro-permanente/.
 
+import PiggyBankLoader from '../ui/PiggyBankLoader';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -35,12 +36,7 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
   // ── Pantalla de carga ──────────────────────────────────────────────────────
   if (h.loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Cargando ahorros permanentes...</p>
-        </div>
-      </div>
+      <PiggyBankLoader title="Cargando ahorros permanentes..." />
     );
   }
 
