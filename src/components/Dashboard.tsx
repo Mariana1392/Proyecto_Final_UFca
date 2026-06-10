@@ -13,11 +13,13 @@ import {
   BarChart, Bar, LabelList, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
 import { supabase } from '../lib/supabase';
 import { dashboardApi } from '../lib/api';
 import type { UserRole } from '../contexts/AuthContext';
+import Reportes from './Reportes';
 
 interface DashboardProps {
   userRole?: UserRole | null;
@@ -313,6 +315,13 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
   // ── JSX ──────────────────────────────────────────────────────────────────
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-[#f4f6fb] dark:bg-slate-900 min-h-screen">
+      <Tabs defaultValue="resumen" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 max-w-md mb-6">
+          <TabsTrigger value="resumen">Resumen General</TabsTrigger>
+          <TabsTrigger value="reportes">Reportes y Extractos</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="resumen" className="space-y-6 mt-0">
 
       {/* Banner "Hazte Asociado" — solo visitantes */}
       {!userData && (
@@ -406,9 +415,6 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
             : <p className="text-slate-400 mt-0.5 text-sm">Vista general del sistema UFCA</p>
           }
         </div>
-        <Button className="gap-2 rounded-xl" variant="outline" onClick={() => onNavigate?.('reportes')}>
-          <ArrowRight className="size-4" />Ver Reportes
-        </Button>
       </div>
 
       {/* ══════════════════════════════════════════════════════════
@@ -706,6 +712,11 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
           })}
         </div>
       )}
+          </TabsContent>
+        <TabsContent value="reportes" className="mt-0">
+          <Reportes />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
