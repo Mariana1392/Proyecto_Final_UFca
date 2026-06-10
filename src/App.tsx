@@ -54,14 +54,18 @@ function AppContent() {
   useEffect(() => {
     const hash   = window.location.hash;
     const search = window.location.search;
+    const params = new URLSearchParams(search);
 
-    const esInvitacion =
+    // Interceptar CUALQUIER visita con ?bienvenido=1 o ?recuperar=1,
+    // independientemente de si el hash tiene token válido, error, o está vacío.
+    // Esto cubre: token válido, token expirado, enlace ya usado, celular que se apagó.
+    const esFlujoPassword =
+      params.get('bienvenido') === '1' ||
+      params.get('recuperar')  === '1' ||
       hash.includes('type=invite') ||
-      hash.includes('type=recovery') ||
-      (hash.includes('access_token=') && new URLSearchParams(search).get('bienvenido') === '1') ||
-      (hash.includes('access_token=') && new URLSearchParams(search).get('recuperar') === '1');
+      hash.includes('type=recovery');
 
-    if (esInvitacion) {
+    if (esFlujoPassword) {
       setCurrentView('crear-password');
       setTimeout(() => {
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
@@ -69,14 +73,15 @@ function AppContent() {
       return;
     }
 
-    // Si el usuario salió sin crear contraseña y vuelve al mismo navegador
-    // con la sesión aún activa, retomar el flujo automáticamente.
-    if (sessionStorage.getItem('ufca_creando_password') === '1') {
+    // Si el usuario salió sin crear contraseña y vuelve al mismo navegador,
+    // retomar el flujo automáticamente si la sesión sigue activa.
+    // Usa localStorage para que persista aunque se cierre la pestaña o el celular se apague.
+    if (localStorage.getItem('ufca_creando_password') === '1') {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
           setCurrentView('crear-password');
         } else {
-          sessionStorage.removeItem('ufca_creando_password');
+          localStorage.removeItem('ufca_creando_password');
         }
       });
     }

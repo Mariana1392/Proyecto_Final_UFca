@@ -31,18 +31,34 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
 
+    const hash = window.location.hash;
+
+    // Detección inmediata: Supabase pone #error= cuando el token ya fue usado o expiró
+    if (hash.includes('error=') || hash.includes('error_code=')) {
+      setSessionStatus('error');
+      return;
+    }
+
     const verificarSesion = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        sessionStorage.setItem('ufca_creando_password', '1');
+        localStorage.setItem('ufca_creando_password', '1');
         setRecoveryEmail(session.user.email ?? '');
         setSessionStatus('ready');
         return;
       }
 
+      // Si no hay sesión y tampoco hay access_token en el hash,
+      // el enlace es inválido — no tiene sentido esperar 10 segundos.
+      if (!hash.includes('access_token=')) {
+        setSessionStatus('error');
+        return;
+      }
+
+      // Hay access_token en el hash: esperar a que Supabase lo procese
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
         if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && s) {
-          sessionStorage.setItem('ufca_creando_password', '1');
+          localStorage.setItem('ufca_creando_password', '1');
           setRecoveryEmail(s.user.email ?? '');
           setSessionStatus('ready');
           subscription.unsubscribe();
@@ -50,10 +66,11 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
         }
       });
 
+      // Timeout de seguridad: si el token no se procesa en 8s, asumir error
       timeout = setTimeout(() => {
         subscription.unsubscribe();
         setSessionStatus('error');
-      }, 10000);
+      }, 8000);
     };
 
     verificarSesion();
@@ -112,7 +129,7 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
         throw supaErr;
       }
 
-      sessionStorage.removeItem('ufca_creando_password');
+      localStorage.removeItem('ufca_creando_password');
       setDone(true);
       toast.success('¡Contraseña creada exitosamente!', {
         description: 'Ya puedes acceder a tu cuenta de asociado UFCA.',
