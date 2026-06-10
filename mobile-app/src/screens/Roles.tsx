@@ -7,6 +7,7 @@ import {
   Settings, Percent, DollarSign, Clock, Save, RotateCcw, AlertTriangle, Info, Loader2, CheckCircle,
   Edit, Trash2, Shield,
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -37,7 +38,7 @@ const DEFAULTS: Parametros = {
 
 const CLAVES = Object.keys(DEFAULTS) as (keyof Parametros)[];
 
-export default function ConfiguracionScreen() {
+export default function RolesScreen() {
   const { userData } = useAuth();
   const [params,   setParams]   = useState<Parametros>(DEFAULTS);
   const [original, setOriginal] = useState<Parametros>(DEFAULTS);
@@ -160,17 +161,24 @@ export default function ConfiguracionScreen() {
   return (
     <div className="space-y-4 pb-4">
       {/* Encabezado */}
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 bg-blue-100 rounded-xl">
-          <Settings className="size-6 text-blue-600" />
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-2.5 bg-emerald-100 rounded-xl">
+          <Shield className="size-6 text-emerald-600" />
         </div>
         <div>
-          <h2 className="text-lg font-bold text-foreground">Configuración</h2>
-          <p className="text-xs text-muted-foreground">Administración del sistema</p>
+          <h2 className="text-lg font-bold text-foreground">Gestión de Roles</h2>
+          <p className="text-xs text-muted-foreground">Roles y parámetros del sistema</p>
         </div>
       </div>
 
-      {/* Gestión de Roles */}
+      <Tabs defaultValue="roles" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsTrigger value="roles">Roles</TabsTrigger>
+          <TabsTrigger value="parametros">Parámetros</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="roles" className="space-y-4">
+          {/* Gestión de Roles */}
       <Card className="border-0 shadow-sm mt-4">
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <div>
@@ -224,8 +232,9 @@ export default function ConfiguracionScreen() {
           )}
         </CardContent>
       </Card>
+      </TabsContent>
 
-
+      <TabsContent value="parametros" className="space-y-4">
       {/* Banner cambios pendientes */}
       {dirty && (
         <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
@@ -384,6 +393,8 @@ export default function ConfiguracionScreen() {
           Cada modificación queda en el log de auditoría.
         </p>
       </div>
+      </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -7,6 +7,8 @@ import { formatCurrency } from '../lib/formatters';
 import {
   PiggyBank, Wallet, CreditCard, Landmark, Users, TrendingUp, AlertTriangle, Activity,
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import ReportesScreen from './Reportes';
 
 interface Stats {
   totalAsociados: number;
@@ -145,7 +147,14 @@ export default function DashboardScreen() {
           <p className="text-xs text-muted-foreground">Panel de administración · UFCA</p>
         </div>
 
-        {/* Alertas */}
+        <Tabs defaultValue="resumen" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="resumen">Resumen</TabsTrigger>
+            <TabsTrigger value="reportes">Reportes</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="resumen" className="space-y-4">
+            {/* Alertas */}
         {alertas.map((a, i) => (
           <div key={i} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-medium ${a.color}`}>
             <AlertTriangle className="size-4 shrink-0" />
@@ -193,6 +202,12 @@ export default function DashboardScreen() {
             ))}
           </CardContent>
         </Card>
+        </TabsContent>
+
+        <TabsContent value="reportes" className="space-y-4">
+          <ReportesScreen />
+        </TabsContent>
+      </Tabs>
       </div>
     );
   }
@@ -220,7 +235,14 @@ export default function DashboardScreen() {
         </CardContent>
       </Card>
 
-      {/* Tarjetas de stats */}
+      <Tabs defaultValue="resumen" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsTrigger value="resumen">Resumen</TabsTrigger>
+          <TabsTrigger value="reportes">Reportes</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="resumen" className="space-y-4">
+          {/* Tarjetas de stats */}
       <div className="grid grid-cols-1 gap-3">
         {asociadoCards.map(({ label, value, sub, icon: Icon, bg, text, grad }) => (
           <Card key={label} className="border-0 shadow-sm overflow-hidden">
@@ -256,6 +278,12 @@ export default function DashboardScreen() {
           </CardContent>
         </Card>
       )}
+      </TabsContent>
+
+      <TabsContent value="reportes" className="space-y-4">
+        <ReportesScreen />
+      </TabsContent>
+      </Tabs>
     </div>
   );
 }

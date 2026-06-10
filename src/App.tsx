@@ -25,16 +25,16 @@ const ComiteEvaluador       = lazy(() => import('./components/ComiteEvaluador'))
 const Creditos              = lazy(() => import('./components/creditos/Creditos'));
 const Referidos             = lazy(() => import('./components/Referidos'));
 const GestionUsuarios       = lazy(() => import('./components/GestionUsuarios'));
-const Configuracion         = lazy(() => import('./components/Configuracion'));
+
 const MiSolicitud           = lazy(() => import('./components/MiSolicitud'));
 const MiPerfil              = lazy(() => import('./components/MiPerfil'));
 const PerfilAdmin           = lazy(() => import('./components/PerfilAdmin'));
 const MisAhorros            = lazy(() => import('./components/MisAhorros'));
 const CuentaPendienteActivacion = lazy(() => import('./components/CuentaPendienteActivacion'));
 const Servicios                 = lazy(() => import('./components/Servicios'));
-const Reportes                  = lazy(() => import('./components/Reportes'));
 
-type View = 'home' | 'solicitud' | 'login' | 'recuperar-password' | 'crear-password' | 'mi-solicitud' | 'mi-perfil' | 'dashboard' | 'roles' | 'usuarios' | 'asociados' | 'asociado-detalle' | 'ahorro-permanente' | 'ahorro-voluntario' | 'liquidacion' | 'comite-evaluador' | 'creditos' | 'referidos' | 'parametros' | 'servicios' | 'reportes';
+
+type View = 'home' | 'solicitud' | 'login' | 'recuperar-password' | 'crear-password' | 'mi-solicitud' | 'mi-perfil' | 'dashboard' | 'roles' | 'usuarios' | 'asociados' | 'asociado-detalle' | 'ahorro-permanente' | 'ahorro-voluntario' | 'liquidacion' | 'comite-evaluador' | 'creditos' | 'referidos' | 'servicios';
 
 function AppContent() {
   const [currentView, setCurrentView]         = useState<View>('home');
@@ -140,7 +140,6 @@ function AppContent() {
       'dashboard', 'mi-solicitud', 'mi-perfil',
       'roles', 'usuarios', 'asociados', 'asociado-detalle', 'ahorro-permanente',
       'ahorro-voluntario', 'liquidacion', 'comite-evaluador', 'creditos', 'referidos',
-      'parametros', 'reportes',
     ];
     if (!isAuthenticated && rutasProtegidas.includes(currentView as View)) {
       return <Login onLogin={handleLogin} onShowRecovery={() => setCurrentView('recuperar-password')} />;
@@ -262,10 +261,6 @@ function AppContent() {
         return <Referidos userData={userData} />;
       case 'usuarios':
         return <GestionUsuarios userRole={userRole ?? undefined} />;
-      case 'parametros':
-        return <Configuracion userData={userData} />;
-      case 'reportes':
-        return <Reportes />;
       default:
         return <Hero onNavigateToDashboard={() => handleNavigate('dashboard')} onNavigateToLogin={() => handleNavigate('login')} />;
     }

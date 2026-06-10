@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import PiggyBankLoader from './ui/PiggyBankLoader';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import type { UserRole } from '../contexts/AuthContext';
+import Configuracion from './Configuracion';
 
 // PermisoKey ya no es un tipo fijo — los permisos vienen de la tabla `permisos` en la BD.
 // Se usa string genérico para compatibilidad con datos dinámicos.
@@ -659,8 +660,15 @@ export default function Roles({ userRole }: RolesProps) {
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+        <Tabs defaultValue="roles" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 max-w-md mb-6">
+            <TabsTrigger value="roles">Roles y Permisos</TabsTrigger>
+            <TabsTrigger value="parametros">Parámetros del Sistema</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="roles" className="space-y-6 mt-0">
+            {/* Header */}
+            <div className="flex items-center justify-between">
           <div>
             <h1 className="text-slate-900 mb-2 flex items-center gap-3">
               <Shield className="size-8 text-emerald-600" />
@@ -1133,6 +1141,12 @@ export default function Roles({ userRole }: RolesProps) {
             </Card>
           );
         })()}
+        </TabsContent>
+
+        <TabsContent value="parametros" className="mt-0">
+          <Configuracion userData={authUser} />
+        </TabsContent>
+      </Tabs>
       </div>
 
       {/* ===== MODAL CREAR ROL ===== */}
@@ -2203,7 +2217,6 @@ export default function Roles({ userRole }: RolesProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
     </div>
   );
 }

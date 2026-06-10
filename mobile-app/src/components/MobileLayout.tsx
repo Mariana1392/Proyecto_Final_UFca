@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { LayoutDashboard, Wallet, ReceiptText, CreditCard, UserCircle, Settings, Moon, Sun, Users, FileText } from 'lucide-react';
+import { LayoutDashboard, Wallet, ReceiptText, CreditCard, UserCircle, Shield, Moon, Sun, Users, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
 import logo from '../assets/logo.svg';
 
@@ -47,17 +47,11 @@ export default function MobileLayout() {
           </button>
           {isAdmin && (
             <>
-              <NavLink to="/reportes" className={({ isActive }) => cn(
+              <NavLink to="/roles" className={({ isActive }) => cn(
                 'p-1.5 rounded-full transition-colors',
                 isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
               )}>
-                <FileText size={20} />
-              </NavLink>
-              <NavLink to="/configuracion" className={({ isActive }) => cn(
-                'p-1.5 rounded-full transition-colors',
-                isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
-              )}>
-                <Settings size={20} />
+                <Shield size={20} />
               </NavLink>
               <NavLink to="/perfil" className={({ isActive }) => cn(
                 'p-1.5 rounded-full transition-colors',
