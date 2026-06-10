@@ -3,10 +3,10 @@
  * Lee tanto de `excepciones` como de `notificaciones`
  * Al hacer clic navega automáticamente al módulo correspondiente.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Bell, X, CheckCheck, AlertTriangle, Info, Edit, Ban,
-  UserPlus, CreditCard, FileText, ArrowRight,
+  UserPlus, CreditCard, FileText, ArrowRight, CheckCircle,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -34,17 +34,19 @@ interface AlertasWidgetProps {
 
 // Mapa tipo → vista de navegación
 const TIPO_VISTA: Record<string, string> = {
-  solicitud_credito:   'creditos',
-  credito_pendiente:   'creditos',   // alias legacy
-  credito_confirmado:  'creditos',
-  credito_activo:      'creditos',
-  credito_rechazado:   'creditos',
-  simulacion:          'creditos',
-  solicitud_afiliacion:'comite-evaluador',
-  modificacion:        'creditos',
-  anulacion:           'creditos',
-  ahorro:              'ahorro-permanente',
-  ahorro_voluntario:   'ahorro-voluntario',
+  solicitud_credito:    'creditos',
+  credito_pendiente:    'creditos',   // alias legacy
+  credito_confirmado:   'creditos',
+  credito_activo:       'creditos',
+  credito_rechazado:    'creditos',
+  simulacion:           'creditos',
+  solicitud_afiliacion: 'comite-evaluador',
+  afiliacion_aprobada:  'dashboard',  // aspirante va al dashboard al activar
+  afiliacion_rechazada: 'dashboard',
+  modificacion:         'creditos',
+  anulacion:            'creditos',
+  ahorro:               'ahorro-permanente',
+  ahorro_voluntario:    'ahorro-voluntario',
 };
 
 export default function AlertasWidget({
@@ -58,26 +60,50 @@ export default function AlertasWidget({
   const [mostrarPanel, setMostrarPanel] = useState(false);
   const noLeidas = notifs.filter(n => !n.leida).length;
 
+  // ── Ref para evitar closure obsoleta en WebSocket e interval ─────────────
+  // cargarTodas captura userRole en su closure. El ref se actualiza en cada
+  // render para que los callbacks siempre usen la versión más reciente.
+  const cargarRef = useRef<() => void>(() => {});
+
+  // Mantener el ref actualizado en cada render (sin condiciones, sin deps)
   useEffect(() => {
-    cargarTodas();
+    cargarRef.current = cargarTodas;
+  });
+
+  // ── Canales WebSocket + polling — se crean UNA sola vez por userId ────────
+  // NO incluir userRole en deps: el ref ya garantiza que siempre se usa la
+  // versión correcta. Agregar userRole aquí destruiría y recrearía los canales
+  // cada vez que el rol cargue, causando reconexiones innecesarias.
+  useEffect(() => {
+    const fire = () => cargarRef.current();
+
+    fire(); // carga inicial
 
     const ch1 = supabase
-      .channel('alertas-excepciones')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'excepciones' }, cargarTodas)
+      .channel(`alertas-excepciones-${userId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'excepciones' }, fire)
       .subscribe();
 
     const ch2 = supabase
-      .channel('alertas-notificaciones')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notificaciones' }, cargarTodas)
+      .channel(`alertas-notificaciones-${userId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notificaciones' }, fire)
       .subscribe();
 
-    const interval = setInterval(cargarTodas, 30000);
+    const interval = setInterval(fire, 30000);
     return () => {
       supabase.removeChannel(ch1);
       supabase.removeChannel(ch2);
       clearInterval(interval);
     };
-  }, [userId, asociadoId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  // ── Recargar cuando el rol cambia (ej: "asociado" → "admin" al autenticar) ─
+  // El ref ya tiene la nueva cargarTodas en este punto porque el efecto sin
+  // deps (arriba) se ejecuta antes que los efectos con deps.
+  useEffect(() => {
+    if (userRole) cargarRef.current();
+  }, [userRole]);
 
   async function cargarTodas() {
     try {
@@ -106,13 +132,16 @@ export default function AlertasWidget({
       );
 
       // ── 2. Notificaciones para asociados ─────────────────────────────────
+      // Busca por usuario_id O asociado_id porque los inserts son inconsistentes:
+      // algunos usan userData.id → usuario_id, otros asociado_id.
       if (asociadoId) {
         promises.push(
           (async () => {
             const { data } = await supabase
               .from('notificaciones')
               .select('id, titulo, mensaje, tipo, leida, created_at')
-              .eq('asociado_id', asociadoId)
+              .or(`usuario_id.eq.${asociadoId},asociado_id.eq.${asociadoId}`)
+              .eq('para_admin', false)   // solo las del asociado, no las del admin
               .order('created_at', { ascending: false })
               .limit(20);
             return (data || []).map(n => ({
@@ -226,6 +255,8 @@ export default function AlertasWidget({
       case 'anulacion':            return <Ban className="size-4 text-red-500" />;
       case 'excepcion':            return <AlertTriangle className="size-4 text-amber-500" />;
       case 'solicitud_afiliacion': return <UserPlus className="size-4 text-emerald-600" />;
+      case 'afiliacion_aprobada':  return <CheckCircle className="size-4 text-emerald-600" />;
+      case 'afiliacion_rechazada': return <Ban className="size-4 text-red-500" />;
       default:                     return <Info className="size-4 text-blue-500" />;
     }
   };
@@ -243,6 +274,8 @@ export default function AlertasWidget({
       case 'anulacion':            return `border-l-4 border-red-400 bg-red-50/60 ${op}`;
       case 'excepcion':            return `border-l-4 border-amber-400 bg-amber-50/60 ${op}`;
       case 'solicitud_afiliacion': return `border-l-4 border-emerald-400 bg-emerald-50/60 ${op}`;
+      case 'afiliacion_aprobada':  return `border-l-4 border-emerald-500 bg-emerald-50/60 ${op}`;
+      case 'afiliacion_rechazada': return `border-l-4 border-red-400 bg-red-50/60 ${op}`;
       default:                     return `border-l-4 border-blue-400 bg-blue-50/60 ${op}`;
     }
   };
@@ -267,6 +300,10 @@ export default function AlertasWidget({
         return <Badge className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-700 border-amber-200">Excepción</Badge>;
       case 'solicitud_afiliacion':
         return <Badge className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-emerald-200">Afiliación</Badge>;
+      case 'afiliacion_aprobada':
+        return <Badge className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-emerald-200">¡Aprobada!</Badge>;
+      case 'afiliacion_rechazada':
+        return <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 border-red-200">No aprobada</Badge>;
       default:
         return <Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-700 border-blue-200">Info</Badge>;
     }
@@ -283,6 +320,7 @@ export default function AlertasWidget({
       'comite-evaluador':  'Ir a Comité',
       'ahorro-permanente': 'Ir a Ahorros',
       'ahorro-voluntario': 'Ir a Ahorros',
+      'dashboard':         'Ver inicio',
     };
     return labels[vista] ?? 'Ver más';
   };

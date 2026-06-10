@@ -1,6 +1,7 @@
 // ── AhorroDialogDetalle.tsx ───────────────────────────────────────────────────
 // Diálogo de detalle del ahorro permanente: información + historial de depósitos.
 
+import PiggyBankLoader from '../ui/PiggyBankLoader';
 import { PiggyBank, History, DollarSign, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -115,10 +116,7 @@ export default function AhorroDialogDetalle({
               {/* ── Tab: Historial ───────────────────────────────────────── */}
               <TabsContent value="historial" className="space-y-3">
                 {loadingMovimientos ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 mr-3" />
-                    <p className="text-sm text-slate-500">Cargando movimientos...</p>
-                  </div>
+                  <PiggyBankLoader size="sm" title="Cargando movimientos..." />
                 ) : movimientosDetalle.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 text-center">
                     <History className="size-10 text-slate-300 mb-3" />

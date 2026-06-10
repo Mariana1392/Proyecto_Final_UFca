@@ -42,7 +42,7 @@ export function useAhorroPermanenteSolicitudes({
         mensaje:     `Tu solicitud de ahorro permanente fue aprobada. Tu cuota mensual es ${formatCurrency(montoObligatorio)}.`,
         tipo:        'pago_registrado',
         leida:       false,
-        asociado_id: sol.asociado_id,
+        usuario_id: sol.asociado_id,
       });
 
       setSolicitudes(prev =>
@@ -82,7 +82,7 @@ export function useAhorroPermanenteSolicitudes({
         mensaje:     `Tu solicitud de ahorro permanente fue rechazada. Motivo: ${notaRechazo.trim()}`,
         tipo:        'ahorro_rechazado',
         leida:       false,
-        asociado_id: solicitudSeleccionada.asociado_id,
+        usuario_id: solicitudSeleccionada.asociado_id,
       });
 
       setSolicitudes(prev =>

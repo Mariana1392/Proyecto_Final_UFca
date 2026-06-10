@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import PiggyBankLoader from './ui/PiggyBankLoader';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -286,14 +287,22 @@ export default function Roles({ userRole }: RolesProps) {
       setIsErrorDialogOpen(true); setIsToggleEstadoDialogOpen(false); setSelectedItem(null); return;
     }
 
+    // Bloquear desactivación si hay usuarios activos asignados
+    if (rol.estado && rol.cantidadUsuarios > 0) {
+      const n = rol.cantidadUsuarios;
+      setResultMessage(
+        `No se puede desactivar el rol "${rol.nombre}" porque tiene ${n} usuario${n !== 1 ? 's' : ''} activo${n !== 1 ? 's' : ''} asignado${n !== 1 ? 's' : ''}. Reasigna o desactiva esos usuarios primero.`
+      );
+      setIsErrorDialogOpen(true); setIsToggleEstadoDialogOpen(false); setSelectedItem(null); return;
+    }
+
     try {
       const { error } = await supabase.from('roles').update({ activo: !rol.estado }).eq('id', id);
       if (error) throw error;
       setRoles(prev => prev.map(r => r.id === id ? { ...r, estado: !r.estado } : r));
-      await addAuditEntry(!rol.estado ? 'ROL ACTIVADO' : 'ROL DESACTIVADO',
+      void addAuditEntry(!rol.estado ? 'ROL ACTIVADO' : 'ROL DESACTIVADO',
         `El rol "${rol.nombre}" fue ${!rol.estado ? 'activado' : 'desactivado'} por ${usuarioActualNombre} el ${new Date().toLocaleString('es-CO')}`,
         id);
-      await cargarRoles();
       toast.success(`${!rol.estado ? '✅ Rol activado' : '⏸️ Rol desactivado'}`, {
         description: `"${rol.nombre}" ha sido ${!rol.estado ? 'activado' : 'desactivado'} exitosamente`, duration: 4000,
       });
@@ -445,27 +454,21 @@ export default function Roles({ userRole }: RolesProps) {
       setIsDeleteDialogOpen(false); setSelectedItem(null); return;
     }
 
-    // Bloqueo 2: verificar usuarios activos en BD (doble verificación)
-    const { data: usuariosConRol, error: checkErr } = await supabase
+    // Bloqueo 2: verificar usuarios activos usando conteo ya cargado en memoria
+    // y confirmación en BD para mayor seguridad
+    const { count: countBD } = await supabase
       .from('usuarios')
-      .select('id')
+      .select('id', { count: 'exact', head: true })
       .eq('rol_id', selectedItem.id)
-      .eq('activo', true)
-      .limit(1);
+      .eq('activo', true);
 
-    if (checkErr) {
-      console.warn('No se pudo verificar usuarios del rol:', checkErr.message);
-    }
+    const total = Math.max(countBD ?? 0, rolActual.cantidadUsuarios);
 
-    const tieneUsuarios = (usuariosConRol?.length ?? 0) > 0 || rolActual.cantidadUsuarios > 0;
-
-    if (tieneUsuarios) {
-      const total = usuariosConRol?.length ?? rolActual.cantidadUsuarios;
-      toast.error(`No se puede eliminar el rol "${rolActual.nombre}"`, {
-        description: `Tiene ${total} usuario(s) activo(s). Reasígnalos primero.`,
-        duration: 6000,
-      });
-      setIsDeleteDialogOpen(false); setSelectedItem(null); return;
+    if (total > 0) {
+      setResultMessage(
+        `No se puede eliminar el rol "${rolActual.nombre}" porque tiene ${total} usuario${total !== 1 ? 's' : ''} activo${total !== 1 ? 's' : ''} asignado${total !== 1 ? 's' : ''}. Reasigna o desactiva esos usuarios primero.`
+      );
+      setIsErrorDialogOpen(true); setIsDeleteDialogOpen(false); setSelectedItem(null); return;
     }
 
     // Proceder con la eliminación — primero borrar permisos relacionados (B2: capturar error)
@@ -647,11 +650,8 @@ export default function Roles({ userRole }: RolesProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Cargando roles...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <PiggyBankLoader title="Cargando roles..." />
       </div>
     );
   }
@@ -892,14 +892,13 @@ export default function Roles({ userRole }: RolesProps) {
                                   <Edit className="size-4" />
                                 </Button>
                                 {/* Eliminar — solo roles personalizados sin usuarios activos */}
-                                {!rol.esSistema && (
+                                {!rol.esSistema && rol.cantidadUsuarios === 0 && (
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => { setSelectedItem(rol); setIsDeleteDialogOpen(true); }}
-                                    title={rol.cantidadUsuarios > 0 ? `No se puede eliminar: tiene ${rol.cantidadUsuarios} usuario(s) activo(s)` : 'Eliminar rol'}
-                                    disabled={rol.cantidadUsuarios > 0}
-                                    className={rol.cantidadUsuarios > 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-50 hover:border-red-300'}
+                                    title="Eliminar rol"
+                                    className="hover:bg-red-50 hover:border-red-300"
                                   >
                                     <Trash2 className="size-4 text-red-500" />
                                   </Button>
@@ -1142,6 +1141,12 @@ export default function Roles({ userRole }: RolesProps) {
             </Card>
           );
         })()}
+        </TabsContent>
+
+        <TabsContent value="parametros" className="mt-0">
+          <Configuracion userData={authUser} />
+        </TabsContent>
+      </Tabs>
       </div>
 
       {/* ===== MODAL CREAR ROL ===== */}
@@ -2212,14 +2217,6 @@ export default function Roles({ userRole }: RolesProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-          </TabsContent>
-
-          <TabsContent value="parametros" className="mt-0">
-            <Configuracion userData={authUser} />
-          </TabsContent>
-        </Tabs>
-      </div>
     </div>
   );
 }

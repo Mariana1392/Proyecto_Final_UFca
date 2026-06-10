@@ -1,3 +1,4 @@
+import PiggyBankLoader from '../ui/PiggyBankLoader';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
@@ -293,10 +294,7 @@ export function AsociadoDialogDetalle({
             <TabsContent value="historial" className="flex-1 overflow-y-auto mt-4">
               <div className="space-y-3">
                 {loadingAuditoria ? (
-                  <div className="flex items-center justify-center py-8 text-slate-400">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 mr-2" />
-                    Cargando historial...
-                  </div>
+                  <PiggyBankLoader size="sm" title="Cargando historial..." />
                 ) : auditoriaAsociado.length > 0 ? (
                   auditoriaAsociado.map((reg: any, i: number) => (
                     <div key={reg.id ?? i} className="flex items-start gap-3 p-4 bg-slate-50 border border-slate-200 rounded-lg">

@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import {
   PiggyBank, Wallet, Clock,
   TrendingUp, DollarSign, Calendar, History, FileText,
-  ArrowUpCircle, ArrowDownCircle,
+  ArrowUpCircle, ArrowDownCircle, AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
@@ -94,6 +94,30 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
           .order('fecha_pago', { ascending: false })
           .limit(5);
         setMovsPerm(movs ?? []);
+      }
+
+      // 4. Movimientos de los ahorros voluntarios — pre-carga el plan activo
+      //    (antes nunca se consultaba esta tabla para voluntarios en cargarDatos)
+      const volData = volRes.data ?? [];
+      if (volData.length > 0) {
+        const volIds = volData.map((v: any) => v.id);
+        const { data: movsVolData } = await supabase
+          .from('transacciones')
+          .select('*')
+          .eq('tipo', 'aporte_voluntario')
+          .in('ahorro_id', volIds)
+          .order('fecha_pago', { ascending: false })
+          .limit(25);
+
+        // Pre-seleccionar el primer plan activo (o el primero de la lista)
+        const primerActivo =
+          volData.find((v: any) => v.estado === 'activo') ?? volData[0];
+        if (primerActivo) {
+          setVolSeleccionado(primerActivo);
+          setMovsVol(
+            (movsVolData ?? []).filter((m: any) => m.ahorro_id === primerActivo.id)
+          );
+        }
       }
     } catch (err: any) {
       toast.error('Error al cargar tus ahorros: ' + err.message);
@@ -205,6 +229,27 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
               {/* Detalle cuando tiene ahorro aprobado */}
               {ahorroPermanente && (
                 <div className="space-y-4">
+                  {/* Banner de cuenta inactiva / suspendida */}
+                  {ahorroPermanente.estado !== 'activo' && (
+                    <div className={`flex items-start gap-2.5 p-3 rounded-lg border text-sm ${
+                      ahorroPermanente.estado === 'suspendido'
+                        ? 'bg-orange-50 border-orange-200 text-orange-800'
+                        : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                    }`}>
+                      <AlertTriangle className="size-4 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-semibold">
+                          Cuenta {ahorroPermanente.estado === 'suspendido' ? 'suspendida' : 'inactiva'}
+                        </p>
+                        <p className="text-xs mt-0.5 opacity-80">
+                          {ahorroPermanente.estado === 'suspendido'
+                            ? 'Tu cuenta está suspendida. Contacta al administrador para más información.'
+                            : 'No puedes realizar nuevos aportes hasta que el administrador reactive tu cuenta.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Saldo destacado */}
                   <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-center">
                     <p className="text-xs text-emerald-600 font-medium mb-1">Saldo acumulado</p>
@@ -375,6 +420,19 @@ function PlanVoluntarioCard({
           {plan.estado}
         </Badge>
       </div>
+
+      {/* Banner de plan inactivo / cerrado */}
+      {plan.estado !== 'activo' && plan.estado !== 'retirado' && (
+        <div className="flex items-start gap-2.5 p-3 rounded-lg border bg-yellow-50 border-yellow-200 text-yellow-800 text-sm">
+          <AlertTriangle className="size-4 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold">Plan {plan.estado}</p>
+            <p className="text-xs mt-0.5 opacity-80">
+              Este plan no admite nuevos aportes. Contacta al administrador para reactivarlo.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Saldo */}
       <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl text-center">

@@ -88,76 +88,9 @@ export function useCreditos(userData?: any) {
         })),
       };
 
-      // Detección automática de mora — sin días de gracia
-      const hoy = new Date();
-      hoy.setHours(0, 0, 0, 0);
-      const ESTADOS_ACTIVOS = new Set(['desembolsado', 'activo', 'en_mora', 'aprobado', 'aprobada']);
-
-      const detectarMora = (c: any): boolean => {
-        if (!c.fecha_desembolso || (c.saldo ?? 0) <= 0) return false;
-        const cuota      = c.cuota_mensual ?? 0;
-        const monto      = c.monto        ?? 0;
-        const plazo      = c.plazo_meses  ?? 0;
-        const saldo      = c.saldo        ?? 0;
-        if (cuota <= 0 || monto <= 0 || plazo <= 0) return false;
-
-        // Para interés simple el capital que baja por cuota es fijo (monto/plazo).
-        // Para interés compuesto la cuota total es fija pero el capital varía,
-        // por lo que (monto - saldo) / cuota es una aproximación aceptable.
-        let cuotasPagadas: number;
-        if ((c.tipo_interes ?? 'compuesto') === 'simple') {
-          const capitalFijo = Math.round(monto / plazo);
-          cuotasPagadas = capitalFijo > 0
-            ? Math.max(0, Math.round((monto - saldo) / capitalFijo))
-            : 0;
-        } else {
-          cuotasPagadas = Math.max(0, Math.round((monto - saldo) / cuota));
-        }
-
-        if (cuotasPagadas >= plazo) return false;
-        const fechaBase = new Date(c.fecha_desembolso + 'T00:00:00');
-        const fechaVenc = new Date(
-          fechaBase.getFullYear(),
-          fechaBase.getMonth() + cuotasPagadas + 1,
-          fechaBase.getDate()
-        );
-        // Mora desde el mismo día del vencimiento (sin días de gracia)
-        fechaVenc.setHours(0, 0, 0, 0);
-        return fechaVenc <= hoy;
-      };
-
-      const actualizaciones: Promise<void>[] = [];
-      for (const c of creditosData.data || []) {
-        const estadoActual: string = c.estado ?? '';
-        if (!ESTADOS_ACTIVOS.has(estadoActual) || !c.fecha_desembolso) continue;
-        const enMora = detectarMora(c);
-        if (enMora && estadoActual !== 'en_mora') {
-          actualizaciones.push(
-            Promise.resolve(
-              supabase.from('creditos').update({
-                estado: 'en_mora',
-                fecha_estado_cambio: new Date().toISOString(),
-                motivo_estado_cambio: 'Mora detectada automáticamente: cuota vencida',
-              }).eq('id', c.id)
-            ).then(() => {})
-          );
-          c._estadoPrevio = estadoActual;
-          c.estado = 'en_mora';
-        } else if (!enMora && estadoActual === 'en_mora') {
-          const estadoReg: string = String(c._estadoPrevio ?? 'aprobado');
-          actualizaciones.push(
-            Promise.resolve(
-              supabase.from('creditos').update({
-                estado: estadoReg,
-                fecha_estado_cambio: new Date().toISOString(),
-                motivo_estado_cambio: 'Mora regularizada automáticamente',
-              }).eq('id', c.id)
-            ).then(() => {})
-          );
-          c.estado = estadoReg;
-        }
-      }
-      if (actualizaciones.length > 0) void Promise.all(actualizaciones);
+      // La detección de mora es ahora responsabilidad exclusiva de Supabase pg_cron
+      // (supabase_pg_cron_mora_automatica.sql — se ejecuta diariamente a medianoche).
+      // El frontend solo lee el campo 'estado' tal como viene de la BD.
 
       // Mapear a shape local
       const mapeados = (creditosData.data || []).map((c: any) => ({
@@ -383,6 +316,8 @@ export function useCreditos(userData?: any) {
     solTipoCuenta: solicitudes.solTipoCuenta, setSolTipoCuenta: solicitudes.setSolTipoCuenta,
     solNumeroCuenta: solicitudes.solNumeroCuenta, setSolNumeroCuenta: solicitudes.setSolNumeroCuenta,
     tasasParametrizadas: solicitudes.tasasParametrizadas,
+    solDocCartaLaboral: solicitudes.solDocCartaLaboral, setSolDocCartaLaboral: solicitudes.setSolDocCartaLaboral,
+    solDocCedula: solicitudes.solDocCedula, setSolDocCedula: solicitudes.setSolDocCedula,
     handleSolTipoChange: solicitudes.handleSolTipoChange,
     handleSolicitarCredito: solicitudes.handleSolicitarCredito,
     handlePonerEnRevision: solicitudes.handlePonerEnRevision,

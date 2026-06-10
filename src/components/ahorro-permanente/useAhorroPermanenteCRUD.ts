@@ -157,8 +157,12 @@ export function useAhorroPermanenteCRUD({
         toast.success(`Ahorro de "${asociado}" anulado`);
       } else {
         const esActivo = nuevoEstadoSeleccionado === 'activo';
-        await ahorroPermanenteApi.update(id, { estado: esActivo ? 'activo' : 'suspendido' });
-        setAhorros(prev => prev.map(a => a.id === id ? { ...a, estado: esActivo } : a));
+        // Al reactivar, limpiar también el flag anulado por si venía de una anulación previa
+        await ahorroPermanenteApi.update(id, {
+          estado: esActivo ? 'activo' : 'inactivo',
+          ...(esActivo && { anulado: false, motivo_anulacion: null }),
+        });
+        setAhorros(prev => prev.map(a => a.id === id ? { ...a, estado: esActivo, ...(esActivo && { anulado: false }) } : a));
         await notificarAsociado(
           asociado_id,
           esActivo ? '✅ Ahorro permanente activado' : '⚠️ Ahorro permanente desactivado',
@@ -332,7 +336,7 @@ export function useAhorroPermanenteCRUD({
         });
 
         if (saldo > 0) {
-          const periodoId = await resolverPeriodoId();
+          // Reutiliza periodoIdCreacion — ya resuelto arriba, no hace falta una segunda query
           const fechaApertura = formFechaInicio || new Date().toISOString().split('T')[0];
           const { error: movErr } = await supabase
             .from('transacciones')
@@ -340,7 +344,7 @@ export function useAhorroPermanenteCRUD({
               tipo:                 'aporte_permanente',
               ahorro_id:            nuevo.id,
               asociado_id:          formAsociadoId,
-              periodo_id:           periodoId,
+              periodo_id:           periodoIdCreacion,
               mes_correspondiente:  fechaApertura,
               fecha_pago:           fechaApertura,
               monto:                saldo,

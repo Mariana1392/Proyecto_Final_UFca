@@ -2,6 +2,7 @@
 // Componente principal: encabezado, filtros, pestañas y renderizado de sub-componentes.
 
 import { useRef } from 'react';
+import PiggyBankLoader from '../ui/PiggyBankLoader';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -34,11 +35,8 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
   // ── Pantalla de carga ──────────────────────────────────────────────────────
   if (h.loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Cargando ahorros voluntarios...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <PiggyBankLoader title="Cargando ahorros voluntarios..." />
       </div>
     );
   }

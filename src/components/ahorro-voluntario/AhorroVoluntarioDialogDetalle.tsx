@@ -1,6 +1,7 @@
 // ── AhorroVoluntarioDialogDetalle.tsx ───────────────────────────────────────
 // Diálogo de detalle: información, historial de transacciones y auditoría.
 
+import PiggyBankLoader from '../ui/PiggyBankLoader';
 import {
   Wallet, History, FileText, ArrowDownCircle, ArrowUpCircle, Calendar, Target, RefreshCw,
 } from 'lucide-react';
@@ -185,10 +186,7 @@ export default function AhorroVoluntarioDialogDetalle({
               )}
 
               {loadingMovimientos ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mr-3" />
-                  <p className="text-sm text-slate-500">Cargando transacciones...</p>
-                </div>
+                <PiggyBankLoader size="sm" title="Cargando transacciones..." />
               ) : movimientosDetalle.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <History className="size-10 text-slate-300 mb-3" />
@@ -239,10 +237,7 @@ export default function AhorroVoluntarioDialogDetalle({
             {/* ── Historial de modificaciones ── */}
             <TabsContent value="historial" className="space-y-3">
               {loadingMovimientos ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-500 mr-3" />
-                  <p className="text-sm text-slate-500">Cargando historial...</p>
-                </div>
+                <PiggyBankLoader size="sm" title="Cargando historial..." />
               ) : historialCambios.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <FileText className="size-10 text-slate-300 mb-3" />
