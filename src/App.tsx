@@ -1,4 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
+import PiggyBankLoader from './components/ui/PiggyBankLoader';
 import { Shield } from 'lucide-react';
 import Layout from './components/Layout';
 import Login from './components/Login';
@@ -272,11 +273,8 @@ function AppContent() {
 
   // Spinner reutilizable para Suspense y carga de sesión
   const Spinner = (
-    <div className="flex items-center justify-center min-h-[40vh]">
-      <div className="flex flex-col items-center gap-3">
-        <div className="size-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm text-slate-500">Cargando…</p>
-      </div>
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <PiggyBankLoader title="Cargando..." />
     </div>
   );
 
