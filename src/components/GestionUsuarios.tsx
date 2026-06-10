@@ -8,7 +8,7 @@ import { Badge } from './ui/badge';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Plus, ChevronLeft, ChevronRight, UserCircle, UserCircle2, Edit, Trash2, Shield, Clock, FileText, AlertTriangle, User, Lock, History, Unlock } from 'lucide-react';
+import { Search, Plus, ChevronLeft, ChevronRight, ChevronDown, UserCircle, UserCircle2, Edit, Trash2, Shield, Clock, FileText, AlertTriangle, User, Lock, History, Unlock } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
@@ -140,6 +140,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
   const [auditoria, setAuditoria]           = useState<any[]>([]);
   const [auditoriaPage, setAuditoriaPage]   = useState(1);
   const [auditFiltro, setAuditFiltro]       = useState('todos');
+  const [historialAbierto, setHistorialAbierto] = useState(false);
   const AUDITORIA_PER_PAGE = 5;
   const [filterRol, setFilterRol]           = useState('');
   const [filterEstado, setFilterEstado]     = useState('');
@@ -1050,7 +1051,10 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
           return (
             <Card>
               <CardHeader className="pb-3">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <button
+                  className="w-full flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-left"
+                  onClick={() => setHistorialAbierto(v => !v)}
+                >
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-100 rounded-lg shrink-0">
                       <History className="size-5 text-blue-600" />
@@ -1062,10 +1066,11 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                       </p>
                     </div>
                   </div>
-                </div>
+                  <ChevronDown className={`size-5 text-slate-400 shrink-0 mt-1 transition-transform ${historialAbierto ? 'rotate-180' : ''}`} />
+                </button>
 
-                {/* Chips de filtro */}
-                {auditoria.length > 0 && (
+                {/* Chips de filtro — solo visibles cuando está expandido */}
+                {historialAbierto && auditoria.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-4">
                     <button
                       onClick={() => { setAuditFiltro('todos'); setAuditoriaPage(1); }}
@@ -1103,7 +1108,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                 )}
               </CardHeader>
 
-              <CardContent>
+              {historialAbierto && <CardContent>
                 {auditoria.length === 0 ? (
                   <div className="text-center py-14">
                     <div className="inline-flex items-center justify-center size-14 rounded-full bg-slate-100 mb-4">
@@ -1211,7 +1216,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                     )}
                   </>
                 )}
-              </CardContent>
+              </CardContent>}
             </Card>
           );
         })()}

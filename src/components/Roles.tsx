@@ -79,11 +79,22 @@ export default function Roles({ userRole }: RolesProps) {
   const [permisosToAdd, setPermisosToAdd]             = useState<PermisoKey[]>([]);
   const [detailTab, setDetailTab]                     = useState('info');
   const [isPermisosExpanded, setIsPermisosExpanded]   = useState(true);
+  const [expandedAuditIds, setExpandedAuditIds]       = useState<Set<string>>(new Set());
+  const toggleAuditEntry = (id: string) => setExpandedAuditIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
   const itemsPerPage = 5;
 
   const [auditLog, setAuditLog]           = useState<AuditEntry[]>([]);
   const [auditPage, setAuditPage]         = useState(1);
   const [auditFiltro, setAuditFiltro]     = useState('todos');
+  const [historialAbierto, setHistorialAbierto]         = useState(false);
+  const [expandedMainAuditIds, setExpandedMainAuditIds] = useState<Set<string>>(new Set());
+  const toggleMainAuditEntry = (id: string) => setExpandedMainAuditIds(prev => {
+    const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
+  });
   const AUDIT_PER_PAGE = 5;
 
   const addAuditEntry = async (accion: string, detalle: string, registroId?: string) => {
@@ -980,7 +991,10 @@ export default function Roles({ userRole }: RolesProps) {
           return (
             <Card>
               <CardHeader className="pb-3">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <button
+                  className="w-full flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-left"
+                  onClick={() => setHistorialAbierto(v => !v)}
+                >
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-100 rounded-lg shrink-0">
                       <History className="size-5 text-blue-600" />
@@ -992,10 +1006,11 @@ export default function Roles({ userRole }: RolesProps) {
                       </p>
                     </div>
                   </div>
-                </div>
+                  <ChevronDown className={`size-5 text-slate-400 shrink-0 mt-1 transition-transform ${historialAbierto ? 'rotate-180' : ''}`} />
+                </button>
 
-                {/* Chips de filtro por tipo de acción */}
-                {auditLog.length > 0 && (
+                {/* Chips de filtro — solo visibles cuando está expandido */}
+                {historialAbierto && auditLog.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-4">
                     <button
                       onClick={() => { setAuditFiltro('todos'); setAuditPage(1); }}
@@ -1033,7 +1048,7 @@ export default function Roles({ userRole }: RolesProps) {
                 )}
               </CardHeader>
 
-              <CardContent>
+              {historialAbierto && <CardContent>
                 {auditLog.length === 0 ? (
                   <div className="text-center py-14">
                     <div className="inline-flex items-center justify-center size-14 rounded-full bg-slate-100 mb-4">
@@ -1062,6 +1077,7 @@ export default function Roles({ userRole }: RolesProps) {
                       <div className="space-y-3">
                         {auditPagina.map((entry) => {
                           const cfg = getCfg(entry.accion);
+                          const isOpen = expandedMainAuditIds.has(entry.id);
                           return (
                             <div key={entry.id} className="relative flex gap-3 items-start group">
                               {/* Ícono de acción */}
@@ -1069,24 +1085,33 @@ export default function Roles({ userRole }: RolesProps) {
                                 <span className={cfg.color}>{cfg.icon}</span>
                               </div>
 
-                              {/* Tarjeta de contenido */}
-                              <div className={`flex-1 p-3.5 rounded-xl border transition-shadow group-hover:shadow-sm ${cfg.bg} ${cfg.border}`}>
-                                <div className="flex items-start justify-between gap-2 flex-wrap mb-1.5">
-                                  <span className={`text-[11px] font-bold uppercase tracking-wider ${cfg.color}`}>
-                                    {entry.accion ?? '—'}
-                                  </span>
-                                  <span className="text-[11px] text-slate-400 flex items-center gap-1 shrink-0">
-                                    <Clock className="size-3" />
-                                    {entry.fecha}
-                                  </span>
-                                </div>
-                                <p className="text-sm text-slate-700 leading-relaxed">{entry.detalle}</p>
-                                <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-current/10">
-                                  <UserCircle2 className={`size-3.5 ${cfg.color} opacity-70`} />
-                                  <span className="text-xs text-slate-500">
-                                    <span className="font-semibold text-slate-600">{entry.usuario}</span>
-                                  </span>
-                                </div>
+                              {/* Tarjeta colapsable */}
+                              <div className={`flex-1 rounded-xl border overflow-hidden transition-shadow group-hover:shadow-sm ${cfg.bg} ${cfg.border}`}>
+                                <button
+                                  className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-left"
+                                  onClick={() => toggleMainAuditEntry(entry.id)}
+                                >
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`text-[11px] font-bold uppercase tracking-wider ${cfg.color}`}>
+                                      {entry.accion ?? '—'}
+                                    </span>
+                                    <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                                      <Clock className="size-3" />
+                                      {entry.fecha}
+                                    </span>
+                                    <span className="text-[11px] text-slate-500">· {entry.usuario}</span>
+                                  </div>
+                                  <ChevronDown className={`size-3.5 shrink-0 transition-transform ${cfg.color} opacity-60 ${isOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                                {isOpen && (
+                                  <div className={`px-3.5 pb-3 border-t border-current/10`}>
+                                    <p className="text-sm text-slate-700 leading-relaxed pt-2">{entry.detalle}</p>
+                                    <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-current/10">
+                                      <UserCircle2 className={`size-3.5 ${cfg.color} opacity-70`} />
+                                      <span className="text-xs font-semibold text-slate-600">{entry.usuario}</span>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );
@@ -1137,7 +1162,7 @@ export default function Roles({ userRole }: RolesProps) {
                     )}
                   </>
                 )}
-              </CardContent>
+              </CardContent>}
             </Card>
           );
         })()}
@@ -1756,9 +1781,28 @@ export default function Roles({ userRole }: RolesProps) {
 
               {/* Tab: Auditoría */}
               <TabsContent value="auditoria" className="pt-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <ClipboardList className="size-5 text-slate-600" />
-                  <h4 className="font-semibold text-slate-900">Log de Auditoría del Sistema</h4>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="size-5 text-slate-600" />
+                    <h4 className="font-semibold text-slate-900">Log de Auditoría del Sistema</h4>
+                    {auditLog.length > 0 && (
+                      <Badge variant="outline" className="text-xs">{auditLog.length}</Badge>
+                    )}
+                  </div>
+                  {auditLog.length > 0 && (
+                    <button
+                      className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                      onClick={() => {
+                        if (expandedAuditIds.size === auditLog.length) {
+                          setExpandedAuditIds(new Set());
+                        } else {
+                          setExpandedAuditIds(new Set(auditLog.map(e => e.id)));
+                        }
+                      }}
+                    >
+                      {expandedAuditIds.size === auditLog.length ? 'Colapsar todo' : 'Expandir todo'}
+                    </button>
+                  )}
                 </div>
                 {auditLog.length === 0 ? (
                   <div className="p-8 text-center text-slate-400">
@@ -1767,23 +1811,44 @@ export default function Roles({ userRole }: RolesProps) {
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                    {auditLog.map((entry) => (
-                      <div key={entry.id} className="flex items-start gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                        <div className="p-1.5 bg-slate-200 rounded shrink-0 mt-0.5">
-                          <History className="size-3 text-slate-600" />
+                    {auditLog.map((entry) => {
+                      const isOpen = expandedAuditIds.has(entry.id);
+                      const cfg = {
+                        'ROL CREADO':         { color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+                        'ROL EDITADO':        { color: 'bg-blue-100 text-blue-700 border-blue-200' },
+                        'ROL ELIMINADO':      { color: 'bg-red-100 text-red-700 border-red-200' },
+                        'ROL ACTIVADO':       { color: 'bg-green-100 text-green-700 border-green-200' },
+                        'ROL DESACTIVADO':    { color: 'bg-orange-100 text-orange-700 border-orange-200' },
+                        'PERMISOS AGREGADOS': { color: 'bg-blue-100 text-blue-700 border-blue-200' },
+                        'PERMISOS QUITADOS':  { color: 'bg-amber-100 text-amber-700 border-amber-200' },
+                      }[entry.accion] ?? { color: 'bg-slate-100 text-slate-600 border-slate-200' };
+
+                      return (
+                        <div
+                          key={entry.id}
+                          className="border border-slate-200 rounded-lg overflow-hidden"
+                        >
+                          <button
+                            className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                            onClick={() => toggleAuditEntry(entry.id)}
+                          >
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="outline" className={`text-xs ${cfg.color}`}>
+                                {entry.accion}
+                              </Badge>
+                              <span className="text-xs text-slate-400">{entry.fecha}</span>
+                              <span className="text-xs text-slate-500">· {entry.usuario}</span>
+                            </div>
+                            <ChevronDown className={`size-3.5 text-slate-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isOpen && (
+                            <div className="px-3 py-2.5 bg-white border-t border-slate-100">
+                              <p className="text-sm text-slate-600">{entry.detalle}</p>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                              {entry.accion}
-                            </Badge>
-                            <span className="text-xs text-slate-400">{entry.fecha}</span>
-                          </div>
-                          <p className="text-sm text-slate-600 mt-1">{entry.detalle}</p>
-                          <p className="text-xs text-slate-400">Por: {entry.usuario}</p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </TabsContent>
