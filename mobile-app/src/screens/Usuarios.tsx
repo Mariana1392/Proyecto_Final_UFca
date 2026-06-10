@@ -215,7 +215,16 @@ export default function UsuariosScreen() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Identificación</Label>
-                <Input className="h-9 text-sm" type="number" value={formCedula} onChange={e => setFormCedula(e.target.value)} />
+                <Input 
+                  className="h-9 text-sm" 
+                  type="number" 
+                  value={formCedula} 
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val.length <= 10) setFormCedula(val);
+                    else toast.error('La cédula no puede exceder los 10 dígitos');
+                  }} 
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Nombre de usuario</Label>

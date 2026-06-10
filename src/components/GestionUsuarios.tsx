@@ -82,7 +82,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
   // ── Errores inline por campo ─────────────────────────────────────────────────
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const validarCampoUsuario = (name: string, value: string) => {
+  const validarCampoUsuario = (name: string, value: string, excludeId?: string) => {
     let error = '';
     const v = value.trim();
     switch (name) {
@@ -91,12 +91,12 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         else if (!/^\d+$/.test(v)) error = 'Solo se permiten números';
         else if (v.length < 6) error = 'Mínimo 6 dígitos';
         else if (v.length > 15) error = 'Máximo 15 dígitos';
-        else if (usuarios.some(u => u.cedula === v)) error = '⚠ Esta cédula ya está registrada';
+        else if (usuarios.some(u => u.cedula === v && u.id !== excludeId)) error = '⚠ Esta cédula ya está registrada';
         break;
       case 'username':
         if (!v) error = 'El nombre de usuario es obligatorio';
         else if (v.length < 3) error = 'Mínimo 3 caracteres';
-        else if (usuarios.some(u => u.username?.toLowerCase() === v.toLowerCase())) error = '⚠ Este nombre de usuario ya está en uso';
+        else if (usuarios.some(u => u.username?.toLowerCase() === v.toLowerCase() && u.id !== excludeId)) error = '⚠ Este nombre de usuario ya está en uso';
         break;
       case 'nombre':
         if (!v) error = 'El nombre completo es obligatorio';
@@ -105,7 +105,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       case 'email':
         if (!v) error = 'El correo es obligatorio';
         else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) error = 'Formato de correo no válido';
-        else if (usuarios.some(u => u.email?.toLowerCase() === v.toLowerCase())) error = '⚠ Este correo ya está registrado';
+        else if (usuarios.some(u => u.email?.toLowerCase() === v.toLowerCase() && u.id !== excludeId)) error = '⚠ Este correo ya está registrado';
         break;
       case 'telefono':
         if (!v) error = 'El teléfono es obligatorio';
@@ -131,6 +131,11 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     validarCampoUsuario(name, value);
   };
 
+  const handleEditChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+    validarCampoUsuario(name, value, selectedUsuario?.id);
+  };
+
   const [auditoria, setAuditoria]           = useState<any[]>([]);
   const [auditoriaPage, setAuditoriaPage]   = useState(1);
   const [auditFiltro, setAuditFiltro]       = useState('todos');
@@ -139,7 +144,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
   const [filterEstado, setFilterEstado]     = useState('');
   const [formData, setFormData]         = useState({
     cedula: '', username: '', nombre: '',
-    email: '', telefono: '', rol: '', password: '',
+    email: '', telefono: '', rol: '', rolId: '', password: '',
     direccion: '', fechaIngreso: '',
   });
 
@@ -394,7 +399,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
 
   // ── Crear ────────────────────────────────────────────────────────────────────
   const handleOpenCreate = () => {
-    setFormData({ cedula: '', username: '', nombre: '', email: '', telefono: '', rol: '', password: '', direccion: '', fechaIngreso: '' });
+    setFormData({ cedula: '', username: '', nombre: '', email: '', telefono: '', rol: '', rolId: '', password: '', direccion: '', fechaIngreso: '' });
     setFormErrors({});
     setIsCreateModalOpen(true);
   };
@@ -408,7 +413,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     if (!formData.email.trim())          { toast.error('El correo electrónico es obligatorio'); return; }
     if (!formData.telefono.trim())       { toast.error('El teléfono es obligatorio'); return; }
     if (formData.telefono.trim().length > 15) { toast.error('El teléfono no puede superar 15 caracteres'); return; }
-    if (!formData.rol)                   { toast.error('Debes seleccionar un rol'); return; }
+    if (!formData.rolId)                  { toast.error('Debes seleccionar un rol'); return; }
     if (!formData.password.trim())       { toast.error('La contraseña es obligatoria'); return; }
     if (formData.password.trim().length < 6) { toast.error('La contraseña debe tener al menos 6 caracteres'); return; }
 
@@ -438,11 +443,6 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       if (authErr) throw authErr;
       if (!authData.user) throw new Error('No se pudo crear el usuario en Auth');
 
-      // Buscar el rol en la BD por su nombre original (sin capitalizar)
-      const rolSeleccionado = roles.find(r =>
-        rolLabel(r.nombre) === formData.rol || r.nombre === formData.rol
-      );
-
       // Campos adicionales para usuarios con rol Asociado
       const camposAsociado = formData.rol === 'Asociado' ? {
         cedula:        formData.cedula.trim(),
@@ -452,17 +452,18 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         estado_cuenta: 'activo',
       } : {};
 
-      const { error: userErr } = await supabase.from('usuarios').insert({
+      // UPSERT — el trigger on_auth_user_created puede haber creado ya la fila con el mismo id
+      const { error: userErr } = await supabase.from('usuarios').upsert({
         id:             authData.user.id,
         nombre:         formData.nombre.trim(),
         email:          formData.email.trim(),
         username:       formData.username.trim().toLowerCase(),
         cedula:         formData.cedula.trim(),
         telefono:       formData.telefono.trim(),
-        rol_id:         rolSeleccionado?.id,
+        rol_id:         formData.rolId,
         activo:         true,
         ...camposAsociado,
-      });
+      }, { onConflict: 'id' });
       if (userErr) throw userErr;
 
       const fechaHoraCreacion = new Date().toLocaleString('es-CO', {
@@ -509,6 +510,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     // para obligar al admin a ingresar una identificación numérica válida.
     const idActual = usuario.cedula ?? '';
     const idLimpia = tieneLetrasId(idActual) ? '' : idActual;
+    const rolEncontrado = roles.find(r => r.label === usuario.rol || rolLabel(r.nombre) === usuario.rol);
     setFormData({
       cedula: idLimpia,
       username:       usuario.username,
@@ -517,6 +519,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       telefono:       usuario.telefono || '',
       direccion:      usuario.direccion || '',
       rol:            usuario.rol,
+      rolId:          rolEncontrado?.id ?? usuario.rol_id ?? '',
       password:       '',
       fechaIngreso:   '',
     });
@@ -532,7 +535,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     if (!formData.username.trim())       { toast.error('El nombre de usuario es obligatorio'); return; }
     if (!formData.email.trim())          { toast.error('El correo electrónico es obligatorio'); return; }
     if (formData.telefono.trim().length > 15) { toast.error('El teléfono no puede superar 15 caracteres'); return; }
-    if (!formData.rol)                   { toast.error('El rol es obligatorio'); return; }
+    if (!formData.rolId)                  { toast.error('El rol es obligatorio'); return; }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email.trim())) { toast.error('El formato del email no es válido'); return; }
@@ -546,10 +549,6 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     if (usuariosReales.some(u => u.email.toLowerCase() === formData.email.trim().toLowerCase() && u.id !== selectedUsuario.id))
       { toast.error(`Ya existe otro usuario con el email "${formData.email}"`); return; }
 
-    const rolSeleccionado = roles.find(r =>
-      rolLabel(r.nombre) === formData.rol || r.nombre === formData.rol
-    );
-
     try {
       const { error } = await supabase.from('usuarios')
         .update({
@@ -559,7 +558,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
           cedula:         formData.cedula.trim(),
           telefono:       formData.telefono.trim(),
           direccion:      formData.direccion.trim(),
-          rol_id:         rolSeleccionado?.id,
+          rol_id:         formData.rolId,
         })
         .eq('id', selectedUsuario.id);
       if (error) throw error;
@@ -1285,11 +1284,17 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="c-rol">Rol *</Label>
-                <Select value={formData.rol} onValueChange={(v: string) => setFormData(prev => ({ ...prev, rol: v }))}>
+                <Select
+                  value={formData.rolId}
+                  onValueChange={(id: string) => {
+                    const r = roles.find(r => r.id === id);
+                    setFormData(prev => ({ ...prev, rolId: id, rol: r ? (r.label ?? rolLabel(r.nombre)) : '' }));
+                  }}
+                >
                   <SelectTrigger><SelectValue placeholder="Seleccionar rol" /></SelectTrigger>
                   <SelectContent>
                     {roles.map(r => (
-                      <SelectItem key={r.id} value={rolLabel(r.nombre)}>{rolLabel(r.nombre)}</SelectItem>
+                      <SelectItem key={r.id} value={r.id}>{r.label ?? rolLabel(r.nombre)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1368,58 +1373,66 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="e-identificacion">Identificación * <span className="text-xs text-slate-400 font-normal">(solo números, máx. 15)</span></Label>
                 <Input id="e-identificacion" placeholder="1010123456"
-                  inputMode="numeric"
-                  maxLength={15}
+                  inputMode="numeric" maxLength={15}
                   value={formData.cedula}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '').slice(0, 15);
-                    setFormData(prev => ({ ...prev, cedula: val }));
-                  }} />
+                  onChange={(e) => { const v = e.target.value.replace(/\D/g,'').slice(0,15); handleEditChange('cedula', v); }}
+                  className={formErrors.cedula ? 'border-red-400' : ''} />
+                {formErrors.cedula && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.cedula}</p>}
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="e-username">Nombre de usuario *</Label>
                 <Input id="e-username" placeholder="juan.perez"
                   value={formData.username}
-                  onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))} />
+                  onChange={(e) => handleEditChange('username', e.target.value)}
+                  className={formErrors.username ? 'border-red-400' : ''} />
+                {formErrors.username && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.username}</p>}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="e-nombre">Nombre completo *</Label>
                 <Input id="e-nombre" placeholder="Juan Pérez"
                   value={formData.nombre}
-                  onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))} />
+                  onChange={(e) => handleEditChange('nombre', e.target.value)}
+                  className={formErrors.nombre ? 'border-red-400' : ''} />
+                {formErrors.nombre && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.nombre}</p>}
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="e-email">Email *</Label>
                 <Input id="e-email" type="email" placeholder="juan.perez@ufca.com"
                   value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))} />
+                  onChange={(e) => handleEditChange('email', e.target.value)}
+                  className={formErrors.email ? 'border-red-400' : ''} />
+                {formErrors.email && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.email}</p>}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="e-telefono">Teléfono <span className="text-xs text-slate-400 font-normal">(máx. 15 caracteres)</span></Label>
                 <Input id="e-telefono" placeholder="+57 300 111 2222"
-                  inputMode="tel"
-                  maxLength={15}
+                  inputMode="tel" maxLength={15}
                   value={formData.telefono}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/[^\d+\s\-()]/g, '').slice(0, 15);
-                    setFormData(prev => ({ ...prev, telefono: val }));
-                  }} />
+                  onChange={(e) => { const v = e.target.value.replace(/[^\d+\s\-()]/g,'').slice(0,15); handleEditChange('telefono', v); }}
+                  className={formErrors.telefono ? 'border-red-400' : ''} />
+                {formErrors.telefono && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.telefono}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="e-rol">Rol *</Label>
-                <Select value={formData.rol} onValueChange={(v: string) => setFormData(prev => ({ ...prev, rol: v }))}>
+                <Select
+                  value={formData.rolId}
+                  onValueChange={(id: string) => {
+                    const r = roles.find(r => r.id === id);
+                    setFormData(prev => ({ ...prev, rolId: id, rol: r ? (r.label ?? rolLabel(r.nombre)) : '' }));
+                  }}
+                >
                   <SelectTrigger><SelectValue placeholder="Seleccionar rol" /></SelectTrigger>
                   <SelectContent>
                     {roles.map(r => (
-                      <SelectItem key={r.id} value={rolLabel(r.nombre)}>
-                        {rolLabel(r.nombre)}
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.label ?? rolLabel(r.nombre)}
                       </SelectItem>
                     ))}
                   </SelectContent>

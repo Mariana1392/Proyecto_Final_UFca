@@ -649,7 +649,9 @@ export default function Roles({ userRole }: RolesProps) {
 
   if (loading) {
     return (
-      <PiggyBankLoader title="Cargando roles..." />
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <PiggyBankLoader title="Cargando roles..." />
+      </div>
     );
   }
 
@@ -882,14 +884,13 @@ export default function Roles({ userRole }: RolesProps) {
                                   <Edit className="size-4" />
                                 </Button>
                                 {/* Eliminar — solo roles personalizados sin usuarios activos */}
-                                {!rol.esSistema && (
+                                {!rol.esSistema && rol.cantidadUsuarios === 0 && (
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => { setSelectedItem(rol); setIsDeleteDialogOpen(true); }}
-                                    title={rol.cantidadUsuarios > 0 ? `No se puede eliminar: tiene ${rol.cantidadUsuarios} usuario(s) activo(s)` : 'Eliminar rol'}
-                                    disabled={rol.cantidadUsuarios > 0}
-                                    className={rol.cantidadUsuarios > 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-50 hover:border-red-300'}
+                                    title="Eliminar rol"
+                                    className="hover:bg-red-50 hover:border-red-300"
                                   >
                                     <Trash2 className="size-4 text-red-500" />
                                   </Button>

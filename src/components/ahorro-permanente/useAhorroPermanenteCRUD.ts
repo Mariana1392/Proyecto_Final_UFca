@@ -157,7 +157,7 @@ export function useAhorroPermanenteCRUD({
         toast.success(`Ahorro de "${asociado}" anulado`);
       } else {
         const esActivo = nuevoEstadoSeleccionado === 'activo';
-        // Si se está reactivando una cuenta que estaba anulada, también limpiar el flag anulado
+        // Al reactivar, limpiar también el flag anulado por si venía de una anulación previa
         await ahorroPermanenteApi.update(id, {
           estado: esActivo ? 'activo' : 'inactivo',
           ...(esActivo && { anulado: false, motivo_anulacion: null }),

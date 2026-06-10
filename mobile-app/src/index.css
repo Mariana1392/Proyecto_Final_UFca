@@ -186,6 +186,17 @@
   }
 
   html, body, #root { min-height: 100vh; height: 100%; margin: 0; }
+
+  /* Ocultar scrollbars globalmente */
+  ::-webkit-scrollbar {
+    width: 0px;
+    height: 0px;
+    background: transparent;
+  }
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE y Edge */
+  }
 }
 
 /**

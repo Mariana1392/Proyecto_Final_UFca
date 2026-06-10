@@ -36,7 +36,9 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
   // ── Pantalla de carga ──────────────────────────────────────────────────────
   if (h.loading) {
     return (
-      <PiggyBankLoader title="Cargando ahorros permanentes..." />
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <PiggyBankLoader title="Cargando ahorros permanentes..." />
+      </div>
     );
   }
 

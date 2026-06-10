@@ -1,24 +1,23 @@
 
-  <!DOCTYPE html>
-  <html lang="es">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <!-- X-03: Content Security Policy — ajustar si se agregan CDNs externos -->
-      <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self';
-                 script-src  'self' 'unsafe-inline';
-                 style-src   'self' 'unsafe-inline';
-                 connect-src 'self' https://*.supabase.co wss://*.supabase.co;
-                 img-src     'self' data: https:;
-                 font-src    'self' data:;
-                 frame-ancestors 'none';" />
-      <title>Interfaz Web Profesional UFCA</title>
-    </head>
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- X-03: Content Security Policy — ajustar si se agregan CDNs externos -->
+    <!-- frame-ancestors solo funciona vía HTTP header, no en meta tag -->
+    <meta http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+               script-src  'self' 'unsafe-inline';
+               style-src   'self' 'unsafe-inline';
+               connect-src 'self' https://*.supabase.co wss://*.supabase.co;
+               img-src     'self' data: https:;
+               font-src    'self' data:;" />
+    <title>Interfaz Web Profesional UFCA</title>
+  </head>
 
-    <body>
-      <div id="root"></div>
-      <script type="module" src="/src/main.tsx"></script>
-    </body>
-  </html>
-  
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

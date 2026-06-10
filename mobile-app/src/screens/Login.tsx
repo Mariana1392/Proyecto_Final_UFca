@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { PiggyBank } from 'lucide-react';
 import logo from '../assets/logo.svg';
 
 export default function LoginScreen() {
@@ -84,9 +85,14 @@ export default function LoginScreen() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full mt-4 h-11 text-base font-medium transition-all active:scale-[0.98]"
+              className={`w-full mt-4 h-11 text-base font-medium transition-all active:scale-[0.98] ${loading ? 'bg-emerald-600 cursor-wait' : ''}`}
             >
-              {loading ? 'Ingresando...' : 'Iniciar Sesión'}
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <PiggyBank className="size-5 animate-bounce text-white" />
+                  <span>Procesando...</span>
+                </div>
+              ) : 'Iniciar Sesión'}
             </Button>
           </form>
         </CardContent>

@@ -35,7 +35,9 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
   // ── Pantalla de carga ──────────────────────────────────────────────────────
   if (h.loading) {
     return (
-      <PiggyBankLoader title="Cargando ahorros voluntarios..." />
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <PiggyBankLoader title="Cargando ahorros voluntarios..." />
+      </div>
     );
   }
 

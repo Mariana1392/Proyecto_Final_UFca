@@ -133,7 +133,7 @@ export default function DashboardScreen() {
     ];
 
     const alertas = [
-      stats.solicitudesPendientes > 0 && { label: `${stats.solicitudesPendientes} solicitud${stats.solicitudesPendientes > 1 ? 'es' : ''} de crédito pendiente${stats.solicitudesPendientes > 1 ? 's' : ''}`, color: 'bg-amber-50 border-amber-200 text-amber-800' },
+      stats.solicitudesPendientes > 0 && { label: `${stats.solicitudesPendientes} solicitud${stats.solicitudesPendientes > 1 ? 'es' : ''} de asociación pendiente${stats.solicitudesPendientes > 1 ? 's' : ''}`, color: 'bg-amber-50 border-amber-200 text-amber-800' },
       stats.liquidacionesPend    > 0 && { label: `${stats.liquidacionesPend} liquidación${stats.liquidacionesPend > 1 ? 'es' : ''} en proceso`, color: 'bg-blue-50 border-blue-200 text-blue-800' },
     ].filter(Boolean) as { label: string; color: string }[];
 

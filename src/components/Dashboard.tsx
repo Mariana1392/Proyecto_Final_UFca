@@ -421,7 +421,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
             : <p className="text-slate-400 mt-0.5 text-sm">Vista general del sistema UFCA</p>
           }
         </div>
-        <Button className="gap-2 rounded-xl" variant="outline" disabled title="Módulo de reportes — Próximamente">
+        <Button className="gap-2 rounded-xl" variant="outline" onClick={() => onNavigate?.('reportes')}>
           <ArrowRight className="size-4" />Ver Reportes
         </Button>
       </div>

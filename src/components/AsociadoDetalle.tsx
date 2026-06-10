@@ -133,7 +133,9 @@ export default function AsociadoDetalle({ asociadoId, onBack }: AsociadoDetalleP
 
   if (loading) {
     return (
-      <PiggyBankLoader title="Cargando detalles del asociado..." />
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <PiggyBankLoader title="Cargando detalles del asociado..." />
+      </div>
     );
   }
 

@@ -40,6 +40,7 @@ const CHILD_PERMISO: Record<string, string | string[]> = {
   'referidos':        ['asociados', 'mis_referidos'],
   'mediciones':       'dashboard',
   'parametros':       'configuracion',
+  'reportes':         ['dashboard', 'mis_ahorros'],
 };
 
 // Mapeo de vista actual → id del hijo del menú (para resaltar el activo)
@@ -56,6 +57,7 @@ const VIEW_TO_CHILD_ID: Record<string, string> = {
   'referidos':         'referidos',
   'dashboard':         'mediciones',
   'parametros':        'parametros',
+  'reportes':          'reportes',
 };
 
 interface MenuItem {
@@ -100,6 +102,7 @@ export default function Layout({
       configuracion: ['gestion-roles', 'parametros'],
       usuarios:      ['gestion-usuarios'],
       asociados:     ['gestion-asociados', 'ahorro-permanente', 'ahorro-voluntario', 'liquidacion', 'comite-evaluador', 'creditos', 'referidos'],
+      'reportes-group': ['reportes'],
     };
     const parentId = Object.entries(parentGroups).find(([, children]) => children.includes(activeChildId))?.[0];
     if (parentId) {
@@ -178,6 +181,14 @@ export default function Layout({
         { id: "referidos",          label: userPermisos.includes('mis_referidos') && !userPermisos.includes('asociados') ? "Mis Referidos" : "Referidos" },
       ],
     },
+    {
+      id: "reportes-group",
+      label: "Reportes",
+      icon: <FileText className="size-5" />,
+      children: [
+        { id: "reportes", label: "Consolidados y Extractos" },
+      ],
+    },
   ];
 
   // Filtrar menús según los permisos reales del usuario (lee de la BD vía userPermisos).
@@ -239,6 +250,7 @@ export default function Layout({
     'dashboard':             'dashboard',
     'mediciones':            'dashboard',
     'parametros':            'parametros',
+    'reportes':              'reportes',
   };
 
   const handleMenuClick = (id: string) => {
