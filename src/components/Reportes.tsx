@@ -12,6 +12,7 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { dashboardApi } from '../lib/api';
 
 interface Asociado {
   id: string;
@@ -51,6 +52,10 @@ export default function Reportes() {
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
 
+  // Utilidades
+  const [utilidadesData, setUtilidadesData] = useState<any>(null);
+  const [loadingUtilidades, setLoadingUtilidades] = useState(false);
+
   // Buscar asociados
   useEffect(() => {
     if (searchTerm.length < 3) {
@@ -85,6 +90,22 @@ export default function Reportes() {
     const timer = setTimeout(fetchAsociados, 400);
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  // Cargar utilidades
+  useEffect(() => {
+    async function loadUtilidades() {
+      setLoadingUtilidades(true);
+      try {
+        const data = await dashboardApi.getUtilidadesMora();
+        setUtilidadesData(data);
+      } catch (err) {
+        console.error('Error cargando utilidades:', err);
+      } finally {
+        setLoadingUtilidades(false);
+      }
+    }
+    loadUtilidades();
+  }, []);
 
   // Cargar datos al seleccionar asociado
   useEffect(() => {
@@ -261,6 +282,36 @@ export default function Reportes() {
     toast.success('Extracto descargado correctamente');
   };
 
+  const exportarUtilidadesCsv = () => {
+    if (!utilidadesData || utilidadesData.historial.length === 0) {
+      return toast.info('No hay datos de utilidades para exportar');
+    }
+    
+    const cabeceras = ['Fecha', 'Asociado', 'Cedula', 'Tipo de Transaccion', 'Monto Mora (Utilidad)'];
+    const lineas = [cabeceras.join(',')];
+    
+    utilidadesData.historial.forEach((r: any) => {
+      const linea = [
+        new Date(r.fecha_pago).toLocaleDateString('es-CO'),
+        r.asociado?.nombre ?? 'Desconocido',
+        r.asociado?.cedula ?? 'N/A',
+        r.tipo.replace(/_/g, ' ').toUpperCase(),
+        r.monto_mora
+      ].map(c => `"${c}"`).join(',');
+      lineas.push(linea);
+    });
+    
+    const blob = new Blob([lineas.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `utilidades_mora_ufca_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Reporte de utilidades exportado a CSV');
+  };
+
   const exportarCarteraCsv = async () => {
     setExportingCsv(true);
     try {
@@ -396,12 +447,15 @@ export default function Reportes() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
-            <TabsTrigger value="extractos" className="gap-2">
-              <FileText className="size-4" /> Extractos Consolidados
+          <TabsList className="grid w-full max-w-[600px] grid-cols-3 mb-6">
+            <TabsTrigger value="extractos" className="flex items-center gap-2">
+              <FileText className="size-4" /> Extractos
             </TabsTrigger>
-            <TabsTrigger value="exportacion" className="gap-2">
-              <FileSpreadsheet className="size-4" /> Exportación (CSV)
+            <TabsTrigger value="exportacion" className="flex items-center gap-2">
+              <Download className="size-4" /> Exportación
+            </TabsTrigger>
+            <TabsTrigger value="utilidades" className="flex items-center gap-2">
+              <TrendingUp className="size-4" /> Utilidades
             </TabsTrigger>
           </TabsList>
 
@@ -625,6 +679,112 @@ export default function Reportes() {
               </Card>
 
             </div>
+          </TabsContent>
+
+          <TabsContent value="utilidades" className="space-y-6">
+            {loadingUtilidades ? (
+              <div className="flex justify-center p-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+              </div>
+            ) : !utilidadesData ? (
+              <div className="text-center p-12 text-slate-500">Error al cargar las utilidades</div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <Card className="bg-gradient-to-br from-pink-500 to-rose-500 text-white shadow-md border-0">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-pink-100 flex items-center justify-between">
+                        Utilidades Totales
+                        <TrendingUp className="size-4 text-pink-200" />
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold">{formatCurrency(utilidadesData.utilidadTotal)}</div>
+                      <p className="text-xs text-pink-100 mt-1">Ganancia neta por mora</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md border-0">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-amber-100 flex items-center justify-between">
+                        Mora en Créditos
+                        <FileSpreadsheet className="size-4 text-amber-200" />
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold">{formatCurrency(utilidadesData.utilidadCreditos)}</div>
+                      <p className="text-xs text-amber-100 mt-1">Intereses de mora cobrados</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-md border-0">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-emerald-100 flex items-center justify-between">
+                        Mora en Ahorros
+                        <PiggyBank className="size-4 text-emerald-200" />
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold">{formatCurrency(utilidadesData.utilidadAhorros)}</div>
+                      <p className="text-xs text-emerald-100 mt-1">Penalidades por aportes atrasados</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card className="shadow-sm border-slate-200">
+                  <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <CardTitle className="text-lg">Historial de Utilidades (Mora)</CardTitle>
+                      <CardDescription>Registro detallado de todas las transacciones que generaron utilidad para el fondo.</CardDescription>
+                    </div>
+                    <Button onClick={exportarUtilidadesCsv} className="gap-2 bg-slate-800 hover:bg-slate-700">
+                      <Download className="size-4" /> Exportar a CSV
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    {utilidadesData.historial.length === 0 ? (
+                      <div className="text-center py-8 text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                        No hay registros de utilidades generadas por mora todavía.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                          <thead className="text-xs text-slate-500 uppercase bg-slate-50">
+                            <tr>
+                              <th className="px-4 py-3 font-medium rounded-tl-lg">Fecha</th>
+                              <th className="px-4 py-3 font-medium">Asociado</th>
+                              <th className="px-4 py-3 font-medium">Concepto</th>
+                              <th className="px-4 py-3 font-medium text-right rounded-tr-lg">Utilidad Generada</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {utilidadesData.historial.map((r: any) => (
+                              <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-4 py-3 whitespace-nowrap text-slate-600">
+                                  {new Date(r.fecha_pago).toLocaleDateString('es-CO')}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="font-medium text-slate-800">{r.asociado?.nombre ?? 'Asociado Eliminado'}</div>
+                                  <div className="text-xs text-slate-500">{r.asociado?.cedula ?? 'N/A'}</div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
+                                    {r.tipo.replace(/_/g, ' ')}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-right font-semibold text-emerald-600">
+                                  +{formatCurrency(r.monto_mora)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </TabsContent>
         </Tabs>
 

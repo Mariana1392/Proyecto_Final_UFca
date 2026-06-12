@@ -38,6 +38,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
     totalCreditos:         0,
     totalCarteraCreditos:  0,
     totalInteresesMes:     0,
+    totalUtilidadesMora:   0,
     solicitudesPendientes: 0,
     liquidacionesPend:     0,
     proximosEventos:       0,
@@ -84,6 +85,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
   async function cargarStatsAdmin() {
     try {
       const stats = await dashboardApi.getStats();
+      const utilidades = await dashboardApi.getUtilidadesMora();
 
       setLiveStats({
         totalAsociados:        stats.totalAsociados,
@@ -94,6 +96,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
         totalCreditos:         stats.totalCreditos,
         totalCarteraCreditos:  stats.totalCarteraCreditos,
         totalInteresesMes:     stats.totalInteresesMes,
+        totalUtilidadesMora:   utilidades.utilidadTotal,
         solicitudesPendientes: stats.solicitudesPendientes,
         liquidacionesPend:     stats.liquidacionesPend,
         proximosEventos:       0, // tabla 'eventos' no implementada aún
@@ -676,6 +679,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
                   { label: 'Monto',       value: fmtCOP(liveStats.totalCarteraCreditos),  sub: 'Créditos activos',    bar: 'bg-amber-500',   text: 'text-amber-600'   },
                   { label: 'Capital administrado', value: fmtCOP(liveStats.totalAhorros),          sub: 'Total ahorros',       bar: 'bg-emerald-500', text: 'text-emerald-600' },
                   { label: 'Intereses este mes',   value: fmtCOP(liveStats.totalInteresesMes),     sub: 'Ganancia créditos',   bar: 'bg-violet-500',  text: 'text-violet-600'  },
+                  { label: 'Utilidades del fondo', value: fmtCOP(liveStats.totalUtilidadesMora),   sub: 'Ganancias por mora',  bar: 'bg-pink-500',    text: 'text-pink-600'    },
                   { label: 'Liquidaciones',        value: String(liveStats.liquidacionesPend),     sub: `${liveStats.totalUsuarios} usuarios`, bar: 'bg-slate-400', text: 'text-slate-600' },
                 ].map(({ label, value, sub, bar, text }) => (
                   <div key={label} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">

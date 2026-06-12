@@ -628,4 +628,45 @@ export const dashboardApi = {
       totalInteresesMes,
     };
   },
+
+  async getUtilidadesMora() {
+    const { data, error } = await supabase
+      .from('transacciones')
+      .select('id, tipo, monto_mora, fecha_pago, asociado_id')
+      .eq('anulado', false)
+      .gt('monto_mora', 0);
+      
+    if (error) throw error;
+    
+    // Obtener información de los asociados para el historial
+    const rows = data ?? [];
+    const asocIds = [...new Set(rows.map((r: any) => r.asociado_id).filter(Boolean))];
+    const asocMap: Record<string, any> = {};
+    if (asocIds.length > 0) {
+      const { data: asocs } = await supabase.from('usuarios').select('id, nombre, cedula').in('id', asocIds);
+      (asocs || []).forEach((a: any) => { asocMap[a.id] = a; });
+    }
+
+    let utilidadCreditos = 0;
+    let utilidadAhorros = 0;
+
+    const historial = rows.map((r: any) => {
+      if (['pago_credito', 'abono_capital', 'cancelacion_total'].includes(r.tipo)) {
+        utilidadCreditos += r.monto_mora || 0;
+      } else if (['aporte_permanente', 'aporte_voluntario'].includes(r.tipo)) {
+        utilidadAhorros += r.monto_mora || 0;
+      }
+      return {
+        ...r,
+        asociado: asocMap[r.asociado_id] ?? null
+      };
+    }).sort((a, b) => new Date(b.fecha_pago).getTime() - new Date(a.fecha_pago).getTime());
+
+    return {
+      utilidadTotal: utilidadCreditos + utilidadAhorros,
+      utilidadCreditos,
+      utilidadAhorros,
+      historial
+    };
+  }
 };

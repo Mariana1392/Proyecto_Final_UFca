@@ -197,36 +197,8 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
     );
   }
 
-  // Cuenta suspendida: solicitud aprobada pero aún no pagó la primera cuota
-  if (userData?.cuentaActivada === false) {
-    return (
-      <div className="p-6 max-w-3xl mx-auto">
-        <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-6 flex gap-4 items-start shadow-md">
-          <div className="p-3 bg-amber-100 rounded-xl flex-shrink-0">
-            <PiggyBank className="size-7 text-amber-600" />
-          </div>
-          <div className="space-y-2">
-            <h2 className="font-bold text-amber-900 text-lg">
-              ¡Bienvenido/a a UFCA, {userData?.nombre?.split(' ')[0]}!
-            </h2>
-            <p className="text-sm text-amber-800 leading-relaxed">
-              Tu cuenta está <strong>casi lista</strong>. Para activar el acceso completo al sistema,
-              realiza tu <strong>primera cuota de ahorro permanente</strong> y comunícate con el
-              administrador para que la registre. Una vez registrado el pago, todos los módulos se
-              activarán automáticamente.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-3 text-xs text-amber-700">
-              <span className="flex items-center gap-1">📞 +57 314 758 7250</span>
-              <span className="flex items-center gap-1">✉️ marboledalondono@gmail.com</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // U-04: asociado_id existe pero pendiente de pago de activación
-  if (userData?.pendienteActivacion) {
+  // Cuenta suspendida o pendiente de pago de activación
+  if (userData?.cuentaActivada === false || userData?.pendienteActivacion) {
     return (
       <div className="p-6 space-y-6 max-w-3xl mx-auto">
         <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 flex gap-4 items-start shadow-sm">
