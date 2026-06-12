@@ -391,6 +391,16 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
     setIsMovimientoDialogOpen(true);
   };
 
+  const openDeposito = (ahorro: any) => {
+    setSelectedItem(ahorro);
+    setFormMovTipo('Depósito');
+    setFormMovMonto('');
+    setFormMovFecha(new Date().toISOString().split('T')[0]);
+    setFormMovDesc('');
+    setFormMovMetodo('');
+    setIsMovimientoDialogOpen(true);
+  };
+
   // ── Registrar movimiento ──────────────────────────────────────────────────
   const handleRegistrarMovimiento = () => {
     const monto = parseCurrencyInput(formMovMonto);
@@ -869,7 +879,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
     cargarDatos, limpiarFiltros, handleSelectAsociado,
     handleSaldoInicialChange, handleSaldoInicialBlur,
     handleOpenDetail, handleOpenEdit, handleOpenAnularDialog,
-    handleOpenPDF, handleOpenMovimiento,
+    handleOpenPDF, handleOpenMovimiento, openDeposito,
     handleRegistrarMovimiento, ejecutarRegistrarMovimiento,
     handleToggleEstado, handleAnular, handleSaveAhorro,
     handleAprobarSolicitudVol, handleRechazarSolicitudVol,

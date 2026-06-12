@@ -153,7 +153,7 @@ export function useAhorroPermanenteCRUD({
           a.id === id ? { ...a, anulado: true, estado: false, motivoAnulacion: justificacion } : a
         ));
         await notificarAsociado(asociado_id, '❌ Ahorro permanente anulado',
-          `Tu ahorro permanente ha sido anulado. Motivo: ${justificacion}`, 'ahorro_anulado');
+          `Tu ahorro permanente ha sido anulado. Motivo: ${justificacion}`, 'general');
         toast.success(`Ahorro de "${asociado}" anulado`);
       } else {
         const esActivo = nuevoEstadoSeleccionado === 'activo';
@@ -169,7 +169,7 @@ export function useAhorroPermanenteCRUD({
           esActivo
             ? `Tu ahorro permanente ha sido reactivado. Motivo: ${justificacion}`
             : `Tu ahorro permanente ha sido desactivado. Motivo: ${justificacion}`,
-          esActivo ? 'ahorro_activado' : 'ahorro_inactivado'
+          'general'
         );
         toast.success(`Ahorro de "${asociado}" ${esActivo ? 'activado' : 'desactivado'}`);
       }
@@ -196,7 +196,7 @@ export function useAhorroPermanenteCRUD({
         a.id === id ? { ...a, anulado: true, estado: false, motivoAnulacion: justificacion } : a
       ));
       await notificarAsociado(asociado_id, '❌ Ahorro permanente anulado',
-        `Tu ahorro permanente ha sido anulado. Motivo: ${justificacion}`, 'ahorro_anulado');
+        `Tu ahorro permanente ha sido anulado. Motivo: ${justificacion}`, 'general');
       invalidarAuditoria(id);
       toast.success(`Ahorro de "${asociado}" anulado exitosamente`);
     } catch (err: any) {

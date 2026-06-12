@@ -273,7 +273,7 @@ export const ahorroPermanenteApi = {
   },
 
   async anular(id: string, motivo: string): Promise<any> {
-    return ahorroPermanenteApi.update(id, { anulado: true, estado: 'cerrado', motivo_anulacion: motivo });
+    return ahorroPermanenteApi.update(id, { anulado: true, estado: 'inactivo', motivo_anulacion: motivo });
   },
 };
 

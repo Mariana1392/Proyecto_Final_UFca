@@ -342,6 +342,10 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
         setFormAportePeriodoId={h.setFormAportePeriodoId}
         formComprobante={h.formComprobante}
         setFormComprobante={h.setFormComprobante}
+        formPagaMora={h.formPagaMora}
+        setFormPagaMora={h.setFormPagaMora}
+        formMoraMonto={h.formMoraMonto}
+        handleFormMoraMontoChange={h.handleFormMoraMontoChange}
         periodos={h.periodos}
         handleRegistrarAporte={h.handleRegistrarAporte}
         savingAporte={h.savingAporte}

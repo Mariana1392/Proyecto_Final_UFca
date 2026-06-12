@@ -45,6 +45,8 @@ export function useAhorroPermanenteAportes({
   const [formAporteDesc,      setFormAporteDesc]      = useState('');
   const [formAportePeriodoId, setFormAportePeriodoId] = useState('');
   const [formComprobante,     setFormComprobante]     = useState<File | null>(null);
+  const [formPagaMora,        setFormPagaMora]        = useState(false);
+  const [formMoraMonto,       setFormMoraMonto]       = useState('');
 
   // ── Aportes pendientes reportados por asociados ───────────────────────────
   const [savingAporte,        setSavingAporte]        = useState(false);
@@ -67,19 +69,31 @@ export function useAhorroPermanenteAportes({
     setFormAporteFecha(hoyLocal());
     setFormAporteDesc('');
     setFormComprobante(null);
+    setFormPagaMora(false);
+    setFormMoraMonto('');
     setIsAporteDialogOpen(true);
   };
 
   // ── Handler: validar y registrar aporte ──────────────────────────────────
   const handleRegistrarAporte = () => {
-    const monto = parseCurrencyInput(formAporteMonto);
-    if (!monto || monto <= 0)      { toast.error('El monto debe ser mayor a cero'); return; }
-    // Advertencia informativa — no bloquea el registro
-    if (monto < 100_000)           { toast.warning('El valor ingresado es menor al monto estipulado, pero se registrará igualmente.'); }
-    if (!formAporteFecha)          { toast.error('Selecciona la fecha del aporte'); return; }
-    if (!selectedItem)             return;
-    // Si es menor al obligatorio, mostrar confirmación pero siempre permitir continuar
-    if (monto < montoObligatorio)  { setIsConfirmAporteBajoOpen(true); return; }
+    if (!selectedItem) return;
+    if (!formAporteFecha) { toast.error('Selecciona la fecha'); return; }
+
+    const monto        = parseCurrencyInput(formAporteMonto);
+    const montoMoraNum = parseCurrencyInput(formMoraMonto);
+    const tieneAporte  = monto > 0;
+    const tieneMora    = formPagaMora && montoMoraNum > 0;
+
+    if (!tieneAporte && !tieneMora) {
+      toast.error('Ingresa un monto de aporte o de mora'); return;
+    }
+    if (formPagaMora && montoMoraNum <= 0) {
+      toast.error('Ingresa el monto de la mora'); return;
+    }
+    // Si hay aporte y es menor al obligatorio, pedir confirmación
+    if (tieneAporte && monto < montoObligatorio) {
+      setIsConfirmAporteBajoOpen(true); return;
+    }
     ejecutarRegistrarAporte();
   };
 
@@ -102,81 +116,132 @@ export function useAhorroPermanenteAportes({
     if (error) throw new Error('No se pudo actualizar el saldo: ' + error.message);
   };
 
-  // ── Handler: lógica real de guardado de aporte ────────────────────────────
+  // ── Handler: lógica real de guardado ─────────────────────────────────────
   const ejecutarRegistrarAporte = async () => {
-    const monto = parseCurrencyInput(formAporteMonto);
+    const monto        = parseCurrencyInput(formAporteMonto);
+    const montoMoraNum = parseCurrencyInput(formMoraMonto);
+    const tieneAporte  = monto > 0;
+    const tieneMora    = formPagaMora && montoMoraNum > 0;
+
     setSavingAporte(true);
     try {
-      // 1. Subir comprobante (no bloquea si falla)
-      let urlComprobante: string | null = null;
-      if (formComprobante && selectedItem?.asociado_id) {
-        try {
-          const ext  = formComprobante.name.split('.').pop() ?? 'jpg';
-          const path = `comprobantes-aportes/${selectedItem.asociado_id}/${Date.now()}.${ext}`;
-          const { error: upErr } = await db.storage
-            .from('solicitudes-documentos')
-            .upload(path, formComprobante, { upsert: true });
-          if (!upErr) {
-            const { data: { publicUrl } } = db.storage
-              .from('solicitudes-documentos').getPublicUrl(path);
-            urlComprobante = publicUrl;
-          }
-        } catch { /* no bloquea */ }
+      // Leer saldo base
+      const saldoAnterior = await leerSaldoActual(selectedItem.id, selectedItem.montoAhorrado ?? 0);
+      let   saldoNuevo    = saldoAnterior;
+
+      // ── Bloque aporte (solo si hay monto de aporte) ───────────────────────
+      if (tieneAporte) {
+        // 1. Subir comprobante (no bloquea si falla)
+        let urlComprobante: string | null = null;
+        if (formComprobante && selectedItem?.asociado_id) {
+          try {
+            const ext  = formComprobante.name.split('.').pop() ?? 'jpg';
+            const path = `comprobantes-aportes/${selectedItem.asociado_id}/${Date.now()}.${ext}`;
+            const { error: upErr } = await db.storage
+              .from('solicitudes-documentos')
+              .upload(path, formComprobante, { upsert: true });
+            if (!upErr) {
+              const { data: { publicUrl } } = db.storage
+                .from('solicitudes-documentos').getPublicUrl(path);
+              urlComprobante = publicUrl;
+            }
+          } catch { /* no bloquea */ }
+        }
+
+        saldoNuevo = saldoAnterior + monto;
+
+        // 2. Insertar transacción aporte
+        const { error: movErr } = await supabase
+          .from('transacciones')
+          .insert({
+            tipo:                'aporte_permanente',
+            ahorro_id:           selectedItem.id,
+            asociado_id:         selectedItem.asociado_id,
+            periodo_id:          formAportePeriodoId || null,
+            mes_correspondiente: formAporteFecha,
+            fecha_pago:          formAporteFecha,
+            monto,
+            saldo_antes:         saldoAnterior,
+            saldo_despues:       saldoNuevo,
+            anulado:             false,
+            url_comprobante:     urlComprobante,
+            observacion:         formAporteDesc.trim() || null,
+          });
+        if (movErr) throw new Error('Error al insertar transacción: ' + movErr.message);
+
+        // 3. Actualizar saldo en cuentas_ahorro
+        await actualizarSaldo(selectedItem.id, saldoNuevo);
+
+        // 4. Actualizar UI local — quitar mora porque ya pagó el aporte
+        setSelectedItem((prev: any) => ({
+          ...prev,
+          montoAhorrado: saldoNuevo,
+          pagadoEsteMes: true,
+          enMora:        false,
+          diasMora:      0,
+          montoMora:     0,
+        }));
+        setAhorros(prev => prev.map(a =>
+          a.id === selectedItem.id
+            ? { ...a, montoAhorrado: saldoNuevo, pagadoEsteMes: true, enMora: false, diasMora: 0, montoMora: 0 }
+            : a
+        ));
       }
 
-      // 2. Leer saldo real — fallback al saldo del item en memoria
-      const saldoAnterior = await leerSaldoActual(selectedItem.id, selectedItem.montoAhorrado ?? 0);
-      const saldoNuevo    = saldoAnterior + monto;
+      // ── Bloque mora (independiente del aporte) ────────────────────────────
+      if (tieneMora) {
+        const { error: moraErr } = await supabase
+          .from('transacciones')
+          .insert({
+            tipo:          'mora_permanente',
+            ahorro_id:     selectedItem.id,
+            asociado_id:   selectedItem.asociado_id,
+            periodo_id:    formAportePeriodoId || null,
+            fecha_pago:    formAporteFecha,
+            monto:         montoMoraNum,
+            saldo_antes:   saldoNuevo,
+            saldo_despues: saldoNuevo,
+            anulado:       false,
+            observacion:   'Pago de mora',
+          });
+        if (moraErr) throw new Error('Error al insertar mora: ' + moraErr.message);
+      }
 
-      // 3. Insertar transacción
-      const { error: movErr } = await supabase
-        .from('transacciones')
-        .insert({
-          tipo:                'aporte_permanente',
-          ahorro_id:           selectedItem.id,
-          asociado_id:         selectedItem.asociado_id,
-          periodo_id:          formAportePeriodoId || null,
-          mes_correspondiente: formAporteFecha,
-          fecha_pago:          formAporteFecha,
-          monto,
-          saldo_antes:         saldoAnterior,
-          saldo_despues:       saldoNuevo,
-          anulado:             false,
-          url_comprobante:     urlComprobante,
-          observacion:         formAporteDesc.trim() || null,
-        });
-      if (movErr) throw new Error('Error al insertar transacción: ' + movErr.message);
-
-      // 4. Actualizar saldo en cuentas_ahorro
-      await actualizarSaldo(selectedItem.id, saldoNuevo);
-
-      // 5. Actualizar UI local
-      setSelectedItem((prev: any) => ({ ...prev, montoAhorrado: saldoNuevo }));
-      setAhorros(prev => prev.map(a =>
-        a.id === selectedItem.id ? { ...a, montoAhorrado: saldoNuevo } : a
-      ));
-
-      // 6. Recargar historial de transacciones
+      // ── Recargar historial ────────────────────────────────────────────────
       const { data: movs } = await db
         .from('transacciones')
         .select('*, periodos(nombre)')
         .eq('ahorro_id', selectedItem.id)
-        .eq('tipo', 'aporte_permanente')
+        .in('tipo', ['aporte_permanente', 'mora_permanente'])
         .order('fecha_pago', { ascending: false });
       setMovimientosDetalle(movs || []);
 
-      toast.success('Aporte registrado exitosamente', {
-        description: `${formatCurrency(monto)} — Nuevo saldo: ${formatCurrency(saldoNuevo)}`,
-      });
+      // ── Toast según lo que se registró ───────────────────────────────────
+      if (tieneAporte && tieneMora) {
+        toast.success('Aporte y mora registrados', {
+          description: `Aporte ${formatCurrency(monto)} + mora ${formatCurrency(montoMoraNum)} — Nuevo saldo: ${formatCurrency(saldoNuevo)}`,
+        });
+      } else if (tieneAporte) {
+        toast.success('Aporte registrado exitosamente', {
+          description: `${formatCurrency(monto)} — Nuevo saldo: ${formatCurrency(saldoNuevo)}`,
+        });
+      } else {
+        toast.success('Mora registrada', {
+          description: `${formatCurrency(montoMoraNum)} registrados como pago de mora`,
+        });
+      }
+
       setIsAporteDialogOpen(false);
       setFormAporteMonto('');
       setFormAporteFecha('');
       setFormAporteDesc('');
       setFormComprobante(null);
+      setFormPagaMora(false);
+      setFormMoraMonto('');
       const activo = periodos.find((p: any) => p.estado === 'activo');
       if (activo) setFormAportePeriodoId(activo.id);
     } catch (err: any) {
-      toast.error('Error al registrar aporte: ' + err.message);
+      toast.error('Error al registrar: ' + err.message);
     } finally {
       setSavingAporte(false);
     }
@@ -270,6 +335,10 @@ export function useAhorroPermanenteAportes({
     setFormAporteMonto(formatCurrencyInput(raw));
   };
 
+  const handleFormMoraMontoChange = (raw: string) => {
+    setFormMoraMonto(formatCurrencyInput(raw));
+  };
+
   return {
     isAporteDialogOpen,      setIsAporteDialogOpen,
     isConfirmAporteBajoOpen, setIsConfirmAporteBajoOpen,
@@ -278,6 +347,8 @@ export function useAhorroPermanenteAportes({
     formAporteDesc,      setFormAporteDesc,
     formAportePeriodoId, setFormAportePeriodoId,
     formComprobante,     setFormComprobante,
+    formPagaMora,        setFormPagaMora,
+    formMoraMonto,       setFormMoraMonto,
     savingAporte,
     aportesPendientes,
     isRechazarAporteOpen,  setIsRechazarAporteOpen,
@@ -289,5 +360,6 @@ export function useAhorroPermanenteAportes({
     handleConfirmarAporte,
     handleRechazarAporte,
     handleFormAporteMontoChange,
+    handleFormMoraMontoChange,
   };
 }
