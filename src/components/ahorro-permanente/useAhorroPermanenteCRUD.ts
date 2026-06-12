@@ -277,20 +277,57 @@ export function useAhorroPermanenteCRUD({
     }
 
     if (!selectedItem) {
-      // Buscar cualquier cuenta activa (no cerrada, no anulada)
-      const { data: existente } = await supabase
+      // Traer historial de ahorros permanentes del asociado
+      const currentYear = new Date().getFullYear();
+      const firstDayOfYear = new Date(currentYear, 0, 1).toISOString();
+      
+      const { data: historial } = await supabase
         .from('cuentas_ahorro')
-        .select('id, estado, anulado')
+        .select('*')
         .eq('tipo', 'permanente')
-        .eq('asociado_id', formAsociadoId)
-        .neq('estado', 'cerrado')
-        .eq('anulado', false)
-        .limit(1);
-      if (existente && existente.length > 0) {
+        .eq('asociado_id', formAsociadoId);
+
+      const historialAhorros = historial || [];
+
+      // Regla 1: Solo 1 ahorro activo a la vez
+      const activo = historialAhorros.find((h: any) => h.estado === 'activo' || (!h.anulado && h.estado !== 'cerrado'));
+      if (activo) {
         toast.error('El asociado ya tiene un ahorro permanente activo', {
-          description: 'No se puede crear otro hasta que el actual sea liquidado.',
+          description: 'No se puede crear otro hasta que el actual sea anulado o liquidado.',
         });
         return;
+      }
+
+      // Regla 2: Máximo 3 por año
+      const historialYear = historialAhorros.filter((h: any) => h.created_at >= firstDayOfYear);
+      if (historialYear.length >= 3) {
+        toast.error('Límite anual alcanzado', {
+          description: 'El asociado ya ha alcanzado el límite de 3 ahorros permanentes este año.',
+        });
+        return;
+      }
+
+      // Regla 3: Mínimo 2 días (48 horas) de espera desde la última anulación
+      const anulados = historialAhorros.filter((h: any) => h.anulado === true);
+      if (anulados.length > 0) {
+        // Ordenar del más reciente al más antiguo
+        anulados.sort((a: any, b: any) => {
+          const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+          const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
+
+        const ultimoAnulado = anulados[0];
+        const fechaAnulacion = new Date(ultimoAnulado.updated_at || ultimoAnulado.created_at);
+        const hoy = new Date();
+        const diffHours = (hoy.getTime() - fechaAnulacion.getTime()) / (1000 * 60 * 60);
+
+        if (diffHours < 48) {
+          toast.error('Tiempo de espera no cumplido', {
+            description: `Deben pasar al menos 48 horas desde la última anulación para crear uno nuevo (han pasado ${Math.floor(diffHours)} horas).`,
+          });
+          return;
+        }
       }
     }
 

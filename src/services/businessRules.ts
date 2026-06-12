@@ -419,6 +419,46 @@ class BusinessRulesEngine {
     return { valida: true, mensaje: 'Retiro total permitido', requiereExcepcion: false };
   }
 
+  // ── REGLAS DE AHORRO PERMANENTE ───────────────────────────────────────────
+
+  /** REGLA: Estado de mora/vencimiento para Ahorro Permanente */
+  calcularEstadoAhorroPermanente(fechaUltimoPago: string | null): {
+    estado: 'al_dia' | 'en_mora' | 'plazo_vencido';
+    mensaje: string;
+  } {
+    const hoy = new Date();
+    const diaActual = hoy.getDate();
+    const mesActual = hoy.getMonth();
+    const añoActual = hoy.getFullYear();
+
+    if (!fechaUltimoPago) {
+      if (diaActual <= 16) {
+        return { estado: 'al_dia', mensaje: 'Dentro del plazo para su primer pago.' };
+      } else {
+        // Asumimos mora si pasó el 16. Si ya pasó el mes, no podemos saberlo sin fecha_ingreso, 
+        // lo clasificamos como mora inicialmente.
+        return { estado: 'en_mora', mensaje: 'Sin pagos registrados. Plazo inicial vencido (día 16).' };
+      }
+    }
+
+    const ultimoPago = new Date(fechaUltimoPago);
+    const mesPago = ultimoPago.getMonth();
+    const añoPago = ultimoPago.getFullYear();
+    const diferenciaMeses = (añoActual * 12 + mesActual) - (añoPago * 12 + mesPago);
+
+    if (diferenciaMeses <= 0) {
+      return { estado: 'al_dia', mensaje: 'Pago del mes al día o adelantado.' };
+    } else if (diferenciaMeses === 1) {
+      if (diaActual <= 16) {
+        return { estado: 'al_dia', mensaje: 'Al día. Tiene hasta el día 16 para su próximo pago.' };
+      } else {
+        return { estado: 'en_mora', mensaje: 'En mora. Fecha límite de pago superada (día 16).' };
+      }
+    } else {
+      return { estado: 'plazo_vencido', mensaje: 'Plazo máximo excedido (mes sin pago). Sujeto a revisión administrativa.' };
+    }
+  }
+
   // ── PROCESAMIENTO DE EXCEPCIONES ──────────────────────────────────────────
 
   /**

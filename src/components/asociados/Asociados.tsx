@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAsociados }  from './useAsociados';
 import { useAuditoria }  from './useAuditoria';
 import { useRetiro }     from './useRetiro';
@@ -852,6 +852,16 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
                                   {!asociado.estado && (
                                     <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
                                       Inactivo
+                                    </Badge>
+                                  )}
+                                  {asociado.estado && asociado.estadoAhorroPerm?.estado === 'en_mora' && (
+                                    <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 animate-pulse" title={asociado.estadoAhorroPerm.mensaje}>
+                                      En Mora
+                                    </Badge>
+                                  )}
+                                  {asociado.estado && asociado.estadoAhorroPerm?.estado === 'plazo_vencido' && (
+                                    <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-500" title={asociado.estadoAhorroPerm.mensaje}>
+                                      Candidato a Retiro
                                     </Badge>
                                   )}
                                 </div>

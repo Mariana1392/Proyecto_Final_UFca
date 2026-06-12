@@ -29,6 +29,7 @@ export function useCreditosSolicitudes({
   setMisSolicitudes,
 }: UseCreditosSolicitudesParams) {
   const [isSolicitudDialogOpen, setIsSolicitudDialogOpen] = useState(false);
+  const [totalAhorros, setTotalAhorros]     = useState<number>(0);
   const [solMonto, setSolMonto]             = useState('');
   const [solTipo, setSolTipo]               = useState('libre_inversion');
   const [solPlazo, setSolPlazo]             = useState('');
@@ -63,7 +64,19 @@ export function useCreditosSolicitudes({
         const tasa  = mapa[clave] ?? 0;
         setSolTasa(tasa > 0 ? String(tasa) : '');
       });
-  }, [isSolicitudDialogOpen]); // se recarga cada vez que el dialog abre/cierra
+
+    // Cargar total de ahorros del asociado al abrir el dialog
+    if (isSolicitudDialogOpen && userData?.id) {
+      supabase.from('cuentas_ahorro')
+        .select('monto_ahorrado')
+        .eq('asociado_id', userData.id)
+        .eq('estado', 'activo')
+        .then(({ data }) => {
+          const sum = (data || []).reduce((acc: number, curr: any) => acc + (curr.monto_ahorrado || 0), 0);
+          setTotalAhorros(sum);
+        });
+    }
+  }, [isSolicitudDialogOpen, userData?.id]); // se recarga cada vez que el dialog abre/cierra
 
   // Cuando cambia el tipo, actualizar la tasa automáticamente
   const handleSolTipoChange = (tipo: string) => {
@@ -80,6 +93,11 @@ export function useCreditosSolicitudes({
     if (!monto || monto <= 0)      { toast.error('Ingresa un monto válido'); return; }
     const plazo = parseInt(solPlazo) || 0;
     if (plazo <= 0)                { toast.error('El plazo debe ser mayor a 0 meses'); return; }
+
+    if (monto > totalAhorros) {
+      toast.error(`El monto solicitado excede el total de tus ahorros (${formatCurrency(totalAhorros)}).`);
+      return;
+    }
 
     setSavingSolicitud(true);
     try {
@@ -315,6 +333,7 @@ export function useCreditosSolicitudes({
 
   return {
     isSolicitudDialogOpen, setIsSolicitudDialogOpen,
+    totalAhorros,
     solMonto, setSolMonto,
     solTipo, setSolTipo,
     solPlazo, setSolPlazo,

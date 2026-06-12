@@ -6,9 +6,10 @@ import { Badge } from './ui/badge';
 import {
   PiggyBank, Wallet, CreditCard, TrendingUp,
   ArrowRight, User, Bell, Star, Gift, ChevronRight,
-  CheckCircle2, Clock, AlertCircle, Coins,
+  CheckCircle2, Clock, AlertCircle, Coins, AlertTriangle
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { businessRules } from '../services/businessRules';
 
 interface Props {
   userData?: any;
@@ -36,6 +37,7 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
   const [movimientos, setMovimientos] = useState<any[]>([]);
   const [creditos, setCreditos]       = useState<any[]>([]);
   const [loading, setLoading]         = useState(true);
+  const [estadoAhorro, setEstadoAhorro] = useState<{estado: string, mensaje: string} | null>(null);
 
   useEffect(() => {
     if (userData?.id) cargar(userData.id);
@@ -108,6 +110,11 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
         referidos:     refRes.count ?? 0,
       });
       setCreditos(creditosActivos);
+
+      // Calcular estado de ahorro permanente
+      const pagosPerm = pagosPermRes.data || [];
+      const ultimoPagoPerm = pagosPerm.length > 0 ? pagosPerm[0].fecha_pago : null;
+      setEstadoAhorro(businessRules.calcularEstadoAhorroPermanente(ultimoPagoPerm));
 
       // Últimos pagos de ahorro — combinar permanente y voluntario
       const movsProcesados = [
@@ -322,6 +329,30 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
           </div>
         </div>
       </div>
+
+      {/* ── Alertas de Mora / Vencimiento ── */}
+      {estadoAhorro && estadoAhorro.estado === 'en_mora' && (
+        <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 flex gap-3 items-center shadow-md animate-pulse">
+          <div className="p-2 bg-amber-100 rounded-full">
+            <AlertCircle className="size-6 text-amber-600" />
+          </div>
+          <div>
+            <h3 className="text-amber-900 font-bold">Aviso de Mora en Ahorro Permanente</h3>
+            <p className="text-sm text-amber-800">{estadoAhorro.mensaje}</p>
+          </div>
+        </div>
+      )}
+      {estadoAhorro && estadoAhorro.estado === 'plazo_vencido' && (
+        <div className="rounded-2xl border-2 border-red-500 bg-red-50 p-4 flex gap-3 items-center shadow-md">
+          <div className="p-2 bg-red-100 rounded-full">
+            <AlertTriangle className="size-6 text-red-600" />
+          </div>
+          <div>
+            <h3 className="text-red-900 font-bold">Plazo Máximo Excedido</h3>
+            <p className="text-sm text-red-800">{estadoAhorro.mensaje}</p>
+          </div>
+        </div>
+      )}
 
       {/* ── Tarjetas de resumen ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

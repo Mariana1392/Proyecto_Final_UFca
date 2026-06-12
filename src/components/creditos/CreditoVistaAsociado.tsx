@@ -79,6 +79,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
     misSolicitudes,
     // Solicitud dialog
     isSolicitudDialogOpen, setIsSolicitudDialogOpen,
+    totalAhorros,
     solMonto, setSolMonto,
     solTipo,
     solPlazo, setSolPlazo,
@@ -976,6 +977,19 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
             </div>
           </div>
 
+          {/* ── Alerta de límite de ahorros ── */}
+          {parseMonto(solMonto) > totalAhorros && totalAhorros > 0 && (
+            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl flex items-start gap-3 animate-pulse mt-2 mb-2">
+              <AlertTriangle className="size-6 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-bold text-sm">Límite de préstamo excedido</h4>
+                <p className="text-xs mt-0.5">
+                  El monto solicitado ({formatCurrency(parseMonto(solMonto))}) excede el total de tus ahorros ({formatCurrency(totalAhorros)}).
+                </p>
+              </div>
+            </div>
+          )}
+
           {parseMonto(solMonto) > 0 && parseInt(solPlazo) > 0 && (() => {
             const _monto   = parseMonto(solMonto);
             const _tasa    = parseFloat(solTasa) || 0;
@@ -1158,7 +1172,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={() => setIsSolicitudDialogOpen(false)}>Cancelar</Button>
-          <Button className="bg-blue-600 hover:bg-blue-700" disabled={savingSolicitud} onClick={handleSolicitarCredito}>
+          <Button className="bg-blue-600 hover:bg-blue-700" disabled={savingSolicitud || parseMonto(solMonto) > totalAhorros} onClick={handleSolicitarCredito}>
             {savingSolicitud ? 'Enviando...' : 'Enviar solicitud'}
           </Button>
         </DialogFooter>
@@ -1266,7 +1280,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
             </Button>
             <Button
               className="bg-blue-600 hover:bg-blue-700 gap-2"
-              disabled={savingSolicitud}
+              disabled={savingSolicitud || parseMonto(solMonto) > totalAhorros}
               onClick={() => { setIsSolSimOpen(false); handleSolicitarCredito(); }}
             >
               {savingSolicitud ? 'Enviando...' : '📤 Enviar solicitud'}

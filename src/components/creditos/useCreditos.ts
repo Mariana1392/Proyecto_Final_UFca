@@ -299,6 +299,7 @@ export function useCreditos(userData?: any) {
     handleRechazarSimulacion: simulacion.handleRechazarSimulacion,
     // Solicitudes
     isSolicitudDialogOpen: solicitudes.isSolicitudDialogOpen, setIsSolicitudDialogOpen: solicitudes.setIsSolicitudDialogOpen,
+    totalAhorros: solicitudes.totalAhorros,
     solMonto: solicitudes.solMonto, setSolMonto: solicitudes.setSolMonto,
     solTipo: solicitudes.solTipo, setSolTipo: solicitudes.setSolTipo,
     solPlazo: solicitudes.solPlazo, setSolPlazo: solicitudes.setSolPlazo,

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
+import { businessRules } from '../../services/businessRules';
 
 export interface AsociadoMapped {
   id: string;
@@ -20,6 +21,7 @@ export interface AsociadoMapped {
   totalAhorros: number;
   totalCreditos: number;
   historialAuditoria: any[];
+  estadoAhorroPerm?: { estado: string; mensaje: string };
 }
 
 export function useAsociados() {
@@ -60,11 +62,16 @@ export function useAsociados() {
         usuariosQuery = (usuariosQuery as any).eq('rol_id', rolAsociadoId);
       }
 
-      const [{ data, error }, { data: todasCuentas }] = await Promise.all([
+      const [{ data, error }, { data: todasCuentas }, { data: pagosPerm }] = await Promise.all([
         usuariosQuery,
         supabase
           .from('cuentas_ahorro')
           .select('id, tipo, monto_ahorrado, cuota_mensual, estado, anulado, asociado_id'),
+        supabase
+          .from('transacciones')
+          .select('asociado_id, fecha_pago, created_at')
+          .eq('tipo', 'aporte_permanente')
+          .order('created_at', { ascending: false })
       ]);
       if (error) throw error;
 
@@ -74,8 +81,18 @@ export function useAsociados() {
         return acc;
       }, {});
 
+      // Extraer la fecha del último pago para cada asociado
+      const ultimoPagoPorAsociado: Record<string, string | null> = {};
+      (pagosPerm || []).forEach((p: any) => {
+        // Como están ordenados desc, el primero que encontramos es el más reciente
+        if (!ultimoPagoPorAsociado[p.asociado_id]) {
+          ultimoPagoPorAsociado[p.asociado_id] = p.fecha_pago;
+        }
+      });
+
       const mapeados: AsociadoMapped[] = (data || []).map((a: any) => {
         const cuentas = cuentasPorAsociado[a.id] || [];
+        const ultimoPago = ultimoPagoPorAsociado[a.id] || null;
         return {
           id:           a.id,
           nombre:       a.nombre || '',
@@ -112,6 +129,7 @@ export function useAsociados() {
                                 .filter((c: any) => !c.anulado)
                                 .reduce((sum: number, c: any) => sum + (c.saldo || 0), 0),
           historialAuditoria: [],
+          estadoAhorroPerm:   businessRules.calcularEstadoAhorroPermanente(ultimoPago),
         };
       });
 
