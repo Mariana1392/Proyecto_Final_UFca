@@ -1,7 +1,7 @@
 // ── AhorroVoluntarioTabla.tsx ────────────────────────────────────────────────
 // Tabla de ahorros voluntarios con paginación y estado vacío.
 
-import { Wallet, FileText, Edit, Ban, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Wallet, FileText, Edit, Ban, ChevronLeft, ChevronRight, X, PlusCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Switch } from '../ui/switch';
@@ -15,6 +15,7 @@ interface AhorroVoluntarioTablaProps {
   userRole?:        UserRole | null;
   // Eventos
   onOpenDetail:     (ahorro: any) => void;
+  onDeposito:       (ahorro: any) => void;
   onEdit:           (ahorro: any) => void;
   onAnular:         (ahorro: any) => void;
   onToggleEstado:   (ahorro: any) => void;
@@ -69,7 +70,7 @@ export function AhorroVoluntarioPaginacion({
 
 export default function AhorroVoluntarioTabla({
   ahorrosList, isAnulados, userRole,
-  onOpenDetail, onEdit, onAnular, onToggleEstado, onOpenPDF,
+  onOpenDetail, onDeposito, onEdit, onAnular, onToggleEstado, onOpenPDF,
   hayFiltros, limpiarFiltros, hasAnyActive,
 }: AhorroVoluntarioTablaProps) {
 
@@ -154,6 +155,15 @@ export default function AhorroVoluntarioTabla({
                 <div className="flex gap-2 justify-end">
                   {!isAnulados && userRole === 'admin' && ahorro.estado === 'activo' && (
                     <>
+                      <Button
+                        size="sm"
+                        className="gap-1.5 bg-purple-600 hover:bg-purple-700 text-white"
+                        title="Registrar depósito"
+                        onClick={() => onDeposito(ahorro)}
+                      >
+                        <PlusCircle className="size-4" />
+                        Depositar
+                      </Button>
                       <Button variant="outline" size="sm" title="Editar" onClick={() => onEdit(ahorro)}>
                         <Edit className="size-4" />
                       </Button>

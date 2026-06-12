@@ -73,15 +73,14 @@ export default function AhorroVoluntarioDialogMovimiento({
           {formMovTipo === 'Depósito' && (() => {
             const { nombreMes, diaFin } = getMesFiscal();
             return (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-0.5">
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-xs font-semibold text-blue-800 flex items-center gap-1.5">
                   <Calendar className="size-3.5" />
                   Mes fiscal: <span className="capitalize ml-1">{nombreMes}</span>
                   <span className="font-normal text-blue-600 ml-1">(día 1 al {diaFin})</span>
                 </p>
-                <p className="text-xs text-blue-700">
-                  Mínimo por depósito: <strong>{formatCurrency(montoMinimo)}</strong>
-                  {' · '}La fecha debe estar entre el día 1 y el día {diaFin} del mes en curso.
+                <p className="text-xs text-blue-700 mt-0.5">
+                  La fecha debe estar entre el día 1 y el día {diaFin} del mes en curso.
                 </p>
               </div>
             );
@@ -92,11 +91,6 @@ export default function AhorroVoluntarioDialogMovimiento({
             <div className="space-y-2">
               <Label>
                 Monto <span className="text-red-500">*</span>
-                {formMovTipo === 'Depósito' && (
-                  <span className="ml-1 text-xs text-blue-600 font-normal">
-                    (mín. {formatCurrency(montoMinimo)})
-                  </span>
-                )}
               </Label>
               <Input
                 type="text"

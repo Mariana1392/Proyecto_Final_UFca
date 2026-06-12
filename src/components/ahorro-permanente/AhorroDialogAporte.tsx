@@ -4,6 +4,7 @@
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Switch } from '../ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
@@ -40,6 +41,10 @@ interface AhorroDialogAporteProps {
   setFormAportePeriodoId: (v: string) => void;
   formComprobante:     File | null;
   setFormComprobante:  (f: File | null) => void;
+  formPagaMora:        boolean;
+  setFormPagaMora:     (v: boolean) => void;
+  formMoraMonto:       string;
+  handleFormMoraMontoChange: (v: string) => void;
   periodos:            any[];
   handleRegistrarAporte: () => void;
   savingAporte:        boolean;
@@ -52,6 +57,8 @@ export default function AhorroDialogAporte({
   formAporteDesc, setFormAporteDesc,
   formAportePeriodoId, setFormAportePeriodoId,
   formComprobante, setFormComprobante,
+  formPagaMora, setFormPagaMora,
+  formMoraMonto, handleFormMoraMontoChange,
   periodos, handleRegistrarAporte, savingAporte,
 }: AhorroDialogAporteProps) {
 
@@ -62,15 +69,22 @@ export default function AhorroDialogAporte({
       ?.saldo_despues ?? selectedItem?.montoAhorrado
   ) || 0;
 
-  const montoNum   = parseCurrencyInput(formAporteMonto);
-  const montoError = !!formAporteMonto && montoNum < 100_000;
-  const hoy        = hoyLocal();
+  const montoNum     = parseCurrencyInput(formAporteMonto);
+  const montoMoraNum = parseCurrencyInput(formMoraMonto);
+  const montoError   = !!formAporteMonto && montoNum < 100_000;
+  const hoy          = hoyLocal();
+
+  const soloMora    = formPagaMora && !formAporteMonto;
+  const puedeGuardar = (montoNum > 0 || (formPagaMora && montoMoraNum > 0))
+    && !!formAporteFecha
+    && !(selectedItem?.pagadoEsteMes && !selectedItem?.enMora && !soloMora)
+    && !savingAporte;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Registrar Aporte</DialogTitle>
+          <DialogTitle>{soloMora ? 'Registrar pago de mora' : 'Registrar Aporte'}</DialogTitle>
           <DialogDescription>
             {selectedItem && `Asociado: ${selectedItem.asociado} — Saldo actual: ${formatCurrency(saldoActual)}`}
           </DialogDescription>
@@ -99,16 +113,61 @@ export default function AhorroDialogAporte({
                 <p className="text-sm font-semibold text-red-700">Este asociado tiene mora pendiente</p>
               </div>
               <p className="text-xs text-red-600">
-                {selectedItem.diasMora} día{selectedItem.diasMora !== 1 ? 's' : ''} desde el día 16 ·{' '}
+                {selectedItem.diasMora} día{selectedItem.diasMora !== 1 ? 's' : ''} de retraso (venció el día 16) ·{' '}
                 <span className="font-bold">{formatCurrency(selectedItem.montoMora)}</span> de mora
                 ($2.000 COP/día)
               </p>
             </div>
           )}
 
+          {/* Toggle: ¿Paga mora? */}
+          {selectedItem?.enMora && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">¿Paga mora?</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Registra el pago de la multa junto con el aporte</p>
+                </div>
+                <Switch
+                  checked={formPagaMora}
+                  onCheckedChange={setFormPagaMora}
+                />
+              </div>
+
+              {formPagaMora && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="mora-monto">Monto de la mora *</Label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm pointer-events-none select-none">
+                      $
+                    </span>
+                    <Input
+                      id="mora-monto"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder={selectedItem?.montoMora ? String(Math.round(selectedItem.montoMora)) : '0'}
+                      value={formMoraMonto}
+                      onChange={e => handleFormMoraMontoChange(e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Mora calculada: <span className="font-semibold text-red-600">{formatCurrency(selectedItem?.montoMora ?? 0)}</span>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Monto */}
           <div className="space-y-1.5">
-            <Label htmlFor="aporte-monto">Monto del aporte *</Label>
+            <Label htmlFor="aporte-monto">
+              Monto del aporte{' '}
+              {selectedItem?.enMora && (
+                <span className="text-xs font-normal text-slate-400">(opcional si solo paga mora)</span>
+              )}
+              {!selectedItem?.enMora && <span className="text-red-500">*</span>}
+            </Label>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm pointer-events-none select-none">
                 $
@@ -241,9 +300,9 @@ export default function AhorroDialogAporte({
           <Button
             className="bg-emerald-600 hover:bg-emerald-700"
             onClick={handleRegistrarAporte}
-            disabled={savingAporte || !formAporteMonto || !formAporteFecha || (selectedItem?.pagadoEsteMes && !selectedItem?.enMora)}
+            disabled={!puedeGuardar}
           >
-            {savingAporte ? 'Guardando...' : 'Registrar'}
+            {savingAporte ? 'Guardando...' : soloMora ? 'Registrar mora' : 'Registrar'}
           </Button>
         </DialogFooter>
       </DialogContent>
