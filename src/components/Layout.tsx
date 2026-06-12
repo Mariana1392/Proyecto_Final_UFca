@@ -251,7 +251,7 @@ export default function Layout({
 
           {/* Izquierda: hamburger + logo */}
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-            {isAuthenticated && (
+            {isAuthenticated && currentView !== 'crear-password' && (
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors shrink-0"
@@ -353,7 +353,7 @@ export default function Layout({
       </header>
 
       {/* Backdrop para móvil — cierra el sidebar al tocar fuera */}
-      {isAuthenticated && sidebarOpen && isMobile && (
+      {isAuthenticated && sidebarOpen && isMobile && currentView !== 'crear-password' && (
         <div
           className="fixed inset-0 z-30 bg-black/40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
@@ -363,7 +363,7 @@ export default function Layout({
 
       <div className="flex pt-16">
         {/* Sidebar */}
-        {isAuthenticated && (
+        {isAuthenticated && currentView !== 'crear-password' && (
           <aside
             className={`fixed left-0 top-16 bottom-0 z-40 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 transition-transform duration-300 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] w-64 ${
               sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -515,7 +515,7 @@ export default function Layout({
         {/* Main Content */}
         <main
           className={`flex-1 transition-all duration-300 min-h-[calc(100vh-4rem)] flex flex-col min-w-0 ${
-            isAuthenticated && sidebarOpen && !isMobile ? 'ml-64' : 'ml-0'
+            isAuthenticated && sidebarOpen && !isMobile && currentView !== 'crear-password' ? 'ml-64' : 'ml-0'
           }`}
         >
           <div className="flex-1">{children}</div>

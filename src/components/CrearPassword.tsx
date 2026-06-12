@@ -145,20 +145,44 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
     setIsLoading(false);
   };
 
+  // ── Fondo decorativo reutilizable ────────────────────────────────────────
+  const Fondo = ({ children }: { children: React.ReactNode }) => (
+    <div className="relative min-h-screen overflow-hidden flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #064e3b 0%, #065f46 40%, #047857 70%, #059669 100%)' }}>
+      {/* Círculos decorativos */}
+      <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full opacity-20" style={{ background: '#34d399' }} />
+      <div className="absolute top-10 right-16 w-48 h-48 rounded-full opacity-15" style={{ background: '#6ee7b7' }} />
+      <div className="absolute top-1/3 -left-16 w-64 h-64 rounded-full opacity-10" style={{ background: '#a7f3d0' }} />
+      <div className="absolute -bottom-20 right-0 w-96 h-96 rounded-full opacity-20" style={{ background: '#10b981' }} />
+      <div className="absolute bottom-16 left-1/4 w-40 h-40 rounded-full opacity-15" style={{ background: '#34d399' }} />
+      <div className="absolute top-1/2 right-1/4 w-24 h-24 rounded-full opacity-10" style={{ background: '#d1fae5' }} />
+      <div className="absolute top-3/4 -right-10 w-56 h-56 rounded-full opacity-15" style={{ background: '#059669' }} />
+      {/* Marranitos flotantes */}
+      <span className="absolute top-8 left-12 text-4xl opacity-30 select-none" style={{ transform: 'rotate(-15deg)' }}>🐷</span>
+      <span className="absolute top-1/4 right-10 text-3xl opacity-25 select-none" style={{ transform: 'rotate(10deg)' }}>🐽</span>
+      <span className="absolute bottom-1/3 left-8 text-5xl opacity-20 select-none" style={{ transform: 'rotate(-8deg)' }}>🐷</span>
+      <span className="absolute bottom-10 right-20 text-3xl opacity-30 select-none" style={{ transform: 'rotate(20deg)' }}>🐽</span>
+      <span className="absolute top-2/3 left-1/3 text-2xl opacity-20 select-none" style={{ transform: 'rotate(-5deg)' }}>🐷</span>
+      <span className="absolute top-16 right-1/3 text-xl opacity-25 select-none" style={{ transform: 'rotate(12deg)' }}>🐽</span>
+      <div className="relative z-10 w-full flex items-center justify-center px-4 py-8">
+        {children}
+      </div>
+    </div>
+  );
+
   // ── Verificando sesión ───────────────────────────────────────────────────
   if (sessionStatus === 'checking') {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center p-8">
-        <div className="w-full max-w-md text-center space-y-6">
-          <div className="inline-flex items-center justify-center size-20 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-3xl shadow-lg shadow-emerald-200">
+      <Fondo>
+        <div className="w-full max-w-sm text-center space-y-6">
+          <div className="inline-flex items-center justify-center size-20 rounded-3xl shadow-lg" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
             <Loader2 className="size-10 text-white animate-spin" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-800 mb-2">Verificando tu enlace…</h2>
-            <p className="text-slate-500 text-sm">Estamos validando tu acceso. Esto solo toma un momento.</p>
+            <h2 className="text-xl font-bold text-white mb-2">Verificando tu enlace…</h2>
+            <p className="text-emerald-200 text-sm">Estamos validando tu acceso. Esto solo toma un momento.</p>
           </div>
         </div>
-      </div>
+      </Fondo>
     );
   }
 
@@ -180,21 +204,21 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
     };
 
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-red-50 via-white to-orange-50 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center size-20 bg-gradient-to-br from-red-500 to-orange-500 rounded-3xl mb-4 shadow-lg shadow-red-200">
+      <Fondo>
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center size-20 rounded-3xl mb-4 shadow-lg" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
               <AlertCircle className="size-10 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">Enlace inválido o expirado</h1>
-            <p className="text-slate-600 text-sm leading-relaxed">
+            <h1 className="text-2xl font-bold text-white mb-2">Enlace inválido o expirado</h1>
+            <p className="text-emerald-200 text-sm leading-relaxed">
               Este enlace ya fue usado o expiró. Ingresa tu correo para recibir un nuevo enlace de acceso.
             </p>
           </div>
-          <Card className="border-red-200 shadow-xl">
-            <CardContent className="pt-6 space-y-4">
+          <div className="rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(16px)' }}>
+            <div className="p-6 space-y-4">
               {recoverySent ? (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800 text-center space-y-2">
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-800 text-center space-y-2">
                   <CheckCircle className="size-8 text-emerald-500 mx-auto" />
                   <p className="font-semibold">¡Correo enviado!</p>
                   <p className="text-xs">Revisa tu bandeja de entrada y haz clic en el enlace para crear tu contraseña.</p>
@@ -215,74 +239,72 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                   </div>
                   <Button
                     type="submit"
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                    className="w-full text-white font-semibold"
+                    style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
                     disabled={recoveryLoading || !recoveryEmail.trim()}
                   >
                     {recoveryLoading ? 'Enviando…' : 'Enviarme un nuevo enlace'}
                   </Button>
                 </form>
               )}
-              <Button variant="outline" className="w-full" onClick={onSuccess}>
+              <Button variant="outline" className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={onSuccess}>
                 Ir al inicio de sesión
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
-      </div>
+      </Fondo>
     );
   }
 
   // ── Pantalla de éxito ────────────────────────────────────────────────────
   if (done) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center p-8">
-        <div className="w-full max-w-md text-center space-y-6">
-          <div className="inline-flex items-center justify-center size-24 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full shadow-xl shadow-emerald-200 animate-pulse">
+      <Fondo>
+        <div className="w-full max-w-sm text-center space-y-6">
+          <div className="inline-flex items-center justify-center size-24 rounded-full shadow-xl animate-pulse" style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)' }}>
             <CheckCircle className="size-12 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">¡Bienvenido/a a UFCA!</h1>
-            <p className="text-slate-600">Tu contraseña fue creada correctamente. Estás ingresando a tu cuenta…</p>
+            <h1 className="text-3xl font-bold text-white mb-3">¡Bienvenido/a a UFCA!</h1>
+            <p className="text-emerald-200">Tu contraseña fue creada correctamente. Estás ingresando a tu cuenta…</p>
           </div>
           <div className="flex justify-center">
-            <div className="size-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+            <div className="size-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
           </div>
         </div>
-      </div>
+      </Fondo>
     );
   }
 
   // ── Formulario principal ─────────────────────────────────────────────────
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center p-8">
+    <Fondo>
       <div className="w-full max-w-md">
-
         {/* Encabezado de bienvenida */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center size-20 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-3xl mb-4 shadow-lg shadow-emerald-200">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center size-20 rounded-3xl mb-4 shadow-xl" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
             <Sparkles className="size-10 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">¡Bienvenido/a a UFCA!</h1>
-          <p className="text-slate-600 text-sm leading-relaxed">
+          <h1 className="text-3xl font-bold text-white mb-2">¡Bienvenido/a a UFCA!</h1>
+          <p className="text-emerald-200 text-sm leading-relaxed">
             Tu cuenta ha sido aprobada. Crea una contraseña segura para acceder al sistema.
           </p>
         </div>
 
-        <Card className="border-slate-200 shadow-xl">
-          <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="flex items-center gap-2 text-slate-800">
-              <Lock className="size-5 text-emerald-600" />
+        {/* Card con blur glass */}
+        <div className="rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(16px)' }}>
+          <div className="px-6 pt-5 pb-2 border-b border-emerald-100">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-slate-800">
+              <Lock className="size-4 text-emerald-600" />
               Crear mi contraseña
-            </CardTitle>
-            <CardDescription>
-              Elige una contraseña que sea fácil de recordar pero difícil de adivinar.
-            </CardDescription>
-          </CardHeader>
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">Elige una contraseña que sea fácil de recordar pero difícil de adivinar.</p>
+          </div>
 
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="px-6 py-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
 
-              {/* Alerta de error */}
               {error && (
                 <Alert variant="destructive" className="py-3">
                   <AlertCircle className="size-4" />
@@ -290,7 +312,6 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                 </Alert>
               )}
 
-              {/* Campo: Nueva contraseña */}
               <div className="space-y-2">
                 <Label htmlFor="newPassword">Nueva contraseña</Label>
                 <div className="relative">
@@ -299,7 +320,7 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                     id="newPassword"
                     type={showNew ? 'text' : 'password'}
                     placeholder="••••••••"
-                    className="pl-10 pr-10 border-slate-300 focus:border-emerald-500 focus:ring-emerald-500"
+                    className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
@@ -317,7 +338,6 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                 </div>
               </div>
 
-              {/* Campo: Confirmar contraseña */}
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
                 <div className="relative">
@@ -326,7 +346,7 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                     id="confirmPassword"
                     type={showConfirm ? 'text' : 'password'}
                     placeholder="••••••••"
-                    className="pl-10 pr-10 border-slate-300 focus:border-emerald-500 focus:ring-emerald-500"
+                    className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
@@ -343,10 +363,10 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                 </div>
               </div>
 
-              {/* Checklist de requisitos */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                <p className="text-xs font-medium text-slate-700 mb-2">La contraseña debe tener:</p>
-                <ul className="space-y-1.5">
+              {/* Checklist */}
+              <div className="p-3 rounded-xl border border-emerald-100" style={{ background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)' }}>
+                <p className="text-xs font-semibold text-emerald-800 mb-2">La contraseña debe tener:</p>
+                <ul className="space-y-1">
                   {[
                     { ok: validaciones.longitud,  texto: 'Mínimo 8 caracteres' },
                     { ok: validaciones.mayuscula, texto: 'Al menos una letra mayúscula (A–Z)' },
@@ -355,28 +375,23 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                     { ok: validaciones.coinciden, texto: 'Las contraseñas coinciden' },
                   ].map(({ ok, texto }) => (
                     <li key={texto} className="flex items-center gap-2 text-xs">
-                      <CheckCircle
-                        className={`size-3.5 flex-shrink-0 transition-colors ${ok ? 'text-emerald-500' : 'text-slate-300'}`}
-                      />
-                      <span className={ok ? 'text-slate-700' : 'text-slate-400'}>{texto}</span>
+                      <CheckCircle className={`size-3.5 flex-shrink-0 transition-colors ${ok ? 'text-emerald-500' : 'text-slate-300'}`} />
+                      <span className={ok ? 'text-emerald-800' : 'text-slate-400'}>{texto}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
-              {/* Botón de envío */}
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-lg shadow-emerald-200 text-white font-semibold"
+                className="w-full text-white font-semibold h-11 text-sm"
+                style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
                 disabled={isLoading || !todasOk}
               >
-                {isLoading
-                  ? 'Creando contraseña…'
-                  : 'Crear contraseña e ingresar'}
+                {isLoading ? 'Creando contraseña…' : 'Crear contraseña e ingresar'}
               </Button>
 
-              {/* Nota informativa */}
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl">
                 <p className="text-xs text-blue-700 leading-relaxed">
                   <strong>ℹ Información:</strong> Este enlace es de uso único y exclusivo para tu cuenta.
                   Después de crear tu contraseña podrás iniciar sesión normalmente desde la pantalla de acceso.
@@ -384,9 +399,9 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
               </div>
 
             </form>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
-    </div>
+    </Fondo>
   );
 }
