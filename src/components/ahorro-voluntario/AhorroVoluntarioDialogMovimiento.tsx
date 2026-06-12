@@ -1,7 +1,7 @@
 // ── AhorroVoluntarioDialogMovimiento.tsx ─────────────────────────────────────
-// Diálogo para registrar un depósito o retiro en el ahorro voluntario.
+// Diálogo para registrar un depósito o retiro total en el ahorro voluntario.
 
-import { ArrowDownCircle, ArrowUpCircle, Calendar } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Calendar, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -41,6 +41,9 @@ export default function AhorroVoluntarioDialogMovimiento({
   handleRegistrarMovimiento,
 }: AhorroVoluntarioDialogMovimientoProps) {
 
+  const saldoActual = selectedItem?.montoAhorrado ?? 0;
+  const sinSaldo    = formMovTipo === 'Retiro' && saldoActual <= 0;
+
   return (
     <Dialog
       open={isMovimientoDialogOpen}
@@ -51,7 +54,7 @@ export default function AhorroVoluntarioDialogMovimiento({
           <DialogTitle className="flex items-center gap-2">
             {formMovTipo === 'Depósito'
               ? <><ArrowDownCircle className="size-5 text-emerald-600" /> Registrar Depósito</>
-              : <><ArrowUpCircle className="size-5 text-red-600" /> Registrar Retiro</>
+              : <><ArrowUpCircle className="size-5 text-red-600" /> Retiro Total</>
             }
           </DialogTitle>
           <DialogDescription>
@@ -60,7 +63,7 @@ export default function AhorroVoluntarioDialogMovimiento({
                 Asociado: <span className="font-semibold">{selectedItem.asociado}</span>
                 {' — '}Saldo disponible:{' '}
                 <span className="font-semibold text-purple-700">
-                  {formatCurrency(selectedItem.montoAhorrado)}
+                  {formatCurrency(saldoActual)}
                 </span>
               </>
             )}
@@ -68,6 +71,31 @@ export default function AhorroVoluntarioDialogMovimiento({
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
+
+          {/* ── Aviso retiro total ── */}
+          {formMovTipo === 'Retiro' && (
+            <div className={`p-3 rounded-lg border flex items-start gap-2 ${
+              sinSaldo
+                ? 'bg-slate-50 border-slate-200'
+                : 'bg-amber-50 border-amber-200'
+            }`}>
+              <AlertTriangle className={`size-4 shrink-0 mt-0.5 ${sinSaldo ? 'text-slate-400' : 'text-amber-600'}`} />
+              <div>
+                {sinSaldo ? (
+                  <p className="text-sm text-slate-500">Esta cuenta no tiene saldo disponible para retirar.</p>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold text-amber-800">Retiro total</p>
+                    <p className="text-xs text-amber-700 mt-0.5">
+                      Se retirará el saldo completo de{' '}
+                      <span className="font-bold">{formatCurrency(saldoActual)}</span>.
+                      La cuenta quedará activa con saldo $0. No se permiten retiros parciales.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* ── Banner mes fiscal (solo depósitos) ── */}
           {formMovTipo === 'Depósito' && (() => {
@@ -89,24 +117,27 @@ export default function AhorroVoluntarioDialogMovimiento({
           <div className="grid grid-cols-2 gap-3">
             {/* Monto */}
             <div className="space-y-2">
-              <Label>
-                Monto <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                type="text"
-                placeholder="50.000,0"
-                value={formMovMonto}
-                onChange={(e) => setFormMovMonto(e.target.value.replace(/[^\d.,]/g, ''))}
-                onBlur={() =>
-                  formMovMonto &&
-                  setFormMovMonto(formatCurrencyInput(parseCurrencyInput(formMovMonto).toString()))
-                }
-                className={
-                  formMovTipo === 'Retiro'
-                    ? 'border-red-200 focus-visible:ring-red-300'
-                    : 'border-emerald-200 focus-visible:ring-emerald-300'
-                }
-              />
+              <Label>Monto {formMovTipo === 'Depósito' && <span className="text-red-500">*</span>}</Label>
+              {formMovTipo === 'Retiro' ? (
+                <Input
+                  type="text"
+                  value={formatCurrency(saldoActual)}
+                  disabled
+                  className="bg-slate-50 text-slate-600 font-semibold cursor-not-allowed"
+                />
+              ) : (
+                <Input
+                  type="text"
+                  placeholder="50.000,0"
+                  value={formMovMonto}
+                  onChange={(e) => setFormMovMonto(e.target.value.replace(/[^\d.,]/g, ''))}
+                  onBlur={() =>
+                    formMovMonto &&
+                    setFormMovMonto(formatCurrencyInput(parseCurrencyInput(formMovMonto).toString()))
+                  }
+                  className="border-emerald-200 focus-visible:ring-emerald-300"
+                />
+              )}
             </div>
 
             {/* Fecha */}
@@ -133,29 +164,31 @@ export default function AhorroVoluntarioDialogMovimiento({
             </div>
           </div>
 
-          {/* Método de pago */}
-          <div className="space-y-2">
-            <Label>Método de pago <span className="text-xs text-slate-400">(opcional)</span></Label>
-            <Select value={formMovMetodo} onValueChange={setFormMovMetodo}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Efectivo">Efectivo</SelectItem>
-                <SelectItem value="Transferencia">Transferencia bancaria</SelectItem>
-                <SelectItem value="PSE">PSE</SelectItem>
-                <SelectItem value="Consignación">Consignación</SelectItem>
-                <SelectItem value="Débito automático">Débito automático</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Método de pago — solo depósitos */}
+          {formMovTipo === 'Depósito' && (
+            <div className="space-y-2">
+              <Label>Método de pago <span className="text-xs text-slate-400">(opcional)</span></Label>
+              <Select value={formMovMetodo} onValueChange={setFormMovMetodo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Efectivo">Efectivo</SelectItem>
+                  <SelectItem value="Transferencia">Transferencia bancaria</SelectItem>
+                  <SelectItem value="PSE">PSE</SelectItem>
+                  <SelectItem value="Consignación">Consignación</SelectItem>
+                  <SelectItem value="Débito automático">Débito automático</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Descripción */}
           <div className="space-y-2">
             <Label>Descripción <span className="text-xs text-slate-400">(opcional)</span></Label>
             <Input
               type="text"
-              placeholder="Ej: Ahorro quincenal mayo 2026"
+              placeholder={formMovTipo === 'Retiro' ? 'Ej: Retiro solicitado por el asociado' : 'Ej: Ahorro quincenal mayo 2026'}
               value={formMovDesc}
               onChange={(e) => setFormMovDesc(e.target.value)}
             />
@@ -177,9 +210,13 @@ export default function AhorroVoluntarioDialogMovimiento({
                 : 'bg-red-600 hover:bg-red-700'
             }
             onClick={handleRegistrarMovimiento}
-            disabled={savingMovimiento}
+            disabled={savingMovimiento || sinSaldo}
           >
-            {savingMovimiento ? 'Guardando...' : `Confirmar ${formMovTipo}`}
+            {savingMovimiento
+              ? 'Guardando...'
+              : formMovTipo === 'Retiro'
+                ? 'Confirmar retiro total'
+                : 'Confirmar Depósito'}
           </Button>
         </DialogFooter>
       </DialogContent>

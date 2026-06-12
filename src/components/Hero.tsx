@@ -391,31 +391,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
       }
       setUploadingDocs(false);
 
-      // ── 2. Validación anti-spam server-side antes de insertar (S-06) ────────
-      const { error: rpcError } = await supabase.rpc('validar_solicitud_asociacion', {
-        p_cedula:   cedula,
-        p_nombres:  `${formData.nombres.trim()} ${formData.apellidos.trim()}`,
-        p_email:    email,
-        p_telefono: formData.telefono.trim() || null,
-      });
-      // Si el RPC detecta duplicado o bloqueo, detener el envío
-      if (rpcError) {
-        const rpcMsg = rpcError.message ?? '';
-        const esDuplicado = rpcMsg.includes('duplicate') || rpcMsg.includes('ya existe') || rpcMsg.includes('registrada');
-        if (esDuplicado) {
-          toast.error('Esta solicitud no puede enviarse', {
-            description: rpcMsg || 'La cédula o el correo ya están registrados.',
-            duration: 6000,
-          });
-          setSubmitting(false);
-          setUploadingDocs(false);
-          return;
-        }
-        // Otros errores del RPC (ej. función no existe) → continuar sin bloquear
-        console.warn('[UFCA] validar_solicitud_asociacion (no bloqueante):', rpcMsg);
-      }
-
-      // ── 3. Guardar solicitud completa en solicitudes_asociados ────────────
+      // ── 2. Guardar solicitud en solicitudes_asociados ────────────────────────
       const { error } = await supabase.from('solicitudes_asociados').insert({
         nombres:         formData.nombres.trim(),
         apellidos:       formData.apellidos.trim(),
@@ -448,6 +424,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
 
     } catch (err: any) {
       setUploadingDocs(false);
+      console.error('[UFCA] Error al enviar solicitud — detalle completo:', err);
       const msg: string    = err.message ?? String(err);
       const code: string   = err.code    ?? '';
 
