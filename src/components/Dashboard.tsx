@@ -546,7 +546,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
           {/* ── FILA 2: 4 mini-stat chips ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { icon: Landmark,  label: 'Cartera créditos',  value: fmtCOP(liveStats.totalCarteraCreditos),          bg: 'bg-amber-100',   text: 'text-amber-600',   iconBg: 'bg-amber-500'   },
+              { icon: Landmark,  label: 'Monto',  value: fmtCOP(liveStats.totalCarteraCreditos),          bg: 'bg-amber-100',   text: 'text-amber-600',   iconBg: 'bg-amber-500'   },
               { icon: PiggyBank, label: 'Ahorro permanente',  value: fmtCOP(liveStats.totalAhorrosPerm),              bg: 'bg-emerald-100', text: 'text-emerald-600', iconBg: 'bg-emerald-500' },
               { icon: Wallet,    label: 'Ahorro voluntario',  value: fmtCOP(liveStats.totalAhorrosVol),               bg: 'bg-blue-100',    text: 'text-blue-600',    iconBg: 'bg-blue-500'    },
               { icon: Users,     label: 'Asociados activos',  value: liveStats.totalAsociados.toLocaleString('es-CO'), bg: 'bg-violet-100',  text: 'text-violet-600',  iconBg: 'bg-violet-500'  },
@@ -570,7 +570,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
             {[
               { label: 'Intereses cobrados',  value: fmtCOP(liveStats.totalInteresesMes),          sub: 'Recaudados este mes',   from: 'from-pink-500',   to: 'to-rose-500',    dataKey: 'permanente' },
               { label: 'Capital en ahorros',  value: fmtCOP(liveStats.totalAhorros),               sub: 'Total administrado',    from: 'from-violet-500', to: 'to-indigo-600',  dataKey: 'voluntario'  },
-              { label: 'Cartera créditos',    value: fmtCOP(liveStats.totalCarteraCreditos),        sub: `${liveStats.totalCreditos} crédito${liveStats.totalCreditos !== 1 ? 's' : ''} activo${liveStats.totalCreditos !== 1 ? 's' : ''}`, from: 'from-teal-400', to: 'to-emerald-600', dataKey: 'creditos'   },
+              { label: 'Monto',    value: fmtCOP(liveStats.totalCarteraCreditos),        sub: `${liveStats.totalCreditos} crédito${liveStats.totalCreditos !== 1 ? 's' : ''} activo${liveStats.totalCreditos !== 1 ? 's' : ''}`, from: 'from-teal-400', to: 'to-emerald-600', dataKey: 'creditos'   },
               { label: 'Asociados activos',   value: liveStats.totalAsociados.toLocaleString('es-CO'), sub: `${liveStats.solicitudesPendientes} pendiente${liveStats.solicitudesPendientes !== 1 ? 's' : ''}`, from: 'from-amber-400', to: 'to-orange-500', dataKey: 'permanente' },
             ].map(({ label, value, sub, from, to, dataKey }) => (
               <div key={label} className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${from} ${to} p-5 shadow-lg text-white`}>
@@ -673,7 +673,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
               <p className="text-xs text-slate-400 mb-4">Estado actual del fondo</p>
               <div className="flex flex-col gap-3">
                 {[
-                  { label: 'Cartera total',       value: fmtCOP(liveStats.totalCarteraCreditos),  sub: 'Créditos activos',    bar: 'bg-amber-500',   text: 'text-amber-600'   },
+                  { label: 'Monto',       value: fmtCOP(liveStats.totalCarteraCreditos),  sub: 'Créditos activos',    bar: 'bg-amber-500',   text: 'text-amber-600'   },
                   { label: 'Capital administrado', value: fmtCOP(liveStats.totalAhorros),          sub: 'Total ahorros',       bar: 'bg-emerald-500', text: 'text-emerald-600' },
                   { label: 'Intereses este mes',   value: fmtCOP(liveStats.totalInteresesMes),     sub: 'Ganancia créditos',   bar: 'bg-violet-500',  text: 'text-violet-600'  },
                   { label: 'Liquidaciones',        value: String(liveStats.liquidacionesPend),     sub: `${liveStats.totalUsuarios} usuarios`, bar: 'bg-slate-400', text: 'text-slate-600' },
