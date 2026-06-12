@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .maybeSingle(),
           supabase
             .from('cuentas_ahorro')
-            .select('id, estado')
+            .select('id, estado, monto_ahorrado')
             .eq('asociado_id', userId)
             .eq('tipo', 'permanente')
             .eq('anulado', false)
@@ -98,17 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ]);
 
         solicitudEstado = sol?.estado ?? null;
-        // Cuenta activa = tiene ahorro permanente con estado 'activo'
-        cuentaActivada = cuenta?.estado === 'activo';
+        // Cuenta activa = tiene ahorro permanente con estado 'activo' Y ya realizó su primer aporte (monto_ahorrado > 0)
+        cuentaActivada = cuenta?.estado === 'activo' && Number(cuenta?.monto_ahorrado || 0) > 0;
 
-        // Si la solicitud estaba pendiente_activacion → marcar aprobada
-        if (sol?.id && sol.estado === 'pendiente_activacion') {
-          void supabase
-            .from('solicitudes_asociados')
-            .update({ estado: 'aprobada' })
-            .eq('id', sol.id);
-          solicitudEstado = 'aprobada';
-        }
       }
 
       setU({
