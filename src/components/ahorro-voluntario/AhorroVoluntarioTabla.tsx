@@ -1,7 +1,7 @@
 // ── AhorroVoluntarioTabla.tsx ────────────────────────────────────────────────
 // Tabla de ahorros voluntarios con paginación y estado vacío.
 
-import { Wallet, FileText, Edit, Ban, ChevronLeft, ChevronRight, X, PlusCircle } from 'lucide-react';
+import { Wallet, FileText, Edit, Ban, ChevronLeft, ChevronRight, X, PlusCircle, ArrowUpCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Switch } from '../ui/switch';
@@ -16,6 +16,7 @@ interface AhorroVoluntarioTablaProps {
   // Eventos
   onOpenDetail:     (ahorro: any) => void;
   onDeposito:       (ahorro: any) => void;
+  onRetiro:         (ahorro: any) => void;
   onEdit:           (ahorro: any) => void;
   onAnular:         (ahorro: any) => void;
   onToggleEstado:   (ahorro: any) => void;
@@ -70,7 +71,7 @@ export function AhorroVoluntarioPaginacion({
 
 export default function AhorroVoluntarioTabla({
   ahorrosList, isAnulados, userRole,
-  onOpenDetail, onDeposito, onEdit, onAnular, onToggleEstado, onOpenPDF,
+  onOpenDetail, onDeposito, onRetiro, onEdit, onAnular, onToggleEstado, onOpenPDF,
   hayFiltros, limpiarFiltros, hasAnyActive,
 }: AhorroVoluntarioTablaProps) {
 
@@ -164,6 +165,17 @@ export default function AhorroVoluntarioTabla({
                         <PlusCircle className="size-4" />
                         Depositar
                       </Button>
+                      {ahorro.montoAhorrado > 0 && (
+                        <Button
+                          size="sm"
+                          className="gap-1.5 bg-red-600 hover:bg-red-700 text-white"
+                          title="Retirar saldo total"
+                          onClick={() => onRetiro(ahorro)}
+                        >
+                          <ArrowUpCircle className="size-4" />
+                          Retirar
+                        </Button>
+                      )}
                       <Button variant="outline" size="sm" title="Editar" onClick={() => onEdit(ahorro)}>
                         <Edit className="size-4" />
                       </Button>

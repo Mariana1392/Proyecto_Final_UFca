@@ -401,29 +401,43 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
     setIsMovimientoDialogOpen(true);
   };
 
+  const openRetiro = (ahorro: any) => {
+    setSelectedItem(ahorro);
+    setFormMovTipo('Retiro');
+    setFormMovMonto(formatCurrencyInput(ahorro.montoAhorrado.toString()));
+    setFormMovFecha(new Date().toISOString().split('T')[0]);
+    setFormMovDesc('');
+    setFormMovMetodo('');
+    setIsMovimientoDialogOpen(true);
+  };
+
   // ── Registrar movimiento ──────────────────────────────────────────────────
   const handleRegistrarMovimiento = () => {
+    if (!formMovFecha) { toast.error('Selecciona la fecha del movimiento'); return; }
+    if (!selectedItem) return;
+
+    // Retiro total: no se valida monto (se usa el saldo completo desde DB)
+    if (formMovTipo === 'Retiro') {
+      ejecutarRegistrarMovimiento();
+      return;
+    }
+
     const monto = parseCurrencyInput(formMovMonto);
     if (!monto || monto <= 0) { toast.error('El monto debe ser mayor a cero'); return; }
-    if (!formMovFecha)        { toast.error('Selecciona la fecha del movimiento'); return; }
-    if (!selectedItem)        return;
 
-    if (formMovTipo === 'Depósito') {
-      if (monto < montoMinimo) { setIsConfirmMovBajoVolOpen(true); return; }
-      const dia = parseInt(formMovFecha.split('-')[2], 10);
-      if (dia > 30) {
-        toast.error('Fecha fuera del mes fiscal', {
-          description: 'El mes fiscal va del día 1 al 30.',
-          duration: 5000,
-        });
-        return;
-      }
+    if (monto < montoMinimo) { setIsConfirmMovBajoVolOpen(true); return; }
+    const dia = parseInt(formMovFecha.split('-')[2], 10);
+    if (dia > 30) {
+      toast.error('Fecha fuera del mes fiscal', {
+        description: 'El mes fiscal va del día 1 al 30.',
+        duration: 5000,
+      });
+      return;
     }
     ejecutarRegistrarMovimiento();
   };
 
   const ejecutarRegistrarMovimiento = async () => {
-    const monto = parseCurrencyInput(formMovMonto);
     setSavingMovimiento(true);
     try {
       const { data: dbAhorro } = await supabase
@@ -431,13 +445,18 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
         .eq('id', selectedItem.id).single();
       const saldoAnterior = dbAhorro?.monto_ahorrado ?? selectedItem.montoAhorrado;
 
-      if (formMovTipo === 'Retiro' && monto > saldoAnterior) {
-        toast.error('El monto del retiro supera el saldo disponible');
+      // Retiro siempre es total: monto = saldo completo
+      const monto = formMovTipo === 'Retiro'
+        ? saldoAnterior
+        : parseCurrencyInput(formMovMonto);
+
+      if (formMovTipo === 'Retiro' && saldoAnterior <= 0) {
+        toast.error('No hay saldo disponible para retirar');
         setSavingMovimiento(false);
         return;
       }
 
-      const saldoNuevo = formMovTipo === 'Retiro' ? saldoAnterior - monto : saldoAnterior + monto;
+      const saldoNuevo = formMovTipo === 'Retiro' ? 0 : saldoAnterior + monto;
 
       const { error: movErr } = await supabase.from('transacciones').insert({
         tipo:         'aporte_voluntario',
@@ -471,9 +490,14 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
         .order('fecha_pago', { ascending: false });
       setMovimientosDetalle(movs || []);
 
-      toast.success(`${formMovTipo} registrado exitosamente`, {
-        description: `${formatCurrency(monto)} — Nuevo saldo: ${formatCurrency(saldoNuevo)}`,
-      });
+      toast.success(
+        formMovTipo === 'Retiro' ? 'Retiro total registrado' : 'Depósito registrado exitosamente',
+        {
+          description: formMovTipo === 'Retiro'
+            ? `Se retiró ${formatCurrency(monto)} — Saldo actual: $0`
+            : `${formatCurrency(monto)} — Nuevo saldo: ${formatCurrency(saldoNuevo)}`,
+        },
+      );
       setIsMovimientoDialogOpen(false);
       setFormMovMonto(''); setFormMovFecha(''); setFormMovDesc(''); setFormMovMetodo('');
     } catch (err: any) {
@@ -879,7 +903,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
     cargarDatos, limpiarFiltros, handleSelectAsociado,
     handleSaldoInicialChange, handleSaldoInicialBlur,
     handleOpenDetail, handleOpenEdit, handleOpenAnularDialog,
-    handleOpenPDF, handleOpenMovimiento, openDeposito,
+    handleOpenPDF, handleOpenMovimiento, openDeposito, openRetiro,
     handleRegistrarMovimiento, ejecutarRegistrarMovimiento,
     handleToggleEstado, handleAnular, handleSaveAhorro,
     handleAprobarSolicitudVol, handleRechazarSolicitudVol,

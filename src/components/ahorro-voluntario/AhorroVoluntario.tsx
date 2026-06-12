@@ -250,6 +250,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                   userRole={userRole}
                   onOpenDetail={h.handleOpenDetail}
                   onDeposito={h.openDeposito}
+                  onRetiro={h.openRetiro}
                   onEdit={h.handleOpenEdit}
                   onAnular={h.handleOpenAnularDialog}
                   onToggleEstado={(ahorro) => {
@@ -282,6 +283,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                   userRole={userRole}
                   onOpenDetail={h.handleOpenDetail}
                   onDeposito={h.openDeposito}
+                  onRetiro={h.openRetiro}
                   onEdit={h.handleOpenEdit}
                   onAnular={h.handleOpenAnularDialog}
                   onToggleEstado={(ahorro) => {
