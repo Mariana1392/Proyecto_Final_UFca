@@ -3,7 +3,7 @@
 // edición / anulación / eliminación definitiva y todos sus handlers.
 // Recibe como parámetros el estado mínimo compartido del orquestador.
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { creditosApi } from '../../lib/api';
@@ -58,6 +58,33 @@ export function useCreditosCRUD({
   const [formUrlDocumento, setFormUrlDocumento]       = useState('');
   const [formTipoInteres, setFormTipoInteres]         = useState<'simple' | 'compuesto'>('compuesto');
   const [saving, setSaving]                           = useState(false);
+
+  // ── Configuracion de tasas ──
+  const TIPO_TASA: Record<string, string> = {
+    libre_inversion: 'tasa_libre_inversion',
+    educacion:       'tasa_educacion',
+    vivienda:        'tasa_vivienda',
+    calamidad:       'tasa_calamidad',
+  };
+  const [tasasConfig, setTasasConfig] = useState<Record<string, number>>({});
+  
+  useEffect(() => {
+    supabase.from('configuracion').select('clave, valor')
+      .in('clave', Object.values(TIPO_TASA))
+      .then(({ data }) => {
+        const mapa: Record<string, number> = {};
+        (data ?? []).forEach((r: any) => { mapa[r.clave] = parseFloat(r.valor) || 0; });
+        setTasasConfig(mapa);
+      });
+  }, []);
+
+  const handleTipoChange = (tipo: string) => {
+    setFormTipo(tipo);
+    const clave = TIPO_TASA[tipo];
+    if (clave && tasasConfig[clave] !== undefined) {
+      setFormTasa(tasasConfig[clave].toString());
+    }
+  };
 
   // ── Archivo adjunto ───────────────────────────────────────────────────────
   const [formArchivoFile, setFormArchivoFile] = useState<File | null>(null);
@@ -152,6 +179,55 @@ export function useCreditosCRUD({
       ? calcularCuotaSimple(monto, tasa, plazo)
       : calcularCuota(monto, tasa, plazo);
     setSaving(true);
+
+    // ── Validar requisito: Ahorro permanente activo ──
+    if (!selectedItem) {
+      const { data: ahorroPerm, error: errAhorro } = await supabase
+        .from('cuentas_ahorro')
+        .select('id')
+        .eq('asociado_id', formAsociadoId)
+        .eq('tipo', 'permanente')
+        .eq('estado', 'activo')
+        .eq('anulado', false)
+        .limit(1)
+        .maybeSingle();
+
+      if (errAhorro) {
+        toast.error('Error validando requisitos', { description: errAhorro.message });
+        setSaving(false);
+        return;
+      }
+      if (!ahorroPerm) {
+        toast.error('Requisito no cumplido', {
+          description: 'El asociado debe tener un Ahorro Permanente activo para poder solicitar créditos.',
+        });
+        setSaving(false);
+        return;
+      }
+
+      // ── Validar que no tenga ya un crédito activo ──
+      const { data: creditosActivos, error: errCreditos } = await supabase
+        .from('creditos')
+        .select('id')
+        .eq('asociado_id', formAsociadoId)
+        .eq('anulado', false)
+        .in('estado', ['pendiente', 'aprobado', 'desembolsado', 'en_mora', 'en_revision'])
+        .limit(1);
+
+      if (errCreditos) {
+        toast.error('Error validando el historial crediticio', { description: errCreditos.message });
+        setSaving(false);
+        return;
+      }
+      
+      if (creditosActivos && creditosActivos.length > 0) {
+        toast.error('Operación no permitida', {
+          description: 'El asociado ya cuenta con un crédito activo o en trámite. Debe cancelar el crédito actual antes de solicitar uno nuevo.',
+        });
+        setSaving(false);
+        return;
+      }
+    }
 
     // Subir archivo si hay uno adjunto
     let urlFinal: string | null = formUrlDocumento.trim() || null;
@@ -387,7 +463,7 @@ export function useCreditosCRUD({
     formTasa, setFormTasa,
     formPlazo, setFormPlazo,
     formFecha, setFormFecha,
-    formTipo, setFormTipo,
+    formTipo, setFormTipo, handleTipoChange,
     formEstadoAprobacion, setFormEstadoAprobacion,
     formEstadoOriginal,
     formFechaEstado, setFormFechaEstado,

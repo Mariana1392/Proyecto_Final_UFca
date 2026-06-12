@@ -99,6 +99,66 @@ export function useCreditosSolicitudes({
       return;
     }
 
+    // ── Validar Reglas de Negocio ──
+    const { data: historialCreditos, error: errHistorial } = await supabase
+      .from('creditos')
+      .select('id, estado, anulado, created_at, fecha_estado_cambio')
+      .eq('asociado_id', userData?.id);
+
+    if (errHistorial) {
+      toast.error('Error verificando historial de créditos', { description: errHistorial.message });
+      return;
+    }
+
+    const now = new Date();
+    
+    // 1. Penalizaciones por rechazo (48h) o anulación (7 días)
+    let penalizado = false;
+    let mensajePenalizacion = '';
+
+    for (const c of (historialCreditos || [])) {
+      const fechaBaseStr = c.fecha_estado_cambio || c.created_at;
+      // Tratar de parsear fecha, si falla usar created_at
+      const fechaReferencia = new Date(fechaBaseStr).getTime() ? new Date(fechaBaseStr) : new Date(c.created_at);
+      const diffHoras = (now.getTime() - fechaReferencia.getTime()) / (1000 * 60 * 60);
+
+      if (c.anulado) {
+        if (diffHoras < (24 * 7)) {
+          penalizado = true;
+          mensajePenalizacion = 'Tienes un crédito anulado recientemente. Debes esperar 7 días desde la anulación para solicitar uno nuevo.';
+          break;
+        }
+      } else if (c.estado === 'rechazado') {
+        if (diffHoras < 48) {
+          penalizado = true;
+          mensajePenalizacion = 'Tu última solicitud fue rechazada. Debes esperar 48 horas para volver a intentarlo.';
+          break;
+        }
+      }
+    }
+
+    if (penalizado) {
+      toast.error('Operación no permitida', { description: mensajePenalizacion });
+      return;
+    }
+
+    // 2. Límite de 3 solicitudes (créditos) por mes calendario
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const solicitudesDelMes = (historialCreditos || []).filter(c => new Date(c.created_at) >= startOfMonth);
+    if (solicitudesDelMes.length >= 3) {
+      toast.error('Límite mensual alcanzado', { description: 'Has alcanzado el límite máximo de 3 solicitudes de crédito por mes.' });
+      return;
+    }
+
+    // 3. Validar que no tenga ya un crédito activo (misma regla que el administrador)
+    const tieneActivo = (historialCreditos || []).some(c => 
+      !c.anulado && ['pendiente', 'aprobado', 'desembolsado', 'en_mora', 'en_revision'].includes(c.estado)
+    );
+    if (tieneActivo) {
+      toast.error('Operación no permitida', { description: 'Ya cuentas con un crédito activo o en trámite. Debes cancelar el crédito actual antes de solicitar uno nuevo.' });
+      return;
+    }
+
     setSavingSolicitud(true);
     try {
       const { data: periodoData } = await supabase

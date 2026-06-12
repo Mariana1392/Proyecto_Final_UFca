@@ -60,12 +60,20 @@ export default function Reportes() {
     const fetchAsociados = async () => {
       setLoadingAsociados(true);
       try {
-        const { data, error } = await supabase
+        const { data: rolAsoc } = await supabase
+          .from('roles').select('id').eq('nombre', 'asociado').limit(1).maybeSingle();
+        
+        let query = supabase
           .from('usuarios')
           .select('id, nombre, cedula')
-          .eq('rol_nombre', 'asociado')
           .or(`nombre.ilike.%${searchTerm}%,cedula.ilike.%${searchTerm}%`)
           .limit(10);
+          
+        if (rolAsoc?.id) {
+          query = query.eq('rol_id', rolAsoc.id);
+        }
+
+        const { data, error } = await query;
         if (error) throw error;
         setAsociados(data || []);
       } catch (err) {
@@ -260,7 +268,7 @@ export default function Reportes() {
         .from('creditos')
         .select(`
           id, monto, saldo, cuota_mensual, tasa_interes, plazo_meses, estado, 
-          fecha_desembolso, asociado_id, usuarios (nombre, cedula)
+          fecha_desembolso, asociado_id
         `);
 
       if (error) throw error;
@@ -269,19 +277,30 @@ export default function Reportes() {
         return toast.info('No hay créditos registrados para exportar');
       }
 
+      const asocIds = [...new Set(creditosList.map((c: any) => c.asociado_id).filter(Boolean))];
+      const usuariosMap: Record<string, any> = {};
+      if (asocIds.length > 0) {
+        const { data: usrsData } = await supabase
+          .from('usuarios').select('id, nombre, cedula').in('id', asocIds);
+        (usrsData || []).forEach((u: any) => { usuariosMap[u.id] = u; });
+      }
+
       const headers = ['ID Credito', 'Cedula Asociado', 'Nombre Asociado', 'Monto Otorgado', 'Saldo Pendiente', 'Cuota', 'Tasa (%)', 'Plazo (Meses)', 'Fecha Desembolso', 'Estado'];
-      const rows = creditosList.map(c => [
-        c.id,
-        (c.usuarios as any)?.cedula || '—',
-        (c.usuarios as any)?.nombre || '—',
-        c.monto || 0,
-        c.saldo ?? c.monto,
-        c.cuota_mensual || 0,
-        c.tasa_interes || 0,
-        c.plazo_meses || 0,
-        c.fecha_desembolso || '—',
-        c.estado || '—'
-      ]);
+      const rows = creditosList.map((c: any) => {
+        const usr = usuariosMap[c.asociado_id] || {};
+        return [
+          c.id,
+          usr.cedula || '—',
+          usr.nombre || '—',
+          c.monto || 0,
+          c.saldo ?? c.monto,
+          c.cuota_mensual || 0,
+          c.tasa_interes || 0,
+          c.plazo_meses || 0,
+          c.fecha_desembolso || '—',
+          c.estado || '—'
+        ];
+      });
 
       descargarArchivoCsv(headers, rows, `Cartera_Creditos_${new Date().toISOString().split('T')[0]}.csv`);
     } catch (err) {
@@ -297,10 +316,7 @@ export default function Reportes() {
     try {
       let query = supabase
         .from('transacciones')
-        .select(`
-          id, tipo, monto, fecha_pago, metodo_pago, comprobante_url, estado,
-          usuarios!transacciones_asociado_id_fkey (nombre, cedula)
-        `)
+        .select('*')
         .order('fecha_pago', { ascending: false });
 
       if (selectedAsociado) {
@@ -314,18 +330,29 @@ export default function Reportes() {
         return toast.info('No hay pagos registrados para exportar');
       }
 
-      const headers = ['ID Transaccion', 'Fecha Pago', 'Cedula', 'Nombre', 'Tipo', 'Monto', 'Metodo', 'Estado', 'Comprobante'];
-      const rows = pagos.map(p => [
-        p.id,
-        p.fecha_pago || '—',
-        (p.usuarios as any)?.cedula || '—',
-        (p.usuarios as any)?.nombre || '—',
-        p.tipo || '—',
-        p.monto || 0,
-        p.metodo_pago || '—',
-        p.estado || '—',
-        p.comprobante_url ? 'Sí' : 'No'
-      ]);
+      const asocIds = [...new Set(pagos.map((p: any) => p.asociado_id).filter(Boolean))];
+      const usuariosMap: Record<string, any> = {};
+      if (asocIds.length > 0) {
+        const { data: usrsData } = await supabase
+          .from('usuarios').select('id, nombre, cedula').in('id', asocIds);
+        (usrsData || []).forEach((u: any) => { usuariosMap[u.id] = u; });
+      }
+
+      const headers = ['ID Transaccion', 'Fecha Pago', 'Cedula', 'Nombre', 'Tipo', 'Monto', 'Metodo', 'Estado', 'Observacion'];
+      const rows = pagos.map((p: any) => {
+        const usr = usuariosMap[p.asociado_id] || {};
+        return [
+          p.id,
+          p.fecha_pago || '—',
+          usr.cedula || '—',
+          usr.nombre || '—',
+          p.tipo || '—',
+          p.monto || 0,
+          p.metodo_pago || '—',
+          p.estado || '—',
+          p.observacion || '—'
+        ];
+      });
 
       const nombreArchivo = selectedAsociado 
         ? `Historial_Pagos_${selectedAsociado.cedula}.csv` 
@@ -555,7 +582,7 @@ export default function Reportes() {
                   <div className="size-10 rounded-xl bg-blue-100 flex items-center justify-center mb-3">
                     <FileSpreadsheet className="size-5 text-blue-600" />
                   </div>
-                  <CardTitle className="text-lg">Exportar Cartera de Créditos</CardTitle>
+                  <CardTitle className="text-lg">Exportar Créditos Globales</CardTitle>
                   <CardDescription>Descarga un archivo CSV con el estado completo de todos los créditos registrados en el sistema, saldos pendientes y asociados.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -565,7 +592,7 @@ export default function Reportes() {
                     disabled={exportingCsv}
                   >
                     {exportingCsv ? <div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="size-4" />}
-                    Descargar Cartera Global (CSV)
+                    Descargar Créditos Globales (CSV)
                   </Button>
                 </CardContent>
               </Card>

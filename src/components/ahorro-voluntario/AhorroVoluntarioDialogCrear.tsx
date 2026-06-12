@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '../ui/dialog';
+import { formatCurrencyInput, parseCurrencyInput } from './useAhorroVoluntario';
 
 interface AhorroVoluntarioDialogCrearProps {
   isCreateDialogOpen:    boolean;
@@ -177,12 +178,15 @@ export default function AhorroVoluntarioDialogCrear({
               </Label>
               <Input
                 id="objetivo"
-                type="number"
-                min="0"
-                step="1000"
-                placeholder="Ej: 500000"
+                type="text"
+                placeholder="Ej: 500.000,0"
                 value={formMontoObjetivo}
-                onChange={(e) => setFormMontoObjetivo(e.target.value)}
+                onChange={(e) => setFormMontoObjetivo(e.target.value.replace(/[^\d.,]/g, ''))}
+                onBlur={() => {
+                  if (formMontoObjetivo) {
+                    setFormMontoObjetivo(formatCurrencyInput(parseCurrencyInput(formMontoObjetivo).toString()));
+                  }
+                }}
               />
             </div>
           </div>

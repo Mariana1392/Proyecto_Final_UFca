@@ -349,7 +349,11 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
     setFormFechaInicio(ahorro.fechaInicio);
     const meta = parsarMetadatosObservaciones(ahorro.observaciones ?? '');
     setFormFrecuencia(meta.frecuencia);
-    setFormMontoObjetivo(meta.objetivo);
+    if (meta.objetivo) {
+      setFormMontoObjetivo(formatCurrencyInput(meta.objetivo));
+    } else {
+      setFormMontoObjetivo('');
+    }
     setIsCreateDialogOpen(true);
   };
 
@@ -560,8 +564,9 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
   const construirObservaciones = (frecuencia: string, montoObjetivo: string, notaUsuario = '') => {
     const partes: string[] = [];
     if (frecuencia) partes.push(`Frecuencia: ${frecuencia}`);
-    if (montoObjetivo && parseFloat(montoObjetivo) > 0)
-      partes.push(`Objetivo: $${parseFloat(montoObjetivo).toLocaleString('es-CO')}`);
+    const objetivoNum = parseCurrencyInput(montoObjetivo);
+    if (objetivoNum > 0)
+      partes.push(`Objetivo: $${objetivoNum.toLocaleString('es-CO')}`);
     const prefijo = partes.length > 0 ? `[${partes.join(' | ')}]` : '';
     return [prefijo, notaUsuario].filter(Boolean).join(' ');
   };

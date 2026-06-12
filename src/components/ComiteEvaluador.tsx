@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import PiggyBankLoader from './ui/PiggyBankLoader';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -1821,47 +1821,55 @@ export default function ComiteEvaluador() {
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* ── AlertDialog: Confirmar aprobación ────────────────────────────── */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      <AlertDialog open={isApproveOpen} onOpenChange={setIsApproveOpen}>
+      <AlertDialog open={isApproveOpen} onOpenChange={(open) => { if (!approving) setIsApproveOpen(open); }}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Award className="size-5 text-emerald-600" /> ¿Aprobar esta solicitud?
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3 text-sm text-slate-600">
-                <p>Estás a punto de <span className="font-bold text-emerald-700">aprobar</span> la solicitud de:</p>
-                {selectedSolicitud && (
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-1.5">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Aspirante:</span>
-                      <span className="font-semibold">{selectedSolicitud.nombres} {selectedSolicitud.apellidos}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Cédula:</span>
-                      <span className="font-semibold">{selectedSolicitud.cedula}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Solicitud enviada:</span>
-                      <span className="font-semibold">{formatFecha(selectedSolicitud.fechaSolicitud)}</span>
-                    </div>
+          {approving ? (
+            <div className="py-8 flex flex-col items-center justify-center">
+              <PiggyBankLoader title="Aprobando solicitud y procesando afiliación..." />
+            </div>
+          ) : (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <Award className="size-5 text-emerald-600" /> ¿Aprobar esta solicitud?
+                </AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-3 text-sm text-slate-600">
+                    <p>Estás a punto de <span className="font-bold text-emerald-700">aprobar</span> la solicitud de:</p>
+                    {selectedSolicitud && (
+                      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-1.5">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Aspirante:</span>
+                          <span className="font-semibold">{selectedSolicitud.nombres} {selectedSolicitud.apellidos}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Cédula:</span>
+                          <span className="font-semibold">{selectedSolicitud.cedula}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Solicitud enviada:</span>
+                          <span className="font-semibold">{formatFecha(selectedSolicitud.fechaSolicitud)}</span>
+                        </div>
+                      </div>
+                    )}
+                    <p className="text-xs text-slate-500 bg-slate-50 border rounded-lg p-2.5">
+                      El aspirante pasará a ser <strong>asociado activo</strong> y su solicitud quedará registrada como <strong>Aprobada</strong> en el historial del proceso de evaluación.
+                    </p>
                   </div>
-                )}
-                <p className="text-xs text-slate-500 bg-slate-50 border rounded-lg p-2.5">
-                  El aspirante pasará a ser <strong>asociado activo</strong> y su solicitud quedará registrada como <strong>Aprobada</strong> en el historial del proceso de evaluación.
-                </p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={approving}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleAprobar}
-              disabled={approving}
-              className="bg-emerald-600 hover:bg-emerald-700"
-            >
-              {approving ? 'Aprobando...' : 'Confirmar aprobación'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={approving}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleAprobar}
+                  disabled={approving}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  Confirmar aprobación
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
         </AlertDialogContent>
       </AlertDialog>
 

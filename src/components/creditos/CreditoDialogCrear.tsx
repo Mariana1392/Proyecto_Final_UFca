@@ -28,7 +28,7 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
     showAutocomplete, setShowAutocomplete,
     acSuggestions,
     handleSelectAsociado,
-    formTipo, setFormTipo,
+    formTipo, setFormTipo, handleTipoChange,
     formMonto, setFormMonto,
     formTasa, setFormTasa,
     formPlazo, setFormPlazo,
@@ -221,7 +221,7 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
                   <Label htmlFor="tipo-credito" className="flex items-center gap-1.5">
                     <CreditCard className="size-3.5 text-indigo-500" /> Tipo de crédito <span className="text-red-500">*</span>
                   </Label>
-                  <Select value={formTipo} onValueChange={setFormTipo} disabled={bloqueado}>
+                  <Select value={formTipo} onValueChange={(v) => handleTipoChange ? handleTipoChange(v) : setFormTipo(v)} disabled={bloqueado}>
                     <SelectTrigger id="tipo-credito">
                       <SelectValue placeholder="Selecciona el tipo" />
                     </SelectTrigger>
