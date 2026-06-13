@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { FileText, Download, Calendar, Search, PiggyBank, FileSpreadsheet, User, CheckCircle2, TrendingUp } from 'lucide-react';
+import { FileText, Download, Calendar, Search, PiggyBank, FileSpreadsheet, User, CheckCircle2, TrendingUp, Printer } from 'lucide-react';
 import { formatCurrency } from '../lib/formatters';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
@@ -288,6 +288,23 @@ export default function Reportes() {
     link.click();
     document.body.removeChild(link);
     toast.success('Extracto descargado correctamente');
+  };
+
+  const imprimirPdf = () => {
+    if (!pdfPreviewUrl) return;
+    const iframe = document.getElementById('pdf-iframe-preview') as HTMLIFrameElement;
+    if (iframe && iframe.contentWindow) {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        toast.success('Abriendo diálogo de impresión...');
+      } catch (err) {
+        console.error('Error al imprimir desde iframe:', err);
+        window.open(pdfPreviewUrl, '_blank');
+      }
+    } else {
+      window.open(pdfPreviewUrl, '_blank');
+    }
   };
 
   const exportarUtilidadesCsv = () => {
@@ -835,6 +852,7 @@ export default function Reportes() {
           <div className="flex-1 overflow-hidden bg-slate-100 relative">
             {pdfPreviewUrl ? (
               <iframe
+                id="pdf-iframe-preview"
                 src={pdfPreviewUrl}
                 className="w-full h-full border-0 absolute inset-0"
                 title="Vista previa del extracto PDF"
@@ -850,6 +868,14 @@ export default function Reportes() {
             <p className="text-xs text-slate-500">Documento generado interactivo</p>
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => setIsPdfPreviewOpen(false)}>Cerrar</Button>
+              <Button
+                variant="outline"
+                className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-100"
+                onClick={imprimirPdf}
+              >
+                <Printer className="size-4" />
+                Imprimir
+              </Button>
               <Button
                 className="gap-2 bg-emerald-600 hover:bg-emerald-700"
                 onClick={descargarPdf}

@@ -70,6 +70,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
     asocSortBy, setAsocSortBy,
     asocFechaDesde, setAsocFechaDesde,
     asocFechaHasta, setAsocFechaHasta,
+    asocTabFilter, setAsocTabFilter,
     misCreditosFiltrados,
     setSelectedItem,
     setIsDetailDialogOpen,
@@ -105,7 +106,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
     loadingHistorialDetalle,
   } = hook;
 
-  const hayFiltros = asocSearch.trim() || asocFilterEstado || asocFechaDesde || asocFechaHasta;
+  const hayFiltros = false;
 
   // ── Realtime: notificar al asociado cuando cambia el estado de su crédito ──
   useEffect(() => {
@@ -309,166 +310,78 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
           </Card>
         </div>
 
-        {/* ── Barra de búsqueda y filtros ── */}
-        <Card className="border-0 shadow-sm bg-white dark:bg-slate-800">
-          <CardContent className="p-3 space-y-2.5">
-            <div className="flex gap-2 items-center">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
-                {asocSearch && (
-                  <button className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    onClick={() => setAsocSearch('')}>
-                    <X className="size-3.5" />
-                  </button>
-                )}
-                <Input
-                  className="pl-9 pr-8 h-9 text-sm"
-                  placeholder="Buscar por N° crédito, estado, tipo o fecha…"
-                  value={asocSearch}
-                  autoComplete="off"
-                  onChange={(e) => setAsocSearch(e.target.value)}
-                />
-              </div>
+        {/* ── Clasificación de Créditos por Estado de Pago ── */}
+        <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+            <button
+              onClick={() => setAsocTabFilter('activos')}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                asocTabFilter === 'activos'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              Créditos Activos / En Curso
+            </button>
+            <button
+              onClick={() => setAsocTabFilter('finalizados')}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                asocTabFilter === 'finalizados'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              Historial / Finalizados
+            </button>
+          </div>
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium mr-1">
+            {misCreditosFiltrados.length} {misCreditosFiltrados.length === 1 ? 'crédito' : 'créditos'}
+          </span>
+        </div>
 
-              <Select value={asocFilterEstado || 'todos'} onValueChange={(v) => setAsocFilterEstado(v === 'todos' ? '' : v)}>
-                <SelectTrigger className="h-9 text-xs w-36 shrink-0">
-                  <SelectValue placeholder="Estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos los estados</SelectItem>
-                  {ESTADOS_APROBACION.map(e => (
-                    <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
-                  ))}
-                  <SelectItem value="anulado">Anulado</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={asocSortBy} onValueChange={(v) => setAsocSortBy(v as any)}>
-                <SelectTrigger className="h-9 text-xs w-40 shrink-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="fecha_desc">Más reciente</SelectItem>
-                  <SelectItem value="fecha_asc">Más antiguo</SelectItem>
-                  <SelectItem value="estado">Estado A–Z</SelectItem>
-                  <SelectItem value="monto_desc">Mayor monto</SelectItem>
-                  <SelectItem value="monto_asc">Menor monto</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex gap-2 items-center">
-              <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0">Periodo:</span>
-              <div className="relative flex-1">
-                <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
-                <Input
-                  type="date" className="pl-8 h-8 text-xs"
-                  value={asocFechaDesde}
-                  onChange={(e) => setAsocFechaDesde(e.target.value)}
-                />
-              </div>
-              <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0">–</span>
-              <div className="relative flex-1">
-                <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
-                <Input
-                  type="date" className="pl-8 h-8 text-xs"
-                  value={asocFechaHasta}
-                  onChange={(e) => setAsocFechaHasta(e.target.value)}
-                />
-              </div>
-              {hayFiltros && (
-                <button
-                  className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 shrink-0 whitespace-nowrap"
-                  onClick={() => { setAsocSearch(''); setAsocFilterEstado(''); setAsocFechaDesde(''); setAsocFechaHasta(''); }}
-                >
-                  <X className="size-3" /> Limpiar
-                </button>
-              )}
-              <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0 ml-auto">
-                {misCreditosFiltrados.length} crédito{misCreditosFiltrados.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-
-            {hayFiltros && (
-              <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700">
-                {asocSearch.trim() && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
-                    <Search className="size-2.5" />
-                    "{asocSearch.trim()}"
-                    <button onClick={() => setAsocSearch('')} className="ml-0.5 hover:text-blue-900">
-                      <X className="size-2.5" />
-                    </button>
-                  </span>
-                )}
-                {asocFilterEstado && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
-                    Estado: {ESTADOS_APROBACION.find(e => e.value === asocFilterEstado)?.label ?? asocFilterEstado}
-                    <button onClick={() => setAsocFilterEstado('')} className="ml-0.5 hover:text-indigo-900">
-                      <X className="size-2.5" />
-                    </button>
-                  </span>
-                )}
-                {asocFechaDesde && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                    Desde: {asocFechaDesde}
-                    <button onClick={() => setAsocFechaDesde('')} className="ml-0.5 hover:text-slate-900">
-                      <X className="size-2.5" />
-                    </button>
-                  </span>
-                )}
-                {asocFechaHasta && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                    Hasta: {asocFechaHasta}
-                    <button onClick={() => setAsocFechaHasta('')} className="ml-0.5 hover:text-slate-900">
-                      <X className="size-2.5" />
-                    </button>
-                  </span>
-                )}
-              </div>
-            )}
-
-            <div className="flex items-center justify-between pt-0.5">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {misCreditosFiltrados.length === misCreditosBase.length
-                  ? <><span className="font-semibold text-slate-700 dark:text-slate-200">{misCreditosBase.length}</span> crédito{misCreditosBase.length !== 1 ? 's' : ''} en total</>
-                  : <><span className="font-semibold text-blue-700">{misCreditosFiltrados.length}</span> de <span className="font-semibold text-slate-700 dark:text-slate-200">{misCreditosBase.length}</span> crédito{misCreditosBase.length !== 1 ? 's' : ''} coinciden con la búsqueda</>
-                }
-              </p>
-              {misCreditosFiltrados.length !== misCreditosBase.length && (
-                <span className="text-[10px] text-slate-400">{misCreditosBase.length - misCreditosFiltrados.length} oculto{misCreditosBase.length - misCreditosFiltrados.length !== 1 ? 's' : ''}</span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* ── Lista de créditos ── */}
+        {/* ── Lista de créditos / Estados Vacíos ── */}
         {misCreditosFiltrados.length === 0 ? (
           <Card className="border-0 shadow-sm bg-white dark:bg-slate-800">
             <CardContent className="py-16 text-center">
               <div className="flex flex-col items-center gap-3 text-slate-400">
-                <div className={`p-4 rounded-full ${hayFiltros ? 'bg-blue-50' : 'bg-slate-100'}`}>
-                  <Search className={`size-8 ${hayFiltros ? 'text-blue-400' : 'text-slate-400'}`} />
+                <div className="p-4 rounded-full bg-slate-100 dark:bg-slate-900">
+                  <CreditCard className="size-8 text-slate-400" />
                 </div>
-                <div>
-                  <p className="text-base font-semibold text-slate-600 dark:text-slate-300">
-                    {hayFiltros ? 'No se encontraron créditos' : 'No tienes créditos registrados'}
-                  </p>
-                  <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
-                    {hayFiltros
-                      ? 'Ningún crédito coincide con los criterios ingresados'
-                      : 'Cuando se apruebe un crédito a tu nombre aparecerá aquí'}
-                  </p>
-                  {hayFiltros && asocSearch.trim() && (
-                    <p className="text-xs text-slate-400 mt-1">
-                      Búsqueda: <span className="font-semibold text-slate-600">"{asocSearch.trim()}"</span>
+                {misCreditosBase.length === 0 ? (
+                  <div>
+                    <p className="text-base font-semibold text-slate-600 dark:text-slate-300">
+                      No tienes créditos registrados
                     </p>
-                  )}
-                </div>
-                {hayFiltros && (
-                  <Button variant="outline" size="sm" className="mt-1 gap-1.5"
-                    onClick={() => { setAsocSearch(''); setAsocFilterEstado(''); setAsocFechaDesde(''); setAsocFechaHasta(''); }}>
-                    <X className="size-3.5" /> Limpiar filtros y ver todos
-                  </Button>
+                    <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
+                      Cuando se apruebe un crédito a tu nombre aparecerá aquí.
+                    </p>
+                  </div>
+                ) : asocTabFilter === 'activos' ? (
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-base font-semibold text-slate-600 dark:text-slate-300">
+                        No tienes créditos activos en este momento
+                      </p>
+                      <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
+                        Si necesitas financiamiento, puedes solicitar un nuevo crédito ahora mismo.
+                      </p>
+                    </div>
+                    <Button
+                      className="bg-blue-600 hover:bg-blue-700 gap-2 text-white"
+                      onClick={() => setIsSolicitudDialogOpen(true)}
+                    >
+                      <Plus className="size-4" /> Solicitar Crédito
+                    </Button>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-base font-semibold text-slate-600 dark:text-slate-300">
+                      Tu historial de créditos finalizados está vacío
+                    </p>
+                    <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
+                      Aquí aparecerán los créditos que hayas pagado o que hayan sido rechazados o anulados.
+                    </p>
+                  </div>
                 )}
               </div>
             </CardContent>

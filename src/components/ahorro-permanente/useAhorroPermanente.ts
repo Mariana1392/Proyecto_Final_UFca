@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription';
 import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { asociadosApi } from '../../lib/api';
+import { formatCurrency } from '../../lib/formatters';
 import type { UserRole } from '../../contexts/AuthContext';
 
 import { useAhorroPermanenteCRUD }        from './useAhorroPermanenteCRUD';
@@ -48,6 +49,8 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
   const [expandedAhorroId,   setExpandedAhorroId]   = useState<string | null>(null);
   const [auditoriaPorAhorro, setAuditoriaPorAhorro] = useState<Record<string, any[]>>({});
   const [loadingAuditoria,   setLoadingAuditoria]   = useState<string | null>(null);
+  const [historialCambios,   setHistorialCambios]   = useState<any[]>([]);
+  const [historialCambiosGeneral, setHistorialCambiosGeneral] = useState<any[]>([]);
 
   // Función estable de invalidación (se pasa como param al CRUD sub-hook)
   const invalidarAuditoria = (ahorroId: string) =>
@@ -93,7 +96,7 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
   async function cargarDatos() {
     try {
       setLoading(true);
-      const [ahorrosRes, asociadosData, configData, periodosData] = await Promise.all([
+      const [ahorrosRes, asociadosData, configData, periodosData, auditRes] = await Promise.all([
         // supabaseAdmin para bypasear RLS si está configurado, fallback a supabase normal
         (supabaseAdmin ?? supabase)
           .from('cuentas_ahorro')
@@ -110,6 +113,12 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
           .from('periodos')
           .select('id, nombre, estado, fecha_inicio, fecha_fin')
           .order('fecha_inicio', { ascending: false }),
+        (supabaseAdmin ?? supabase)
+          .from('auditoria')
+          .select('id, accion, operacion, datos_antes, datos_despues, usuario_id, registro_id, created_at')
+          .eq('tabla', 'cuentas_ahorro')
+          .order('created_at', { ascending: false })
+          .limit(50),
       ]);
 
       if (!periodosData.error && periodosData.data) {
@@ -171,6 +180,9 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
           estado:          activo,
           anulado:         a.anulado,
           motivoAnulacion: a.motivo_anulacion || '',
+          fechaAnulacion: a.anulado && a.updated_at
+            ? (() => { const d = new Date(a.updated_at); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })()
+            : '',
           observaciones:   a.observaciones || '',
           createdAt:       a.created_at,
           // Pago mes actual
@@ -183,6 +195,74 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
       });
 
       setAhorros(mapeados);
+
+      // Map para buscar el nombre del asociado por registro_id (cuenta_id)
+      const ahorroMap: Record<string, any> = {};
+      mapeados.forEach(a => {
+        ahorroMap[a.id] = { asociado: a.asociado, cedula: a.cedula };
+      });
+
+      // Historial general de cambios
+      const allAudits = auditRes.error ? [] : (auditRes.data || []);
+      const audits = allAudits.filter((r: any) => {
+        // Solo mostrar cambios de cuentas que existen en el listado cargado de ahorros permanentes
+        return ahorroMap[r.registro_id] !== undefined;
+      });
+
+      if (audits.length > 0) {
+        const userIds = [...new Set(audits.map((r: any) => r.usuario_id).filter(Boolean))];
+        const usersMap: Record<string, string> = {};
+        if (userIds.length > 0) {
+          const { data: usrs } = await (supabaseAdmin ?? supabase)
+            .from('usuarios')
+            .select('id, nombre')
+            .in('id', userIds);
+          (usrs || []).forEach((u: any) => { usersMap[u.id] = u.nombre; });
+        }
+
+        const histGeneral = audits.map((r: any) => {
+          const ahorroInfo = ahorroMap[r.registro_id];
+          const oldCuota = r.datos_antes?.cuota_mensual;
+          const newCuota = r.datos_despues?.cuota_mensual;
+          const oldSaldo = r.datos_antes?.monto_ahorrado;
+          const newSaldo = r.datos_despues?.monto_ahorrado;
+          const oldEstado = r.datos_antes?.estado;
+          const newEstado = r.datos_despues?.estado;
+          const oldAnulado = r.datos_antes?.anulado;
+          const newAnulado = r.datos_despues?.anulado;
+
+          let desc = r.datos_despues?.descripcion || '';
+          if (!desc) {
+            const cambios: string[] = [];
+            if (oldCuota !== undefined && newCuota !== undefined && oldCuota !== newCuota) {
+              cambios.push(`Cuota: ${formatCurrency(Number(oldCuota))} ➔ ${formatCurrency(Number(newCuota))}`);
+            }
+            if (oldSaldo !== undefined && newSaldo !== undefined && oldSaldo !== newSaldo) {
+              cambios.push(`Saldo: ${formatCurrency(Number(oldSaldo))} ➔ ${formatCurrency(Number(newSaldo))}`);
+            }
+            if (oldEstado !== undefined && newEstado !== undefined && oldEstado !== newEstado) {
+              cambios.push(`Estado: ${oldEstado} ➔ ${newEstado}`);
+            }
+            if (oldAnulado !== undefined && newAnulado !== undefined && oldAnulado !== newAnulado) {
+              cambios.push(newAnulado ? 'Cuenta anulada' : 'Cuenta reactivada');
+            }
+            desc = cambios.length > 0 ? cambios.join(' · ') : `Modificación (${r.operacion || r.accion})`;
+          }
+
+          return {
+            id: r.id,
+            asociado: ahorroInfo?.asociado ?? 'Asociado desconocido',
+            cedula: ahorroInfo?.cedula ?? '',
+            accion: r.accion || r.operacion || 'MODIFICACION',
+            usuario_nombre: usersMap[r.usuario_id] ?? 'Sistema/Administrador',
+            fecha_cambio: r.created_at,
+            detalle: desc,
+          };
+        });
+        setHistorialCambiosGeneral(histGeneral);
+      } else {
+        setHistorialCambiosGeneral([]);
+      }
 
       const idsConAhorro = new Set(
         mapeados.filter(a => a.estado === true && !a.anulado).map(a => a.asociado_id)
@@ -244,12 +324,13 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
   // ── Abrir detalle y cargar movimientos ────────────────────────────────────
   const handleOpenDetail = async (ahorro: any) => {
     setMovimientosDetalle([]);
+    setHistorialCambios([]);
     setIsDetailDialogOpen(true);
     setLoadingMovimientos(true);
     try {
-      // Cargar transacciones y saldo real en paralelo, ambos con supabaseAdmin
+      // Cargar transacciones, saldo real y auditoría en paralelo, ambos con supabaseAdmin
       const db = supabaseAdmin ?? supabase;
-      const [txRes, cuentaRes] = await Promise.all([
+      const [txRes, cuentaRes, auditoriaRes] = await Promise.all([
         db
           .from('transacciones')
           .select('*, periodos(nombre)')
@@ -261,6 +342,12 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
           .select('monto_ahorrado')
           .eq('id', ahorro.id)
           .single(),
+        db
+          .from('auditoria')
+          .select('id, accion, operacion, datos_antes, datos_despues, usuario_id, created_at')
+          .eq('tabla', 'cuentas_ahorro')
+          .eq('registro_id', ahorro.id)
+          .order('created_at', { ascending: false }),
       ]);
 
       // Saldo más confiable: último saldo_despues → fallback monto_ahorrado del DB
@@ -276,6 +363,57 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
       setAhorros(prev => prev.map(a =>
         a.id === ahorro.id ? { ...a, montoAhorrado: saldoReal } : a
       ));
+
+      // Mapear historial de cambios
+      const audits = auditoriaRes.data ?? [];
+      if (audits.length > 0) {
+        const userIds = [...new Set(audits.map((r: any) => r.usuario_id).filter(Boolean))];
+        const usersMap: Record<string, string> = {};
+        if (userIds.length > 0) {
+          const { data: usrs } = await db.from('usuarios').select('id, nombre').in('id', userIds);
+          (usrs || []).forEach((u: any) => { usersMap[u.id] = u.nombre; });
+        }
+
+        const hist = audits.map((r: any) => {
+          const oldCuota = r.datos_antes?.cuota_mensual;
+          const newCuota = r.datos_despues?.cuota_mensual;
+          const oldSaldo = r.datos_antes?.monto_ahorrado;
+          const newSaldo = r.datos_despues?.monto_ahorrado;
+          const oldEstado = r.datos_antes?.estado;
+          const newEstado = r.datos_despues?.estado;
+          const oldAnulado = r.datos_antes?.anulado;
+          const newAnulado = r.datos_despues?.anulado;
+
+          let desc = r.datos_despues?.descripcion || '';
+          if (!desc) {
+            const cambios: string[] = [];
+            if (oldCuota !== undefined && newCuota !== undefined && oldCuota !== newCuota) {
+              cambios.push(`Cuota: ${formatCurrency(Number(oldCuota))} ➔ ${formatCurrency(Number(newCuota))}`);
+            }
+            if (oldSaldo !== undefined && newSaldo !== undefined && oldSaldo !== newSaldo) {
+              cambios.push(`Saldo: ${formatCurrency(Number(oldSaldo))} ➔ ${formatCurrency(Number(newSaldo))}`);
+            }
+            if (oldEstado !== undefined && newEstado !== undefined && oldEstado !== newEstado) {
+              cambios.push(`Estado: ${oldEstado} ➔ ${newEstado}`);
+            }
+            if (oldAnulado !== undefined && newAnulado !== undefined && oldAnulado !== newAnulado) {
+              cambios.push(newAnulado ? 'Cuenta anulada' : 'Cuenta reactivada');
+            }
+            desc = cambios.length > 0 ? cambios.join(' · ') : `Modificación (${r.operacion || r.accion})`;
+          }
+
+          return {
+            id: r.id,
+            accion: r.accion || r.operacion || 'MODIFICACION',
+            usuario_nombre: usersMap[r.usuario_id] ?? 'Sistema/Administrador',
+            fecha_cambio: r.created_at,
+            detalle: desc,
+          };
+        });
+        setHistorialCambios(hist);
+      } else {
+        setHistorialCambios([]);
+      }
     } catch { /* sin movimientos aún */ }
     setLoadingMovimientos(false);
   };
@@ -284,6 +422,7 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
     setIsDetailDialogOpen(false);
     setSelectedItem(null);
     setMovimientosDetalle([]);
+    setHistorialCambios([]);
   };
 
   // ── Auditoría lazy ─────────────────────────────────────────────────────────
@@ -324,12 +463,14 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
     // Detalle
     isDetailDialogOpen, setIsDetailDialogOpen,
     movimientosDetalle,
+    historialCambios,
     loadingMovimientos,
 
     // Auditoría
     expandedAhorroId,
     auditoriaPorAhorro,
     loadingAuditoria,
+    historialCambiosGeneral,
 
     // Ítem seleccionado
     selectedItem, setSelectedItem,

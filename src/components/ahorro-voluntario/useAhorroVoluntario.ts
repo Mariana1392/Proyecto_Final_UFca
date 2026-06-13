@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
+import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription';
 import { ahorroVoluntarioApi, asociadosApi } from '../../lib/api';
 import { formatCurrency } from '../../lib/formatters';
@@ -90,6 +91,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
   const [movimientosDetalle, setMovimientosDetalle] = useState<any[]>([]);
   const [loadingMovimientos, setLoadingMovimientos] = useState(false);
   const [historialCambios, setHistorialCambios]     = useState<any[]>([]);
+  const [historialCambiosGeneralVoluntario, setHistorialCambiosGeneralVoluntario] = useState<any[]>([]);
   const [formMovTipo, setFormMovTipo]     = useState<'Depósito'|'Retiro'>('Depósito');
   const [formMovMonto, setFormMovMonto]   = useState('');
   const [formMovFecha, setFormMovFecha]   = useState('');
@@ -145,7 +147,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
   async function cargarDatos() {
     try {
       setLoading(true);
-      const [ahorrosRes, asociadosData, configMinimo] = await Promise.all([
+      const [ahorrosRes, asociadosData, configMinimo, auditRes] = await Promise.all([
         supabase.from('cuentas_ahorro')
           .select('*')
           .eq('tipo', 'voluntario')
@@ -153,6 +155,12 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
         asociadosApi.getAll(),
         supabase.from('configuracion').select('valor')
           .eq('clave', 'cuota_ahorro_voluntario').maybeSingle(),
+        (supabaseAdmin ?? supabase)
+          .from('auditoria')
+          .select('id, accion, operacion, datos_antes, datos_despues, usuario_id, registro_id, created_at')
+          .eq('tabla', 'cuentas_ahorro')
+          .order('created_at', { ascending: false })
+          .limit(50),
       ]);
       if (!configMinimo.error && configMinimo.data) {
         const v = parseFloat(configMinimo.data.valor);
@@ -185,6 +193,66 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
       }));
 
       setAhorros(mapeados);
+
+      // Map para buscar el nombre del asociado por registro_id (cuenta_id)
+      const ahorroVolMap: Record<string, any> = {};
+      mapeados.forEach(a => {
+        ahorroVolMap[a.id] = { asociado: a.asociado, cedula: a.cedula };
+      });
+
+      // Historial general de cambios voluntarios
+      const allAudits = auditRes.error ? [] : (auditRes.data || []);
+      const auditsFiltrados = allAudits.filter((r: any) => {
+        // Solo mostrar cambios de cuentas que existen en el listado cargado de ahorros voluntarios
+        return ahorroVolMap[r.registro_id] !== undefined;
+      });
+
+      if (auditsFiltrados.length > 0) {
+        const userIds = [...new Set(auditsFiltrados.map((r: any) => r.usuario_id).filter(Boolean))];
+        const usersMap: Record<string, string> = {};
+        if (userIds.length > 0) {
+          const { data: usrs } = await supabase.from('usuarios').select('id, nombre').in('id', userIds);
+          (usrs || []).forEach((u: any) => { usersMap[u.id] = u.nombre; });
+        }
+
+        const histGeneral = auditsFiltrados.map((r: any) => {
+          const ahorroInfo = ahorroVolMap[r.registro_id];
+          const oldSaldo = r.datos_antes?.monto_ahorrado;
+          const newSaldo = r.datos_despues?.monto_ahorrado;
+          const oldEstado = r.datos_antes?.estado;
+          const newEstado = r.datos_despues?.estado;
+          const oldAnulado = r.datos_antes?.anulado;
+          const newAnulado = r.datos_despues?.anulado;
+
+          let desc = r.datos_despues?.descripcion || '';
+          if (!desc) {
+            const cambios: string[] = [];
+            if (oldSaldo !== undefined && newSaldo !== undefined && oldSaldo !== newSaldo) {
+              cambios.push(`Saldo: ${formatCurrency(Number(oldSaldo))} ➔ ${formatCurrency(Number(newSaldo))}`);
+            }
+            if (oldEstado !== undefined && newEstado !== undefined && oldEstado !== newEstado) {
+              cambios.push(`Estado: ${oldEstado} ➔ ${newEstado}`);
+            }
+            if (oldAnulado !== undefined && newAnulado !== undefined && oldAnulado !== newAnulado) {
+              cambios.push(newAnulado ? 'Cuenta anulada' : 'Cuenta reactivada');
+            }
+            desc = cambios.length > 0 ? cambios.join(' · ') : `Modificación (${r.operacion || r.accion})`;
+          }
+
+          return {
+            id: r.id,
+            asociado: ahorroInfo?.asociado ?? 'Asociado desconocido',
+            cedula: ahorroInfo?.cedula ?? '',
+            accion: r.accion || r.operacion || 'MODIFICACION',
+            usuario_nombre: usersMap[r.usuario_id] ?? 'Sistema/Administrador',
+            fecha_cambio: r.created_at,
+            detalle: desc,
+          };
+        });
+        setHistorialCambiosGeneralVoluntario(histGeneral);
+      } else {
+        setHistorialCambiosGeneralVoluntario([]);
+      }
 
       const idsConAhorro = new Set(
         mapeados.filter(a => a.estado === 'activo' && !a.anulado).map(a => a.asociado_id)
@@ -646,11 +714,13 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
           accion:      'EDITAR',
           usuario_id:  adminUserId,
           datos_antes: {
+            tipo:           'voluntario',
             monto_ahorrado: prevSaldo,
             estado:         datosActuales?.estado ?? selectedItem.estado,
             observaciones:  prevObservaciones,
           },
           datos_despues: {
+            tipo:           'voluntario',
             monto_ahorrado: saldo,
             estado:         datosActuales?.estado ?? selectedItem.estado,
             observaciones:  nuevasObservaciones,
@@ -878,6 +948,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
     movimientosDetalle, setMovimientosDetalle,
     loadingMovimientos,
     historialCambios, setHistorialCambios,
+    historialCambiosGeneralVoluntario,
     formMovTipo, setFormMovTipo,
     formMovMonto, setFormMovMonto,
     formMovFecha, setFormMovFecha,

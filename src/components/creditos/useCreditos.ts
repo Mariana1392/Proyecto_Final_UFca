@@ -40,6 +40,7 @@ export function useCreditos(userData?: any) {
   const [asocFechaDesde, setAsocFechaDesde]     = useState('');
   const [asocFechaHasta, setAsocFechaHasta]     = useState('');
   const [asocSortBy, setAsocSortBy]             = useState<'fecha_desc'|'fecha_asc'|'estado'|'monto_desc'|'monto_asc'>('fecha_desc');
+  const [asocTabFilter, setAsocTabFilter]       = useState<'activos'|'finalizados'>('activos');
 
   // ── Diálogos no gestionados por sub-hooks ─────────────────────────────────
   const [isDetailDialogOpen, setIsDetailDialogOpen]   = useState(false);
@@ -207,6 +208,7 @@ export function useCreditos(userData?: any) {
     searchTerm, filterEstado,
     currentPage, currentPageAnulados, currentPageRechazados, itemsPerPage,
     asocSearch, asocFilterEstado, asocFechaDesde, asocFechaHasta, asocSortBy,
+    asocTabFilter,
     formMonto:       crud.formMonto,
     formTasa:        crud.formTasa,
     formPlazo:       crud.formPlazo,
@@ -251,6 +253,7 @@ export function useCreditos(userData?: any) {
     asocFechaDesde, setAsocFechaDesde,
     asocFechaHasta, setAsocFechaHasta,
     asocSortBy, setAsocSortBy,
+    asocTabFilter, setAsocTabFilter,
     isDetailDialogOpen, setIsDetailDialogOpen,
     isInformeDialogOpen, setIsInformeDialogOpen,
     selectedItem, setSelectedItem,

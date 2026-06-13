@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import type { Dispatch, SetStateAction, ChangeEvent } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
+import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { ahorroPermanenteApi } from '../../lib/api';
 import { formatCurrency, formatCurrencyInput, parseCurrencyInput } from '../../lib/formatters';
 import { resolverPeriodoId, notificarAsociado } from './ahorroPermanenteUtils';
@@ -147,10 +148,34 @@ export function useAhorroPermanenteCRUD({
     if (!justificacion) { toast.error('La justificación es obligatoria'); return; }
     try {
       const { id, asociado_id, asociado } = selectedItem;
+      const { data: authData } = await supabase.auth.getUser();
+      const adminUserId = authData?.user?.id ?? null;
+
       if (nuevoEstadoSeleccionado === 'anulado') {
         await ahorroPermanenteApi.anular(id, justificacion);
+
+        // Registrar en auditoría
+        await (supabaseAdmin ?? supabase).from('auditoria').insert({
+          tabla:       'cuentas_ahorro',
+          registro_id: id,
+          accion:      'ANULAR',
+          operacion:   'anulacion',
+          datos_antes: {
+            tipo:    'permanente',
+            estado:  selectedItem.estado ? 'activo' : 'inactivo',
+            anulado: selectedItem.anulado,
+          },
+          datos_despues: {
+            tipo:        'permanente',
+            estado:      'inactivo',
+            anulado:     true,
+            descripcion: `Cuenta anulada. Motivo: ${justificacion}`,
+          },
+          usuario_id:  adminUserId,
+        });
+
         setAhorros(prev => prev.map(a =>
-          a.id === id ? { ...a, anulado: true, estado: false, motivoAnulacion: justificacion } : a
+          a.id === id ? { ...a, anulado: true, estado: false, motivoAnulacion: justificacion, fechaAnulacion: new Date().toISOString().split('T')[0] } : a
         ));
         await notificarAsociado(asociado_id, '❌ Ahorro permanente anulado',
           `Tu ahorro permanente ha sido anulado. Motivo: ${justificacion}`, 'general');
@@ -162,7 +187,28 @@ export function useAhorroPermanenteCRUD({
           estado: esActivo ? 'activo' : 'inactivo',
           ...(esActivo && { anulado: false, motivo_anulacion: null }),
         });
-        setAhorros(prev => prev.map(a => a.id === id ? { ...a, estado: esActivo, ...(esActivo && { anulado: false }) } : a));
+
+        // Registrar en auditoría
+        await (supabaseAdmin ?? supabase).from('auditoria').insert({
+          tabla:       'cuentas_ahorro',
+          registro_id: id,
+          accion:      'EDITAR',
+          operacion:   'cambio_estado',
+          datos_antes: {
+            tipo:    'permanente',
+            estado:  selectedItem.estado ? 'activo' : 'inactivo',
+            anulado: selectedItem.anulado,
+          },
+          datos_despues: {
+            tipo:        'permanente',
+            estado:      esActivo ? 'activo' : 'inactivo',
+            anulado:     esActivo ? false : selectedItem.anulado,
+            descripcion: `Cambio de estado: ${selectedItem.estado ? 'activo' : 'inactivo'} ➔ ${esActivo ? 'activo' : 'inactivo'}. Motivo: ${justificacion}`,
+          },
+          usuario_id:  adminUserId,
+        });
+
+        setAhorros(prev => prev.map(a => a.id === id ? { ...a, estado: esActivo, ...(esActivo && { anulado: false, fechaAnulacion: '' }) } : a));
         await notificarAsociado(
           asociado_id,
           esActivo ? '✅ Ahorro permanente activado' : '⚠️ Ahorro permanente desactivado',
@@ -191,9 +237,33 @@ export function useAhorroPermanenteCRUD({
     const justificacion = justificacionAnulacion.trim();
     try {
       const { id, asociado_id, asociado } = selectedItem;
+      const { data: authData } = await supabase.auth.getUser();
+      const adminUserId = authData?.user?.id ?? null;
+
       await ahorroPermanenteApi.anular(id, justificacion);
+
+      // Registrar en auditoría
+      await (supabaseAdmin ?? supabase).from('auditoria').insert({
+        tabla:       'cuentas_ahorro',
+        registro_id: id,
+        accion:      'ANULAR',
+        operacion:   'anulacion',
+        datos_antes: {
+          tipo:    'permanente',
+          estado:  selectedItem.estado ? 'activo' : 'inactivo',
+          anulado: selectedItem.anulado,
+        },
+        datos_despues: {
+          tipo:        'permanente',
+          estado:      'inactivo',
+          anulado:     true,
+          descripcion: `Cuenta anulada. Motivo: ${justificacion}`,
+        },
+        usuario_id:  adminUserId,
+      });
+
       setAhorros(prev => prev.map(a =>
-        a.id === id ? { ...a, anulado: true, estado: false, motivoAnulacion: justificacion } : a
+        a.id === id ? { ...a, anulado: true, estado: false, motivoAnulacion: justificacion, fechaAnulacion: new Date().toISOString().split('T')[0] } : a
       ));
       await notificarAsociado(asociado_id, '❌ Ahorro permanente anulado',
         `Tu ahorro permanente ha sido anulado. Motivo: ${justificacion}`, 'general');
@@ -334,12 +404,35 @@ export function useAhorroPermanenteCRUD({
     const asociado = asociadosDisponibles.find((a: any) => a.id === formAsociadoId);
 
     try {
+      const { data: authData } = await supabase.auth.getUser();
+      const adminUserId = authData?.user?.id ?? null;
+
       if (selectedItem) {
         const updatePayload: Record<string, any> = {
           cuota_mensual: cuota,
           observaciones: formObservaciones.trim() || null,
         };
         await ahorroPermanenteApi.update(selectedItem.id, updatePayload);
+
+        // Registrar en auditoría
+        await (supabaseAdmin ?? supabase).from('auditoria').insert({
+          tabla:       'cuentas_ahorro',
+          registro_id: selectedItem.id,
+          accion:      'EDITAR',
+          operacion:   'modificacion',
+          datos_antes: {
+            tipo:          'permanente',
+            cuota_mensual: selectedItem.cuotaMensual,
+            observaciones: selectedItem.observaciones || null,
+          },
+          datos_despues: {
+            tipo:          'permanente',
+            cuota_mensual: cuota,
+            observaciones: formObservaciones.trim() || null,
+            descripcion:   `Modificación de cuota: ${formatCurrency(selectedItem.cuotaMensual)} ➔ ${formatCurrency(cuota)}`,
+          },
+          usuario_id:  adminUserId,
+        });
 
         const localUpdate: Record<string, any> = {
           cuotaMensual:  cuota,
@@ -370,6 +463,25 @@ export function useAhorroPermanenteCRUD({
           estado:         'activo',
           anulado:        false,
           periodo_id:     periodoIdCreacion,
+        });
+
+        // Registrar en auditoría
+        await (supabaseAdmin ?? supabase).from('auditoria').insert({
+          tabla:       'cuentas_ahorro',
+          registro_id: nuevo.id,
+          accion:      'CREAR',
+          operacion:   'creacion',
+          datos_antes: null,
+          datos_despues: {
+            tipo:           'permanente',
+            asociado_id:    formAsociadoId,
+            cuota_mensual:  cuota,
+            monto_ahorrado: saldo,
+            estado:         'activo',
+            anulado:        false,
+            descripcion:    `Cuenta de ahorro permanente creada. Cuota: ${formatCurrency(cuota)}. Saldo inicial: ${formatCurrency(saldo)}.`,
+          },
+          usuario_id:  adminUserId,
         });
 
         if (saldo > 0) {
@@ -405,6 +517,7 @@ export function useAhorroPermanenteCRUD({
           estado:          true,
           anulado:         false,
           motivoAnulacion: '',
+          fechaAnulacion:  '',
           createdAt:       nowIso,
         }, ...prev]);
         toast.success('✅ Ahorro registrado exitosamente', {

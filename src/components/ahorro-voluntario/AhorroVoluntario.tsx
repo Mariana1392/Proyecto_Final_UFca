@@ -1,24 +1,25 @@
 // ── AhorroVoluntario.tsx (orquestador) ───────────────────────────────────────
 // Componente principal: encabezado, filtros, pestañas y renderizado de sub-componentes.
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import PiggyBankLoader from '../ui/PiggyBankLoader';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Search, Plus, Wallet, FileText, ClipboardList, X, Mail } from 'lucide-react';
+import { Search, Plus, Wallet, FileText, ClipboardList, X, Mail, History, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, UserCircle2, Edit, Trash2, Lock, Unlock, AlertTriangle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '../ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+import { Badge } from '../ui/badge';
 import { formatCurrency } from '../../lib/formatters';
 import type { UserRole } from '../../contexts/AuthContext';
 
 import { useAhorroVoluntario } from './useAhorroVoluntario';
 import AhorroVoluntarioTabla, { AhorroVoluntarioPaginacion } from './AhorroVoluntarioTabla';
-import AhorroVoluntarioSolicitudes from './AhorroVoluntarioSolicitudes';
 import AhorroVoluntarioDialogCrear from './AhorroVoluntarioDialogCrear';
 import AhorroVoluntarioDialogDetalle from './AhorroVoluntarioDialogDetalle';
 import AhorroVoluntarioDialogMovimiento from './AhorroVoluntarioDialogMovimiento';
@@ -31,6 +32,9 @@ interface AhorroVoluntarioProps {
 
 export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntarioProps) {
   const h = useAhorroVoluntario(userRole, userData);
+  const [auditPage, setAuditPage] = useState(1);
+  const [historialAbierto, setHistorialAbierto] = useState(false);
+  const [auditFiltro, setAuditFiltro] = useState('todos');
 
   // ── Pantalla de carga ──────────────────────────────────────────────────────
   if (h.loading) {
@@ -42,9 +46,6 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
   }
 
   const hasAnyActive = h.ahorros.filter((a: any) => !a.anulado).length > 0;
-  const pendientesSolicitudes =
-    h.solicitudesVol.filter((s: any) => s.estado === 'pendiente').length +
-    h.aportesPendientesVol.filter((a: any) => a.estado === 'pendiente').length;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen">
@@ -222,24 +223,13 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
 
           <CardContent>
             <Tabs defaultValue="activos" className="w-full">
-              <TabsList className={`grid w-full mb-4 ${userRole === 'admin' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+              <TabsList className="grid w-full mb-4 grid-cols-2">
                 <TabsTrigger value="activos" className="gap-2">
                   <Wallet className="size-4" /> Ahorros Activos ({h.sortedAhorros.length})
                 </TabsTrigger>
                 <TabsTrigger value="anulados" className="gap-2">
                   <FileText className="size-4" /> Ahorros Anulados ({h.filteredAhorrosAnulados.length})
                 </TabsTrigger>
-                {userRole === 'admin' && (
-                  <TabsTrigger value="solicitudes" className="gap-2">
-                    <ClipboardList className="size-4" />
-                    Solicitudes
-                    {pendientesSolicitudes > 0 && (
-                      <span className="ml-1 bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
-                        {pendientesSolicitudes}
-                      </span>
-                    )}
-                  </TabsTrigger>
-                )}
               </TabsList>
 
               {/* ── Activos ── */}
@@ -307,27 +297,234 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                   />
                 )}
               </TabsContent>
-
-              {/* ── Solicitudes (solo admin) ── */}
-              {userRole === 'admin' && (
-                <TabsContent value="solicitudes" className="space-y-6">
-                  <AhorroVoluntarioSolicitudes
-                    solicitudesVol={h.solicitudesVol}
-                    handleAprobarSolicitudVol={h.handleAprobarSolicitudVol}
-                    setSolVolSeleccionada={h.setSolVolSeleccionada}
-                    setNotaRechazoVol={h.setNotaRechazoVol}
-                    setIsRechazarVolOpen={h.setIsRechazarVolOpen}
-                    aportesPendientesVol={h.aportesPendientesVol}
-                    handleConfirmarAporteVol={h.handleConfirmarAporteVol}
-                    setAporteVolSeleccionado={h.setAporteVolSeleccionado}
-                    setNotaRechazoAporteVol={h.setNotaRechazoAporteVol}
-                    setIsRechazarAporteVolOpen={h.setIsRechazarAporteVolOpen}
-                  />
-                </TabsContent>
-              )}
             </Tabs>
           </CardContent>
         </Card>
+
+        {/* ── Auditoría de Cambios (solo admin) ── */}
+        {userRole === 'admin' && (() => {
+          const AUDITORIA_PER_PAGE = 5;
+
+          const ACTION_CFG: Record<string, { label: string; icon: JSX.Element; color: string; bg: string; border: string; dot: string }> = {
+            'CREACIÓN': { label: 'CREACIÓN', icon: <Plus className="size-3.5" />, color: 'text-emerald-700 dark:text-emerald-300', bg: 'bg-emerald-50 dark:bg-emerald-950/40', border: 'border-emerald-200 dark:border-emerald-900', dot: 'bg-emerald-500' },
+            'EDICIÓN':  { label: 'EDICIÓN',  icon: <Edit className="size-3.5" />, color: 'text-blue-700 dark:text-blue-300', bg: 'bg-blue-50 dark:bg-blue-950/40', border: 'border-blue-200 dark:border-blue-900', dot: 'bg-blue-500' },
+            'ANULACIÓN': { label: 'ANULACIÓN', icon: <Trash2 className="size-3.5" />, color: 'text-red-700 dark:text-red-300', bg: 'bg-red-50 dark:bg-red-950/40', border: 'border-red-200 dark:border-red-900', dot: 'bg-red-500' },
+          };
+
+          const normalizeAction = (accion: string) => {
+            const a = (accion || '').toUpperCase();
+            if (a === 'INSERT' || a === 'CREAR') return 'CREACIÓN';
+            if (a === 'UPDATE' || a === 'EDITAR') return 'EDICIÓN';
+            if (a === 'DELETE' || a === 'ELIMINAR' || a === 'ANULAR') return 'ANULACIÓN';
+            return 'EDICIÓN'; // fallback
+          };
+
+          const getCfg = (accion: string) => {
+            const norm = normalizeAction(accion);
+            return ACTION_CFG[norm] ?? { label: norm, icon: <History className="size-3.5" />, color: 'text-slate-600 dark:text-slate-300', bg: 'bg-slate-50 dark:bg-slate-900', border: 'border-slate-200 dark:border-slate-800', dot: 'bg-slate-400' };
+          };
+
+          const conteoPorAccion = (h.historialCambiosGeneralVoluntario || []).reduce((acc, e) => {
+            const k = normalizeAction(e.accion);
+            acc[k] = (acc[k] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+
+          const auditFiltrada = auditFiltro === 'todos' 
+            ? (h.historialCambiosGeneralVoluntario || []) 
+            : (h.historialCambiosGeneralVoluntario || []).filter(e => normalizeAction(e.accion) === auditFiltro);
+
+          const totalAudPaginas = Math.ceil(auditFiltrada.length / AUDITORIA_PER_PAGE);
+          const audPagina = auditFiltrada.slice((auditPage - 1) * AUDITORIA_PER_PAGE, auditPage * AUDITORIA_PER_PAGE);
+
+          return (
+            <Card>
+              <CardHeader className="pb-3">
+                <button
+                  className="w-full flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-left focus:outline-none"
+                  onClick={() => setHistorialAbierto(v => !v)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 dark:bg-purple-950 rounded-lg shrink-0">
+                      <History className="size-5 text-purple-600 dark:text-purple-450" />
+                    </div>
+                    <div>
+                      <CardTitle>Historial de Cambios</CardTitle>
+                      <p className="text-sm text-slate-500 mt-0.5">
+                        {h.historialCambiosGeneralVoluntario?.length || 0} registro{h.historialCambiosGeneralVoluntario?.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+                  {historialAbierto ? (
+                    <ChevronUp className="size-5 text-slate-400 shrink-0 mt-1" />
+                  ) : (
+                    <ChevronDown className="size-5 text-slate-400 shrink-0 mt-1" />
+                  )}
+                </button>
+
+                {/* Chips de filtro */}
+                {historialAbierto && (h.historialCambiosGeneralVoluntario?.length || 0) > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    <button
+                      onClick={() => { setAuditFiltro('todos'); setAuditPage(1); }}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                        auditFiltro === 'todos'
+                          ? 'bg-slate-800 text-white border-slate-800 dark:bg-slate-200 dark:text-slate-900 dark:border-slate-750'
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400'
+                      }`}
+                    >
+                      Todos
+                      <span className={`font-bold ${auditFiltro === 'todos' ? 'text-slate-300 dark:text-slate-600' : 'text-slate-400'}`}>
+                        {h.historialCambiosGeneralVoluntario?.length || 0}
+                      </span>
+                    </button>
+                    {Object.entries(conteoPorAccion).map(([accion, count]) => {
+                      const cfg = ACTION_CFG[accion] || { dot: 'bg-slate-400', bg: 'bg-slate-50', border: 'border-slate-200', color: 'text-slate-600' };
+                      const activo = auditFiltro === accion;
+                      return (
+                        <button
+                          key={accion}
+                          onClick={() => { setAuditFiltro(activo ? 'todos' : accion); setAuditPage(1); }}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                            activo
+                              ? `${cfg.bg} ${cfg.border} ${cfg.color} ring-2 ring-offset-1 ring-current/40`
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-350 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400'
+                          }`}
+                        >
+                          <span className={`size-2 rounded-full shrink-0 ${cfg.dot}`} />
+                          {accion}
+                          <span className={`font-bold ${activo ? '' : 'text-slate-400'}`}>{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardHeader>
+
+              {historialAbierto && (
+                <CardContent>
+                  {(h.historialCambiosGeneralVoluntario || []).length === 0 ? (
+                    <div className="text-center py-14">
+                      <div className="inline-flex items-center justify-center size-14 rounded-full bg-slate-100 dark:bg-slate-850 mb-4">
+                        <History className="size-7 text-slate-300 dark:text-slate-600" />
+                      </div>
+                      <p className="font-medium text-slate-500">Sin registros aún</p>
+                      <p className="text-sm text-slate-400 mt-1">Los cambios aparecerán aquí automáticamente</p>
+                    </div>
+                  ) : auditFiltrada.length === 0 ? (
+                    <div className="text-center py-10">
+                      <p className="text-sm text-slate-400">Sin registros para esta acción.</p>
+                      <button
+                        onClick={() => { setAuditFiltro('todos'); setAuditPage(1); }}
+                        className="mt-2 text-xs text-blue-600 hover:underline"
+                      >
+                        Ver todos los registros
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Timeline */}
+                      <div className="relative pl-1">
+                        <div className="absolute left-[19px] top-5 bottom-5 w-px bg-slate-200 dark:bg-slate-700" />
+                        <div className="space-y-3">
+                          {audPagina.map((entry) => {
+                            const cfg = getCfg(entry.accion);
+                            return (
+                              <div key={entry.id} className="relative flex gap-3 items-start group">
+                                {/* Icono */}
+                                <div className={`relative z-10 flex items-center justify-center size-10 rounded-full border-2 border-white dark:border-slate-950 shadow-sm shrink-0 ${cfg.bg}`}>
+                                  <span className={cfg.color}>{cfg.icon}</span>
+                                </div>
+
+                                {/* Tarjeta */}
+                                <div className={`flex-1 p-3.5 rounded-xl border transition-shadow group-hover:shadow-sm ${cfg.bg} ${cfg.border}`}>
+                                  <div className="flex items-start justify-between gap-2 flex-wrap mb-1.5">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`text-[11px] font-bold uppercase tracking-wider ${cfg.color}`}>
+                                        {cfg.label}
+                                      </span>
+                                      <span className="text-[11px] text-slate-500 font-medium">
+                                        · {entry.asociado}
+                                      </span>
+                                    </div>
+                                    <span className="text-[11px] text-slate-400 flex items-center gap-1 shrink-0">
+                                      <Clock className="size-3" />
+                                      {new Date(entry.fecha_cambio).toLocaleString('es-CO')}
+                                    </span>
+                                  </div>
+
+                                  {/* Detalle */}
+                                  <p className="text-sm text-slate-700 dark:text-slate-350 leading-relaxed font-normal">
+                                    {entry.detalle}
+                                  </p>
+
+                                  {/* Realizado por */}
+                                  <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
+                                    <UserCircle2 className={`size-3.5 ${cfg.color} opacity-70`} />
+                                    <span className="text-xs text-slate-500">
+                                      Realizado por: <span className="font-semibold text-slate-600 dark:text-slate-400">{entry.usuario_nombre}</span>
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Paginación */}
+                      {totalAudPaginas > 1 && (
+                        <div className="flex items-center justify-between mt-5 pt-4 border-t border-slate-100 dark:border-slate-850">
+                          <p className="text-xs text-slate-500">
+                            {(auditPage - 1) * AUDITORIA_PER_PAGE + 1}–{Math.min(auditPage * AUDITORIA_PER_PAGE, auditFiltrada.length)} de {auditFiltrada.length} registro{auditFiltrada.length !== 1 ? 's' : ''}
+                            {auditFiltro !== 'todos' && (
+                              <button onClick={() => { setAuditFiltro('todos'); setAuditPage(1); }} className="ml-2 text-blue-600 hover:underline">
+                                Ver todos
+                              </button>
+                            )}
+                          </p>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setAuditPage(1)}
+                              disabled={auditPage === 1}
+                              className="px-2 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 text-slate-650 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-850 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              «
+                            </button>
+                            <button
+                              onClick={() => setAuditPage(p => Math.max(1, p - 1))}
+                              disabled={auditPage === 1}
+                              className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 text-slate-650 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-850 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              ‹ Ant.
+                            </button>
+                            <span className="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-850 rounded-lg">
+                              {auditPage} / {totalAudPaginas}
+                            </span>
+                            <button
+                              onClick={() => setAuditPage(p => Math.min(totalAudPaginas, p + 1))}
+                              disabled={auditPage === totalAudPaginas}
+                              className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 text-slate-650 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-850 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              Sig. ›
+                            </button>
+                            <button
+                              onClick={() => setAuditPage(totalAudPaginas)}
+                              disabled={auditPage === totalAudPaginas}
+                              className="px-2 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-850 text-slate-650 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-850 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              »
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              )}
+            </Card>
+          );
+        })()}
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}

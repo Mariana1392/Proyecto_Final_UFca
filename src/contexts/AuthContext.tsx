@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!data || !data.activo) { setU(null); return; }
       // Registrar último acceso (fire-and-forget)
       void supabase.from('usuarios').update({ ultimo_acceso: new Date().toISOString() }).eq('id', userId);
-      const rolNombre  = (data as any).roles?.nombre ?? 'usuario';
+      const rolNombre  = (data as any).roles?.nombre ?? 'asociado';
       const rolLabelDB = (data as any).roles?.label  ?? undefined;
       const dbPermisos: string[] = Array.isArray((data as any).roles?.rol_permisos)
         ? (data as any).roles.rol_permisos
