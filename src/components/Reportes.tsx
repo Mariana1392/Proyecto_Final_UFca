@@ -57,8 +57,12 @@ export default function Reportes() {
   const [loadingUtilidades, setLoadingUtilidades] = useState(false);
 
   // Buscar asociados
+  const [showDropdown, setShowDropdown] = useState(false);
+
   useEffect(() => {
-    if (searchTerm.length < 3) {
+    if (!showDropdown && searchTerm.length === 0) return;
+    
+    if (searchTerm.length > 0 && searchTerm.length < 3) {
       if (searchTerm.length === 0) setAsociados([]);
       return;
     }
@@ -71,9 +75,13 @@ export default function Reportes() {
         let query = supabase
           .from('usuarios')
           .select('id, nombre, cedula')
-          .or(`nombre.ilike.%${searchTerm}%,cedula.ilike.%${searchTerm}%`)
-          .limit(10);
+          .order('nombre', { ascending: true })
+          .limit(searchTerm ? 10 : 50);
           
+        if (searchTerm) {
+          query = query.or(`nombre.ilike.%${searchTerm}%,cedula.ilike.%${searchTerm}%`);
+        }
+
         if (rolAsoc?.id) {
           query = query.eq('rol_id', rolAsoc.id);
         }
@@ -87,9 +95,9 @@ export default function Reportes() {
         setLoadingAsociados(false);
       }
     };
-    const timer = setTimeout(fetchAsociados, 400);
+    const timer = setTimeout(fetchAsociados, searchTerm ? 400 : 0);
     return () => clearTimeout(timer);
-  }, [searchTerm]);
+  }, [searchTerm, showDropdown]);
 
   // Cargar utilidades
   useEffect(() => {
@@ -471,33 +479,50 @@ export default function Reportes() {
                 </CardHeader>
                 <CardContent className="p-4 space-y-4">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 z-10" />
                     <Input
                       placeholder="Buscar por cédula o nombre..."
                       className="pl-9"
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setShowDropdown(true);
+                      }}
+                      onFocus={() => setShowDropdown(true)}
+                      onBlur={() => setShowDropdown(false)}
                     />
-                  </div>
-                  
-                  {loadingAsociados ? (
-                    <div className="text-center py-4 text-sm text-slate-500">Buscando...</div>
-                  ) : asociados.length > 0 ? (
-                    <div className="border rounded-md divide-y overflow-hidden max-h-[300px] overflow-y-auto">
-                      {asociados.map(a => (
-                        <div 
-                          key={a.id}
-                          className={`p-3 text-sm cursor-pointer hover:bg-slate-50 transition-colors ${selectedAsociado?.id === a.id ? 'bg-emerald-50 border-l-2 border-emerald-500' : ''}`}
-                          onClick={() => { setSelectedAsociado(a); setSearchTerm(''); setAsociados([]); }}
-                        >
-                          <p className="font-medium text-slate-800">{a.nombre}</p>
-                          <p className="text-slate-500 text-xs">C.C. {a.cedula}</p>
+                    
+                    {showDropdown && !selectedAsociado && (
+                      loadingAsociados ? (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-md p-4 text-center text-sm text-slate-500 shadow-md z-50">
+                          Buscando asociados...
                         </div>
-                      ))}
-                    </div>
-                  ) : searchTerm.length >= 3 ? (
-                    <div className="text-center py-4 text-sm text-slate-500">No se encontraron resultados</div>
-                  ) : null}
+                      ) : asociados.length > 0 ? (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-md divide-y overflow-hidden max-h-[300px] overflow-y-auto shadow-xl z-50">
+                          {asociados.map(a => (
+                            <div 
+                              key={a.id}
+                              className={`p-3 text-sm cursor-pointer hover:bg-slate-50 transition-colors ${selectedAsociado?.id === a.id ? 'bg-emerald-50 border-l-2 border-emerald-500' : ''}`}
+                              onMouseDown={(e) => { 
+                                e.preventDefault(); 
+                                setSelectedAsociado(a); 
+                                setSearchTerm(''); 
+                                setAsociados([]); 
+                                setShowDropdown(false);
+                              }}
+                            >
+                              <p className="font-medium text-slate-800">{a.nombre}</p>
+                              <p className="text-slate-500 text-xs">C.C. {a.cedula}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : searchTerm.length >= 3 ? (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-md p-4 text-center text-sm text-slate-500 shadow-md z-50">
+                          No se encontraron resultados
+                        </div>
+                      ) : null
+                    )}
+                  </div>
 
                   {selectedAsociado && (
                     <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100 flex justify-between items-center">

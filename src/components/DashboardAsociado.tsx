@@ -71,7 +71,7 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
           .select('id, monto, saldo, estado, anulado, fecha_desembolso, plazo_meses, cuota_mensual')
           .eq('asociado_id', asociadoId)
           .eq('anulado', false)
-          .in('estado', ['activo', 'desembolsado', 'en_mora']),
+          .in('estado', ['activo', 'desembolsado', 'en_mora', 'aprobado', 'pendiente']),
 
         // Últimos aportes ahorro permanente
         supabase.from('transacciones')
@@ -364,7 +364,7 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer group"
+        <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer group ${data.creditoActivo ? 'border-b-4 border-b-amber-400' : ''}`}
               onClick={() => onNavigate?.('creditos')}>
           <CardContent className="pt-5 pb-4">
             <div className="flex items-start justify-between mb-3">
@@ -373,16 +373,46 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
               </div>
               <ChevronRight className="size-4 text-slate-300 group-hover:text-amber-500 transition-colors mt-1" />
             </div>
+            
             <p className="text-xs text-slate-500 font-medium mb-1">Saldo en créditos</p>
             <p className="text-2xl font-bold text-slate-900">
               {data.creditoActivo ? fmtCompact(data.creditoSaldo) : '—'}
             </p>
-            <div className="flex items-center gap-1 mt-2">
-              {data.creditoActivo
-                ? <><AlertCircle className="size-3 text-amber-500" /><span className="text-xs text-amber-600 font-medium">{creditos.length} crédito(s) activo(s)</span></>
-                : <><CheckCircle2 className="size-3 text-slate-400" /><span className="text-xs text-slate-400">Sin créditos activos</span></>
-              }
-            </div>
+            
+            {!data.creditoActivo ? (
+              <div className="flex items-center gap-1 mt-2">
+                <CheckCircle2 className="size-3 text-slate-400" />
+                <span className="text-xs text-slate-400">Sin créditos activos</span>
+              </div>
+            ) : (
+              <div className="mt-3">
+                {(() => {
+                  const c = creditos[0]; // Mostrar el detalle del primer crédito
+                  if (!c) return null;
+                  const pct = c.monto ? Math.round(100 - ((c.saldo / c.monto) * 100)) : 0;
+                  const porcentajePagado = Math.max(0, Math.min(100, pct));
+                  
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-slate-500 border-t border-slate-100 pt-2 mt-2">
+                        <span>Cuota: {fmtCompact(c.cuota_mensual || 0)}</span>
+                        <span>{c.plazo_meses || 0} meses</span>
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-[10px] mb-1">
+                          <span className="font-medium text-amber-600">Progreso</span>
+                          <span className="font-bold text-amber-600">{porcentajePagado}%</span>
+                        </div>
+                        <div className="h-1.5 bg-amber-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                            style={{ width: `${porcentajePagado}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -525,17 +555,27 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
                   <p className="text-xs text-slate-500">Saldo pendiente</p>
                   <div className="mt-2 pt-2 border-t border-amber-100 flex justify-between text-xs text-slate-500">
                     <span>Cuota: {fmt(c.cuota_mensual || 0)}</span>
-                    <span>{c.plazo_meses}m plazo</span>
+                    <span>{c.plazo_meses || 0} meses plazo</span>
                   </div>
-                  <div className="mt-2">
-                    <div className="h-1.5 bg-amber-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-amber-400 rounded-full transition-all"
-                        style={{ width: `${Math.max(0, Math.min(100, 100 - ((c.saldo / c.monto) * 100)))}%` }} />
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {Math.round(100 - ((c.saldo / c.monto) * 100))}% pagado
-                    </p>
-                  </div>
+                  {(() => {
+                    const pct = c.monto ? Math.round(100 - ((c.saldo / c.monto) * 100)) : 0;
+                    const porcentajePagado = Math.max(0, Math.min(100, pct));
+                    return (
+                      <div className="mt-3">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="font-medium text-slate-600">Progreso del pago</span>
+                          <span className="font-bold text-amber-600">{porcentajePagado}%</span>
+                        </div>
+                        <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                            style={{ width: `${porcentajePagado}%` }} />
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1.5">
+                          {porcentajePagado}% pagado de la deuda total
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

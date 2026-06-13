@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 
 const db = supabaseAdmin ?? supabase; // bypasea RLS para verificaciones
-import { CheckCircle, Sparkles, Target, Trophy, UserPlus, Users, X, Shield, UserCircle2, Award, Calendar, MapPin, Clock, PiggyBank, CreditCard, TrendingUp, Upload, FileText, Briefcase, Trash2, AlertCircle, Mail } from 'lucide-react';
+import { CheckCircle, Sparkles, Target, Trophy, UserPlus, Users, X, Shield, UserCircle2, Award, Calendar, MapPin, Clock, PiggyBank, CreditCard, TrendingUp, Upload, FileText, Briefcase, Trash2, AlertCircle, Mail, Smartphone, Download } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -1047,6 +1047,27 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                 <p className="text-2xl lg:text-3xl font-light text-white/90 leading-relaxed">
                   Administra tus <span className="font-bold text-[#f0c040]">ahorros y crédito</span><br/>con la confianza de una familia.
                 </p>
+              </div>
+
+              {/* App Download Banner */}
+              <div className="flex items-start gap-4 p-4 bg-white/10 border border-white/20 rounded-2xl backdrop-blur-md max-w-lg">
+                <div className="p-2 bg-emerald-500/20 rounded-xl mt-0.5">
+                  <Smartphone className="size-5 text-emerald-300" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-white font-bold text-sm">Lleva UFCA en tu bolsillo</p>
+                  <p className="text-emerald-100/90 text-xs mt-0.5 mb-3 leading-relaxed">
+                    Descarga nuestra aplicación móvil oficial. <strong>Recuerda:</strong> El acceso a la app es exclusivo para asociados aprobados en la cooperativa.
+                  </p>
+                  <a 
+                    href="/ufca-app.apk" 
+                    download="UFCA_Mobile.apk"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl transition-colors shadow-lg shadow-emerald-900/50"
+                  >
+                    <Download className="size-3.5" />
+                    Descargar APK (Android)
+                  </a>
+                </div>
               </div>
 
               {/* Decoración — línea dorada con destellos */}
