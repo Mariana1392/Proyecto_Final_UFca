@@ -14,10 +14,13 @@ interface LiquidacionProps {
   esVistaPropia?: boolean;
 }
 
-export default function Liquidacion({ userData, esVistaPropia = false }: LiquidacionProps) {
+export default function Liquidacion({ userData, esVistaPropia }: LiquidacionProps) {
   // Permisos básicos
   const permisosMap = (userData?.permisos || []).reduce((acc: any, p: any) => { acc[p.modulo] = true; return acc; }, {});
   const can = (perm: string) => permisosMap[perm] === true || userData?.rol === 'admin';
+
+  // Deducir esVistaPropia final
+  const esVistaPropiaFinal = esVistaPropia !== undefined ? esVistaPropia : !can('liquidacion');
 
   // Modal states
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -26,7 +29,7 @@ export default function Liquidacion({ userData, esVistaPropia = false }: Liquida
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
 
   // ── Hooks ──
-  const crud = useLiquidacionesCRUD({ esVistaPropia, userData });
+  const crud = useLiquidacionesCRUD({ esVistaPropia: esVistaPropiaFinal, userData });
   const docs = useLiquidacionesDocs(userData, crud.setLiquidaciones);
   const audit = useLiquidacionesAudit(userData);
   
@@ -80,7 +83,7 @@ export default function Liquidacion({ userData, esVistaPropia = false }: Liquida
   return (
     <>
       <LiquidacionTabla
-        esVistaPropia={esVistaPropia}
+        esVistaPropia={esVistaPropiaFinal}
         can={can}
         liquidaciones={crud.liquidaciones}
         loading={crud.loading}
@@ -151,7 +154,7 @@ export default function Liquidacion({ userData, esVistaPropia = false }: Liquida
       <LiquidacionDialogDetalle
         isDetailOpen={isDetailOpen} setIsDetailOpen={setIsDetailOpen}
         selectedItem={docs.selectedItem} setSelectedItem={setSelectedItem}
-        esVistaPropia={esVistaPropia}
+        esVistaPropia={esVistaPropiaFinal}
         docsLiquidacion={docs.docsLiquidacion} setDocsLiquidacion={() => {}}
         loadingDocs={docs.loadingDocs}
         auditEntries={audit.auditEntries} setAuditEntries={() => {}}

@@ -1,0 +1,202 @@
+            {/* Panel resumen financiero */}
+            <div className="lg:col-span-2 bg-white rounded-2xl shadow-md p-5">
+              <p className="text-sm font-bold text-slate-700 mb-0.5">Resumen financiero</p>
+              <p className="text-xs text-slate-400 mb-4">Estado actual del fondo</p>
+              <div className="flex flex-col gap-3">
+                {[
+                  { label: 'Monto',       value: fmtCOP(liveStats.totalCarteraCreditos),  sub: 'Créditos activos',    bar: 'bg-amber-500',   text: 'text-amber-600'   },
+                  { label: 'Capital administrado', value: fmtCOP(liveStats.totalAhorros),          sub: 'Total ahorros',       bar: 'bg-emerald-500', text: 'text-emerald-600' },
+                  { label: 'Intereses este mes',   value: fmtCOP(liveStats.totalInteresesMes),     sub: 'Ganancia créditos',   bar: 'bg-violet-500',  text: 'text-violet-600'  },
+                         {/* ── SECCIÓN: Control de Mora Debida (Sanciones y Recargos) ── */}
+            <div className="lg:col-span-5 mt-6 space-y-5">
+              <div className="flex items-center gap-2 pb-2">
+                <Coins className="size-5 text-amber-500" />
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                    Control de Mora Debida (Sanciones y Recargos)
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Mora acumulada pendiente de pago por asociados en ahorros y créditos
+                  </p>
+                </div>
+              </div>
+
+              {/* Tarjetas de Totales de Mora */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {/* Total Mora Global */}
+                <Card className="border-0 shadow-md bg-white dark:bg-slate-800 hover:shadow-lg transition-all duration-200 overflow-hidden relative">
+                  <div className="h-1 bg-gradient-to-r from-red-500 to-rose-500" />
+                  <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
+                    <CardTitle className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Mora Debida</CardTitle>
+                    <AlertTriangle className="size-5 text-red-500" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                      {loadingStats ? '...' : fmtCOP(totalesMora.total)}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Suma acumulada de todas las moras</p>
+                  </CardContent>
+                </Card>
+
+                {/* Mora Ahorro Permanente */}
+                <Card className="border-0 shadow-md bg-white dark:bg-slate-800 hover:shadow-lg transition-all duration-200 overflow-hidden relative">
+                  <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
+                  <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
+                    <CardTitle className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mora Ahorro Permanente</CardTitle>
+                    <PiggyBank className="size-5 text-emerald-500" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                      {loadingStats ? '...' : fmtCOP(totalesMora.permanente)}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">$2.000 COP diario desde día 17</p>
+                  </CardContent>
+                </Card>
+
+                {/* Mora Ahorro Voluntario */}
+                <Card className="border-0 shadow-md bg-white dark:bg-slate-800 hover:shadow-lg transition-all duration-200 overflow-hidden relative">
+                  <div className="h-1 bg-gradient-to-r from-blue-500 to-indigo-600" />
+                  <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
+                    <CardTitle className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mora Ahorro Voluntario</CardTitle>
+                    <Wallet className="size-5 text-blue-500" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                      {loadingStats ? '...' : fmtCOP(totalesMora.voluntario)}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">$2.000 COP diario desde día 17</p>
+                  </CardContent>
+                </Card>
+
+                {/* Mora Créditos */}
+                <Card className="border-0 shadow-md bg-white dark:bg-slate-800 hover:shadow-lg transition-all duration-200 overflow-hidden relative">
+                  <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
+                  <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
+                    <CardTitle className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mora en Créditos</CardTitle>
+                    <CreditCard className="size-5 text-amber-500" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                      {loadingStats ? '...' : fmtCOP(totalesMora.creditos)}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Interés moratorio sobre cuotas vencidas</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Listado y Desglose */}
+              <Card className="border-0 shadow-md bg-white dark:bg-slate-800 p-5">
+                <CardHeader className="p-0 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-850">
+                  <div>
+                    <CardTitle className="text-sm font-bold text-slate-800 dark:text-slate-100">Desglose de Mora por Asociado</CardTitle>
+                    <p className="text-xs text-slate-400 mt-0.5">Listado detallado y origen de los saldos vencidos</p>
+                  </div>
+                  {/* Buscador */}
+                  <div className="relative w-full sm:max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por nombre o cédula..."
+                      value={searchMora}
+                      onChange={(e) => { setSearchMora(e.target.value); setMoraPage(1); }}
+                      className="w-full pl-9 pr-4 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-transparent text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0 pt-4">
+                  {(() => {
+                    const filtered = moraDebidaList.filter(item => {
+                      const term = searchMora.toLowerCase();
+                      return (item.asociadoNombre || '').toLowerCase().includes(term) || (item.cedula || '').includes(term);
+                    });
+
+                    const itemsPerPage = 6;
+                    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+                    const paginated = filtered.slice((moraPage - 1) * itemsPerPage, moraPage * itemsPerPage);
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="text-center py-10">
+                          <AlertTriangle className="size-8 text-slate-350 mx-auto mb-2" />
+                          <p className="text-xs text-slate-400 font-medium">No se encontraron registros de mora debida</p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-4">
+                        <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-700">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                              <tr className="bg-slate-50 dark:bg-slate-850 text-slate-550 font-semibold border-b border-slate-100 dark:border-slate-700">
+                                <th className="p-3">Asociado</th>
+                                <th className="p-3">Cédula</th>
+                                <th className="p-3">Origen</th>
+                                <th className="p-3 text-center">Días Mora</th>
+                                <th className="p-3 text-right">Mora Debida</th>
+                                <th className="p-3">Detalles</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {paginated.map((item) => (
+                                <tr key={item.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-850/30">
+                                  <td className="p-3 font-semibold text-slate-850 dark:text-slate-150">{item.asociadoNombre}</td>
+                                  <td className="p-3 text-slate-500">{item.cedula}</td>
+                                  <td className="p-3">
+                                    <Badge className={`text-[10px] font-bold px-2 py-0.5 border-0 ${
+                                      item.origen === 'Ahorro Permanente' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                      : item.origen === 'Ahorro Voluntario' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
+                                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                                    }`}>
+                                      {item.origen}
+                                    </Badge>
+                                  </td>
+                                  <td className="p-3 text-center font-bold text-red-500">{item.diasMora}</td>
+                                  <td className="p-3 text-right font-extrabold text-slate-900 dark:text-slate-100">{fmtCOP(item.montoMora)}</td>
+                                  <td className="p-3 text-slate-400 italic truncate max-w-xs" title={item.detalles}>{item.detalles}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Paginación */}
+                        {totalPages > 1 && (
+                          <div className="flex items-center justify-between pt-2">
+                            <p className="text-[11px] text-slate-400">
+                              {(moraPage - 1) * itemsPerPage + 1}–{Math.min(moraPage * itemsPerPage, filtered.length)} de {filtered.length} registros
+                            </p>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => setMoraPage(p => Math.max(1, p - 1))}
+                                disabled={moraPage === 1}
+                                className="px-2.5 py-1 text-[11px] rounded-lg border border-slate-200 dark:border-slate-700 text-slate-650 dar                  })()}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </>-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              ‹ Ant.
+                            </button>
+                            <span className="px-3 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                              {moraPage} / {totalPages}
+                            </span>
+                            <button
+                              onClick={() => setMoraPage(p => Math.min(totalPages, p + 1))}
+                              disabled={moraPage === totalPages}
+                              className="px-2.5 py-1 text-[11px] rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              Sig. ›
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        </>
+      )}

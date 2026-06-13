@@ -18,10 +18,11 @@ interface AhorroDialogDetalleProps {
   selectedItem:       any;
   movimientosDetalle: any[];
   loadingMovimientos: boolean;
+  historialCambios?:  any[];
 }
 
 export default function AhorroDialogDetalle({
-  open, onClose, selectedItem, movimientosDetalle, loadingMovimientos,
+  open, onClose, selectedItem, movimientosDetalle, loadingMovimientos, historialCambios = [],
 }: AhorroDialogDetalleProps) {
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
@@ -41,12 +42,15 @@ export default function AhorroDialogDetalle({
 
           return (
             <Tabs defaultValue="info" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsList className="grid w-full grid-cols-3 mb-4">
                 <TabsTrigger value="info" className="gap-2">
                   <PiggyBank className="size-4" /> Información
                 </TabsTrigger>
                 <TabsTrigger value="historial" className="gap-2">
-                  <History className="size-4" /> Historial de depósitos
+                  <History className="size-4" /> Depósitos
+                </TabsTrigger>
+                <TabsTrigger value="cambios" className="gap-2">
+                  <History className="size-4" /> Cambios
                 </TabsTrigger>
               </TabsList>
 
@@ -104,6 +108,12 @@ export default function AhorroDialogDetalle({
                     <Label className="text-slate-500 text-xs">Fecha de inicio</Label>
                     <p className="text-slate-900">{selectedItem.fechaInicio}</p>
                   </div>
+                  {selectedItem.anulado && (
+                    <div>
+                      <Label className="text-slate-500 text-xs">Fecha de anulación</Label>
+                      <p className="text-slate-900">{selectedItem.fechaAnulacion || '—'}</p>
+                    </div>
+                  )}
                   {selectedItem.motivoAnulacion && (
                     <div className="col-span-2 p-3 bg-red-50 border border-red-200 rounded-lg">
                       <Label className="text-red-600 text-xs">Motivo de anulación</Label>
@@ -195,6 +205,43 @@ export default function AhorroDialogDetalle({
                     </div>
                   );
                 })()}
+              </TabsContent>
+
+              {/* ── Tab: Historial de Cambios ── */}
+              <TabsContent value="cambios" className="space-y-3">
+                {loadingMovimientos ? (
+                  <PiggyBankLoader size="sm" title="Cargando historial..." />
+                ) : historialCambios.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center">
+                    <History className="size-10 text-slate-300 mb-3" />
+                    <p className="text-slate-500">No hay modificaciones registradas</p>
+                    <p className="text-xs text-slate-400 mt-1">Los cambios de estado, cuota y saldo aparecerán aquí</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    {historialCambios.map((h) => (
+                      <div
+                        key={h.id}
+                        className="flex items-start justify-between p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800 text-xs gap-3"
+                      >
+                        <div className="space-y-1">
+                          <p className="font-semibold text-slate-700 dark:text-slate-200">
+                            {h.accion}
+                          </p>
+                          <p className="text-slate-600 dark:text-slate-400 font-medium">
+                            {h.detalle}
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            Realizado por: <span className="font-medium text-slate-500">{h.usuario_nombre}</span>
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-slate-400 font-medium text-[10px]">
+                          {h.fecha_cambio ? new Date(h.fecha_cambio).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           );

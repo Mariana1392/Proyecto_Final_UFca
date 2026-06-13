@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import {
   Users, PiggyBank, Wallet, CreditCard, ShoppingCart, Calendar,
   ArrowRight, UserPlus, CheckCircle, ClipboardList, TrendingUp, Landmark, LogIn, FileText,
+  AlertTriangle, Clock, Search, Coins,
 } from 'lucide-react';
 import {
   AreaChart, Area,
@@ -48,6 +49,11 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
   const [pieData,       setPieData]       = useState<any[]>([]);
   const [loadingStats,  setLoadingStats]  = useState(true);
   const [showAccesoModal, setShowAccesoModal] = useState(false);
+  // ── Estados de Mora Debida ────────────────────────────────────────────────
+  const [moraDebidaList, setMoraDebidaList] = useState<any[]>([]);
+  const [totalesMora, setTotalesMora] = useState({ total: 0, permanente: 0, voluntario: 0, creditos: 0 });
+  const [searchMora, setSearchMora] = useState('');
+  const [moraPage, setMoraPage] = useState(1);
   // R-03: ref para debounce — evita disparar N queries por cambios rápidos en Realtime
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -101,6 +107,157 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
         liquidacionesPend:     stats.liquidacionesPend,
         proximosEventos:       0, // tabla 'eventos' no implementada aún
       });
+
+      // ── Carga y Cálculo de Mora Debida ─────────────────────────────────────
+      const hoy = new Date();
+      const diaHoy = hoy.getDate();
+      const diasMoraGlobal = diaHoy >= 17 ? diaHoy - 16 : 0;
+      const primerDiaMes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
+
+      // 1. Cuentas de ahorro activas y no anuladas
+      const { data: cuentasData } = await supabase
+        .from('cuentas_ahorro')
+        .select('id, tipo, asociado_id, estado, anulado')
+        .eq('estado', 'activo')
+        .eq('anulado', false);
+
+      // 2. Transacciones del mes actual para ver aportes
+      const { data: transaccionesMes } = await supabase
+        .from('transacciones')
+        .select('ahorro_id, tipo')
+        .in('tipo', ['aporte_permanente', 'aporte_voluntario'])
+        .eq('anulado', false)
+        .gte('fecha_pago', primerDiaMes);
+
+      const pagadoPermIds = new Set();
+      const pagadoVolIds = new Set();
+      (transaccionesMes || []).forEach((t: any) => {
+        if (t.tipo === 'aporte_permanente') pagadoPermIds.add(t.ahorro_id);
+        if (t.tipo === 'aporte_voluntario') pagadoVolIds.add(t.ahorro_id);
+      });
+
+      // 3. Créditos en mora
+      const { data: creditosMora } = await supabase
+        .from('creditos')
+        .select('id, asociado_id, monto, saldo, cuota_mensual, tasa_interes, fecha_desembolso, plazo_meses')
+        .eq('estado', 'en_mora')
+        .eq('anulado', false);
+
+      // 4. Join manual: buscar info de usuarios
+      const todosAsocIds = [
+        ...new Set([
+          ...(cuentasData || []).map((c: any) => c.asociado_id),
+          ...(creditosMora || []).map((cr: any) => cr.asociado_id)
+        ].filter(Boolean))
+      ];
+
+      const usuariosMap: Record<string, { nombre: string; cedula: string }> = {};
+      if (todosAsocIds.length > 0) {
+        const { data: usrsData } = await supabase
+          .from('usuarios')
+          .select('id, nombre, cedula')
+          .in('id', todosAsocIds);
+        (usrsData || []).forEach((u: any) => {
+          usuariosMap[u.id] = u;
+        });
+      }
+
+      const listadoMora: any[] = [];
+      let totalMoraPerm = 0;
+      let totalMoraVol = 0;
+      let totalMoraCred = 0;
+
+      // Procesar Ahorro Permanente y Voluntario
+      if (diasMoraGlobal > 0 && cuentasData) {
+        cuentasData.forEach((c: any) => {
+          const usr = usuariosMap[c.asociado_id];
+          const nombre = usr?.nombre || 'Sin nombre';
+          const cedula = usr?.cedula || '';
+
+          if (c.tipo === 'permanente' && !pagadoPermIds.has(c.id)) {
+            const monto = diasMoraGlobal * 2000;
+            totalMoraPerm += monto;
+            listadoMora.push({
+              id: `perm-${c.id}`,
+              asociadoNombre: nombre,
+              cedula,
+              origen: 'Ahorro Permanente',
+              diasMora: diasMoraGlobal,
+              montoMora: monto,
+              detalles: 'Aporte del mes pendiente (venció el día 16)'
+            });
+          } else if (c.tipo === 'voluntario' && !pagadoVolIds.has(c.id)) {
+            const monto = diasMoraGlobal * 2000;
+            totalMoraVol += monto;
+            listadoMora.push({
+              id: `vol-${c.id}`,
+              asociadoNombre: nombre,
+              cedula,
+              origen: 'Ahorro Voluntario',
+              diasMora: diasMoraGlobal,
+              montoMora: monto,
+              detalles: 'Aporte voluntario del mes pendiente (venció el día 16)'
+            });
+          }
+        });
+      }
+
+      // Procesar Créditos
+      if (creditosMora) {
+        const hoyMs = new Date(); hoyMs.setHours(0,0,0,0);
+        creditosMora.forEach((cr: any) => {
+          const usr = usuariosMap[cr.asociado_id];
+          const nombre = usr?.nombre || 'Sin nombre';
+          const cedula = usr?.cedula || '';
+          
+          const crMonto = Number(cr.monto) || 0;
+          const crSaldo = Number(cr.saldo) || crMonto;
+          const crCuota = Number(cr.cuota_mensual) || 0;
+          const crPlazo = Number(cr.plazo_meses) || 0;
+          const crTasaAnual = Number(cr.tasa_interes) || 0;
+
+          // Cuotas pagadas estimadas
+          const crCuotasPagadas = crCuota > 0 ? Math.max(0, Math.round((crMonto - crSaldo) / crCuota)) : 0;
+          const crFechaBase = cr.fecha_desembolso ? new Date(cr.fecha_desembolso + 'T00:00:00') : null;
+          const crFechaVencProxima = crFechaBase && crCuotasPagadas < crPlazo
+            ? new Date(crFechaBase.getFullYear(), crFechaBase.getMonth() + crCuotasPagadas + 1, crFechaBase.getDate())
+            : null;
+
+          const crDiasMora = (crFechaVencProxima && crFechaVencProxima <= hoyMs)
+            ? Math.floor((hoyMs.getTime() - crFechaVencProxima.getTime()) / 86400000) + 1
+            : 0;
+
+          if (crDiasMora > 0) {
+            // Tasa mensual efectiva (EA a Mensual)
+            const crTasaMensual = crTasaAnual > 0 ? Math.pow(1 + crTasaAnual / 100, 1 / 12) - 1 : 0;
+            const crTasaDiariaCorr = crTasaMensual / 30;
+            const crTasaDiariaMora = crTasaDiariaCorr * 1.5;
+            const crInteresMora = Math.round(crSaldo * crTasaDiariaMora * crDiasMora);
+
+            if (crInteresMora > 0) {
+              totalMoraCred += crInteresMora;
+              listadoMora.push({
+                id: `cred-${cr.id}`,
+                asociadoNombre: nombre,
+                cedula,
+                origen: 'Crédito',
+                diasMora: crDiasMora,
+                montoMora: crInteresMora,
+                detalles: `Próxima cuota venció el ${crFechaVencProxima.toLocaleDateString('es-CO')}`
+              });
+            }
+          }
+        });
+      }
+
+      setMoraDebidaList(listadoMora);
+      setTotalesMora({
+        total: totalMoraPerm + totalMoraVol + totalMoraCred,
+        permanente: totalMoraPerm,
+        voluntario: totalMoraVol,
+        creditos: totalMoraCred
+      });
+
     } catch (err) {
       console.error('Error cargando stats:', err);
     } finally {
@@ -671,30 +828,118 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
             </div>
 
             {/* Panel resumen financiero */}
-            <div className="lg:col-span-2 bg-white rounded-2xl shadow-md p-5">
-              <p className="text-sm font-bold text-slate-700 mb-0.5">Resumen financiero</p>
-              <p className="text-xs text-slate-400 mb-4">Estado actual del fondo</p>
-              <div className="flex flex-col gap-3">
-                {[
-                  { label: 'Monto',       value: fmtCOP(liveStats.totalCarteraCreditos),  sub: 'Créditos activos',    bar: 'bg-amber-500',   text: 'text-amber-600'   },
-                  { label: 'Capital administrado', value: fmtCOP(liveStats.totalAhorros),          sub: 'Total ahorros',       bar: 'bg-emerald-500', text: 'text-emerald-600' },
-                  { label: 'Intereses este mes',   value: fmtCOP(liveStats.totalInteresesMes),     sub: 'Ganancia créditos',   bar: 'bg-violet-500',  text: 'text-violet-600'  },
-                  { label: 'Utilidades del fondo', value: fmtCOP(liveStats.totalUtilidadesMora),   sub: 'Ganancias por mora',  bar: 'bg-pink-500',    text: 'text-pink-600'    },
-                  { label: 'Liquidaciones',        value: String(liveStats.liquidacionesPend),     sub: `${liveStats.totalUsuarios} usuarios`, bar: 'bg-slate-400', text: 'text-slate-600' },
-                ].map(({ label, value, sub, bar, text }) => (
-                  <div key={label} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
-                    <div className={`w-1 h-10 rounded-full ${bar} flex-shrink-0`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-slate-600 truncate">{label}</p>
-                      <p className="text-xs text-slate-400">{sub}</p>
+            <div className="lg:col-span-2 bg-white rounded-2xl shadow-md p-5 flex flex-col justify-between">
+              <div>
+                <p className="text-sm font-bold text-slate-700 mb-0.5">Resumen financiero</p>
+                <p className="text-xs text-slate-400 mb-4">Estado actual del fondo</p>
+                <div className="flex flex-col gap-3">
+                  {[
+                    { label: 'Monto',       value: fmtCOP(liveStats.totalCarteraCreditos),  sub: 'Créditos activos',    bar: 'bg-amber-500',   text: 'text-amber-600'   },
+                    { label: 'Capital administrado', value: fmtCOP(liveStats.totalAhorros),          sub: 'Total ahorros',       bar: 'bg-emerald-500', text: 'text-emerald-600' },
+                    { label: 'Intereses este mes',   value: fmtCOP(liveStats.totalInteresesMes),     sub: 'Ganancia créditos',   bar: 'bg-violet-500',  text: 'text-violet-600'  },
+                    { label: 'Utilidades del fondo', value: fmtCOP(liveStats.totalUtilidadesMora),   sub: 'Ganancias por mora',  bar: 'bg-pink-500',    text: 'text-pink-600'    },
+                    { label: 'Liquidaciones',        value: String(liveStats.liquidacionesPend),     sub: `${liveStats.totalUsuarios} usuarios`, bar: 'bg-slate-400', text: 'text-slate-600' },
+                  ].map(({ label, value, sub, bar, text }) => (
+                    <div key={label} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
+                      <div className={`w-1 h-10 rounded-full ${bar} flex-shrink-0`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-slate-600 truncate">{label}</p>
+                        <p className="text-xs text-slate-400">{sub}</p>
+                      </div>
+                      <p className={`text-sm font-bold ${text} whitespace-nowrap`}>
+                        {loadingStats ? <span className="bg-slate-200 animate-pulse rounded h-5 w-12 inline-block" /> : value}
+                      </p>
                     </div>
-                    <p className={`text-sm font-bold ${text} whitespace-nowrap`}>
-                      {loadingStats ? <span className="bg-slate-200 animate-pulse rounded h-5 w-12 inline-block" /> : value}
-                    </p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
+          </div>
+
+          {/* ── FILA 5: Control de Mora Debida (Sanciones y Recargos) ── */}
+          <div className="mt-8 space-y-6">
+            <div className="flex items-center gap-3 pb-2">
+              <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-600 dark:bg-amber-500/20">
+                <Coins className="size-6 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+                  Control de Mora Debida
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Mora acumulada pendiente de pago por asociados en ahorros y créditos
+                </p>
+              </div>
+            </div>
+
+            {/* Tarjetas de Totales de Mora */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {/* Total Mora Global */}
+              <Card className="border-0 shadow-md bg-white dark:bg-slate-800 hover:shadow-lg transition-all duration-200 overflow-hidden relative border-t-4 border-t-rose-500">
+                <CardContent className="pt-5 pb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Mora Debida</span>
+                    <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-500">
+                      <AlertTriangle className="size-5" />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                    {loadingStats ? '...' : fmtCOP(totalesMora.total)}
+                  </div>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5">Suma acumulada de todas las moras</p>
+                </CardContent>
+              </Card>
+
+              {/* Mora Ahorro Permanente */}
+              <Card className="border-0 shadow-md bg-white dark:bg-slate-800 hover:shadow-lg transition-all duration-200 overflow-hidden relative border-t-4 border-t-emerald-500">
+                <CardContent className="pt-5 pb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mora Ahorro Permanente</span>
+                    <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-500">
+                      <PiggyBank className="size-5" />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                    {loadingStats ? '...' : fmtCOP(totalesMora.permanente)}
+                  </div>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5">$2.000 COP diario desde día 17</p>
+                </CardContent>
+              </Card>
+
+              {/* Mora Ahorro Voluntario */}
+              <Card className="border-0 shadow-md bg-white dark:bg-slate-800 hover:shadow-lg transition-all duration-200 overflow-hidden relative border-t-4 border-t-blue-500">
+                <CardContent className="pt-5 pb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mora Ahorro Voluntario</span>
+                    <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-500">
+                      <Wallet className="size-5" />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                    {loadingStats ? '...' : fmtCOP(totalesMora.voluntario)}
+                  </div>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5">$2.000 COP diario desde día 17</p>
+                </CardContent>
+              </Card>
+
+              {/* Mora Créditos */}
+              <Card className="border-0 shadow-md bg-white dark:bg-slate-800 hover:shadow-lg transition-all duration-200 overflow-hidden relative border-t-4 border-t-amber-500">
+                <CardContent className="pt-5 pb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mora en Créditos</span>
+                    <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-500">
+                      <CreditCard className="size-5" />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                    {loadingStats ? '...' : fmtCOP(totalesMora.creditos)}
+                  </div>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5">Interés moratorio sobre cuotas vencidas</p>
+                </CardContent>
+              </Card>
+            </div>
+
+
           </div>
         </>
       )}

@@ -25,6 +25,7 @@ interface UseCreditosFiltrosParams {
   asocFechaDesde:  string;
   asocFechaHasta:  string;
   asocSortBy:      'fecha_desc' | 'fecha_asc' | 'estado' | 'monto_desc' | 'monto_asc';
+  asocTabFilter?:   'activos' | 'finalizados';
   // Form values (for cuotaPreview)
   formMonto:      string;
   formTasa:       string;
@@ -38,6 +39,7 @@ export function useCreditosFiltros({
   searchTerm, filterEstado,
   currentPage, currentPageAnulados, currentPageRechazados, itemsPerPage,
   asocSearch, asocFilterEstado, asocFechaDesde, asocFechaHasta, asocSortBy,
+  asocTabFilter,
   formMonto, formTasa, formPlazo, formTipoInteres, parseMonto,
 }: UseCreditosFiltrosParams) {
 
@@ -136,31 +138,14 @@ export function useCreditosFiltros({
   );
 
   const misCreditosFiltrados = useMemo(() => {
-    const term = asocSearch.toLowerCase().trim();
     return misCreditosBase.filter(c => {
-      const numCredito  = `CRE-${String(c.id).substring(0, 8).toUpperCase()}`;
-      const estadoLabel = (ESTADOS_APROBACION.find(e => e.value === c.estadoAprobacion)?.label ?? '').toLowerCase();
-      const tipoLabel   = (TIPOS_CREDITO.find(t => t.value === c.tipo)?.label ?? '').toLowerCase();
-      const matchSearch = !term
-        || numCredito.toLowerCase().includes(term)
-        || c.estadoAprobacion.includes(term)
-        || estadoLabel.includes(term)
-        || tipoLabel.includes(term)
-        || (c.fechaDesembolso ?? '').includes(term)
-        || formatCurrency(c.monto).toLowerCase().includes(term);
-      const matchEstado = !asocFilterEstado || c.estadoAprobacion === asocFilterEstado || (asocFilterEstado === 'anulado' && c.anulado);
-      const matchDesde  = !asocFechaDesde  || (c.fechaDesembolso ?? '') >= asocFechaDesde;
-      const matchHasta  = !asocFechaHasta  || (c.fechaDesembolso ?? '') <= asocFechaHasta;
-      return matchSearch && matchEstado && matchDesde && matchHasta;
-    }).sort((a, b) => {
-      if (asocSortBy === 'fecha_desc') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      if (asocSortBy === 'fecha_asc')  return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      if (asocSortBy === 'estado')     return a.estadoAprobacion.localeCompare(b.estadoAprobacion);
-      if (asocSortBy === 'monto_desc') return (b.monto ?? 0) - (a.monto ?? 0);
-      if (asocSortBy === 'monto_asc')  return (a.monto ?? 0) - (b.monto ?? 0);
-      return 0;
-    });
-  }, [misCreditosBase, asocSearch, asocFilterEstado, asocFechaDesde, asocFechaHasta, asocSortBy]);
+      const isFinalizado = c.estadoAprobacion === 'pagado' || c.estadoAprobacion === 'rechazado' || c.anulado;
+      if (asocTabFilter === 'finalizados') {
+        return isFinalizado;
+      }
+      return !isFinalizado;
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [misCreditosBase, asocTabFilter]);
 
   // Resumen personal
   const misActivos     = misCreditosBase.filter(c => !c.anulado);

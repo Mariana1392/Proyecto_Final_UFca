@@ -66,7 +66,7 @@ export default function AhorroTabla({
               <TableHead>Cédula</TableHead>
               <TableHead>Saldo actual</TableHead>
               <TableHead>Cuota mensual</TableHead>
-              <TableHead>Fecha inicio</TableHead>
+              <TableHead>{isAnulados ? 'Fecha anulación' : 'Fecha inicio'}</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
@@ -156,9 +156,11 @@ export default function AhorroTabla({
                       <p className="text-slate-600">{formatCurrency(ahorro.cuotaMensual)}</p>
                     </TableCell>
 
-                    {/* Fecha inicio */}
+                    {/* Fecha inicio / anulación */}
                     <TableCell>
-                      <p className="text-slate-600">{ahorro.fechaInicio}</p>
+                      <p className="text-slate-600">
+                        {isAnulados ? (ahorro.fechaAnulacion || '—') : ahorro.fechaInicio}
+                      </p>
                     </TableCell>
 
                     {/* Estado */}
