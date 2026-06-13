@@ -93,6 +93,7 @@ export function useCreditosSolicitudes({
     if (!monto || monto <= 0)      { toast.error('Ingresa un monto válido'); return; }
     const plazo = parseInt(solPlazo) || 0;
     if (plazo <= 0)                { toast.error('El plazo debe ser mayor a 0 meses'); return; }
+    if (plazo > 12)                { toast.error('El plazo máximo permitido es de 12 meses'); return; }
 
     if (monto > totalAhorros) {
       toast.error(`El monto solicitado excede el total de tus ahorros (${formatCurrency(totalAhorros)}).`);

@@ -3,7 +3,7 @@
 // edición / anulación / eliminación definitiva y todos sus handlers.
 // Recibe como parámetros el estado mínimo compartido del orquestador.
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { creditosApi } from '../../lib/api';
@@ -43,6 +43,14 @@ export function useCreditosCRUD({
   const [hardDeleting, setHardDeleting]                     = useState(false);
   const [justificacionAnulacion, setJustificacionAnulacion] = useState('');
 
+  // ── Validación ahorro vs crédito (doble confirmación) ──────────────────
+  const [totalAhorroAsociado, setTotalAhorroAsociado]           = useState(0);
+  const [loadingAhorro, setLoadingAhorro]                       = useState(false);
+  const [showExcedeAhorroStep1, setShowExcedeAhorroStep1]       = useState(false);
+  const [showExcedeAhorroStep2, setShowExcedeAhorroStep2]       = useState(false);
+  const [excedeAhorroConfirmText, setExcedeAhorroConfirmText]   = useState('');
+  const [excedeAhorroBypass, setExcedeAhorroBypass]             = useState(false);
+
   // ── Formulario ────────────────────────────────────────────────────────────
   const [formAsociadoId, setFormAsociadoId]           = useState('');
   const [formMonto, setFormMonto]                     = useState('');
@@ -78,6 +86,29 @@ export function useCreditosCRUD({
       });
   }, []);
 
+  // ── Consultar total de ahorros cuando se selecciona un asociado ────────
+  useEffect(() => {
+    if (!formAsociadoId) {
+      setTotalAhorroAsociado(0);
+      return;
+    }
+    setLoadingAhorro(true);
+    supabase
+      .from('cuentas_ahorro')
+      .select('monto_ahorrado')
+      .eq('asociado_id', formAsociadoId)
+      .eq('estado', 'activo')
+      .eq('anulado', false)
+      .then(({ data }) => {
+        const sum = (data || []).reduce(
+          (acc: number, cur: any) => acc + (cur.monto_ahorrado || 0),
+          0,
+        );
+        setTotalAhorroAsociado(sum);
+      })
+      .finally(() => setLoadingAhorro(false));
+  }, [formAsociadoId]);
+
   const handleTipoChange = (tipo: string) => {
     setFormTipo(tipo);
     const clave = TIPO_TASA[tipo];
@@ -99,8 +130,8 @@ export function useCreditosCRUD({
   // ── Helpers ───────────────────────────────────────────────────────────────
   const acSuggestions = asociadosDisponibles
     .filter(a => a.estado_cuenta !== 'inactivo' && (
-      a.nombre.toLowerCase().includes(autocompleteSearch.toLowerCase()) ||
-      a.cedula.includes(autocompleteSearch)
+      (a.nombre ?? '').toLowerCase().includes(autocompleteSearch.toLowerCase()) ||
+      (a.cedula ?? '').includes(autocompleteSearch)
     ))
     .slice(0, 8);
 
@@ -173,7 +204,14 @@ export function useCreditosCRUD({
     if (isNaN(tasa) || tasa < 0 || tasa > 100) { toast.error('La tasa de interés debe estar entre 0 y 100'); return; }
     const plazo = parseInt(formPlazo) || 0;
     if (plazo <= 0)           { toast.error('El plazo debe ser mayor a 0 meses'); return; }
+    if (plazo > 12)           { toast.error('El plazo máximo permitido es de 12 meses'); return; }
     if (!formFecha)           { toast.error('Selecciona la fecha de desembolso'); return; }
+
+    // ── Interceptar si el monto excede el ahorro (solo al crear, no al editar) ──
+    if (!selectedItem && !excedeAhorroBypass && totalAhorroAsociado > 0 && monto > totalAhorroAsociado) {
+      setShowExcedeAhorroStep1(true);
+      return;
+    }
 
     const cuota = formTipoInteres === 'simple'
       ? calcularCuotaSimple(monto, tasa, plazo)
@@ -337,6 +375,7 @@ export function useCreditosCRUD({
       setIsCreateDialogOpen(false);
       setSelectedItem(null);
       setFormArchivoFile(null);
+      setExcedeAhorroBypass(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: any) {
       toast.error('Error al guardar crédito: ' + err.message);
@@ -344,6 +383,36 @@ export function useCreditosCRUD({
       setSaving(false);
     }
   };
+
+  // ── Handlers doble confirmación excede-ahorro ─────────────────────────
+  const handleExcedeAhorroStep1 = useCallback(() => {
+    setShowExcedeAhorroStep1(false);
+    setShowExcedeAhorroStep2(true);
+    setExcedeAhorroConfirmText('');
+  }, []);
+
+  const handleExcedeAhorroStep2 = useCallback(async () => {
+    if (excedeAhorroConfirmText !== 'CONFIRMAR') {
+      toast.error('Debes escribir CONFIRMAR para proceder');
+      return;
+    }
+    setShowExcedeAhorroStep2(false);
+    setExcedeAhorroBypass(true);
+  }, [excedeAhorroConfirmText]);
+
+  // Cuando el bypass se activa, se dispara el guardado real
+  useEffect(() => {
+    if (excedeAhorroBypass) {
+      void handleSaveCredito();
+    }
+  }, [excedeAhorroBypass]);
+
+  const handleCancelExcedeAhorro = useCallback(() => {
+    setShowExcedeAhorroStep1(false);
+    setShowExcedeAhorroStep2(false);
+    setExcedeAhorroConfirmText('');
+    setExcedeAhorroBypass(false);
+  }, []);
 
   // ── Anular ────────────────────────────────────────────────────────────────
   const ESTADOS_NO_ANULABLES = new Set([
@@ -457,6 +526,14 @@ export function useCreditosCRUD({
     hardDeleteJustificacion, setHardDeleteJustificacion,
     hardDeleting,
     justificacionAnulacion, setJustificacionAnulacion,
+    // Validación ahorro vs crédito
+    totalAhorroAsociado, loadingAhorro,
+    showExcedeAhorroStep1, setShowExcedeAhorroStep1,
+    showExcedeAhorroStep2, setShowExcedeAhorroStep2,
+    excedeAhorroConfirmText, setExcedeAhorroConfirmText,
+    handleExcedeAhorroStep1,
+    handleExcedeAhorroStep2,
+    handleCancelExcedeAhorro,
     // Formulario
     formAsociadoId, setFormAsociadoId,
     formMonto, setFormMonto,
