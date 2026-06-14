@@ -33,6 +33,7 @@ interface Parametros {
   cuotas_maximas_incumplidas:       string;
   dias_mora_maximo:                 string;
   permitir_retiros_parciales_defecto: string;
+  multa_mora_ahorro_diaria:         string;
 }
 
 const DEFAULTS: Parametros = {
@@ -46,6 +47,7 @@ const DEFAULTS: Parametros = {
   cuotas_maximas_incumplidas:         '3',
   dias_mora_maximo:                   '90',
   permitir_retiros_parciales_defecto: 'false',
+  multa_mora_ahorro_diaria:           '2000',
 };
 
 const CLAVES = Object.keys(DEFAULTS) as (keyof Parametros)[];
@@ -364,7 +366,7 @@ export default function Configuracion({ userData }: ConfiguracionProps) {
             Límites y reglas de negocio que controlan el comportamiento del sistema.
           </p>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
           {/* Aporte mínimo */}
           <div className="space-y-1.5">
             <Label htmlFor="aporte_minimo" className="flex items-center gap-1.5 text-sm">
@@ -404,7 +406,7 @@ export default function Configuracion({ userData }: ConfiguracionProps) {
               onChange={(e) => handleChange('cuotas_maximas_incumplidas', e.target.value)}
               className={params.cuotas_maximas_incumplidas !== original.cuotas_maximas_incumplidas ? 'border-amber-400 bg-amber-50' : ''}
             />
-            <p className="text-[11px] text-slate-400 leading-tight">Número de cuotas sin pagar antes de escalar el caso</p>
+            <p className="text-[11px] text-slate-400 leading-tight">Cuotas sin pagar antes de mostrar alerta al administrador</p>
             {params.cuotas_maximas_incumplidas !== original.cuotas_maximas_incumplidas && (
               <p className="text-[11px] text-amber-600 font-medium">Anterior: {original.cuotas_maximas_incumplidas}</p>
             )}
@@ -433,6 +435,30 @@ export default function Configuracion({ userData }: ConfiguracionProps) {
               <p className="text-[11px] text-amber-600 font-medium">Anterior: {original.dias_mora_maximo} días</p>
             )}
           </div>
+
+          {/* Multa mora ahorro/día */}
+          <div className="space-y-1.5">
+            <Label htmlFor="multa_mora_ahorro_diaria" className="flex items-center gap-1.5 text-sm">
+              <DollarSign className="size-3.5 text-red-500" />
+              Multa mora ahorro/día
+            </Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium">$</span>
+              <Input
+                id="multa_mora_ahorro_diaria"
+                type="number"
+                min="0"
+                step="100"
+                value={params.multa_mora_ahorro_diaria}
+                onChange={(e) => handleChange('multa_mora_ahorro_diaria', e.target.value)}
+                className={`pl-7 ${params.multa_mora_ahorro_diaria !== original.multa_mora_ahorro_diaria ? 'border-amber-400 bg-amber-50' : ''}`}
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 leading-tight">Multa diaria por mora en ahorro permanente (COP). Solo aplica a nuevas moras.</p>
+            {params.multa_mora_ahorro_diaria !== original.multa_mora_ahorro_diaria && (
+              <p className="text-[11px] text-amber-600 font-medium">Anterior: ${original.multa_mora_ahorro_diaria}</p>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -442,6 +468,7 @@ export default function Configuracion({ userData }: ConfiguracionProps) {
         <p className="text-xs text-slate-500 leading-relaxed">
           Los cambios son efectivos de inmediato en todo el sistema. Los créditos ya registrados
           conservan su tasa original — solo los nuevos créditos usarán las tasas actualizadas.
+          De igual forma, los cambios en la multa diaria de mora en ahorro permanente solo aplican a nuevas moras (las cuentas que ya están en mora conservan su tarifa anterior).
           Cada modificación queda registrada en el log de auditoría con el usuario y la fecha.
         </p>
       </div>

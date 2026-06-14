@@ -15,6 +15,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
 import { supabase } from '../lib/supabase';
@@ -117,9 +118,16 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
       // 1. Cuentas de ahorro activas y no anuladas
       const { data: cuentasData } = await supabase
         .from('cuentas_ahorro')
-        .select('id, tipo, asociado_id, estado, anulado')
+        .select('id, tipo, asociado_id, estado, anulado, multa_mora_vigente')
         .eq('estado', 'activo')
         .eq('anulado', false);
+
+      const { data: configMora } = await supabase
+        .from('configuracion')
+        .select('valor')
+        .eq('clave', 'multa_mora_ahorro_diaria')
+        .maybeSingle();
+      const multaMoraDiaria = Number(configMora?.valor) || 2000;
 
       // 2. Transacciones del mes actual para ver aportes
       const { data: transaccionesMes } = await supabase
@@ -168,36 +176,70 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
       let totalMoraCred = 0;
 
       // Procesar Ahorro Permanente y Voluntario
-      if (diasMoraGlobal > 0 && cuentasData) {
+      if (cuentasData) {
         cuentasData.forEach((c: any) => {
           const usr = usuariosMap[c.asociado_id];
           const nombre = usr?.nombre || 'Sin nombre';
           const cedula = usr?.cedula || '';
 
-          if (c.tipo === 'permanente' && !pagadoPermIds.has(c.id)) {
-            const monto = diasMoraGlobal * 2000;
-            totalMoraPerm += monto;
-            listadoMora.push({
-              id: `perm-${c.id}`,
-              asociadoNombre: nombre,
-              cedula,
-              origen: 'Ahorro Permanente',
-              diasMora: diasMoraGlobal,
-              montoMora: monto,
-              detalles: 'Aporte del mes pendiente (venció el día 16)'
-            });
-          } else if (c.tipo === 'voluntario' && !pagadoVolIds.has(c.id)) {
-            const monto = diasMoraGlobal * 2000;
-            totalMoraVol += monto;
-            listadoMora.push({
-              id: `vol-${c.id}`,
-              asociadoNombre: nombre,
-              cedula,
-              origen: 'Ahorro Voluntario',
-              diasMora: diasMoraGlobal,
-              montoMora: monto,
-              detalles: 'Aporte voluntario del mes pendiente (venció el día 16)'
-            });
+          if (c.tipo === 'permanente') {
+            if (pagadoPermIds.has(c.id)) {
+              if (c.multa_mora_vigente !== null) {
+                void supabase
+                  .from('cuentas_ahorro')
+                  .update({ multa_mora_vigente: null })
+                  .eq('id', c.id);
+              }
+            } else if (diasMoraGlobal > 0) {
+              const tarifaMora = Number(c.multa_mora_vigente) || multaMoraDiaria;
+              if (c.multa_mora_vigente === null) {
+                void supabase
+                  .from('cuentas_ahorro')
+                  .update({ multa_mora_vigente: multaMoraDiaria })
+                  .eq('id', c.id);
+              }
+              const monto = diasMoraGlobal * tarifaMora;
+              totalMoraPerm += monto;
+              listadoMora.push({
+                id: `perm-${c.id}`,
+                asociadoNombre: nombre,
+                cedula,
+                origen: 'Ahorro Permanente',
+                diasMora: diasMoraGlobal,
+                montoMora: monto,
+                detalles: 'Aporte del mes pendiente (venció el día 16)',
+                mesesAtrasados: 1
+              });
+            }
+          } else if (c.tipo === 'voluntario') {
+            if (pagadoVolIds.has(c.id)) {
+              if (c.multa_mora_vigente !== null) {
+                void supabase
+                  .from('cuentas_ahorro')
+                  .update({ multa_mora_vigente: null })
+                  .eq('id', c.id);
+              }
+            } else if (diasMoraGlobal > 0) {
+              const tarifaMora = Number(c.multa_mora_vigente) || multaMoraDiaria;
+              if (c.multa_mora_vigente === null) {
+                void supabase
+                  .from('cuentas_ahorro')
+                  .update({ multa_mora_vigente: multaMoraDiaria })
+                  .eq('id', c.id);
+              }
+              const monto = diasMoraGlobal * tarifaMora;
+              totalMoraVol += monto;
+              listadoMora.push({
+                id: `vol-${c.id}`,
+                asociadoNombre: nombre,
+                cedula,
+                origen: 'Ahorro Voluntario',
+                diasMora: diasMoraGlobal,
+                montoMora: monto,
+                detalles: 'Aporte voluntario del mes pendiente (venció el día 16)',
+                mesesAtrasados: 1
+              });
+            }
           }
         });
       }
@@ -236,6 +278,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
 
             if (crInteresMora > 0) {
               totalMoraCred += crInteresMora;
+              const mesesAtrasados = Math.floor(crDiasMora / 30) + 1;
               listadoMora.push({
                 id: `cred-${cr.id}`,
                 asociadoNombre: nombre,
@@ -243,7 +286,8 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
                 origen: 'Crédito',
                 diasMora: crDiasMora,
                 montoMora: crInteresMora,
-                detalles: `Próxima cuota venció el ${crFechaVencProxima.toLocaleDateString('es-CO')}`
+                detalles: `Próxima cuota venció el ${crFechaVencProxima.toLocaleDateString('es-CO')}`,
+                mesesAtrasados
               });
             }
           }
@@ -902,7 +946,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
                   <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                     {loadingStats ? '...' : fmtCOP(totalesMora.permanente)}
                   </div>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5">$2.000 COP diario desde día 17</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5">{fmtCOP(multaMoraDiaria)} COP diario desde día 17</p>
                 </CardContent>
               </Card>
 
@@ -918,7 +962,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
                   <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                     {loadingStats ? '...' : fmtCOP(totalesMora.voluntario)}
                   </div>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5">$2.000 COP diario desde día 17</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5">{fmtCOP(multaMoraDiaria)} COP diario desde día 17</p>
                 </CardContent>
               </Card>
 
@@ -939,6 +983,82 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
               </Card>
             </div>
 
+            {/* Tabla de Desglose de Mora */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-md p-5 border border-slate-100 dark:border-slate-700">
+              <div className="flex items-center justify-between mb-4">
+                <div className="relative w-full max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar asociado por nombre o cédula..."
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                    value={searchMora}
+                    onChange={(e) => setSearchMora(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50 dark:bg-slate-900">
+                      <TableHead>Asociado</TableHead>
+                      <TableHead>Identificación</TableHead>
+                      <TableHead>Origen</TableHead>
+                      <TableHead className="text-center">Meses atrasados</TableHead>
+                      <TableHead className="text-center">Días de mora</TableHead>
+                      <TableHead className="text-right">Monto Mora</TableHead>
+                      <TableHead>Detalles</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {moraDebidaList.filter(item =>
+                      item.asociadoNombre.toLowerCase().includes(searchMora.toLowerCase()) ||
+                      item.cedula.includes(searchMora)
+                    ).length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-slate-400">
+                          No se encontraron asociados en mora.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      moraDebidaList
+                        .filter(item =>
+                          item.asociadoNombre.toLowerCase().includes(searchMora.toLowerCase()) ||
+                          item.cedula.includes(searchMora)
+                        )
+                        .map((item) => (
+                          <TableRow key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/50">
+                            <TableCell className="font-semibold text-slate-900 dark:text-slate-100">{item.asociadoNombre}</TableCell>
+                            <TableCell className="text-slate-600 dark:text-slate-400">{item.cedula || '—'}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className={
+                                item.origen === 'Crédito' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' :
+                                item.origen === 'Ahorro Permanente' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' :
+                                'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                              }>
+                                {item.origen}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                item.mesesAtrasados >= 3 ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300' :
+                                item.mesesAtrasados === 2 ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300' :
+                                'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                              }`}>
+                                {item.mesesAtrasados} {item.mesesAtrasados === 1 ? 'mes' : 'meses'}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-center text-slate-700 dark:text-slate-300 font-medium">{item.diasMora} días</TableCell>
+                            <TableCell className="text-right font-bold text-red-600 dark:text-red-400">{fmtCOP(item.montoMora)}</TableCell>
+                            <TableCell className="text-xs text-slate-500 dark:text-slate-400 max-w-[200px] truncate" title={item.detalles}>{item.detalles}</TableCell>
+                          </TableRow>
+                        ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
 
           </div>
         </>
