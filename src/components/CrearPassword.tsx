@@ -40,37 +40,35 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
     }
 
     const verificarSesion = async () => {
+      // 1. Intentar obtener sesión existente (si Supabase ya procesó el hash)
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         localStorage.setItem('ufca_creando_password', '1');
         setRecoveryEmail(session.user.email ?? '');
         setSessionStatus('ready');
+        // Limpiar hash de la URL para seguridad
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
         return;
       }
 
-      // Si no hay sesión y tampoco hay access_token en el hash,
-      // el enlace es inválido — no tiene sentido esperar 10 segundos.
-      if (!hash.includes('access_token=')) {
-        setSessionStatus('error');
-        return;
-      }
-
-      // Hay access_token en el hash: esperar a que Supabase lo procese
+      // 2. Si no hay sesión, configurar listener para esperar a que Supabase procese el token
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
         if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && s) {
           localStorage.setItem('ufca_creando_password', '1');
           setRecoveryEmail(s.user.email ?? '');
           setSessionStatus('ready');
+          // Limpiar hash de la URL para seguridad
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
           subscription.unsubscribe();
           clearTimeout(timeout);
         }
       });
 
-      // Timeout de seguridad: si el token no se procesa en 8s, asumir error
+      // 3. Timeout de seguridad: si en 5 segundos no se establece sesión, asumir enlace expirado o inválido
       timeout = setTimeout(() => {
         subscription.unsubscribe();
         setSessionStatus('error');
-      }, 8000);
+      }, 5000);
     };
 
     verificarSesion();
@@ -319,6 +317,7 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                   <Input
                     id="newPassword"
                     type={showNew ? 'text' : 'password'}
+                    autoComplete="new-password"
                     placeholder="••••••••"
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={newPassword}
@@ -345,6 +344,7 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                   <Input
                     id="confirmPassword"
                     type={showConfirm ? 'text' : 'password'}
+                    autoComplete="new-password"
                     placeholder="••••••••"
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={confirmPassword}

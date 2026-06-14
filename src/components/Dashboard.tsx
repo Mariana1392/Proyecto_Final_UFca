@@ -53,6 +53,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
   // ── Estados de Mora Debida ────────────────────────────────────────────────
   const [moraDebidaList, setMoraDebidaList] = useState<any[]>([]);
   const [totalesMora, setTotalesMora] = useState({ total: 0, permanente: 0, voluntario: 0, creditos: 0 });
+  const [multaMoraDiaria, setMultaMoraDiaria] = useState(2000);
   const [searchMora, setSearchMora] = useState('');
   const [moraPage, setMoraPage] = useState(1);
   // R-03: ref para debounce — evita disparar N queries por cambios rápidos en Realtime
@@ -128,6 +129,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
         .eq('clave', 'multa_mora_ahorro_diaria')
         .maybeSingle();
       const multaMoraDiaria = Number(configMora?.valor) || 2000;
+      setMultaMoraDiaria(multaMoraDiaria);
 
       // 2. Transacciones del mes actual para ver aportes
       const { data: transaccionesMes } = await supabase
@@ -212,33 +214,12 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
               });
             }
           } else if (c.tipo === 'voluntario') {
-            if (pagadoVolIds.has(c.id)) {
-              if (c.multa_mora_vigente !== null) {
-                void supabase
-                  .from('cuentas_ahorro')
-                  .update({ multa_mora_vigente: null })
-                  .eq('id', c.id);
-              }
-            } else if (diasMoraGlobal > 0) {
-              const tarifaMora = Number(c.multa_mora_vigente) || multaMoraDiaria;
-              if (c.multa_mora_vigente === null) {
-                void supabase
-                  .from('cuentas_ahorro')
-                  .update({ multa_mora_vigente: multaMoraDiaria })
-                  .eq('id', c.id);
-              }
-              const monto = diasMoraGlobal * tarifaMora;
-              totalMoraVol += monto;
-              listadoMora.push({
-                id: `vol-${c.id}`,
-                asociadoNombre: nombre,
-                cedula,
-                origen: 'Ahorro Voluntario',
-                diasMora: diasMoraGlobal,
-                montoMora: monto,
-                detalles: 'Aporte voluntario del mes pendiente (venció el día 16)',
-                mesesAtrasados: 1
-              });
+            // El ahorro voluntario no genera mora. Si tiene una multa asignada, la limpiamos.
+            if (c.multa_mora_vigente !== null) {
+              void supabase
+                .from('cuentas_ahorro')
+                .update({ multa_mora_vigente: null })
+                .eq('id', c.id);
             }
           }
         });
@@ -296,9 +277,9 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
 
       setMoraDebidaList(listadoMora);
       setTotalesMora({
-        total: totalMoraPerm + totalMoraVol + totalMoraCred,
+        total: totalMoraPerm + totalMoraCred,
         permanente: totalMoraPerm,
-        voluntario: totalMoraVol,
+        voluntario: 0,
         creditos: totalMoraCred
       });
 
@@ -917,7 +898,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
             </div>
 
             {/* Tarjetas de Totales de Mora */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               {/* Total Mora Global */}
               <Card className="border-0 shadow-md bg-white dark:bg-slate-800 hover:shadow-lg transition-all duration-200 overflow-hidden relative border-t-4 border-t-rose-500">
                 <CardContent className="pt-5 pb-4">
@@ -945,22 +926,6 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
                   </div>
                   <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                     {loadingStats ? '...' : fmtCOP(totalesMora.permanente)}
-                  </div>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5">{fmtCOP(multaMoraDiaria)} COP diario desde día 17</p>
-                </CardContent>
-              </Card>
-
-              {/* Mora Ahorro Voluntario */}
-              <Card className="border-0 shadow-md bg-white dark:bg-slate-800 hover:shadow-lg transition-all duration-200 overflow-hidden relative border-t-4 border-t-blue-500">
-                <CardContent className="pt-5 pb-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mora Ahorro Voluntario</span>
-                    <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-500">
-                      <Wallet className="size-5" />
-                    </div>
-                  </div>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                    {loadingStats ? '...' : fmtCOP(totalesMora.voluntario)}
                   </div>
                   <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5">{fmtCOP(multaMoraDiaria)} COP diario desde día 17</p>
                 </CardContent>
@@ -1014,7 +979,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
                   <TableBody>
                     {moraDebidaList.filter(item =>
                       item.asociadoNombre.toLowerCase().includes(searchMora.toLowerCase()) ||
-                      item.cedula.includes(searchMora)
+                      (item.cedula || '').toLowerCase().includes(searchMora.toLowerCase())
                     ).length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-8 text-slate-400">
@@ -1025,7 +990,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
                       moraDebidaList
                         .filter(item =>
                           item.asociadoNombre.toLowerCase().includes(searchMora.toLowerCase()) ||
-                          item.cedula.includes(searchMora)
+                          (item.cedula || '').toLowerCase().includes(searchMora.toLowerCase())
                         )
                         .map((item) => (
                           <TableRow key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/50">

@@ -67,9 +67,6 @@ function AppContent() {
 
     if (esFlujoPassword) {
       setCurrentView('crear-password');
-      setTimeout(() => {
-        window.history.replaceState(null, '', window.location.pathname + window.location.search);
-      }, 500);
       return;
     }
 
