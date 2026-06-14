@@ -663,35 +663,160 @@ export default function Reportes() {
   };
 
   const exportarTodoSistema = async () => {
-    toast.info('Iniciando descarga consolidada de datos...');
+    toast.info('Generando reporte consolidado de todo el sistema...');
+    setExportingCsv(true);
     try {
-      let descargados = 0;
-      
-      const c1 = await exportarCarteraCsv();
-      if (c1) descargados++;
-      await new Promise(r => setTimeout(r, 600));
-      
-      const c2 = await exportarAhorrosCsv();
-      if (c2) descargados++;
-      await new Promise(r => setTimeout(r, 600));
-      
-      const c3 = await exportarLiquidacionesCsv();
-      if (c3) descargados++;
-      await new Promise(r => setTimeout(r, 600));
-      
-      const c4 = await exportarPagosCsv(true);
-      if (c4) descargados++;
-      
-      if (descargados === 4) {
-        toast.success('Se descargaron los 4 reportes del sistema correctamente.');
-      } else if (descargados > 0) {
-        toast.success(`Se descargaron ${descargados} reportes. Los módulos vacíos no se descargaron.`);
+      // 1. Obtener todos los asociados
+      const { data: usuariosData, error: errUsrs } = await supabase
+        .from('usuarios')
+        .select('id, nombre, cedula');
+      if (errUsrs) throw errUsrs;
+
+      const usuariosMap: Record<string, any> = {};
+      (usuariosData || []).forEach((u: any) => { usuariosMap[u.id] = u; });
+
+      // 2. Obtener créditos
+      const { data: creditosList, error: errCreds } = await supabase
+        .from('creditos')
+        .select('*');
+      if (errCreds) throw errCreds;
+
+      // 3. Obtener cuentas de ahorro
+      const { data: ahorrosList, error: errAhorros } = await supabase
+        .from('cuentas_ahorro')
+        .select('*');
+      if (errAhorros) throw errAhorros;
+
+      // 4. Obtener liquidaciones
+      const { data: liquidacionesList, error: errLiqs } = await supabase
+        .from('liquidaciones')
+        .select('*');
+      if (errLiqs) throw errLiqs;
+
+      // 5. Obtener transacciones
+      const { data: pagosList, error: errPagos } = await supabase
+        .from('transacciones')
+        .select('*')
+        .order('fecha_pago', { ascending: false });
+      if (errPagos) throw errPagos;
+
+      const lines: string[] = ['sep=,'];
+
+      // --- SECCIÓN 1: CARTERA DE CRÉDITOS ---
+      lines.push('--- CARTERA DE CRÉDITOS ---');
+      const creditHeaders = ['ID Credito', 'Cedula Asociado', 'Nombre Asociado', 'Monto Otorgado', 'Saldo Pendiente', 'Cuota', 'Tasa (%)', 'Plazo (Meses)', 'Fecha Desembolso', 'Estado'];
+      lines.push(creditHeaders.join(','));
+      if (creditosList && creditosList.length > 0) {
+        creditosList.forEach((c: any) => {
+          const usr = usuariosMap[c.asociado_id] || {};
+          const row = [
+            c.id,
+            usr.cedula || '—',
+            usr.nombre || '—',
+            c.monto || 0,
+            c.saldo ?? c.monto,
+            c.cuota_mensual || 0,
+            c.tasa_interes || 0,
+            c.plazo_meses || 0,
+            c.fecha_desembolso || '—',
+            c.estado || '—'
+          ].map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',');
+          lines.push(row);
+        });
       } else {
-        toast.info('No se descargó ningún reporte porque no hay datos registrados en el sistema.');
+        lines.push('"No hay créditos registrados en el sistema"');
       }
+      lines.push(''); // Salto de línea
+
+      // --- SECCIÓN 2: CUENTAS DE AHORRO ---
+      lines.push('--- CUENTAS DE AHORRO ---');
+      const savingsHeaders = ['ID Cuenta', 'Cedula Asociado', 'Nombre Asociado', 'Tipo Cuenta', 'Monto Ahorrado ($)', 'Estado', 'Mora Vigente ($)', 'Fecha Creacion'];
+      lines.push(savingsHeaders.join(','));
+      if (ahorrosList && ahorrosList.length > 0) {
+        ahorrosList.forEach((a: any) => {
+          const usr = usuariosMap[a.asociado_id] || {};
+          const row = [
+            a.id,
+            usr.cedula || '—',
+            usr.nombre || '—',
+            a.tipo ? a.tipo.toUpperCase() : '—',
+            a.monto_ahorrado || 0,
+            a.estado || '—',
+            a.multa_mora_vigente || 0,
+            a.created_at ? new Date(a.created_at).toLocaleDateString('es-CO') : '—'
+          ].map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',');
+          lines.push(row);
+        });
+      } else {
+        lines.push('"No hay cuentas de ahorro registradas en el sistema"');
+      }
+      lines.push(''); // Salto de línea
+
+      // --- SECCIÓN 3: LIQUIDACIONES ---
+      lines.push('--- LIQUIDACIONES ---');
+      const liqHeaders = ['ID Liquidacion', 'Cedula Asociado', 'Nombre Asociado', 'Tipo Liquidacion', 'Monto Total ($)', 'Fecha', 'Detalle'];
+      lines.push(liqHeaders.join(','));
+      if (liquidacionesList && liquidacionesList.length > 0) {
+        liquidacionesList.forEach((l: any) => {
+          const usr = usuariosMap[l.asociado_id] || {};
+          const detalleStr = l.detalle ? JSON.stringify(l.detalle) : '';
+          const row = [
+            l.id,
+            usr.cedula || '—',
+            usr.nombre || '—',
+            l.tipo ? l.tipo.toUpperCase() : '—',
+            l.monto_total || 0,
+            l.fecha || '—',
+            detalleStr
+          ].map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',');
+          lines.push(row);
+        });
+      } else {
+        lines.push('"No hay liquidaciones registradas en el sistema"');
+      }
+      lines.push(''); // Salto de línea
+
+      // --- SECCIÓN 4: HISTORIAL DE TRANSACCIONES ---
+      lines.push('--- HISTORIAL DE TRANSACCIONES ---');
+      const transHeaders = ['ID Transaccion', 'Fecha Pago', 'Cedula', 'Nombre', 'Tipo', 'Monto', 'Metodo', 'Estado', 'Observacion'];
+      lines.push(transHeaders.join(','));
+      if (pagosList && pagosList.length > 0) {
+        pagosList.forEach((p: any) => {
+          const usr = usuariosMap[p.asociado_id] || {};
+          const row = [
+            p.id,
+            p.fecha_pago || '—',
+            usr.cedula || '—',
+            usr.nombre || '—',
+            p.tipo || '—',
+            p.monto || 0,
+            p.metodo_pago || '—',
+            p.estado || '—',
+            p.observacion || '—'
+          ].map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',');
+          lines.push(row);
+        });
+      } else {
+        lines.push('"No hay transacciones registradas en el sistema"');
+      }
+
+      // Descargar el archivo consolidado único
+      const csvContent = lines.join('\n');
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Reporte_Consolidado_Sistema_UFCA_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success('Se descargó el reporte consolidado de todo el sistema correctamente.');
     } catch (err) {
       console.error('Error al exportar todo:', err);
-      toast.error('Hubo un problema al intentar descargar todo el conjunto de datos');
+      toast.error('Hubo un problema al intentar descargar el reporte consolidado');
+    } finally {
+      setExportingCsv(false);
     }
   };
 
@@ -1025,7 +1150,7 @@ export default function Reportes() {
                   </span>
                   <h2 className="text-2xl font-extrabold tracking-tight text-white mt-1">Exportar Todo el Sistema</h2>
                   <p className="text-slate-300 text-sm leading-relaxed">
-                    Descarga en un solo paso todos los registros de la cooperativa. Al iniciar esta acción, se descargarán secuencialmente 4 archivos CSV individuales conteniendo: Créditos, Cuentas de Ahorro, Liquidaciones e Historial completo de Transacciones.
+                    Descarga en un solo paso todos los registros de la cooperativa. Se generará un único archivo CSV consolidado estructurado con las tablas de: Créditos, Cuentas de Ahorro, Liquidaciones e Historial completo de Transacciones.
                   </p>
                 </div>
                 <div className="shrink-0">
@@ -1035,7 +1160,7 @@ export default function Reportes() {
                     disabled={exportingCsv}
                   >
                     {exportingCsv ? <div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="size-5 stroke-[2.2]" />}
-                    Exportar Todo el Sistema (4 CSVs)
+                    Exportar Todo (1 CSV Consolidado)
                   </Button>
                 </div>
               </CardContent>
