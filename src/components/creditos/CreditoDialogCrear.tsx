@@ -1,5 +1,5 @@
 import { useRef, useMemo, useState } from 'react';
-import { CreditCard, Search, Check, DollarSign, Percent, Clock, Calendar, FileText, Paperclip, Upload, ExternalLink, AlertTriangle, BarChart2, X, Info, Shield, ShieldAlert } from 'lucide-react';
+import { CreditCard, Search, Check, DollarSign, Percent, Clock, Calendar, FileText, Paperclip, Upload, ExternalLink, AlertTriangle, BarChart2, X, Info, Shield, ShieldAlert, Users } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -57,6 +57,10 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
     handleExcedeAhorroStep1,
     handleExcedeAhorroStep2,
     handleCancelExcedeAhorro,
+    // Referido
+    formEsParaReferido, setFormEsParaReferido,
+    formReferidoNombre, setFormReferidoNombre,
+    formIngresoMensual,
   } = hook;
 
   // ── Errores inline ────────────────────────────────────────────────────────
@@ -92,8 +96,9 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
     if (isNaN(tasaNum) || tasaNum < 0 || tasaNum > 100) return false;
     if (!formFecha) return false;
     if (Object.values(fieldErrors).some(e => e !== '')) return false;
+    if (formEsParaReferido && !formReferidoNombre.trim()) return false;
     return true;
-  }, [formAsociadoId, formMonto, formPlazo, formTasa, formFecha, fieldErrors]);
+  }, [formAsociadoId, formMonto, formPlazo, formTasa, formFecha, fieldErrors, formEsParaReferido, formReferidoNombre]);
 
   // ── Validación en tiempo real: monto vs ahorro del asociado ────────────
   const montoActual = useMemo(() =>
@@ -227,6 +232,89 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
                       )}
                     </p>
                   </div>
+                </div>
+              )}
+
+              {/* ── Capacidad de endeudamiento del asociado (30% del ingreso mensual) ── */}
+              {formAsociadoId && !selectedItem && !formEsParaReferido && formIngresoMensual > 0 && (
+                <div className="bg-indigo-50/50 border border-indigo-150 rounded-lg p-3 text-xs space-y-1.5 mt-2">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500 font-medium">Ingreso mensual declarado en afiliación:</span>
+                    <span className="font-semibold text-slate-800">{formatCurrency(formIngresoMensual)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-indigo-100/50">
+                    <span className="text-slate-500 font-medium">Capacidad de endeudamiento máxima (30%):</span>
+                    <span className="font-bold text-indigo-750">{formatCurrency(formIngresoMensual * 0.3)}</span>
+                  </div>
+                  {cuotaPreview > 0 && (
+                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-indigo-100/50">
+                      <span className="text-slate-500 font-medium">Cuota proyectada + Cuotas activas:</span>
+                      <span className={`font-semibold ${
+                        (cuotaTotalAsoc + cuotaPreview) > (formIngresoMensual * 0.3)
+                          ? 'text-red-650'
+                          : 'text-emerald-700'
+                      }`}>
+                        {formatCurrency(cuotaTotalAsoc + cuotaPreview)}
+                      </span>
+                    </div>
+                  )}
+                  {(cuotaTotalAsoc + cuotaPreview) > (formIngresoMensual * 0.3) && (
+                    <div className="flex items-start gap-1.5 pt-1.5 text-[11px] text-amber-800 border-t border-indigo-100/50 font-medium">
+                      <AlertTriangle className="size-3.5 shrink-0 text-amber-600 mt-0.5" />
+                      <span>
+                        ⚠️ La cuota acumulada supera la capacidad de endeudamiento recomendada del asociado.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ── Sección: Destinatario del crédito ── */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Destinatario</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setFormEsParaReferido(false); setFormReferidoNombre(''); }}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
+                    !formEsParaReferido
+                      ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                  }`}
+                >
+                  <CreditCard className="size-4" />
+                  Para asociado
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormEsParaReferido(true)}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
+                    formEsParaReferido
+                      ? 'border-purple-500 bg-purple-50 text-purple-700 shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                  }`}
+                >
+                  <Users className="size-4" />
+                  Para referido
+                </button>
+              </div>
+              {formEsParaReferido && (
+                <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <Label htmlFor="referido-nombre" className="flex items-center gap-1.5">
+                    <Users className="size-3.5 text-purple-500" /> Nombre del referido <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="referido-nombre"
+                    placeholder="Nombre completo de la persona referida"
+                    value={formReferidoNombre}
+                    onChange={(e) => setFormReferidoNombre(e.target.value)}
+                    disabled={bloqueado}
+                    className="border-purple-200 focus-visible:ring-purple-200"
+                  />
+                  <p className="text-[11px] text-purple-500">
+                    El referido no tiene cuenta en el sistema. La deuda es responsabilidad del asociado seleccionado.
+                  </p>
                 </div>
               )}
             </div>

@@ -66,6 +66,10 @@ export function useCreditosCRUD({
   const [formUrlDocumento, setFormUrlDocumento]       = useState('');
   const [formTipoInteres, setFormTipoInteres]         = useState<'simple' | 'compuesto'>('compuesto');
   const [saving, setSaving]                           = useState(false);
+  // Referido: el crédito puede ser para el asociado o para un referido (persona externa)
+  const [formEsParaReferido, setFormEsParaReferido]   = useState(false);
+  const [formReferidoNombre, setFormReferidoNombre]   = useState('');
+  const [formIngresoMensual, setFormIngresoMensual]   = useState<number>(0);
 
   // ── Configuracion de tasas ──
   const TIPO_TASA: Record<string, string> = {
@@ -86,10 +90,11 @@ export function useCreditosCRUD({
       });
   }, []);
 
-  // ── Consultar total de ahorros cuando se selecciona un asociado ────────
+  // ── Consultar total de ahorros e ingresos cuando se selecciona un asociado ────────
   useEffect(() => {
     if (!formAsociadoId) {
       setTotalAhorroAsociado(0);
+      setFormIngresoMensual(0);
       return;
     }
     setLoadingAhorro(true);
@@ -107,7 +112,28 @@ export function useCreditosCRUD({
         setTotalAhorroAsociado(sum);
       })
       .finally(() => setLoadingAhorro(false));
-  }, [formAsociadoId]);
+
+    const asoc = asociadosDisponibles.find(a => a.id === formAsociadoId);
+    if (asoc?.cedula) {
+      supabase
+        .from('solicitudes_asociados')
+        .select('ingreso_mensual')
+        .eq('cedula', asoc.cedula)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.ingreso_mensual) {
+            setFormIngresoMensual(parseFloat(data.ingreso_mensual) || 0);
+          } else {
+            setFormIngresoMensual(0);
+          }
+        })
+        .catch(() => setFormIngresoMensual(0));
+    } else {
+      setFormIngresoMensual(0);
+    }
+  }, [formAsociadoId, asociadosDisponibles]);
 
   const handleTipoChange = (tipo: string) => {
     setFormTipo(tipo);
@@ -159,6 +185,8 @@ export function useCreditosCRUD({
       setFormDescSoporte(item.descripcionSoporte ?? '');
       setFormUrlDocumento(item.urlDocumento ?? '');
       setFormTipoInteres(item.tipoInteres ?? 'compuesto');
+      setFormEsParaReferido(!!item.referidoNombre);
+      setFormReferidoNombre(item.referidoNombre ?? '');
     } else {
       setSelectedItem(null);
       setFormAsociadoId(''); setAutocompleteSearch('');
@@ -171,6 +199,7 @@ export function useCreditosCRUD({
       setFormDescSoporte(''); setFormUrlDocumento('');
       setFormTipoInteres('compuesto');
       setFormArchivoFile(null);
+      setFormEsParaReferido(false); setFormReferidoNombre('');
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
     setIsCreateDialogOpen(true);
@@ -312,6 +341,7 @@ export function useCreditosCRUD({
             fecha_estado_cambio:  formFechaEstado  || ahora,
             motivo_estado_cambio: formMotivoEstado.trim() || null,
           } : {}),
+          referido_nombre: formEsParaReferido && formReferidoNombre.trim() ? formReferidoNombre.trim() : null,
         };
         await creditosApi.update(selectedItem.id, payloadEdit);
         setCreditos(prev => prev.map(c =>
@@ -342,11 +372,12 @@ export function useCreditosCRUD({
           cuota_mensual:             cuota,
           tipo_interes:              formTipoInteres,
           saldo:                     monto,
-          estado:                    formEstadoAprobacion,   // respeta lo elegido en el formulario
+          estado:                    formEstadoAprobacion,
           anulado:                   false,
           fecha_desembolso:          formFecha || null,
           observaciones:             formDescSoporte.trim() || null,
           url_comprobante_solicitud: urlFinal,
+          referido_nombre:           formEsParaReferido && formReferidoNombre.trim() ? formReferidoNombre.trim() : null,
         });
         setCreditos(prev => [{
           id:                 nuevo.id,
@@ -548,6 +579,9 @@ export function useCreditosCRUD({
     formDescSoporte, setFormDescSoporte,
     formUrlDocumento, setFormUrlDocumento,
     formTipoInteres, setFormTipoInteres,
+    formEsParaReferido, setFormEsParaReferido,
+    formReferidoNombre, setFormReferidoNombre,
+    formIngresoMensual,
     saving,
     // Archivo
     formArchivoFile, setFormArchivoFile,

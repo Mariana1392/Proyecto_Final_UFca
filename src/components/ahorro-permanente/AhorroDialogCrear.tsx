@@ -74,7 +74,12 @@ export default function AhorroDialogCrear({
             <Select value={formAsociadoId} onValueChange={setFormAsociadoId} disabled={!!selectedItem}>
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar asociado...">
-                  {selectedItem ? selectedItem.asociado : 'Seleccionar asociado...'}
+                  {selectedItem
+                    ? selectedItem.asociado
+                    : (() => {
+                        const asoc = asociadosDisponibles.find(a => a.id === formAsociadoId);
+                        return asoc ? `${asoc.nombre} (${asoc.cedula})` : undefined;
+                      })()}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>

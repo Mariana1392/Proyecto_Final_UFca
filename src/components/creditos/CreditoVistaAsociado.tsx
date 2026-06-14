@@ -99,6 +99,10 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
     isSolSimOpen, setIsSolSimOpen,
     savingSolicitud,
     handleSolicitarCredito,
+    // Referido
+    solEsParaReferido, setSolEsParaReferido,
+    solReferidoNombre, setSolReferidoNombre,
+    asocIngresoMensual,
     // Detail dialog (asociado version shares the same state)
     isDetailDialogOpen,
     selectedItem,
@@ -819,7 +823,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
     {/* ── Dialog solicitar crédito (asociado) ── */}
     <Dialog open={isSolicitudDialogOpen} onOpenChange={(open) => {
       setIsSolicitudDialogOpen(open);
-      if (!open) { setSolMonto(''); setSolTipo('libre_inversion'); setSolPlazo(''); setSolTasa(''); setSolDestino(''); setSolObs(''); setSolBanco(''); setSolTipoCuenta('ahorros'); setSolNumeroCuenta(''); setSolDocCartaLaboral(null); setSolDocCedula(null); }
+      if (!open) { setSolMonto(''); setSolTipo('libre_inversion'); setSolPlazo(''); setSolTasa(''); setSolDestino(''); setSolObs(''); setSolBanco(''); setSolTipoCuenta('ahorros'); setSolNumeroCuenta(''); setSolDocCartaLaboral(null); setSolDocCedula(null); setSolEsParaReferido(false); setSolReferidoNombre(''); }
     }}>
       <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto">
         <DialogHeader>
@@ -849,6 +853,54 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                 <p className="text-xs text-blue-700">
                   Tasa aplicada para este tipo de crédito:{' '}
                   <strong>{solTasa}% EA</strong> — definida por el fondo
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* ── Destinatario del crédito: asociado o referido ── */}
+          <div className="space-y-3">
+            <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Destinatario del crédito</Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setSolEsParaReferido(false); setSolReferidoNombre(''); }}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
+                  !solEsParaReferido
+                    ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                }`}
+              >
+                <CreditCard className="size-4" />
+                Para mí
+              </button>
+              <button
+                type="button"
+                onClick={() => setSolEsParaReferido(true)}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
+                  solEsParaReferido
+                    ? 'border-purple-500 bg-purple-50 text-purple-700 shadow-sm'
+                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                }`}
+              >
+                <Users className="size-4" />
+                Para referido
+              </button>
+            </div>
+            {solEsParaReferido && (
+              <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                <Label htmlFor="sol-referido-nombre" className="flex items-center gap-1.5">
+                  <Users className="size-3.5 text-purple-500" /> Nombre del referido <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="sol-referido-nombre"
+                  placeholder="Nombre completo de la persona referida"
+                  value={solReferidoNombre}
+                  onChange={(e) => setSolReferidoNombre(e.target.value)}
+                  className="border-purple-200 focus-visible:ring-purple-200"
+                />
+                <p className="text-[11px] text-purple-500">
+                  El referido no tiene cuenta en el sistema. Tú eres responsable de la deuda.
                 </p>
               </div>
             )}
@@ -903,6 +955,20 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
             </div>
           )}
 
+          {/* ── Capacidad de endeudamiento (30% del ingreso mensual) ── */}
+          {!solEsParaReferido && asocIngresoMensual > 0 && (
+            <div className="bg-indigo-50/50 border border-indigo-100 text-slate-700 p-3.5 rounded-xl space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-medium">Ingreso mensual declarado:</span>
+                <span className="font-semibold text-slate-800">{formatCurrency(asocIngresoMensual)}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs pt-1.5 border-t border-indigo-100/50">
+                <span className="text-slate-500 font-medium">Capacidad de endeudamiento (30%):</span>
+                <span className="font-bold text-indigo-650">{formatCurrency(asocIngresoMensual * 0.3)}</span>
+              </div>
+            </div>
+          )}
+
           {parseMonto(solMonto) > 0 && parseInt(solPlazo) > 0 && (() => {
             const _monto   = parseMonto(solMonto);
             const _tasa    = parseFloat(solTasa) || 0;
@@ -933,6 +999,14 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                     <p className="text-base font-black text-emerald-600 mt-0.5">{formatCurrency(_total)}</p>
                   </div>
                 </div>
+                {!solEsParaReferido && asocIngresoMensual > 0 && _cuota > (asocIngresoMensual * 0.3) && (
+                  <div className="flex items-start gap-2 px-4 py-2.5 bg-amber-50 border-t border-purple-100 text-xs text-amber-800">
+                    <AlertTriangle className="size-3.5 shrink-0 text-amber-600 mt-0.5" />
+                    <span>
+                      ⚠️ <strong>Advertencia de capacidad de pago:</strong> La cuota mensual calculada (<strong>{formatCurrency(_cuota)}</strong>) supera el 30% de tu ingreso mensual (límite: <strong>{formatCurrency(asocIngresoMensual * 0.3)}</strong>).
+                    </span>
+                  </div>
+                )}
                 <div className="flex gap-2 px-4 py-3 bg-slate-50 border-t border-purple-100">
                   <Button
                     type="button" variant="outline" size="sm"
@@ -1085,7 +1159,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={() => setIsSolicitudDialogOpen(false)}>Cancelar</Button>
-          <Button className="bg-blue-600 hover:bg-blue-700" disabled={savingSolicitud || parseMonto(solMonto) > totalAhorros} onClick={handleSolicitarCredito}>
+          <Button className="bg-blue-600 hover:bg-blue-700" disabled={savingSolicitud || parseMonto(solMonto) > totalAhorros || (solEsParaReferido && !solReferidoNombre.trim())} onClick={handleSolicitarCredito}>
             {savingSolicitud ? 'Enviando...' : 'Enviar solicitud'}
           </Button>
         </DialogFooter>
@@ -1193,7 +1267,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
             </Button>
             <Button
               className="bg-blue-600 hover:bg-blue-700 gap-2"
-              disabled={savingSolicitud || parseMonto(solMonto) > totalAhorros}
+              disabled={savingSolicitud || parseMonto(solMonto) > totalAhorros || (solEsParaReferido && !solReferidoNombre.trim())}
               onClick={() => { setIsSolSimOpen(false); handleSolicitarCredito(); }}
             >
               {savingSolicitud ? 'Enviando...' : '📤 Enviar solicitud'}

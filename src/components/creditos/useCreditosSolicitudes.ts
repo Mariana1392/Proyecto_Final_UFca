@@ -50,6 +50,10 @@ export function useCreditosSolicitudes({
   // Documentos adjuntos a la solicitud (Mejora F)
   const [solDocCartaLaboral, setSolDocCartaLaboral] = useState<File | null>(null);
   const [solDocCedula, setSolDocCedula]             = useState<File | null>(null);
+  // Referido: el crédito puede ser para el asociado o para un referido (persona externa)
+  const [solEsParaReferido, setSolEsParaReferido]   = useState(false);
+  const [solReferidoNombre, setSolReferidoNombre]   = useState('');
+  const [asocIngresoMensual, setAsocIngresoMensual] = useState<number>(0);
 
   // Cargar tasas desde configuracion (al montar Y cada vez que se abre el dialog)
   useEffect(() => {
@@ -75,8 +79,27 @@ export function useCreditosSolicitudes({
           const sum = (data || []).reduce((acc: number, curr: any) => acc + (curr.monto_ahorrado || 0), 0);
           setTotalAhorros(sum);
         });
+
+      // Fetch monthly income from solicitudes_asociados
+      const query = supabase.from('solicitudes_asociados').select('ingreso_mensual');
+      if (userData.cedula) {
+        query.eq('cedula', userData.cedula);
+      } else {
+        query.eq('usuario_id', userData.id);
+      }
+      query.order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.ingreso_mensual) {
+            setAsocIngresoMensual(parseFloat(data.ingreso_mensual) || 0);
+          } else {
+            setAsocIngresoMensual(0);
+          }
+        })
+        .catch(() => setAsocIngresoMensual(0));
     }
-  }, [isSolicitudDialogOpen, userData?.id]); // se recarga cada vez que el dialog abre/cierra
+  }, [isSolicitudDialogOpen, userData?.id, userData?.cedula]); // se recarga cada vez que el dialog abre/cierra
 
   // Cuando cambia el tipo, actualizar la tasa automáticamente
   const handleSolTipoChange = (tipo: string) => {
@@ -94,6 +117,9 @@ export function useCreditosSolicitudes({
     const plazo = parseInt(solPlazo) || 0;
     if (plazo <= 0)                { toast.error('El plazo debe ser mayor a 0 meses'); return; }
     if (plazo > 12)                { toast.error('El plazo máximo permitido es de 12 meses'); return; }
+    if (solEsParaReferido && !solReferidoNombre.trim()) {
+      toast.error('Ingresa el nombre del referido'); return;
+    }
 
     if (monto > totalAhorros) {
       toast.error(`El monto solicitado excede el total de tus ahorros (${formatCurrency(totalAhorros)}).`);
@@ -187,16 +213,17 @@ export function useCreditosSolicitudes({
       const { data, error } = await supabase
         .from('creditos')
         .insert({
-          asociado_id:    userData?.id,
-          tipo:           solTipo,
+          asociado_id:       userData?.id,
+          tipo:              solTipo,
           monto,
-          plazo_meses:    plazo,
-          tasa_interes:   tasa,
-          cuota_mensual:  cuota,
-          saldo:          monto,
-          estado:         'pendiente',
-          observaciones:  observacionesFinal,
-          anulado:        false,
+          plazo_meses:       plazo,
+          tasa_interes:      tasa,
+          cuota_mensual:     cuota,
+          saldo:             monto,
+          estado:            'pendiente',
+          observaciones:     observacionesFinal,
+          anulado:           false,
+          referido_nombre:   solEsParaReferido && solReferidoNombre.trim() ? solReferidoNombre.trim() : null,
         })
         .select('*')
         .single();
@@ -267,6 +294,7 @@ export function useCreditosSolicitudes({
       setSolMonto(''); setSolTipo('libre_inversion'); setSolPlazo('');
       setSolTasa(''); setSolDestino(''); setSolObs('');
       setSolDocCartaLaboral(null); setSolDocCedula(null);
+      setSolEsParaReferido(false); setSolReferidoNombre('');
     } catch (err: any) {
       toast.error('Error al enviar la solicitud: ' + err.message);
     } finally {
@@ -414,6 +442,9 @@ export function useCreditosSolicitudes({
     tasasParametrizadas,
     solDocCartaLaboral, setSolDocCartaLaboral,
     solDocCedula, setSolDocCedula,
+    solEsParaReferido, setSolEsParaReferido,
+    solReferidoNombre, setSolReferidoNombre,
+    asocIngresoMensual,
     handleSolTipoChange,
     handleSolicitarCredito,
     handlePonerEnRevision,
