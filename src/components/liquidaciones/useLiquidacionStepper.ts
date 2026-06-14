@@ -244,14 +244,78 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
       if (error) throw error;
 
       // Procesar acciones automáticas según el tipo de liquidación
-      if (['retiro', 'fallecimiento'].includes(formTipo)) {
-        // Desactivar el usuario
-        const { error: errUsr } = await supabase.from('usuarios').update({ estado_cuenta: 'inactivo' }).eq('id', formAsociadoId);
+      if (formTipo === 'expulsion') {
+        // Expulsión: suspender cuenta + registrar fecha + cerrar todo
+        const { error: errUsr } = await supabase.from('usuarios').update({
+          estado_cuenta: 'suspendido',
+          activo: false,
+          fecha_suspension: new Date().toISOString().split('T')[0],
+          motivo_suspension: formMotivo.trim() || 'Expulsión por incumplimiento',
+        }).eq('id', formAsociadoId);
+        if (errUsr) console.error('Error al suspender usuario:', errUsr);
+
+        // Cerrar créditos activos
+        await supabase.from('creditos')
+          .update({ saldo: 0, estado: 'cancelado', fecha_estado_cambio: new Date().toISOString(), motivo_estado_cambio: 'Liquidación por expulsión' })
+          .eq('asociado_id', formAsociadoId).eq('anulado', false)
+          .in('estado', ['activo', 'desembolsado', 'en_mora', 'pendiente', 'aprobado']);
+
+        // Cerrar cuentas de ahorro
+        await supabase.from('cuentas_ahorro')
+          .update({ estado: 'cerrado', monto_ahorrado: 0 })
+          .eq('asociado_id', formAsociadoId).eq('anulado', false);
+
+      } else if (formTipo === 'retiro') {
+        // Retiro voluntario: inactivo + registrar fecha (restricción de reingreso al año siguiente)
+        const { error: errUsr } = await supabase.from('usuarios').update({
+          estado_cuenta: 'inactivo',
+          activo: false,
+          fecha_suspension: new Date().toISOString().split('T')[0],
+          motivo_suspension: formMotivo.trim() || 'Retiro voluntario',
+        }).eq('id', formAsociadoId);
         if (errUsr) console.error('Error al desactivar usuario:', errUsr);
+
+        // Cerrar créditos activos
+        await supabase.from('creditos')
+          .update({ saldo: 0, estado: 'cancelado', fecha_estado_cambio: new Date().toISOString(), motivo_estado_cambio: 'Liquidación por retiro voluntario' })
+          .eq('asociado_id', formAsociadoId).eq('anulado', false)
+          .in('estado', ['activo', 'desembolsado', 'en_mora', 'pendiente', 'aprobado']);
+
+        // Cerrar cuentas de ahorro
+        await supabase.from('cuentas_ahorro')
+          .update({ estado: 'cerrado', monto_ahorrado: 0 })
+          .eq('asociado_id', formAsociadoId).eq('anulado', false);
+
+      } else if (formTipo === 'fallecimiento') {
+        // Fallecimiento: inactivo, sin restricción de reingreso
+        const { error: errUsr } = await supabase.from('usuarios').update({
+          estado_cuenta: 'inactivo',
+          activo: false,
+        }).eq('id', formAsociadoId);
+        if (errUsr) console.error('Error al desactivar usuario:', errUsr);
+
+        // Cerrar créditos y cuentas de ahorro
+        await supabase.from('creditos')
+          .update({ saldo: 0, estado: 'cancelado', fecha_estado_cambio: new Date().toISOString(), motivo_estado_cambio: 'Liquidación por fallecimiento' })
+          .eq('asociado_id', formAsociadoId).eq('anulado', false)
+          .in('estado', ['activo', 'desembolsado', 'en_mora', 'pendiente', 'aprobado']);
+
+        await supabase.from('cuentas_ahorro')
+          .update({ estado: 'cerrado', monto_ahorrado: 0 })
+          .eq('asociado_id', formAsociadoId).eq('anulado', false);
+
       } else if (formTipo === 'anual') {
-        // Reiniciar ahorros sin desactivar al usuario
-        const { error: errAh } = await supabase.from('cuentas_ahorro').update({ monto_ahorrado: 0 }).eq('asociado_id', formAsociadoId).eq('anulado', false);
+        // Liquidación anual: resetear saldos, el asociado SIGUE activo
+        const { error: errAh } = await supabase.from('cuentas_ahorro')
+          .update({ monto_ahorrado: 0 })
+          .eq('asociado_id', formAsociadoId).eq('anulado', false);
         if (errAh) console.error('Error al reiniciar ahorros:', errAh);
+
+        // Cerrar créditos activos también
+        await supabase.from('creditos')
+          .update({ saldo: 0, estado: 'pagado', fecha_estado_cambio: new Date().toISOString(), motivo_estado_cambio: 'Liquidación anual' })
+          .eq('asociado_id', formAsociadoId).eq('anulado', false)
+          .in('estado', ['activo', 'desembolsado', 'en_mora']);
       }
 
       await registrarAuditLiq(data.id, formAsociadoId, 'CREACION_LIQUIDACION', {

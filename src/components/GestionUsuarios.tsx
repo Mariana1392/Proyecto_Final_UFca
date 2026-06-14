@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import PiggyBankLoader from './ui/PiggyBankLoader';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -8,7 +8,7 @@ import { Badge } from './ui/badge';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Plus, ChevronLeft, ChevronRight, ChevronDown, UserCircle, UserCircle2, Edit, Trash2, Shield, Clock, FileText, AlertTriangle, User, Lock, History, Unlock } from 'lucide-react';
+import { Search, Plus, ChevronLeft, ChevronRight, ChevronDown, UserCircle, UserCircle2, Edit, Trash2, Shield, Clock, FileText, AlertTriangle, User, Lock, History, Unlock, Ban } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
@@ -18,6 +18,8 @@ import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { useAuth } from '../contexts/AuthContext';
 import type { UserRole } from '../contexts/AuthContext';
 import { rolLabel } from '../lib/permissions';
+import { useExpulsion } from './gestion-usuarios/useExpulsion';
+import { ExpulsionDialog } from './gestion-usuarios/ExpulsionDialog';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 // rolLabel viene de '../lib/permissions' — no redefinir aquí
@@ -78,6 +80,32 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
   const [fixIdValue, setFixIdValue]                             = useState('');
   const [fixIdError, setFixIdError]                             = useState('');
   const [fixIdLoading, setFixIdLoading]                         = useState(false);
+
+  // ── Hook de Expulsión ──────────────────────────────────────────────────────
+  const {
+    isExpulsionOpen,
+    setIsExpulsionOpen,
+    expulsionAsociado,
+    ejecutando: ejecutandoExpulsion,
+    datosExpulsion,
+    abrirExpulsion,
+    ejecutarExpulsion,
+  } = useExpulsion();
+
+  const renderMoraBadge = (cuotas: number) => {
+    if (cuotas <= 0) return null;
+    let color = "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100";
+    if (cuotas === 2) {
+      color = "bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-100";
+    } else if (cuotas >= 3) {
+      color = "bg-red-100 text-red-800 border-red-200 hover:bg-red-100";
+    }
+    return (
+      <Badge variant="outline" className={`text-[10px] font-semibold py-0 px-1.5 rounded-full ${color}`}>
+        {cuotas} {cuotas === 1 ? 'cuota' : 'cuotas'}
+      </Badge>
+    );
+  };
   const itemsPerPage = 10;
 
   // ── Errores inline por campo ─────────────────────────────────────────────────
@@ -169,21 +197,65 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     setLoading(true);
 
     // El perfil del usuario actual ya viene de AuthContext — no re-fetchar aquí.
+    const primerDiaMes = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`;
     const [
       { data: usData, error: usErr },
       { data: rolesData },
       { data: auditoriaData },
       { data: creditosData },
       { data: cuentasData },
+      { data: transMesData },
     ] = await Promise.all([
       supabase.from('usuarios').select('*, roles(nombre, es_sistema)').order('nombre'),
       supabase.from('roles').select('*').order('nombre'),
       supabase.from('auditoria').select('*').eq('tabla', 'usuarios').order('created_at', { ascending: false }).limit(100),
-      supabase.from('creditos').select('asociado_id, estado, anulado'),
-      supabase.from('cuentas_ahorro').select('asociado_id, tipo, estado, anulado, monto_ahorrado'),
+      supabase.from('creditos').select('id, asociado_id, estado, anulado, saldo, monto, cuota_mensual, plazo_meses, fecha_desembolso, tasa_interes'),
+      supabase.from('cuentas_ahorro').select('id, asociado_id, tipo, estado, anulado, monto_ahorrado'),
+      supabase.from('transacciones').select('ahorro_id, tipo').in('tipo', ['aporte_permanente']).eq('anulado', false).gte('fecha_pago', primerDiaMes),
     ]);
 
     if (usErr) throw usErr;
+
+    // Calcular cuotas atrasadas por usuario
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const diaHoy = hoy.getDate();
+    const ahorroMoraActiva = diaHoy >= 17;
+    const paidSavingsSet = new Set((transMesData || []).map((t: any) => t.ahorro_id));
+    const cuotasAtrasadasMap: Record<string, number> = {};
+
+    if (ahorroMoraActiva && cuentasData) {
+      cuentasData.forEach((c: any) => {
+        if (c.tipo === 'permanente' && c.estado === 'activo' && !c.anulado && !paidSavingsSet.has(c.id)) {
+          cuotasAtrasadasMap[c.asociado_id] = (cuotasAtrasadasMap[c.asociado_id] || 0) + 1;
+        }
+      });
+    }
+
+    if (creditosData) {
+      creditosData.forEach((cr: any) => {
+        if (!cr.anulado && cr.estado === 'en_mora') {
+          const crMonto = Number(cr.monto) || 0;
+          const crSaldo = Number(cr.saldo) || crMonto;
+          const crCuota = Number(cr.cuota_mensual) || 0;
+          const crPlazo = Number(cr.plazo_meses) || 0;
+          
+          const crCuotasPagadas = crCuota > 0 ? Math.max(0, Math.round((crMonto - crSaldo) / crCuota)) : 0;
+          const crFechaBase = cr.fecha_desembolso ? new Date(cr.fecha_desembolso + 'T00:00:00') : null;
+          const crFechaVencProxima = crFechaBase && crCuotasPagadas < crPlazo
+            ? new Date(crFechaBase.getFullYear(), crFechaBase.getMonth() + crCuotasPagadas + 1, crFechaBase.getDate())
+            : null;
+
+          if (crFechaVencProxima && crFechaVencProxima <= hoy) {
+            const crDiasMora = Math.floor((hoy.getTime() - crFechaVencProxima.getTime()) / 86400000) + 1;
+            if (crDiasMora > 0) {
+              const mesesAtrasados = Math.floor(crDiasMora / 30) + 1;
+              cuotasAtrasadasMap[cr.asociado_id] = (cuotasAtrasadasMap[cr.asociado_id] || 0) + mesesAtrasados;
+            }
+          }
+        }
+      });
+    }
 
     // Construir sets de estado financiero por usuario
     const conHistorial    = new Set<string>();
@@ -224,6 +296,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         esSistema:        rolDb === 'admin' && (u.roles?.es_sistema ?? false),
         tieneHistorialFinanciero: conHistorial.has(u.id),
         tieneObligacionesActivas: conObligaciones.has(u.id),
+        cuotasAtrasadas:  cuotasAtrasadasMap[u.id] || 0,
       };
     });
 
@@ -882,7 +955,10 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                               <UserCircle className="size-4 text-cyan-600" />
                             </div>
                             <div>
-                              <p className="font-medium text-slate-900">{usuario.nombre}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-slate-900">{usuario.nombre}</p>
+                                {usuario.rol_nombre_db === 'asociado' && renderMoraBadge(usuario.cuotasAtrasadas)}
+                              </div>
                               <p className="text-xs text-slate-400">@{usuario.username}</p>
                             </div>
                           </div>
@@ -962,6 +1038,19 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                                       title="Editar usuario"
                                     >
                                       <Edit className="size-4" />
+                                    </Button>
+                                  )}
+                                  {usuario.rol_nombre_db === 'asociado' && (
+                                    <Button
+                                      variant="outline" size="sm"
+                                      className="border-red-200 hover:bg-red-50 hover:text-red-700 text-red-600"
+                                      onClick={(e: { stopPropagation: () => void; }) => {
+                                        e.stopPropagation();
+                                        abrirExpulsion(usuario);
+                                      }}
+                                      title="Suspender / Expulsar asociado"
+                                    >
+                                      <Ban className="size-4" />
                                     </Button>
                                   )}
                                   {!usuario.tieneHistorialFinanciero && (
@@ -1710,6 +1799,17 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ExpulsionDialog
+        open={isExpulsionOpen}
+        onOpenChange={setIsExpulsionOpen}
+        asociado={expulsionAsociado}
+        datos={datosExpulsion}
+        ejecutando={ejecutandoExpulsion}
+        onConfirm={ejecutarExpulsion}
+        adminNombre={authUser?.nombre ?? authUser?.email ?? 'Administrador'}
+        onSuccess={cargarDatos}
+      />
     </div>
   );
 }

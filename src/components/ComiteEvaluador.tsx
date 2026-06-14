@@ -467,6 +467,37 @@ export default function ComiteEvaluador() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No hay sesión activa');
 
+      // ── Validar reingreso: verificar si el solicitante fue expulsado o retirado ──
+      if (selectedSolicitud.cedula) {
+        const { data: prevUsuario } = await supabase
+          .from('usuarios')
+          .select('id, nombre, fecha_suspension, estado_cuenta')
+          .eq('cedula', selectedSolicitud.cedula)
+          .not('fecha_suspension', 'is', null)
+          .limit(1)
+          .maybeSingle();
+
+        if (prevUsuario?.fecha_suspension) {
+          const añoSuspension = new Date(prevUsuario.fecha_suspension).getFullYear();
+          const añoActual = new Date().getFullYear();
+
+          if (añoActual <= añoSuspension) {
+            toast.error(
+              `No se puede aprobar: este solicitante fue suspendido/retirado en ${añoSuspension}. Solo puede reingresar a partir de enero de ${añoSuspension + 1}.`,
+              { duration: 8000 }
+            );
+            setApproving(false);
+            return;
+          } else {
+            // Permitir pero advertir
+            toast.warning(
+              `⚠️ Este solicitante fue suspendido/retirado en ${añoSuspension}. Al aprobar, iniciará como nuevo asociado.`,
+              { duration: 6000 }
+            );
+          }
+        }
+      }
+
       // 1. Llamar al RPC atómico — crea asociado, ahorro permanente, actualiza solicitud y comité
       const { data: nuevoAsociadoId, error: rpcError } = await supabase.rpc('aprobar_afiliacion', {
         p_solicitud_id: selectedSolicitud.id,

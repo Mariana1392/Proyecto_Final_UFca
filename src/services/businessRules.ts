@@ -61,6 +61,7 @@ interface ConfigParametros {
   tasaCalamidad:      number;  // % EA
   tasaMoraCreditos:   number;  // % EA (mora = 1.5x tasa corriente por defecto Art. 884 C.Co.)
   tasaInteresAhorros: number;  // % EA que UFCA paga sobre ahorros voluntarios
+  multaMoraAhorroDiaria: number; // Multa diaria por día de mora en ahorro permanente
 }
 
 /** Claves exactas usadas en la tabla `configuracion` */
@@ -78,6 +79,7 @@ const CLAVES_CONFIG = [
   'tasa_calamidad',
   'tasa_mora_creditos',
   'tasa_interes_ahorros',
+  'multa_mora_ahorro_diaria',
 ] as const;
 
 /** Valores de emergencia — solo se usan si la BD no devuelve la clave.
@@ -95,6 +97,7 @@ const CONFIG_DEFAULTS: ConfigParametros = {
   tasaCalamidad:      10,
   tasaMoraCreditos:   27,
   tasaInteresAhorros:  4,
+  multaMoraAhorroDiaria: 2000,
 };
 
 class BusinessRulesEngine {
@@ -155,6 +158,7 @@ class BusinessRulesEngine {
       tasaCalamidad:      Number(get('tasa_calamidad')       ?? CONFIG_DEFAULTS.tasaCalamidad),
       tasaMoraCreditos:   Number(get('tasa_mora_creditos')   ?? CONFIG_DEFAULTS.tasaMoraCreditos),
       tasaInteresAhorros: Number(get('tasa_interes_ahorros') ?? CONFIG_DEFAULTS.tasaInteresAhorros),
+      multaMoraAhorroDiaria: Number(get('multa_mora_ahorro_diaria') ?? CONFIG_DEFAULTS.multaMoraAhorroDiaria),
     };
 
     this.configCargada = true;
@@ -241,18 +245,49 @@ class BusinessRulesEngine {
   }
 
   /** REGLA: Más de N cuotas incumplidas genera suspensión automática */
-  validarSuspensionPorCuotasIncumplidas(cuotasIncumplidas: number): ReglaValidacion {
-    const max = this.config.cuotasMaximasIncumplidas;
-    if (cuotasIncumplidas >= max) {
+  /** Devuelve una alerta informativa sobre cuotas atrasadas (no bloquea operaciones) */
+  obtenerAlertaMora(cuotasIncumplidas: number): { nivel: 'info' | 'warning' | 'danger'; mensaje: string } | null {
+    if (cuotasIncumplidas <= 0) return null;
+    const nivel = cuotasIncumplidas >= 3 ? 'danger' : cuotasIncumplidas >= 2 ? 'warning' : 'info';
+    const mensaje = `El asociado lleva ${cuotasIncumplidas} cuota(s) sin pagar.`;
+    return { nivel, mensaje };
+  }
+
+  /** Valida si un asociado expulsado o retirado puede reingresar (solo después de enero del año siguiente) */
+  async validarReingresoAsociado(cedula: string): Promise<ReglaValidacion> {
+    // 1. Search in usuarios for someone with this cedula and fecha_suspension not null
+    const { data } = await supabase
+      .from('usuarios')
+      .select('id, nombre, fecha_suspension, estado_cuenta')
+      .eq('cedula', cedula)
+      .not('fecha_suspension', 'is', null)
+      .limit(1)
+      .maybeSingle();
+
+    if (!data || !data.fecha_suspension) {
+      return { valida: true, mensaje: 'Sin historial de suspensión', requiereExcepcion: false };
+    }
+
+    const fechaSusp = new Date(data.fecha_suspension);
+    const añoSuspension = fechaSusp.getFullYear();
+    const añoActual = new Date().getFullYear();
+
+    if (añoActual <= añoSuspension) {
       return {
         valida: false,
-        mensaje: `El asociado tiene ${cuotasIncumplidas} cuotas incumplidas (máximo: ${max}). Debe ser suspendido.`,
-        tipoExcepcion: 'suspension_menos_dos_cuotas',
+        mensaje: `Este solicitante fue suspendido/retirado en ${añoSuspension}. Solo puede reingresar a partir de enero de ${añoSuspension + 1}.`,
+        tipoExcepcion: 'reingreso_bloqueado',
         impacto: 'alto',
         requiereExcepcion: false,
       };
     }
-    return { valida: true, mensaje: 'Cuotas incumplidas dentro del límite', requiereExcepcion: false };
+
+    // Allowed but with warning
+    return {
+      valida: true,
+      mensaje: `⚠️ Este asociado fue suspendido/retirado en ${añoSuspension}. Al aprobar, iniciará como nuevo asociado.`,
+      requiereExcepcion: false,
+    };
   }
 
   /** REGLA: Solo asociados activos pueden solicitar crédito */
@@ -606,6 +641,9 @@ class BusinessRulesEngine {
 
   /** Tasa EA % de rendimiento de ahorros voluntarios */
   getTasaAhorros(): number { return this.config.tasaInteresAhorros; }
+
+  /** Multa diaria por mora en ahorro permanente */
+  getMultaMoraAhorroDiaria(): number { return this.config.multaMoraAhorroDiaria; }
 
   /** Snapshot completo de la configuración (para la pantalla Configuración) */
   getConfig(): Readonly<ConfigParametros> { return { ...this.config }; }
