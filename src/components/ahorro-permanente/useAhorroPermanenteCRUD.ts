@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { ahorroPermanenteApi } from '../../lib/api';
-import { formatCurrency, formatCurrencyInput, parseCurrencyInput } from '../../lib/formatters';
+import { formatCurrency, formatCurrencyInput, parseCurrencyInput, formatCurrencyRealTime } from '../../lib/formatters';
 import { resolverPeriodoId, notificarAsociado } from './ahorroPermanenteUtils';
 
 interface CRUDParams {
@@ -63,16 +63,16 @@ export function useAhorroPermanenteCRUD({
 
   // ── Helpers de formulario ──────────────────────────────────────────────────
   const handleCuotaMensualChange = (e: ChangeEvent<HTMLInputElement>) =>
-    setFormCuotaMensual(e.target.value.replace(/[^\d.,]/g, ''));
+    setFormCuotaMensual(formatCurrencyRealTime(e.target.value));
 
-  const handleCuotaMensualBlur = () =>
-    formCuotaMensual &&
-    setFormCuotaMensual(formatCurrencyInput(parseCurrencyInput(formCuotaMensual).toString()));
+  const handleCuotaMensualBlur = () => {
+    // Formateado en tiempo real
+  };
 
   const handleSaldoInicialChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/[^\d.,]/g, '');
-    setFormSaldoInicial(raw);
-    const num = parseFloat(raw.replace(/\./g, '').replace(',', '.')) || 0;
+    const formatted = formatCurrencyRealTime(e.target.value);
+    setFormSaldoInicial(formatted);
+    const num = parseCurrencyInput(formatted);
     if (num > 0 && num < montoObligatorio) {
       setSaldoInicialError('El monto ingresado es menor al estipulado');
     } else {
@@ -81,8 +81,7 @@ export function useAhorroPermanenteCRUD({
   };
 
   const handleSaldoInicialBlur = () => {
-    if (formSaldoInicial)
-      setFormSaldoInicial(formatCurrencyInput(parseCurrencyInput(formSaldoInicial).toString()));
+    // Formateado en tiempo real
   };
 
   // ── Abrir diálogo crear / editar ──────────────────────────────────────────
@@ -90,8 +89,8 @@ export function useAhorroPermanenteCRUD({
     if (item) {
       setSelectedItem(item);
       setFormAsociadoId(item.asociado_id);
-      setFormCuotaMensual(formatCurrencyInput(item.cuotaMensual.toString()));
-      setFormSaldoInicial(item.montoAhorrado.toString().replace(/\./g, ','));
+      setFormCuotaMensual(formatCurrencyRealTime(item.cuotaMensual.toString()));
+      setFormSaldoInicial(formatCurrencyRealTime(item.montoAhorrado.toString().replace(/\./g, ',')));
       setFormFechaInicio(item.fechaInicio);
       setFormObservaciones(item.observaciones || '');
       setLoadingEditMovs(true);
@@ -111,8 +110,8 @@ export function useAhorroPermanenteCRUD({
     } else {
       setSelectedItem(null);
       setFormAsociadoId('');
-      setFormCuotaMensual(formatCurrencyInput(montoObligatorio.toString()));
-      setFormSaldoInicial('0,0');
+      setFormCuotaMensual(formatCurrencyRealTime(montoObligatorio.toString()));
+      setFormSaldoInicial(formatCurrencyRealTime('0,0'));
       setFormFechaInicio('');
       setFormObservaciones('');
       setEditHasMovimientos(false);

@@ -32,3 +32,31 @@ export const formatCurrencyInput = (value: string): string => {
  */
 export const parseCurrencyInput = (v: string): number =>
   parseFloat(v.replace(/\./g, '').replace(',', '.')) || 0;
+
+/**
+ * Formatea un valor en tiempo real con separadores de miles (puntos)
+ * manteniendo la coma decimal si se escribe.
+ */
+export const formatCurrencyRealTime = (value: string): string => {
+  const cleanValue = value.replace(/\./g, '');
+  const parts = cleanValue.split(',');
+  
+  let integerPart = parts[0].replace(/\D/g, '');
+  if (integerPart) {
+    const num = parseInt(integerPart, 10);
+    if (!isNaN(num)) {
+      integerPart = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
+    } else {
+      integerPart = '';
+    }
+  } else {
+    integerPart = '';
+  }
+  
+  if (parts.length > 1) {
+    const decimalPart = parts[1].replace(/\D/g, '').slice(0, 1);
+    return `${integerPart},${decimalPart}`;
+  }
+  
+  return integerPart;
+};

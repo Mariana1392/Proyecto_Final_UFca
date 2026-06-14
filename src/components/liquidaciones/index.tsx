@@ -141,6 +141,7 @@ export default function Liquidacion({ userData, esVistaPropia }: LiquidacionProp
         irAPaso2={stepper.irAPaso2}
         formAhorroPerm={stepper.formAhorroPerm} setFormAhorroPerm={stepper.setFormAhorroPerm}
         formAhorroVol={stepper.formAhorroVol} setFormAhorroVol={stepper.setFormAhorroVol}
+        formAhorros={stepper.formAhorros} setFormAhorros={stepper.setFormAhorros}
         formUtilidades={stepper.formUtilidades} setFormUtilidades={stepper.setFormUtilidades}
         formCreditoPend={stepper.formCreditoPend} setFormCreditoPend={stepper.setFormCreditoPend}
         setConceptosGenerados={() => {}}

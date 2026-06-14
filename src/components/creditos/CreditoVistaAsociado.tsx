@@ -50,6 +50,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
     if (name === 'plazo') {
       const n = parseInt(value) || 0;
       if (!n || n <= 0) error = 'El plazo debe ser mayor a 0';
+      else if (n > 12) error = 'El plazo máximo es de 12 meses';
     }
     if (name === 'banco' && !value.trim()) error = 'El banco es obligatorio';
     if (name === 'numeroCuenta' && !value.trim()) error = 'El número de cuenta es obligatorio';
@@ -932,9 +933,17 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
                 <Input
                   className={`pl-8 ${solErrors.plazo ? 'border-red-400' : ''}`}
-                  type="number" min={1} placeholder="12"
+                  type="number" min={1} max={12} placeholder="12"
                   value={solPlazo}
-                  onChange={(e) => { setSolPlazo(e.target.value); if (solErrors.plazo) validarSolCampo('plazo', e.target.value); }}
+                  onChange={(e) => {
+                    let val = e.target.value;
+                    const num = parseInt(val, 10) || 0;
+                    if (num > 12) {
+                      val = '12';
+                    }
+                    setSolPlazo(val);
+                    validarSolCampo('plazo', val);
+                  }}
                   onBlur={e => validarSolCampo('plazo', e.target.value)}
                 />
               </div>
@@ -1037,15 +1046,6 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
             );
           })()}
 
-          <div className="space-y-1.5">
-            <Label>Destino del crédito <span className="text-xs text-slate-400 font-normal">(opcional)</span></Label>
-            <Input placeholder="Ej. Pago de matrícula universitaria" value={solDestino} onChange={(e) => setSolDestino(e.target.value)} />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Observaciones adicionales</Label>
-            <Textarea placeholder="Información adicional para el administrador..." value={solObs} onChange={(e) => setSolObs(e.target.value)} rows={3} />
-          </div>
 
           {/* ── Documentos de soporte (Mejora F) ── */}
           <div className="space-y-3 pt-1">
@@ -1159,7 +1159,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={() => setIsSolicitudDialogOpen(false)}>Cancelar</Button>
-          <Button className="bg-blue-600 hover:bg-blue-700" disabled={savingSolicitud || parseMonto(solMonto) > totalAhorros || (solEsParaReferido && !solReferidoNombre.trim())} onClick={handleSolicitarCredito}>
+          <Button className="bg-blue-600 hover:bg-blue-700" disabled={savingSolicitud || parseMonto(solMonto) > totalAhorros || (solEsParaReferido && !solReferidoNombre.trim()) || !(parseInt(solPlazo) > 0 && parseInt(solPlazo) <= 12)} onClick={handleSolicitarCredito}>
             {savingSolicitud ? 'Enviando...' : 'Enviar solicitud'}
           </Button>
         </DialogFooter>
@@ -1267,7 +1267,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
             </Button>
             <Button
               className="bg-blue-600 hover:bg-blue-700 gap-2"
-              disabled={savingSolicitud || parseMonto(solMonto) > totalAhorros || (solEsParaReferido && !solReferidoNombre.trim())}
+              disabled={savingSolicitud || parseMonto(solMonto) > totalAhorros || (solEsParaReferido && !solReferidoNombre.trim()) || !(parseInt(solPlazo) > 0 && parseInt(solPlazo) <= 12)}
               onClick={() => { setIsSolSimOpen(false); handleSolicitarCredito(); }}
             >
               {savingSolicitud ? 'Enviando...' : '📤 Enviar solicitud'}

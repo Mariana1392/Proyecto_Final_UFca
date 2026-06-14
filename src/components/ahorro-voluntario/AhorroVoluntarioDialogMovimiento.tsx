@@ -9,8 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '../ui/dialog';
-import { formatCurrency } from '../../lib/formatters';
-import { formatCurrencyInput, parseCurrencyInput, getMesFiscal } from './useAhorroVoluntario';
+import { formatCurrency, formatCurrencyInput, parseCurrencyInput, formatCurrencyRealTime } from '../../lib/formatters';
+import { getMesFiscal } from './useAhorroVoluntario';
 
 interface AhorroVoluntarioDialogMovimientoProps {
   isMovimientoDialogOpen:    boolean;
@@ -130,11 +130,7 @@ export default function AhorroVoluntarioDialogMovimiento({
                   type="text"
                   placeholder="50.000,0"
                   value={formMovMonto}
-                  onChange={(e) => setFormMovMonto(e.target.value.replace(/[^\d.,]/g, ''))}
-                  onBlur={() =>
-                    formMovMonto &&
-                    setFormMovMonto(formatCurrencyInput(parseCurrencyInput(formMovMonto).toString()))
-                  }
+                  onChange={(e) => setFormMovMonto(formatCurrencyRealTime(e.target.value))}
                   className="border-emerald-200 focus-visible:ring-emerald-300"
                 />
               )}

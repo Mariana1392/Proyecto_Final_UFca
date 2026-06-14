@@ -25,6 +25,7 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
   
   const [formAhorroPerm, setFormAhorroPerm] = useState('');
   const [formAhorroVol, setFormAhorroVol] = useState('');
+  const [formAhorros, setFormAhorros] = useState('');
   const [formCreditoPend, setFormCreditoPend] = useState('');
   const [formUtilidades, setFormUtilidades] = useState('');
   
@@ -42,6 +43,10 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
   const fileRef = useRef<HTMLInputElement>(null);
   const acRef = useRef<HTMLDivElement>(null);
 
+  const parseCOP = (val: string) => {
+    return parseFloat(String(val).replace(/\./g, '').replace(/[^\d.-]/g, '')) || 0;
+  };
+
   const cargarDatosAsociado = async (id: string) => {
     setDatosAsocLoading(true);
     try {
@@ -53,9 +58,11 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
       const totAP = (ahPermRes.data || []).reduce((s: number, r: any) => s + (Number(r.monto_ahorrado) || 0), 0);
       const totAV = (ahVolRes.data  || []).reduce((s: number, r: any) => s + (Number(r.monto_ahorrado) || 0), 0);
       const totCr = (crRes.data     || []).reduce((s: number, r: any) => s + (Number(r.saldo)          || 0), 0);
-      setFormAhorroPerm(totAP > 0 ? String(Math.round(totAP)) : '');
-      setFormAhorroVol(totAV  > 0 ? String(Math.round(totAV))  : '');
-      setFormCreditoPend(totCr > 0 ? String(Math.round(totCr)) : '');
+      setFormAhorroPerm(totAP > 0 ? Math.round(totAP).toLocaleString('es-CO') : '0');
+      setFormAhorroVol(totAV  > 0 ? Math.round(totAV).toLocaleString('es-CO')  : '0');
+      setFormCreditoPend(totCr > 0 ? Math.round(totCr).toLocaleString('es-CO') : '');
+      const totalAhorros = totAP + totAV;
+      setFormAhorros(totalAhorros > 0 ? Math.round(totalAhorros).toLocaleString('es-CO') : '');
     } catch {
       // Fallo silencioso
     } finally {
@@ -77,6 +84,7 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
     setFormTipo('retiro'); setFormFechaCorte(''); setFormFechaLiq('');
     setFormEstado('En proceso'); setFormMotivo(''); setFormObservaciones('');
     setFormAhorroPerm(''); setFormAhorroVol(''); setFormCreditoPend(''); setFormUtilidades('');
+    setFormAhorros('');
     setConceptosGenerados(false);
     setFormConceptos([]);
     setFormArchivoFile(null);
@@ -94,7 +102,7 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
       const mesCorte = fechaCorteDate.getMonth();
       const aplicaUtilidades = mesCorte >= 10;
 
-      let utilidadesAsociado = parseFloat(formUtilidades) || 0;
+      let utilidadesAsociado = parseCOP(formUtilidades) || 0;
       if (aplicaUtilidades && !formUtilidades) {
         const [moraRes, interesRes, asocCountRes] = await Promise.all([
           supabase.from('transacciones').select('monto_mora').eq('tipo','aporte_permanente').gt('monto_mora', 0),
@@ -105,18 +113,16 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
         const totalInteres = ((interesRes.data || []) as any[]).reduce((s, r) => s + (Number(r.interes) || 0), 0);
         const count = (asocCountRes as any).count ?? 1;
         utilidadesAsociado = count > 0 ? Math.round((totalMora + totalInteres) / count) : 0;
-        if (utilidadesAsociado > 0) setFormUtilidades(String(utilidadesAsociado));
+        if (utilidadesAsociado > 0) setFormUtilidades(utilidadesAsociado.toLocaleString('es-CO'));
       }
 
-      const ap = parseFloat(formAhorroPerm) || 0;
-      const av = parseFloat(formAhorroVol) || 0;
-      const cr = parseFloat(formCreditoPend) || 0;
-      const util = parseFloat(formUtilidades) || utilidadesAsociado;
+      const ahorros = parseCOP(formAhorros) || 0;
+      const cr = parseCOP(formCreditoPend) || 0;
+      const util = parseCOP(formUtilidades) || utilidadesAsociado;
 
       const nuevosConceptos: Concepto[] = [];
       let nextId = 1;
-      if (ap > 0) nuevosConceptos.push({ id: nextId++, nombre: 'Ahorro permanente acumulado', monto: String(Math.round(ap)), tipo: 'credito' });
-      if (av > 0) nuevosConceptos.push({ id: nextId++, nombre: 'Ahorro voluntario acumulado', monto: String(Math.round(av)), tipo: 'credito' });
+      if (ahorros > 0) nuevosConceptos.push({ id: nextId++, nombre: 'Ahorros', monto: String(Math.round(ahorros)), tipo: 'credito' });
       if (util > 0) nuevosConceptos.push({ id: nextId++, nombre: `Utilidades del fondo (${mesCorte === 10 ? 'noviembre' : 'diciembre'} ${fechaCorteDate.getFullYear()})`, monto: String(Math.round(util)), tipo: 'credito' });
       if (cr > 0) nuevosConceptos.push({ id: nextId++, nombre: 'Saldo de crédito pendiente', monto: String(Math.round(cr)), tipo: 'debito' });
 
@@ -289,6 +295,7 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
     formObservaciones, setFormObservaciones,
     formAhorroPerm, setFormAhorroPerm,
     formAhorroVol, setFormAhorroVol,
+    formAhorros, setFormAhorros,
     formCreditoPend, setFormCreditoPend,
     formUtilidades, setFormUtilidades,
     generando, conceptosGenerados, datosAsocLoading,

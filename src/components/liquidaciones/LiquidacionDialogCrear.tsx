@@ -54,6 +54,8 @@ interface LiquidacionDialogCrearProps {
   setFormAhorroPerm: (s: string) => void;
   formAhorroVol: string;
   setFormAhorroVol: (s: string) => void;
+  formAhorros: string;
+  setFormAhorros: (s: string) => void;
   formUtilidades: string;
   setFormUtilidades: (s: string) => void;
   formCreditoPend: string;
@@ -83,6 +85,7 @@ export function LiquidacionDialogCrear({
   formArchivoFile, setFormArchivoFile, dragOver, setDragOver,
   handleFileSelect, fileRef, acRef, irAPaso2,
   formAhorroPerm, setFormAhorroPerm, formAhorroVol, setFormAhorroVol,
+  formAhorros, setFormAhorros,
   formUtilidades, setFormUtilidades, formCreditoPend, setFormCreditoPend,
   setConceptosGenerados, generando, irAPaso3,
   formConceptos, addConcepto, updateConcepto, removeConcepto,
@@ -265,59 +268,120 @@ export function LiquidacionDialogCrear({
                 </div>
               )}
 
-              <div className="border border-slate-200 rounded-lg p-4 space-y-4">
-                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Saldos del socio</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Abonos a favor (Créditos +) */}
+                <div className="border border-emerald-100 bg-emerald-50/10 dark:bg-emerald-950/5 rounded-xl p-4 space-y-4">
+                  <p className="text-xs font-black text-emerald-800 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5 border-b border-emerald-100/50 pb-2">
+                    <span className="size-2 rounded-full bg-emerald-500 shrink-0" />
+                    Conceptos a favor (Créditos +)
+                  </p>
 
-                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-emerald-700 font-semibold">Ahorro permanente (COP) <span className="text-emerald-500">crédito (+)</span></Label>
-                    <Input placeholder="0" value={formAhorroPerm} onChange={e => { setFormAhorroPerm(e.target.value.replace(/[^\d.]/g,'')); setConceptosGenerados(false); }} className="border-emerald-200 focus:border-emerald-400" />
+                    <Label className="flex justify-between items-center text-xs text-emerald-700 font-semibold w-full">
+                      <span>Ahorros</span>
+                      <span className="text-[9px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wide">Crédito (+)</span>
+                    </Label>
+                    <Input
+                      placeholder="0"
+                      value={formAhorros}
+                      onChange={e => {
+                        const raw = e.target.value.replace(/\./g, '').replace(/[^\d]/g, '');
+                        const formatted = raw ? parseInt(raw, 10).toLocaleString('es-CO') : '';
+                        setFormAhorros(formatted);
+                        setConceptosGenerados(false);
+                      }}
+                      className="border-emerald-200 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/30 font-semibold text-emerald-800 dark:text-emerald-300"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-500 font-medium px-0.5 pt-0.5 border-t border-slate-100 dark:border-slate-800 mt-1.5">
+                      <span>Ahorro permanente: <strong className="text-slate-700 dark:text-slate-300">${formAhorroPerm || '0'}</strong></span>
+                      <span>Ahorro voluntario: <strong className="text-slate-700 dark:text-slate-300">${formAhorroVol || '0'}</strong></span>
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-emerald-700 font-semibold">Ahorro voluntario (COP) <span className="text-emerald-500">crédito (+)</span></Label>
-                    <Input placeholder="0" value={formAhorroVol} onChange={e => { setFormAhorroVol(e.target.value.replace(/[^\d.]/g,'')); setConceptosGenerados(false); }} className="border-emerald-200 focus:border-emerald-400" />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-600 font-semibold">Utilidades del fondo (COP) <span className="text-slate-400">crédito (+)</span></Label>
+                    <Label className="flex justify-between items-center text-xs text-slate-700 font-semibold w-full">
+                      <span>Utilidades del fondo</span>
+                      <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wide">Crédito (+)</span>
+                    </Label>
                     <Input
                       placeholder={formFechaCorte && new Date(formFechaCorte + 'T00:00:00').getMonth() >= 10 ? 'Se calcula automáticamente' : 'No aplica (solo nov/dic)'}
                       value={formUtilidades}
                       disabled={!!formFechaCorte && new Date(formFechaCorte + 'T00:00:00').getMonth() < 10}
-                      onChange={e => { setFormUtilidades(e.target.value.replace(/[^\d.]/g,'')); setConceptosGenerados(false); }}
-                      className="border-slate-200"
+                      onChange={e => {
+                        const raw = e.target.value.replace(/\./g, '').replace(/[^\d]/g, '');
+                        const formatted = raw ? parseInt(raw, 10).toLocaleString('es-CO') : '';
+                        setFormUtilidades(formatted);
+                        setConceptosGenerados(false);
+                      }}
+                      className="border-slate-200 font-semibold"
                     />
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[10px] text-slate-400 leading-normal pt-0.5">
                       {formFechaCorte && new Date(formFechaCorte + 'T00:00:00').getMonth() < 10
                         ? '⚠ El asociado se retira antes de noviembre — no tiene derecho a utilidades'
-                        : 'Se calculará como (Σ intereses mora + Σ intereses crédito) ÷ N° socios activos'}
+                        : 'Se calculará en base a intereses acumulados del fondo'}
                     </p>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-red-700 font-semibold">Saldo crédito pendiente (COP) <span className="text-red-400">débito (−)</span></Label>
-                    <Input placeholder="0" value={formCreditoPend} onChange={e => { setFormCreditoPend(e.target.value.replace(/[^\d.]/g,'')); setConceptosGenerados(false); }} className="border-red-200 focus:border-red-400" />
+                </div>
+
+                {/* Descuentos (Débitos -) */}
+                <div className="border border-red-100 bg-red-50/10 dark:bg-red-950/5 rounded-xl p-4 space-y-4 flex flex-col justify-between">
+                  <div className="space-y-4">
+                    <p className="text-xs font-black text-red-800 dark:text-red-400 uppercase tracking-wider flex items-center gap-1.5 border-b border-red-100 pb-2">
+                      <span className="size-2 rounded-full bg-red-500 shrink-0" />
+                      Conceptos en contra (Débitos -)
+                    </p>
+
+                    <div className="space-y-1.5">
+                      <Label className="flex justify-between items-center text-xs text-red-700 font-semibold w-full">
+                        <span>Saldo crédito pendiente</span>
+                        <span className="text-[9px] bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wide">Débito (−)</span>
+                      </Label>
+                      <Input
+                        placeholder="0"
+                        value={formCreditoPend}
+                        onChange={e => {
+                          const raw = e.target.value.replace(/\./g, '').replace(/[^\d]/g, '');
+                          const formatted = raw ? parseInt(raw, 10).toLocaleString('es-CO') : '';
+                          setFormCreditoPend(formatted);
+                          setConceptosGenerados(false);
+                        }}
+                        className="border-red-200 focus:border-red-400 focus:ring-1 focus:ring-red-400/30 font-semibold text-red-800 dark:text-red-300"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Nota explicativa de balance de altura */}
+                  <div className="text-[11px] text-slate-400 border-t border-red-100/50 pt-3 mt-4 leading-normal">
+                    <p className="font-semibold text-slate-500">Nota sobre débitos:</p>
+                    <p className="mt-0.5 leading-relaxed">
+                      Cualquier deuda de crédito pendiente se descontará del saldo total a favor del asociado durante el cálculo de la liquidación final.
+                    </p>
                   </div>
                 </div>
               </div>
 
-              {(formAhorroPerm || formAhorroVol || formCreditoPend) && (
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-100">
-                    <p className="text-[10px] text-slate-400 mb-1">Total créditos</p>
-                    <p className="text-sm font-bold text-emerald-700">+{fmtCOP((parseFloat(formAhorroPerm)||0) + (parseFloat(formAhorroVol)||0) + (parseFloat(formUtilidades)||0))}</p>
+              {(formAhorros || formCreditoPend || formUtilidades) && (() => {
+                const parseVal = (s: string) => parseFloat(String(s).replace(/\./g, '').replace(/[^\d.-]/g, '')) || 0;
+                const totCred = parseVal(formAhorros) + parseVal(formUtilidades);
+                const totDeb = parseVal(formCreditoPend);
+                const estimado = totCred - totDeb;
+                return (
+                  <div className="grid grid-cols-3 gap-3 text-center pt-2">
+                    <div className="p-3 bg-emerald-50 dark:bg-emerald-950/25 rounded-xl border border-emerald-100 dark:border-emerald-800">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Total créditos</p>
+                      <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">+{fmtCOP(totCred)}</p>
+                    </div>
+                    <div className="p-3 bg-red-50 dark:bg-red-950/25 rounded-xl border border-red-100 dark:border-red-800">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Total débitos</p>
+                      <p className="text-sm font-bold text-red-600 dark:text-red-400">−{fmtCOP(totDeb)}</p>
+                    </div>
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950/25 rounded-xl border border-blue-100 dark:border-blue-800">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Monto estimado</p>
+                      <p className="text-sm font-black text-blue-700 dark:text-blue-400">{fmtCOP(estimado)}</p>
+                    </div>
                   </div>
-                  <div className="p-2 bg-red-50 rounded-lg border border-red-100">
-                    <p className="text-[10px] text-slate-400 mb-1">Total débitos</p>
-                    <p className="text-sm font-bold text-red-600">−{fmtCOP(parseFloat(formCreditoPend)||0)}</p>
-                  </div>
-                  <div className="p-2 bg-slate-50 rounded-lg border border-slate-200">
-                    <p className="text-[10px] text-slate-400 mb-1">Monto estimado</p>
-                    <p className="text-sm font-bold text-slate-700">{fmtCOP((parseFloat(formAhorroPerm)||0) + (parseFloat(formAhorroVol)||0) + (parseFloat(formUtilidades)||0) - (parseFloat(formCreditoPend)||0))}</p>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               <div className="pt-3 border-t border-slate-100 flex justify-between">
                 <Button variant="outline" className="gap-1" onClick={() => setFormStep(1)}>← Anterior</Button>

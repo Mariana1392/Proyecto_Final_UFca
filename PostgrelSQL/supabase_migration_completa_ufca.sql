@@ -328,11 +328,12 @@ CREATE TABLE IF NOT EXISTS creditos (
   updated_at                TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
--- Un asociado no puede tener más de 1 crédito activo
+-- Un asociado no puede tener más de 1 crédito activo (excluyendo créditos para referidos)
 DO $$ BEGIN
   CREATE UNIQUE INDEX idx_credito_activo_unico
     ON creditos (asociado_id)
-    WHERE estado IN ('pendiente','en_revision','aprobado','desembolsado','activo','en_mora');
+    WHERE estado IN ('pendiente','en_revision','aprobado','desembolsado','activo','en_mora')
+      AND referido_nombre IS NULL;
 EXCEPTION WHEN duplicate_table THEN NULL;
 END $$;
 

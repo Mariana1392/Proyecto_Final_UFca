@@ -101,7 +101,6 @@ export default function AhorroDialogCrear({
               placeholder="100.000,0"
               value={formCuotaMensual}
               onChange={handleCuotaMensualChange}
-              onBlur={handleCuotaMensualBlur}
             />
           </div>
 
@@ -117,7 +116,6 @@ export default function AhorroDialogCrear({
                 placeholder="0,0"
                 value={formSaldoInicial}
                 onChange={handleSaldoInicialChange}
-                onBlur={handleSaldoInicialBlur}
                 className={saldoInicialError
                   ? 'border-red-500 focus-visible:ring-red-400 bg-red-50 text-red-700 placeholder:text-red-300'
                   : ''}
