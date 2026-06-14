@@ -567,7 +567,7 @@ export default function ComiteEvaluador() {
       const fechaRes = new Date().toISOString();
       setSolicitudes(prev => prev.map(s =>
         s.id === selectedSolicitud.id
-          ? { ...s, estado: 'pendiente_activacion', fechaResolucion: fechaRes, observaciones: 'Aprobada — pendiente de pago de activación' }
+          ? { ...s, estado: 'pendiente_activacion', usuario_id: aspiranteId, fechaResolucion: fechaRes, observaciones: 'Aprobada — pendiente de pago de activación' }
           : s
       ));
 
@@ -814,14 +814,12 @@ export default function ComiteEvaluador() {
         } catch { /* no bloquea */ }
       }
 
-      // 3. Buscar cuenta de ahorro permanente (puede existir del RPC aprobar_afiliacion)
-      // Buscar cuenta de ahorro permanente (ahora usa RLS estándar)
+      // 3. Buscar cuenta de ahorro permanente (puede existir del RPC aprobar_afiliacion o reactivación)
       const { data: cuentaExistente } = await supabase
         .from('cuentas_ahorro')
         .select('id, monto_ahorrado')
         .eq('asociado_id', pagoSolicitud.usuario_id)
         .eq('tipo', 'permanente')
-        .eq('anulado', false)
         .maybeSingle();
 
       let cuentaId: string;
@@ -830,6 +828,8 @@ export default function ComiteEvaluador() {
       if (cuentaExistente) {
         const { error: updateErr } = await supabase.from('cuentas_ahorro').update({
           estado: 'activo',
+          anulado: false,
+          motivo_anulacion: null,
           monto_ahorrado: saldoAntes + montoNum,
           cuota_mensual: montoNum,
           updated_at: new Date().toISOString(),
@@ -846,6 +846,7 @@ export default function ComiteEvaluador() {
             monto_ahorrado: montoNum,
             cuota_mensual: montoNum,
             estado: 'activo',
+            anulado: false,
           })
           .select('id').single();
         if (cuentaErr) throw cuentaErr;
