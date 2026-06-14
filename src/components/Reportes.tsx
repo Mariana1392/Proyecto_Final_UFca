@@ -460,7 +460,8 @@ export default function Reportes() {
       if (error) throw error;
 
       if (!creditosList || creditosList.length === 0) {
-        return toast.info('No hay créditos registrados para exportar');
+        toast.info('No hay créditos registrados para exportar');
+        return false;
       }
 
       const asocIds = [...new Set(creditosList.map((c: any) => c.asociado_id).filter(Boolean))];
@@ -489,9 +490,11 @@ export default function Reportes() {
       });
 
       descargarArchivoCsv(headers, rows, `Cartera_Creditos_${new Date().toISOString().split('T')[0]}.csv`);
+      return true;
     } catch (err) {
       console.error('Error exportando cartera:', err);
       toast.error('Hubo un error exportando la cartera a CSV');
+      return false;
     } finally {
       setExportingCsv(false);
     }
@@ -516,7 +519,7 @@ export default function Reportes() {
 
       if (!pagos || pagos.length === 0) {
         toast.info('No hay transacciones registradas para exportar');
-        return;
+        return false;
       }
 
       const asocIds = [...new Set(pagos.map((p: any) => p.asociado_id).filter(Boolean))];
@@ -548,9 +551,11 @@ export default function Reportes() {
         : `Historial_Pagos_Global_${new Date().toISOString().split('T')[0]}.csv`;
         
       descargarArchivoCsv(headers, rows, nombreArchivo);
+      return true;
     } catch (err) {
       console.error('Error exportando pagos:', err);
       toast.error('Hubo un error exportando los pagos a CSV');
+      return false;
     } finally {
       setExportingCsv(false);
     }
@@ -569,7 +574,7 @@ export default function Reportes() {
 
       if (!ahorrosList || ahorrosList.length === 0) {
         toast.info('No hay cuentas de ahorro registradas para exportar');
-        return;
+        return false;
       }
 
       const asocIds = [...new Set(ahorrosList.map((a: any) => a.asociado_id).filter(Boolean))];
@@ -596,9 +601,11 @@ export default function Reportes() {
       });
 
       descargarArchivoCsv(headers, rows, `Cuentas_Ahorro_Global_${new Date().toISOString().split('T')[0]}.csv`);
+      return true;
     } catch (err) {
       console.error('Error exportando ahorros:', err);
       toast.error('Hubo un error exportando las cuentas de ahorro a CSV');
+      return false;
     } finally {
       setExportingCsv(false);
     }
@@ -618,7 +625,7 @@ export default function Reportes() {
 
       if (!liquidacionesList || liquidacionesList.length === 0) {
         toast.info('No hay liquidaciones registradas para exportar');
-        return;
+        return false;
       }
 
       const asocIds = [...new Set(liquidacionesList.map((l: any) => l.asociado_id).filter(Boolean))];
@@ -645,9 +652,11 @@ export default function Reportes() {
       });
 
       descargarArchivoCsv(headers, rows, `Liquidaciones_Asociados_${new Date().toISOString().split('T')[0]}.csv`);
+      return true;
     } catch (err) {
       console.error('Error exportando liquidaciones:', err);
       toast.error('Hubo un error exportando las liquidaciones a CSV');
+      return false;
     } finally {
       setExportingCsv(false);
     }
@@ -656,17 +665,30 @@ export default function Reportes() {
   const exportarTodoSistema = async () => {
     toast.info('Iniciando descarga consolidada de datos...');
     try {
-      await exportarCarteraCsv();
-      await new Promise(r => setTimeout(r, 600));
-      await exportarAhorrosCsv();
-      await new Promise(r => setTimeout(r, 600));
-      await exportarLiquidacionesCsv();
+      let descargados = 0;
+      
+      const c1 = await exportarCarteraCsv();
+      if (c1) descargados++;
       await new Promise(r => setTimeout(r, 600));
       
-      // Run the payments export, forcing it to be global
-      await exportarPagosCsv(true);
+      const c2 = await exportarAhorrosCsv();
+      if (c2) descargados++;
+      await new Promise(r => setTimeout(r, 600));
       
-      toast.success('Se descargaron los 4 reportes del sistema correctamente.');
+      const c3 = await exportarLiquidacionesCsv();
+      if (c3) descargados++;
+      await new Promise(r => setTimeout(r, 600));
+      
+      const c4 = await exportarPagosCsv(true);
+      if (c4) descargados++;
+      
+      if (descargados === 4) {
+        toast.success('Se descargaron los 4 reportes del sistema correctamente.');
+      } else if (descargados > 0) {
+        toast.success(`Se descargaron ${descargados} reportes. Los módulos vacíos no se descargaron.`);
+      } else {
+        toast.info('No se descargó ningún reporte porque no hay datos registrados en el sistema.');
+      }
     } catch (err) {
       console.error('Error al exportar todo:', err);
       toast.error('Hubo un problema al intentar descargar todo el conjunto de datos');
