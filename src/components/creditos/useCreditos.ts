@@ -115,6 +115,7 @@ export function useCreditos(userData?: any) {
         fechaEstadoCambio:  c.fecha_estado_cambio ?? '',
         motivoEstadoCambio: c.motivo_estado_cambio ?? '',
         tipoInteres:        c.tipo_interes ?? 'compuesto',
+        referidoNombre:     c.referido_nombre ?? '',
         createdAt:          c.created_at,
       }));
 
@@ -322,6 +323,9 @@ export function useCreditos(userData?: any) {
     tasasParametrizadas: solicitudes.tasasParametrizadas,
     solDocCartaLaboral: solicitudes.solDocCartaLaboral, setSolDocCartaLaboral: solicitudes.setSolDocCartaLaboral,
     solDocCedula: solicitudes.solDocCedula, setSolDocCedula: solicitudes.setSolDocCedula,
+    solEsParaReferido: solicitudes.solEsParaReferido, setSolEsParaReferido: solicitudes.setSolEsParaReferido,
+    solReferidoNombre: solicitudes.solReferidoNombre, setSolReferidoNombre: solicitudes.setSolReferidoNombre,
+    asocIngresoMensual: solicitudes.asocIngresoMensual,
     handleSolTipoChange: solicitudes.handleSolTipoChange,
     handleSolicitarCredito: solicitudes.handleSolicitarCredito,
     handlePonerEnRevision: solicitudes.handlePonerEnRevision,
