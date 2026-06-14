@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription';
 import { ahorroVoluntarioApi, asociadosApi } from '../../lib/api';
-import { formatCurrency } from '../../lib/formatters';
+import { formatCurrency, formatCurrencyRealTime } from '../../lib/formatters';
 import { buildAhorroVoluntarioPDF } from '../utils/pdfGenerator';
 import type { UserRole } from '../../contexts/AuthContext';
 
@@ -22,6 +22,7 @@ export const formatCurrencyInput = (value: string): string => {
 
 export const parseCurrencyInput = (v: string): number =>
   parseFloat(v.replace(/\./g, '').replace(',', '.')) || 0;
+
 
 export const getMesFiscal = () => {
   const hoy        = new Date();
@@ -332,11 +333,10 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
 
   // ── Handlers de formulario ────────────────────────────────────────────────
   const handleSaldoInicialChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setFormSaldoInicial(e.target.value.replace(/[^\d.,]/g, ''));
+    setFormSaldoInicial(formatCurrencyRealTime(e.target.value));
 
   const handleSaldoInicialBlur = () => {
-    if (formSaldoInicial)
-      setFormSaldoInicial(formatCurrencyInput(parseCurrencyInput(formSaldoInicial).toString()));
+    // Formateado en tiempo real
   };
 
   const limpiarFiltros = () => {
@@ -413,12 +413,12 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
     setSelectedItem(ahorro);
     setFormAsociadoId(ahorro.asociado_id);
     setAutocompleteSearch(`${ahorro.asociado}  ·  ${ahorro.cedula}`);
-    setFormSaldoInicial(ahorro.montoAhorrado.toString().replace(/\./g, ','));
+    setFormSaldoInicial(formatCurrencyRealTime(ahorro.montoAhorrado.toString().replace(/\./g, ',')));
     setFormFechaInicio(ahorro.fechaInicio);
     const meta = parsarMetadatosObservaciones(ahorro.observaciones ?? '');
     setFormFrecuencia(meta.frecuencia);
     if (meta.objetivo) {
-      setFormMontoObjetivo(formatCurrencyInput(meta.objetivo));
+      setFormMontoObjetivo(formatCurrencyRealTime(meta.objetivo));
     } else {
       setFormMontoObjetivo('');
     }
@@ -773,9 +773,9 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
             monto:         saldo,
             saldo_antes:   0,
             saldo_despues: saldo,
-            observacion:   'Saldo inicial al abrir el plan',
+            observacion:   'Aporte inicial al abrir el plan',
           });
-          if (movErr) toast.error('Ahorro creado, pero error al registrar saldo inicial: ' + movErr.message);
+          if (movErr) toast.error('Ahorro creado, pero error al registrar aporte inicial: ' + movErr.message);
         }
 
         const nowIso = new Date().toISOString();
@@ -787,7 +787,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
           anulado: false, motivoAnulacion: '', observaciones: nuevasObservaciones, createdAt: nowIso,
         }, ...prev]);
         toast.success('✅ Ahorro voluntario registrado', {
-          description: saldo > 0 ? `Saldo inicial: ${formatCurrency(saldo)}` : 'Ahorro creado sin saldo inicial',
+          description: saldo > 0 ? `Aporte inicial: ${formatCurrency(saldo)}` : 'Ahorro creado sin aporte inicial',
         });
       }
     } catch (err: any) {

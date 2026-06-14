@@ -272,27 +272,29 @@ export function useCreditosCRUD({
         return;
       }
 
-      // ── Validar que no tenga ya un crédito activo ──
-      const { data: creditosActivos, error: errCreditos } = await supabase
-        .from('creditos')
-        .select('id')
-        .eq('asociado_id', formAsociadoId)
-        .eq('anulado', false)
-        .in('estado', ['pendiente', 'aprobado', 'desembolsado', 'en_mora', 'en_revision'])
-        .limit(1);
+      // ── Validar que no tenga ya un crédito activo (solo si no es para un referido) ──
+      if (!formEsParaReferido) {
+        const { data: creditosActivos, error: errCreditos } = await supabase
+          .from('creditos')
+          .select('id')
+          .eq('asociado_id', formAsociadoId)
+          .eq('anulado', false)
+          .in('estado', ['pendiente', 'aprobado', 'desembolsado', 'en_mora', 'en_revision'])
+          .limit(1);
 
-      if (errCreditos) {
-        toast.error('Error validando el historial crediticio', { description: errCreditos.message });
-        setSaving(false);
-        return;
-      }
-      
-      if (creditosActivos && creditosActivos.length > 0) {
-        toast.error('Operación no permitida', {
-          description: 'El asociado ya cuenta con un crédito activo o en trámite. Debe cancelar el crédito actual antes de solicitar uno nuevo.',
-        });
-        setSaving(false);
-        return;
+        if (errCreditos) {
+          toast.error('Error validando el historial crediticio', { description: errCreditos.message });
+          setSaving(false);
+          return;
+        }
+        
+        if (creditosActivos && creditosActivos.length > 0) {
+          toast.error('Operación no permitida', {
+            description: 'El asociado ya cuenta con un crédito activo o en trámite. Debe cancelar el crédito actual antes de solicitar uno nuevo.',
+          });
+          setSaving(false);
+          return;
+        }
       }
     }
 

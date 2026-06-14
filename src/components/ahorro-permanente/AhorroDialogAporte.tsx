@@ -10,16 +10,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from '../ui/dialog';
 import { AlertTriangle, Paperclip, XCircle, Clock } from 'lucide-react';
-import { formatCurrency, parseCurrencyInput } from '../../lib/formatters';
-
-const fmtMonto = (v: string) => {
-  const digits = v.replace(/\D/g, '');
-  if (!digits) return '';
-  const num = parseInt(digits, 10);
-  return isNaN(num)
-    ? ''
-    : new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-};
+import { formatCurrency, parseCurrencyInput, formatCurrencyRealTime } from '../../lib/formatters';
 
 const hoyLocal = () => {
   const d = new Date();
@@ -178,7 +169,7 @@ export default function AhorroDialogAporte({
                 inputMode="numeric"
                 placeholder="100.000"
                 value={formAporteMonto}
-                onChange={e => setFormAporteMonto(fmtMonto(e.target.value))}
+                onChange={e => setFormAporteMonto(formatCurrencyRealTime(e.target.value))}
                 className={`pl-8 ${montoError ? 'border-amber-400 focus-visible:ring-amber-400/20' : ''}`}
               />
             </div>

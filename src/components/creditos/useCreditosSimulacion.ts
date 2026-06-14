@@ -65,6 +65,7 @@ export function useCreditosSimulacion({
     if (!formAsociadoId) { toast.error('Selecciona un asociado'); return; }
     if (!monto || monto <= 0) { toast.error('Ingresa un monto válido'); return; }
     if (plazo <= 0)  { toast.error('El plazo debe ser mayor a 0'); return; }
+    if (plazo > 12)  { toast.error('El plazo máximo permitido es de 12 meses'); return; }
     const tabla = formTipoInteres === 'simple'
       ? generarTablaAmortizacionSimple(monto, tasa, plazo, formFecha || new Date().toISOString().split('T')[0])
       : generarTablaAmortizacion(monto, tasa, plazo, formFecha || new Date().toISOString().split('T')[0]);

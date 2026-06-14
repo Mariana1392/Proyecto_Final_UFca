@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '../ui/dialog';
-import { formatCurrencyInput, parseCurrencyInput } from './useAhorroVoluntario';
+import { formatCurrencyInput, parseCurrencyInput, formatCurrencyRealTime } from '../../lib/formatters';
 
 interface AhorroVoluntarioDialogCrearProps {
   isCreateDialogOpen:    boolean;
@@ -123,17 +123,16 @@ export default function AhorroVoluntarioDialogCrear({
             )}
           </div>
 
-          {/* ── Saldo inicial + Fecha ── */}
+          {/* ── Aporte inicial + Fecha ── */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="saldo">Saldo inicial</Label>
+              <Label htmlFor="saldo">Aporte inicial</Label>
               <Input
                 id="saldo"
                 type="text"
                 placeholder="0,0"
                 value={formSaldoInicial}
                 onChange={handleSaldoInicialChange}
-                onBlur={handleSaldoInicialBlur}
               />
             </div>
             <div className="space-y-2">
@@ -174,19 +173,14 @@ export default function AhorroVoluntarioDialogCrear({
             <div className="space-y-2">
               <Label htmlFor="objetivo">
                 Monto objetivo
-                <span className="ml-1 text-xs text-slate-400">(opcional)</span>
+                <span className="ml-1 text-xs text-slate-450">(opcional)</span>
               </Label>
               <Input
                 id="objetivo"
                 type="text"
                 placeholder="Ej: 500.000,0"
                 value={formMontoObjetivo}
-                onChange={(e) => setFormMontoObjetivo(e.target.value.replace(/[^\d.,]/g, ''))}
-                onBlur={() => {
-                  if (formMontoObjetivo) {
-                    setFormMontoObjetivo(formatCurrencyInput(parseCurrencyInput(formMontoObjetivo).toString()));
-                  }
-                }}
+                onChange={(e) => setFormMontoObjetivo(formatCurrencyRealTime(e.target.value))}
               />
             </div>
           </div>

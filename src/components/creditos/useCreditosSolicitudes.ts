@@ -177,13 +177,15 @@ export function useCreditosSolicitudes({
       return;
     }
 
-    // 3. Validar que no tenga ya un crédito activo (misma regla que el administrador)
-    const tieneActivo = (historialCreditos || []).some(c => 
-      !c.anulado && ['pendiente', 'aprobado', 'desembolsado', 'en_mora', 'en_revision'].includes(c.estado)
-    );
-    if (tieneActivo) {
-      toast.error('Operación no permitida', { description: 'Ya cuentas con un crédito activo o en trámite. Debes cancelar el crédito actual antes de solicitar uno nuevo.' });
-      return;
+    // 3. Validar que no tenga ya un crédito activo (misma regla que el administrador) - Solo si no es para un referido
+    if (!solEsParaReferido) {
+      const tieneActivo = (historialCreditos || []).some(c => 
+        !c.anulado && ['pendiente', 'aprobado', 'desembolsado', 'en_mora', 'en_revision'].includes(c.estado)
+      );
+      if (tieneActivo) {
+        toast.error('Operación no permitida', { description: 'Ya cuentas con un crédito activo o en trámite. Debes cancelar el crédito actual antes de solicitar uno nuevo.' });
+        return;
+      }
     }
 
     setSavingSolicitud(true);

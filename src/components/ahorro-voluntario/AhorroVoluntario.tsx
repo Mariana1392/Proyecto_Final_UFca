@@ -48,7 +48,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
   const hasAnyActive = h.ahorros.filter((a: any) => !a.anulado).length > 0;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-200 dark:bg-slate-900 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* ── Encabezado ── */}

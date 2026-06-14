@@ -91,7 +91,7 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
     const montoNum = parseFloat(formMonto.replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
     if (montoNum <= 0) return false;
     const plazoNum = parseInt(formPlazo) || 0;
-    if (plazoNum <= 0) return false;
+    if (plazoNum <= 0 || plazoNum > 12) return false;
     const tasaNum = parseFloat(formTasa);
     if (isNaN(tasaNum) || tasaNum < 0 || tasaNum > 100) return false;
     if (!formFecha) return false;
@@ -430,7 +430,15 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
                   </Label>
                   <Input id="plazo" type="number" min="1" max="12" placeholder="12"
                     value={formPlazo}
-                    onChange={(e) => { setFormPlazo(e.target.value); if (fieldErrors.plazo) validarCampo('plazo', e.target.value); }}
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      const num = parseInt(val, 10) || 0;
+                      if (num > 12) {
+                        val = '12';
+                      }
+                      setFormPlazo(val);
+                      validarCampo('plazo', val);
+                    }}
                     onBlur={e => validarCampo('plazo', e.target.value)}
                     disabled={bloqueado}
                     className={fieldErrors.plazo ? 'border-red-400' : ''}
