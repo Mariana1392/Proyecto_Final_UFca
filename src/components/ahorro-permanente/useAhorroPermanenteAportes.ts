@@ -6,12 +6,11 @@ import { useState, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
-import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { formatCurrency, formatCurrencyInput, parseCurrencyInput, formatCurrencyRealTime } from '../../lib/formatters';
 import { resolverPeriodoId } from './ahorroPermanenteUtils';
 
-// Cliente con fallback: usa service role si está disponible, sino cliente normal
-const db = supabaseAdmin ?? supabase;
+// Cliente estandar de Supabase (sin bypass de RLS)
+const db = supabase;
 
 const hoyLocal = () => {
   const d = new Date();

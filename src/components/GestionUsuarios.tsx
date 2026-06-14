@@ -14,7 +14,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
-import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { useAuth } from '../contexts/AuthContext';
 import type { UserRole } from '../contexts/AuthContext';
 import { rolLabel } from '../lib/permissions';
@@ -742,17 +741,19 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         // Eliminar de Supabase Auth via función SQL con SECURITY DEFINER
         await supabase.rpc('eliminar_usuario_auth', { user_id: selectedUsuario.id });
 
-        // Eliminar la cuenta de auth.users mediante el cliente admin para garantizar
+        // Eliminar la cuenta de auth.users mediante la Edge Function para garantizar
         // que el usuario no pueda volver a autenticarse aunque el cascade falle.
         try {
-          const { error: adminErr } = await supabaseAdmin.auth.admin.deleteUser(selectedUsuario.id);
+          const { error: adminErr } = await supabase.functions.invoke('admin-helper', {
+            body: { action: 'deleteUser', userId: selectedUsuario.id }
+          });
           if (adminErr) {
             // Si el usuario ya no existe en auth (p. ej. ya fue eliminado por el RPC),
             // se registra como advertencia pero no se interrumpe la operación.
-            console.warn('supabaseAdmin.auth.admin.deleteUser:', adminErr.message);
+            console.warn('admin-helper deleteUser:', adminErr.message);
           }
         } catch (adminEx: any) {
-          console.warn('supabaseAdmin.auth.admin.deleteUser (excepción):', adminEx?.message ?? adminEx);
+          console.warn('admin-helper deleteUser (excepción):', adminEx?.message ?? adminEx);
         }
       }
 

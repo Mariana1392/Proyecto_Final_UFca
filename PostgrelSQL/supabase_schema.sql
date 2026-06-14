@@ -1,43 +1,31 @@
 -- ============================================================
 -- UFCA - Sistema de Gestión
--- Script completo para Supabase / PostgreSQL
--- EJECUTAR EN: Supabase → SQL Editor → Run
--- (Para bases de datos ya existentes usar supabase_migration_fusion.sql)
+-- Script completo de base de datos (Esquema Unificado de Usuarios)
+-- Sincronizado con la base de datos real del servidor.
 -- ============================================================
 
 -- ──────────────────────────────────────────────────────────
--- LIMPIEZA COMPLETA (elimina todo lo anterior si existe)
+-- LIMPIEZA COMPLETA (Elimina todo lo anterior si existe)
 -- ──────────────────────────────────────────────────────────
-DROP TABLE IF EXISTS eventos_inscritos        CASCADE;
-DROP TABLE IF EXISTS pedidos_detalle          CASCADE;
-DROP TABLE IF EXISTS ventas_detalle           CASCADE;
-DROP TABLE IF EXISTS compras_detalle          CASCADE;
-DROP TABLE IF EXISTS pagos_premios            CASCADE;
-DROP TABLE IF EXISTS liquidaciones            CASCADE;
-DROP TABLE IF EXISTS excepciones              CASCADE;
-DROP TABLE IF EXISTS pagos_credito            CASCADE;
-DROP TABLE IF EXISTS creditos                 CASCADE;
-DROP TABLE IF EXISTS movimientos_ahorro       CASCADE;
-DROP TABLE IF EXISTS ahorros                  CASCADE;
-DROP TABLE IF EXISTS pedidos                  CASCADE;
-DROP TABLE IF EXISTS ventas                   CASCADE;
-DROP TABLE IF EXISTS compras                  CASCADE;
-DROP TABLE IF EXISTS productos                CASCADE;
-DROP TABLE IF EXISTS proveedores              CASCADE;
-DROP TABLE IF EXISTS categorias               CASCADE;
-DROP TABLE IF EXISTS eventos                  CASCADE;
-DROP TABLE IF EXISTS usuarios                 CASCADE;
-DROP TABLE IF EXISTS asociados                CASCADE;
-DROP TABLE IF EXISTS roles                    CASCADE;
-
-DROP FUNCTION IF EXISTS set_updated_at()              CASCADE;
-DROP FUNCTION IF EXISTS get_user_role()               CASCADE;
-DROP FUNCTION IF EXISTS get_asociado_id()             CASCADE;
-DROP FUNCTION IF EXISTS actualizar_stock_compra()     CASCADE;
-DROP FUNCTION IF EXISTS reducir_stock_venta()         CASCADE;
-DROP FUNCTION IF EXISTS actualizar_saldo_ahorro()     CASCADE;
-DROP FUNCTION IF EXISTS actualizar_saldo_credito()    CASCADE;
-
+DROP TABLE IF EXISTS public.transacciones              CASCADE;
+DROP TABLE IF EXISTS public.cuentas_ahorro             CASCADE;
+DROP TABLE IF EXISTS public.credito_historial_estados  CASCADE;
+DROP TABLE IF EXISTS public.referidos                  CASCADE;
+DROP TABLE IF EXISTS public.auditoria                  CASCADE;
+DROP TABLE IF EXISTS public.notificaciones             CASCADE;
+DROP TABLE IF EXISTS public.excepciones                CASCADE;
+DROP TABLE IF EXISTS public.distribuciones_utilidades  CASCADE;
+DROP TABLE IF EXISTS public.liquidaciones              CASCADE;
+DROP TABLE IF EXISTS public.cuotas_credito             CASCADE;
+DROP TABLE IF EXISTS public.creditos                   CASCADE;
+DROP TABLE IF EXISTS public.comite_evaluador           CASCADE;
+DROP TABLE IF EXISTS public.solicitudes_asociados      CASCADE;
+DROP TABLE IF EXISTS public.periodos                   CASCADE;
+DROP TABLE IF EXISTS public.configuracion              CASCADE;
+DROP TABLE IF EXISTS public.rol_permisos               CASCADE;
+DROP TABLE IF EXISTS public.permisos                   CASCADE;
+DROP TABLE IF EXISTS public.usuarios                   CASCADE;
+DROP TABLE IF EXISTS public.roles                      CASCADE;
 
 -- ──────────────────────────────────────────────────────────
 -- EXTENSIONES
@@ -45,801 +33,792 @@ DROP FUNCTION IF EXISTS actualizar_saldo_credito()    CASCADE;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-
 -- ──────────────────────────────────────────────────────────
--- FUNCIÓN PARA updated_at AUTOMÁTICO
+-- FUNCIÓN GLOBAL PARA updated_at AUTOMÁTICO
 -- ──────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION public.fn_set_updated_at()
+RETURNS TRIGGER 
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
-
+$$;
 
 -- ============================================================
 -- TABLAS
--- Orden: roles → asociados → usuarios → resto
 -- ============================================================
 
 -- ── ROLES ──────────────────────────────────────────────────
-CREATE TABLE roles (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  nombre      VARCHAR(100) UNIQUE NOT NULL,
+CREATE TABLE public.roles (
+  id          UUID NOT NULL DEFAULT gen_random_uuid(),
+  nombre      CHARACTER VARYING NOT NULL UNIQUE,
   descripcion TEXT,
-  permisos    JSONB DEFAULT '[]',
-  activo      BOOLEAN DEFAULT TRUE,
-  es_sistema  BOOLEAN DEFAULT FALSE,
-  created_at  TIMESTAMPTZ DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ DEFAULT NOW()
+  activo      BOOLEAN DEFAULT true,
+  es_sistema  BOOLEAN DEFAULT false,
+  created_at  TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at  TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  label       TEXT,
+  CONSTRAINT roles_pkey PRIMARY KEY (id)
 );
 
-CREATE OR REPLACE TRIGGER trg_roles_updated_at
-  BEFORE UPDATE ON roles
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE OR REPLACE TRIGGER trg_updated_at_roles
+  BEFORE UPDATE ON public.roles
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
 
-
--- ── ASOCIADOS ──────────────────────────────────────────────
-CREATE TABLE asociados (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  referido_por_id UUID REFERENCES asociados(id) ON DELETE SET NULL,
-  nombre          VARCHAR(255) NOT NULL,
-  cedula          VARCHAR(20) UNIQUE NOT NULL,
-  telefono        VARCHAR(20),
-  email           VARCHAR(255),
-  direccion       TEXT,
-  fecha_ingreso   DATE NOT NULL DEFAULT CURRENT_DATE,
-  estado          VARCHAR(20) DEFAULT 'activo'
-                  CHECK (estado IN ('activo','inactivo','suspendido')),
-  created_at      TIMESTAMPTZ DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ DEFAULT NOW()
+-- ── USUARIOS (Consolida usuarios y asociados) ───────────────
+CREATE TABLE public.usuarios (
+  id                UUID NOT NULL,
+  rol_id            UUID,
+  nombre            CHARACTER VARYING NOT NULL,
+  email             CHARACTER VARYING NOT NULL UNIQUE,
+  activo            BOOLEAN DEFAULT true,
+  created_at        TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at        TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  username          TEXT,
+  ultimo_acceso     TIMESTAMP WITH TIME ZONE,
+  telefono          CHARACTER VARYING DEFAULT ''::character varying,
+  direccion         CHARACTER VARYING DEFAULT ''::character varying,
+  cedula            TEXT,
+  fecha_ingreso     DATE,
+  referido_por_id   UUID,
+  estado_cuenta     TEXT NOT NULL DEFAULT 'activo'::text 
+                    CHECK (estado_cuenta = ANY (ARRAY['activo'::text, 'inactivo'::text, 'suspendido'::text])),
+  fecha_suspension  DATE,
+  motivo_suspension TEXT,
+  CONSTRAINT usuarios_pkey PRIMARY KEY (id),
+  CONSTRAINT usuarios_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_usuarios_rol FOREIGN KEY (rol_id) REFERENCES public.roles(id) ON DELETE SET NULL,
+  CONSTRAINT usuarios_referido_por_id_fkey FOREIGN KEY (referido_por_id) REFERENCES public.usuarios(id) ON DELETE SET NULL
 );
 
-CREATE OR REPLACE TRIGGER trg_asociados_updated_at
-  BEFORE UPDATE ON asociados
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE OR REPLACE TRIGGER trg_updated_at_usuarios
+  BEFORE UPDATE ON public.usuarios
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
 
-CREATE INDEX idx_asociados_cedula   ON asociados(cedula);
-CREATE INDEX idx_asociados_estado   ON asociados(estado);
-CREATE INDEX idx_asociados_referido ON asociados(referido_por_id);
+CREATE INDEX idx_usuarios_rol_id ON public.usuarios(rol_id);
+CREATE INDEX idx_usuarios_cedula ON public.usuarios(cedula);
 
-
--- ── USUARIOS ───────────────────────────────────────────────
-CREATE TABLE usuarios (
-  id           UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  asociado_id  UUID REFERENCES asociados(id) ON DELETE SET NULL,
-  rol_id       UUID REFERENCES roles(id),
-  nombre       VARCHAR(255) NOT NULL,
-  email        VARCHAR(255) UNIQUE NOT NULL,
-  activo       BOOLEAN DEFAULT TRUE,
-  created_at   TIMESTAMPTZ DEFAULT NOW(),
-  updated_at   TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE OR REPLACE TRIGGER trg_usuarios_updated_at
-  BEFORE UPDATE ON usuarios
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE INDEX idx_usuarios_rol_id      ON usuarios(rol_id);
-CREATE INDEX idx_usuarios_asociado_id ON usuarios(asociado_id);
-CREATE INDEX idx_usuarios_email       ON usuarios(email);
-
-
--- ── AHORROS (unificado: permanente + voluntario) ───────────
--- Discriminador: tipo = 'permanente' | 'voluntario'
-CREATE TABLE ahorros (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  asociado_id      UUID NOT NULL REFERENCES asociados(id) ON DELETE CASCADE,
-  tipo             VARCHAR(20) NOT NULL CHECK (tipo IN ('permanente', 'voluntario')),
-  cuota_mensual    DECIMAL(12,2) NOT NULL DEFAULT 0,
-  monto_ahorrado   DECIMAL(12,2) NOT NULL DEFAULT 0,
-  fecha_inicio     DATE NOT NULL DEFAULT CURRENT_DATE,
-  estado           BOOLEAN DEFAULT TRUE,
-  anulado          BOOLEAN DEFAULT FALSE,
-  motivo_anulacion TEXT,
-  -- Campos extra del ahorro voluntario (NULL para permanente)
-  frecuencia       VARCHAR(20),
-  monto_objetivo   DECIMAL(12,2),
-  created_at       TIMESTAMPTZ DEFAULT NOW(),
-  updated_at       TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE OR REPLACE TRIGGER trg_ahorros_updated_at
-  BEFORE UPDATE ON ahorros
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE INDEX idx_ahorros_asociado ON ahorros(asociado_id);
-CREATE INDEX idx_ahorros_tipo     ON ahorros(tipo);
-CREATE INDEX idx_ahorros_estado   ON ahorros(estado);
-
-
--- ── MOVIMIENTOS AHORRO (unificado) ─────────────────────────
--- Discriminador: tipo_ahorro = 'permanente' | 'voluntario'
-CREATE TABLE movimientos_ahorro (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  ahorro_id        UUID NOT NULL REFERENCES ahorros(id) ON DELETE CASCADE,
-  asociado_id      UUID NOT NULL REFERENCES asociados(id) ON DELETE CASCADE,
-  tipo_ahorro      VARCHAR(20) NOT NULL CHECK (tipo_ahorro IN ('permanente', 'voluntario')),
-  tipo_movimiento  VARCHAR(20) NOT NULL
-                   CHECK (tipo_movimiento IN ('Aporte','Depósito','Retiro','Interés','Ajuste')),
-  monto            DECIMAL(12,2) NOT NULL,
-  saldo_anterior   DECIMAL(12,2) NOT NULL,
-  saldo_nuevo      DECIMAL(12,2) NOT NULL,
-  fecha_movimiento DATE NOT NULL DEFAULT CURRENT_DATE,
-  descripcion      TEXT,
-  metodo_pago      VARCHAR(50),
-  registrado_por   UUID REFERENCES usuarios(id),
-  anulado          BOOLEAN DEFAULT FALSE,
-  created_at       TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_mov_ahorro_ahorro_id    ON movimientos_ahorro(ahorro_id);
-CREATE INDEX idx_mov_ahorro_asociado     ON movimientos_ahorro(asociado_id);
-CREATE INDEX idx_mov_ahorro_tipo_ahorro  ON movimientos_ahorro(tipo_ahorro);
-CREATE INDEX idx_mov_ahorro_fecha        ON movimientos_ahorro(fecha_movimiento);
-
-
--- ── CRÉDITOS ───────────────────────────────────────────────
-CREATE TABLE creditos (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  asociado_id      UUID NOT NULL REFERENCES asociados(id) ON DELETE RESTRICT,
-  monto            DECIMAL(12,2) NOT NULL,
-  plazo_meses      INT NOT NULL,
-  tasa_interes     DECIMAL(5,2) NOT NULL,
-  cuota_mensual    DECIMAL(12,2),
-  saldo            DECIMAL(12,2),
-  fecha_solicitud  DATE NOT NULL DEFAULT CURRENT_DATE,
-  fecha_aprobacion DATE,
-  fecha_desembolso DATE,
-  estado           VARCHAR(30) DEFAULT 'pendiente'
-                   CHECK (estado IN ('pendiente','aprobado','rechazado','desembolsado','activo','pagado','en_mora','vencido')),
-  tipo_credito     VARCHAR(50),
-  destino          TEXT,
-  garantia         TEXT,
-  observaciones    TEXT,
-  aprobado_por     UUID REFERENCES usuarios(id),
-  anulado          BOOLEAN DEFAULT FALSE,
-  motivo_anulacion TEXT,
-  created_at       TIMESTAMPTZ DEFAULT NOW(),
-  updated_at       TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE OR REPLACE TRIGGER trg_creditos_updated_at
-  BEFORE UPDATE ON creditos
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE INDEX idx_creditos_asociado ON creditos(asociado_id);
-CREATE INDEX idx_creditos_estado   ON creditos(estado);
-CREATE INDEX idx_creditos_anulado  ON creditos(anulado);
-
-
--- ── PAGOS DE CRÉDITO ──────────────────────────────────────
-CREATE TABLE pagos_credito (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  credito_id       UUID NOT NULL REFERENCES creditos(id) ON DELETE RESTRICT,
-  asociado_id      UUID NOT NULL REFERENCES asociados(id),
-  monto            DECIMAL(12,2) NOT NULL,
-  aplicado_capital DECIMAL(12,2) NOT NULL DEFAULT 0,
-  aplicado_interes DECIMAL(12,2) NOT NULL DEFAULT 0,
-  saldo_anterior   DECIMAL(12,2) NOT NULL,
-  saldo_pendiente  DECIMAL(12,2) NOT NULL,
-  fecha            DATE NOT NULL DEFAULT CURRENT_DATE,
-  metodo_pago      VARCHAR(50),
-  referencia       VARCHAR(100),
-  observaciones    TEXT,
-  registrado_por   UUID REFERENCES usuarios(id),
-  anulado          BOOLEAN DEFAULT FALSE,
-  created_at       TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_pagos_credito_id  ON pagos_credito(credito_id);
-CREATE INDEX idx_pagos_asociado_id ON pagos_credito(asociado_id);
-CREATE INDEX idx_pagos_fecha       ON pagos_credito(fecha);
-
-
--- ── CATEGORÍAS ────────────────────────────────────────────
-CREATE TABLE categorias (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  nombre      VARCHAR(100) UNIQUE NOT NULL,
+-- ── PERMISOS ───────────────────────────────────────────────
+CREATE TABLE public.permisos (
+  id          UUID NOT NULL DEFAULT gen_random_uuid(),
+  clave       TEXT NOT NULL UNIQUE,
+  label       TEXT NOT NULL,
   descripcion TEXT,
-  activo      BOOLEAN DEFAULT TRUE,
-  created_at  TIMESTAMPTZ DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ DEFAULT NOW()
+  grupo       TEXT NOT NULL CHECK (grupo = ANY (ARRAY['admin'::text, 'asociado'::text, 'usuario'::text])),
+  activo      BOOLEAN NOT NULL DEFAULT true,
+  created_at  TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at  TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT permisos_pkey PRIMARY KEY (id)
 );
 
-CREATE OR REPLACE TRIGGER trg_categorias_updated_at
-  BEFORE UPDATE ON categorias
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE OR REPLACE TRIGGER trg_updated_at_permisos
+  BEFORE UPDATE ON public.permisos
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
 
-
--- ── PROVEEDORES ───────────────────────────────────────────
-CREATE TABLE proveedores (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  nombre      VARCHAR(255) NOT NULL,
-  nit         VARCHAR(20) UNIQUE,
-  contacto    VARCHAR(255),
-  telefono    VARCHAR(20),
-  email       VARCHAR(255),
-  direccion   TEXT,
-  ciudad      VARCHAR(100),
-  activo      BOOLEAN DEFAULT TRUE,
-  created_at  TIMESTAMPTZ DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ DEFAULT NOW()
+-- ── ROL PERMISOS ───────────────────────────────────────────
+CREATE TABLE public.rol_permisos (
+  rol_id       UUID NOT NULL,
+  permiso_clave TEXT NOT NULL,
+  asignado_en  TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  activo       BOOLEAN NOT NULL DEFAULT true,
+  created_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  CONSTRAINT rol_permisos_pkey PRIMARY KEY (rol_id, permiso_clave),
+  CONSTRAINT rol_permisos_rol_id_fkey FOREIGN KEY (rol_id) REFERENCES public.roles(id) ON DELETE CASCADE,
+  CONSTRAINT rol_permisos_permiso_clave_fkey FOREIGN KEY (permiso_clave) REFERENCES public.permisos(clave) ON DELETE CASCADE
 );
 
-CREATE OR REPLACE TRIGGER trg_proveedores_updated_at
-  BEFORE UPDATE ON proveedores
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE OR REPLACE TRIGGER trg_updated_at_rol_permisos
+  BEFORE UPDATE ON public.rol_permisos
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
 
-CREATE INDEX idx_proveedores_activo ON proveedores(activo);
-
-
--- ── PRODUCTOS ─────────────────────────────────────────────
-CREATE TABLE productos (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  codigo        VARCHAR(50) UNIQUE NOT NULL,
-  nombre        VARCHAR(255) NOT NULL,
-  descripcion   TEXT,
-  categoria_id  UUID REFERENCES categorias(id) ON DELETE SET NULL,
-  proveedor_id  UUID REFERENCES proveedores(id) ON DELETE SET NULL,
-  precio_compra DECIMAL(12,2) NOT NULL DEFAULT 0,
-  precio_venta  DECIMAL(12,2) NOT NULL DEFAULT 0,
-  stock         INT DEFAULT 0,
-  stock_minimo  INT DEFAULT 0,
-  estado        VARCHAR(20) DEFAULT 'Disponible'
-                CHECK (estado IN ('Disponible','Stock bajo','Agotado')),
-  activo        BOOLEAN DEFAULT TRUE,
-  created_at    TIMESTAMPTZ DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE OR REPLACE TRIGGER trg_productos_updated_at
-  BEFORE UPDATE ON productos
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE INDEX idx_productos_categoria ON productos(categoria_id);
-CREATE INDEX idx_productos_activo    ON productos(activo);
-CREATE INDEX idx_productos_codigo    ON productos(codigo);
-
-
--- ── COMPRAS ───────────────────────────────────────────────
-CREATE TABLE compras (
-  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  numero_factura VARCHAR(50) UNIQUE NOT NULL,
-  proveedor_id   UUID REFERENCES proveedores(id) ON DELETE RESTRICT,
-  fecha          DATE NOT NULL DEFAULT CURRENT_DATE,
-  subtotal       DECIMAL(12,2) NOT NULL DEFAULT 0,
-  iva            DECIMAL(12,2) DEFAULT 0,
-  descuento      DECIMAL(12,2) DEFAULT 0,
-  total          DECIMAL(12,2) NOT NULL DEFAULT 0,
-  estado         VARCHAR(20) DEFAULT 'Pendiente'
-                 CHECK (estado IN ('Pendiente','En tránsito','Recibida','Cancelada')),
-  metodo_pago    VARCHAR(50),
-  observaciones  TEXT,
-  registrado_por UUID REFERENCES usuarios(id),
-  anulado        BOOLEAN DEFAULT FALSE,
-  created_at     TIMESTAMPTZ DEFAULT NOW(),
-  updated_at     TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE OR REPLACE TRIGGER trg_compras_updated_at
-  BEFORE UPDATE ON compras
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE INDEX idx_compras_proveedor ON compras(proveedor_id);
-CREATE INDEX idx_compras_estado    ON compras(estado);
-
-
--- ── DETALLE COMPRAS ───────────────────────────────────────
-CREATE TABLE compras_detalle (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  compra_id       UUID NOT NULL REFERENCES compras(id) ON DELETE CASCADE,
-  producto_id     UUID NOT NULL REFERENCES productos(id) ON DELETE RESTRICT,
-  cantidad        INT NOT NULL CHECK (cantidad > 0),
-  precio_unitario DECIMAL(12,2) NOT NULL,
-  subtotal        DECIMAL(12,2) NOT NULL,
-  created_at      TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_compras_det_compra   ON compras_detalle(compra_id);
-CREATE INDEX idx_compras_det_producto ON compras_detalle(producto_id);
-
-
--- ── VENTAS ────────────────────────────────────────────────
-CREATE TABLE ventas (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  asociado_id UUID REFERENCES asociados(id) ON DELETE SET NULL,
-  fecha       DATE NOT NULL DEFAULT CURRENT_DATE,
-  subtotal    DECIMAL(12,2) NOT NULL DEFAULT 0,
-  descuento   DECIMAL(12,2) DEFAULT 0,
-  total       DECIMAL(12,2) NOT NULL DEFAULT 0,
-  estado      VARCHAR(20) DEFAULT 'pendiente'
-              CHECK (estado IN ('pendiente','completada','anulada')),
-  metodo_pago VARCHAR(50),
-  notas       TEXT,
-  created_by  UUID REFERENCES usuarios(id),
-  created_at  TIMESTAMPTZ DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE OR REPLACE TRIGGER trg_ventas_updated_at
-  BEFORE UPDATE ON ventas
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE INDEX idx_ventas_asociado ON ventas(asociado_id);
-CREATE INDEX idx_ventas_estado   ON ventas(estado);
-CREATE INDEX idx_ventas_fecha    ON ventas(fecha);
-
-
--- ── DETALLE VENTAS ────────────────────────────────────────
-CREATE TABLE ventas_detalle (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  venta_id        UUID NOT NULL REFERENCES ventas(id) ON DELETE CASCADE,
-  producto_id     UUID NOT NULL REFERENCES productos(id) ON DELETE RESTRICT,
-  cantidad        INT NOT NULL CHECK (cantidad > 0),
-  precio_unitario DECIMAL(12,2) NOT NULL,
-  subtotal        DECIMAL(12,2) NOT NULL,
-  created_at      TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_ventas_det_venta    ON ventas_detalle(venta_id);
-CREATE INDEX idx_ventas_det_producto ON ventas_detalle(producto_id);
-
-
--- ── PEDIDOS ───────────────────────────────────────────────
-CREATE TABLE pedidos (
-  id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  asociado_id            UUID NOT NULL REFERENCES asociados(id) ON DELETE RESTRICT,
-  fecha                  DATE NOT NULL DEFAULT CURRENT_DATE,
-  fecha_entrega_estimada DATE,
-  subtotal               DECIMAL(12,2) NOT NULL DEFAULT 0,
-  total                  DECIMAL(12,2) NOT NULL DEFAULT 0,
-  estado                 VARCHAR(20) DEFAULT 'pendiente'
-                         CHECK (estado IN ('pendiente','aprobado','entregado','anulado')),
-  notas                  TEXT,
-  created_at             TIMESTAMPTZ DEFAULT NOW(),
-  updated_at             TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE OR REPLACE TRIGGER trg_pedidos_updated_at
-  BEFORE UPDATE ON pedidos
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE INDEX idx_pedidos_asociado ON pedidos(asociado_id);
-CREATE INDEX idx_pedidos_estado   ON pedidos(estado);
-
-
--- ── DETALLE PEDIDOS ───────────────────────────────────────
-CREATE TABLE pedidos_detalle (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  pedido_id       UUID NOT NULL REFERENCES pedidos(id) ON DELETE CASCADE,
-  producto_id     UUID NOT NULL REFERENCES productos(id) ON DELETE RESTRICT,
-  cantidad        INT NOT NULL CHECK (cantidad > 0),
-  precio_unitario DECIMAL(12,2) NOT NULL,
-  subtotal        DECIMAL(12,2) NOT NULL,
-  created_at      TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_pedidos_det_pedido   ON pedidos_detalle(pedido_id);
-CREATE INDEX idx_pedidos_det_producto ON pedidos_detalle(producto_id);
-
-
--- ── EVENTOS ───────────────────────────────────────────────
-CREATE TABLE eventos (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  titulo      VARCHAR(255) NOT NULL,
+-- ── CONFIGURACION ──────────────────────────────────────────
+CREATE TABLE public.configuracion (
+  id          UUID NOT NULL DEFAULT gen_random_uuid(),
+  clave       TEXT NOT NULL UNIQUE,
+  valor       TEXT NOT NULL,
   descripcion TEXT,
-  fecha       DATE NOT NULL,
-  hora        TIME,
-  lugar       VARCHAR(255),
-  capacidad   INT,
-  presupuesto DECIMAL(12,2) DEFAULT 0,
-  responsable VARCHAR(255),
-  estado      VARCHAR(20) DEFAULT 'programado'
-              CHECK (estado IN ('programado','en_curso','finalizado','cancelado')),
-  created_by  UUID REFERENCES usuarios(id),
-  created_at  TIMESTAMPTZ DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ DEFAULT NOW()
+  created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  CONSTRAINT configuracion_pkey PRIMARY KEY (id)
 );
 
-CREATE OR REPLACE TRIGGER trg_eventos_updated_at
-  BEFORE UPDATE ON eventos
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE OR REPLACE TRIGGER trg_updated_at_configuracion
+  BEFORE UPDATE ON public.configuracion
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
 
-CREATE INDEX idx_eventos_fecha  ON eventos(fecha);
-CREATE INDEX idx_eventos_estado ON eventos(estado);
-
-
--- ── EVENTOS INSCRITOS ─────────────────────────────────────
-CREATE TABLE eventos_inscritos (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  evento_id         UUID NOT NULL REFERENCES eventos(id) ON DELETE CASCADE,
-  asociado_id       UUID NOT NULL REFERENCES asociados(id) ON DELETE CASCADE,
-  fecha_inscripcion TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE (evento_id, asociado_id)
+-- ── PERIODOS ───────────────────────────────────────────────
+CREATE TABLE public.periodos (
+  id                    UUID NOT NULL DEFAULT gen_random_uuid(),
+  fecha_inicio          DATE NOT NULL UNIQUE,
+  fecha_fin             DATE NOT NULL,
+  estado                TEXT NOT NULL DEFAULT 'activo'::text CHECK (estado = ANY (ARRAY['activo'::text, 'cerrado'::text])),
+  fecha_cierre          TIMESTAMP WITH TIME ZONE,
+  cerrado_por           UUID,
+  utilidad_total        NUMERIC NOT NULL DEFAULT 0,
+  utilidad_por_asociado NUMERIC,
+  num_asociados_activos INTEGER,
+  created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  nombre                TEXT DEFAULT ((('Período '::text || ((EXTRACT(year FROM fecha_inicio))::integer)::text) || '/'::text) || ((EXTRACT(year FROM fecha_fin))::integer)::text),
+  CONSTRAINT periodos_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_periodos_cerrado_por FOREIGN KEY (cerrado_por) REFERENCES public.usuarios(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_ev_inscritos_evento   ON eventos_inscritos(evento_id);
-CREATE INDEX idx_ev_inscritos_asociado ON eventos_inscritos(asociado_id);
+CREATE OR REPLACE TRIGGER trg_updated_at_periodos
+  BEFORE UPDATE ON public.periodos
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
 
-
--- ── PAGOS PREMIOS ─────────────────────────────────────────
-CREATE TABLE pagos_premios (
-  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  asociado_id    UUID NOT NULL REFERENCES asociados(id) ON DELETE RESTRICT,
-  tipo_premio    VARCHAR(50) NOT NULL
-                 CHECK (tipo_premio IN ('Cumpleaños','Navidad','Día del padre','Día de la madre','Otro')),
-  monto          DECIMAL(12,2) NOT NULL,
-  fecha_pago     DATE NOT NULL DEFAULT CURRENT_DATE,
-  metodo_pago    VARCHAR(50),
-  estado         VARCHAR(20) DEFAULT 'Pendiente'
-                 CHECK (estado IN ('Pendiente','Programado','Pagado','Cancelado')),
-  observaciones  TEXT,
-  registrado_por UUID REFERENCES usuarios(id),
-  anulado        BOOLEAN DEFAULT FALSE,
-  created_at     TIMESTAMPTZ DEFAULT NOW(),
-  updated_at     TIMESTAMPTZ DEFAULT NOW()
+-- ── SOLICITUDES ASOCIADOS ──────────────────────────────────
+CREATE TABLE public.solicitudes_asociados (
+  id                      UUID NOT NULL DEFAULT gen_random_uuid(),
+  nombres                 TEXT NOT NULL,
+  apellidos               TEXT NOT NULL,
+  cedula                  TEXT NOT NULL UNIQUE,
+  tipo_identificacion     TEXT,
+  telefono                TEXT,
+  email                   TEXT,
+  direccion               TEXT,
+  ocupacion               TEXT,
+  ingreso_mensual         NUMERIC,
+  motivacion              TEXT,
+  estado                  TEXT NOT NULL DEFAULT 'pendiente'::text 
+                          CHECK (estado = ANY (ARRAY['pendiente'::text, 'aprobada'::text, 'rechazada'::text, 'pendiente_activacion'::text])),
+  documentos              TEXT[],
+  observaciones           TEXT,
+  fecha_solicitud         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  fecha_resolucion        TIMESTAMP WITH TIME ZONE,
+  fecha_activacion        DATE,
+  usuario_id              UUID,
+  created_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  resuelto_por            UUID,
+  monto_ahorro_propuesto  NUMERIC,
+  aprobado_por            UUID,
+  recordatorio_enviado_at TIMESTAMP WITH TIME ZONE,
+  ultima_invitacion       TIMESTAMP WITH TIME ZONE,
+  CONSTRAINT solicitudes_asociados_pkey PRIMARY KEY (id),
+  CONSTRAINT solicitudes_asociados_resuelto_por_fkey FOREIGN KEY (resuelto_por) REFERENCES public.usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT fk_solicitudes_usuario_id FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT solicitudes_asociados_aprobado_por_fkey FOREIGN KEY (aprobado_por) REFERENCES public.usuarios(id) ON DELETE SET NULL
 );
 
-CREATE OR REPLACE TRIGGER trg_pagos_premios_updated_at
-  BEFORE UPDATE ON pagos_premios
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE OR REPLACE TRIGGER trg_updated_at_solicitudes_asociados
+  BEFORE UPDATE ON public.solicitudes_asociados
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
 
-CREATE INDEX idx_premios_asociado ON pagos_premios(asociado_id);
-CREATE INDEX idx_premios_estado   ON pagos_premios(estado);
-
-
--- ── LIQUIDACIONES ─────────────────────────────────────────
-CREATE TABLE liquidaciones (
-  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  periodo             VARCHAR(50) NOT NULL,
-  fecha_inicio        DATE NOT NULL,
-  fecha_fin           DATE NOT NULL,
-  total_ahorros       DECIMAL(12,2) DEFAULT 0,
-  total_creditos      DECIMAL(12,2) DEFAULT 0,
-  total_intereses     DECIMAL(12,2) DEFAULT 0,
-  utilidades          DECIMAL(12,2) DEFAULT 0,
-  estado              VARCHAR(20) DEFAULT 'Pendiente'
-                      CHECK (estado IN ('Pendiente','En proceso','Completada','Anulada')),
-  procesado_por       UUID REFERENCES usuarios(id),
-  fecha_procesamiento TIMESTAMPTZ,
-  observaciones       TEXT,
-  created_at          TIMESTAMPTZ DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ DEFAULT NOW()
+-- ── COMITE EVALUADOR ───────────────────────────────────────
+CREATE TABLE public.comite_evaluador (
+  id                     UUID NOT NULL DEFAULT gen_random_uuid(),
+  solicitud_asociado_id  UUID NOT NULL UNIQUE,
+  evaluador_id           UUID,
+  verificaciones         JSONB NOT NULL DEFAULT '{"ingresos": false, "referencias": false, "documentacion": false}'::jsonb,
+  score_credito          INTEGER NOT NULL DEFAULT 70 CHECK (score_credito >= 0 AND score_credito <= 100),
+  comentarios            TEXT,
+  decision               TEXT NOT NULL DEFAULT 'en_evaluacion'::text CHECK (decision = ANY (ARRAY['en_evaluacion'::text, 'aprobado'::text, 'rechazado'::text])),
+  observacion            TEXT,
+  fecha                  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  created_at             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  CONSTRAINT comite_evaluador_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_comite_evaluador_id FOREIGN KEY (evaluador_id) REFERENCES public.usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT comite_evaluador_solicitud_asociado_id_fkey FOREIGN KEY (solicitud_asociado_id) REFERENCES public.solicitudes_asociados(id) ON DELETE CASCADE
 );
 
-CREATE OR REPLACE TRIGGER trg_liquidaciones_updated_at
-  BEFORE UPDATE ON liquidaciones
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE OR REPLACE TRIGGER trg_updated_at_comite_evaluador
+  BEFORE UPDATE ON public.comite_evaluador
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
 
-
--- ── EXCEPCIONES ───────────────────────────────────────────
-CREATE TABLE excepciones (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  asociado_id   UUID NOT NULL REFERENCES asociados(id) ON DELETE RESTRICT,
-  tipo          VARCHAR(100) NOT NULL,
-  descripcion   TEXT NOT NULL,
-  fecha         DATE NOT NULL DEFAULT CURRENT_DATE,
-  estado        VARCHAR(20) DEFAULT 'pendiente'
-                CHECK (estado IN ('pendiente','aprobada','rechazada')),
-  resuelto_por  UUID REFERENCES usuarios(id),
-  observaciones TEXT,
-  created_at    TIMESTAMPTZ DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ DEFAULT NOW()
+-- ── CREDITOS ───────────────────────────────────────────────
+CREATE TABLE public.creditos (
+  id                        UUID NOT NULL DEFAULT gen_random_uuid(),
+  asociado_id               UUID,
+  periodo_id                UUID,
+  tipo                      TEXT NOT NULL CHECK (tipo = ANY (ARRAY['libre_inversion'::text, 'educacion'::text, 'vivienda'::text, 'calamidad'::text])),
+  monto                     NUMERIC NOT NULL CHECK (monto > 0::numeric),
+  plazo_meses               INTEGER NOT NULL CHECK (plazo_meses >= 1 AND plazo_meses <= 12),
+  tasa_interes              NUMERIC NOT NULL,
+  tasa_mora                 NUMERIC,
+  cuota_mensual             NUMERIC NOT NULL,
+  saldo                     NUMERIC NOT NULL,
+  estado                    TEXT NOT NULL DEFAULT 'pendiente'::text CHECK (estado = ANY (ARRAY['pendiente'::text, 'en_revision'::text, 'aprobado'::text, 'desembolsado'::text, 'activo'::text, 'en_mora'::text, 'pagado'::text, 'rechazado'::text, 'cancelado'::text, 'simulacion'::text])),
+  fecha_desembolso          DATE,
+  fecha_primera_cuota       DATE,
+  fecha_ultima_cuota        DATE,
+  fecha_estado_cambio       TIMESTAMP WITH TIME ZONE,
+  motivo_estado_cambio      TEXT,
+  url_comprobante_solicitud TEXT,
+  anulado                   BOOLEAN NOT NULL DEFAULT false,
+  motivo_anulacion          TEXT,
+  created_at                TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  observaciones             TEXT,
+  tipo_interes              TEXT DEFAULT 'compuesto'::text,
+  anulado_por               UUID,
+  anulado_en                TIMESTAMP WITH TIME ZONE,
+  updated_at                TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  estado_anterior_mora      TEXT,
+  referido_nombre           TEXT,
+  CONSTRAINT creditos_pkey PRIMARY KEY (id),
+  CONSTRAINT creditos_asociado_id_fkey FOREIGN KEY (asociado_id) REFERENCES public.usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT creditos_anulado_por_fkey FOREIGN KEY (anulado_por) REFERENCES public.usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT creditos_periodo_id_fkey FOREIGN KEY (periodo_id) REFERENCES public.periodos(id) ON DELETE SET NULL
 );
 
-CREATE OR REPLACE TRIGGER trg_excepciones_updated_at
-  BEFORE UPDATE ON excepciones
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE OR REPLACE TRIGGER trg_updated_at_creditos
+  BEFORE UPDATE ON public.creditos
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
 
-CREATE INDEX idx_excepciones_asociado ON excepciones(asociado_id);
-CREATE INDEX idx_excepciones_estado   ON excepciones(estado);
+-- ── CUOTAS CREDITO ─────────────────────────────────────────
+CREATE TABLE public.cuotas_credito (
+  id            UUID NOT NULL DEFAULT gen_random_uuid(),
+  credito_id    UUID NOT NULL,
+  num_cuota     INTEGER NOT NULL CHECK (num_cuota >= 1),
+  fecha_vencimiento DATE NOT NULL,
+  capital       NUMERIC NOT NULL CHECK (capital >= 0::numeric),
+  interes       NUMERIC NOT NULL CHECK (interes >= 0::numeric),
+  cuota_total   NUMERIC NOT NULL,
+  saldo_inicial NUMERIC NOT NULL,
+  saldo_final   NUMERIC NOT NULL,
+  estado        TEXT NOT NULL DEFAULT 'pendiente'::text CHECK (estado = ANY (ARRAY['pendiente'::text, 'pagada'::text, 'mora'::text, 'abono_aplicado'::text])),
+  created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  CONSTRAINT cuotas_credito_pkey PRIMARY KEY (id),
+  CONSTRAINT cuotas_credito_credito_id_fkey FOREIGN KEY (credito_id) REFERENCES public.creditos(id) ON DELETE CASCADE
+);
+
+CREATE OR REPLACE TRIGGER trg_updated_at_cuotas_credito
+  BEFORE UPDATE ON public.cuotas_credito
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+-- ── LIQUIDACIONES ──────────────────────────────────────────
+CREATE TABLE public.liquidaciones (
+  id                      UUID NOT NULL DEFAULT gen_random_uuid(),
+  asociado_id             UUID,
+  periodo_id              UUID,
+  usuario_id              UUID,
+  tipo                    TEXT NOT NULL CHECK (tipo = ANY (ARRAY['retiro'::text, 'expulsion'::text, 'fallecimiento'::text, 'anual'::text, 'otro'::text])),
+  total_ahorro_permanente  NUMERIC NOT NULL DEFAULT 0,
+  total_ahorro_voluntario   NUMERIC NOT NULL DEFAULT 0,
+  total_deudas_credito    NUMERIC NOT NULL DEFAULT 0,
+  utilidades              NUMERIC NOT NULL DEFAULT 0,
+  monto_neto              NUMERIC NOT NULL DEFAULT 0,
+  detalle                 JSONB,
+  observaciones           TEXT,
+  created_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  fecha                   DATE,
+  estado                  TEXT DEFAULT 'En proceso'::text,
+  fecha_corte             DATE,
+  fecha_liquidacion       DATE,
+  anulado                 BOOLEAN DEFAULT false,
+  justificacion_anulacion TEXT,
+  anulado_por             TEXT,
+  anulado_en              TIMESTAMP WITH TIME ZONE,
+  monto_total             NUMERIC NOT NULL DEFAULT 0,
+  CONSTRAINT liquidaciones_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_liquidaciones_usuario_id FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT liquidaciones_asociado_id_fkey FOREIGN KEY (asociado_id) REFERENCES public.usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT liquidaciones_periodo_id_fkey FOREIGN KEY (periodo_id) REFERENCES public.periodos(id) ON DELETE SET NULL
+);
+
+CREATE OR REPLACE TRIGGER trg_updated_at_liquidaciones
+  BEFORE UPDATE ON public.liquidaciones
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+-- ── DISTRIBUCIONES UTILIDADES ──────────────────────────────
+CREATE TABLE public.distribuciones_utilidades (
+  id                     UUID NOT NULL DEFAULT gen_random_uuid(),
+  periodo_id             UUID NOT NULL,
+  asociado_id            UUID,
+  utilidad_total_periodo NUMERIC NOT NULL,
+  num_asociados          INTEGER NOT NULL,
+  valor_por_asociado     NUMERIC NOT NULL,
+  created_at             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  CONSTRAINT distribuciones_utilidades_pkey PRIMARY KEY (id),
+  CONSTRAINT distribuciones_utilidades_periodo_id_fkey FOREIGN KEY (periodo_id) REFERENCES public.periodos(id) ON DELETE CASCADE,
+  CONSTRAINT distribuciones_utilidades_asociado_id_fkey FOREIGN KEY (asociado_id) REFERENCES public.usuarios(id) ON DELETE SET NULL
+);
+
+CREATE OR REPLACE TRIGGER trg_updated_at_distribuciones_utilidades
+  BEFORE UPDATE ON public.distribuciones_utilidades
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+-- ── EXCEPCIONES ────────────────────────────────────────────
+CREATE TABLE public.excepciones (
+  id               UUID NOT NULL DEFAULT gen_random_uuid(),
+  asociado_id      UUID,
+  credito_id       UUID,
+  tipo             TEXT NOT NULL,
+  descripcion      TEXT NOT NULL,
+  estado           TEXT NOT NULL DEFAULT 'pendiente'::text CHECK (estado = ANY (ARRAY['pendiente'::text, 'aprobada'::text, 'rechazada'::text])),
+  resuelto_por     UUID,
+  fecha_resolucion TIMESTAMP WITH TIME ZONE,
+  created_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  CONSTRAINT excepciones_pkey PRIMARY KEY (id),
+  CONSTRAINT excepciones_credito_id_fkey FOREIGN KEY (credito_id) REFERENCES public.creditos(id) ON DELETE CASCADE,
+  CONSTRAINT fk_excepciones_resuelto_por FOREIGN KEY (resuelto_por) REFERENCES public.usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT excepciones_asociado_id_fkey FOREIGN KEY (asociado_id) REFERENCES public.usuarios(id) ON DELETE SET NULL
+);
+
+CREATE OR REPLACE TRIGGER trg_updated_at_excepciones
+  BEFORE UPDATE ON public.excepciones
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+-- ── NOTIFICACIONES ─────────────────────────────────────────
+CREATE TABLE public.notificaciones (
+  id          UUID NOT NULL DEFAULT gen_random_uuid(),
+  usuario_id  UUID,
+  asociado_id UUID,
+  tipo        TEXT NOT NULL CHECK (tipo = ANY (ARRAY['credito_pendiente'::text, 'credito_activo'::text, 'credito_rechazado'::text, 'ahorro_mora'::text, 'simulacion_credito'::text, 'afiliacion_aprobada'::text, 'afiliacion_rechazada'::text, 'pago_registrado'::text, 'sistema'::text, 'general'::text, 'solicitud_afiliacion'::text])),
+  titulo      TEXT NOT NULL,
+  mensaje     TEXT NOT NULL,
+  leida       BOOLEAN NOT NULL DEFAULT false,
+  para_admin  BOOLEAN NOT NULL DEFAULT false,
+  created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  CONSTRAINT notificaciones_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_notificaciones_usuario_id FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT fk_notificaciones_asociado_id FOREIGN KEY (asociado_id) REFERENCES public.usuarios(id) ON DELETE SET NULL
+);
+
+CREATE OR REPLACE TRIGGER trg_updated_at_notificaciones
+  BEFORE UPDATE ON public.notificaciones
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+-- ── AUDITORIA ──────────────────────────────────────────────
+CREATE TABLE public.auditoria (
+  id            UUID NOT NULL DEFAULT gen_random_uuid(),
+  usuario_id    UUID,
+  asociado_id   UUID,
+  tabla         TEXT NOT NULL,
+  registro_id   UUID,
+  created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  operacion     CHARACTER VARYING,
+  datos_antes   JSONB,
+  datos_despues JSONB,
+  accion        CHARACTER VARYING,
+  CONSTRAINT auditoria_pkey PRIMARY KEY (id)
+);
+
+-- ── REFERIDOS ──────────────────────────────────────────────
+CREATE TABLE public.referidos (
+  id                     UUID NOT NULL DEFAULT gen_random_uuid(),
+  asociado_id            UUID,
+  nombre                 TEXT NOT NULL,
+  cedula                 TEXT NOT NULL,
+  telefono               TEXT,
+  estado                 CHARACTER VARYING NOT NULL DEFAULT 'activo'::character varying CHECK (estado::text = ANY (ARRAY['activo'::character varying, 'inactivo'::character varying]::text[])),
+  observaciones          TEXT,
+  created_at             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  asociado_convertido_id UUID,
+  fecha_conversion       DATE,
+  CONSTRAINT referidos_pkey PRIMARY KEY (id),
+  CONSTRAINT referidos_asociado_id_fkey FOREIGN KEY (asociado_id) REFERENCES public.usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT referidos_asociado_convertido_id_fkey FOREIGN KEY (asociado_convertido_id) REFERENCES public.usuarios(id) ON DELETE SET NULL
+);
+
+CREATE OR REPLACE TRIGGER trg_updated_at_referidos
+  BEFORE UPDATE ON public.referidos
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+-- ── HISTORIAL ESTADOS CRÉDITO ──────────────────────────────
+CREATE TABLE public.credito_historial_estados (
+  id              UUID NOT NULL DEFAULT gen_random_uuid(),
+  credito_id      UUID,
+  estado_anterior TEXT,
+  estado_nuevo    TEXT,
+  motivo          TEXT,
+  cambiado_por    UUID,
+  cambiado_en     TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT credito_historial_estados_pkey PRIMARY KEY (id),
+  CONSTRAINT credito_historial_estados_credito_id_fkey FOREIGN KEY (credito_id) REFERENCES public.creditos(id) ON DELETE CASCADE
+);
+
+-- ── CUENTAS AHORRO ─────────────────────────────────────────
+CREATE TABLE public.cuentas_ahorro (
+  id                 UUID NOT NULL DEFAULT gen_random_uuid(),
+  tipo               TEXT NOT NULL CHECK (tipo = ANY (ARRAY['permanente'::text, 'voluntario'::text])),
+  asociado_id        UUID,
+  periodo_id         UUID NOT NULL,
+  monto_ahorrado     NUMERIC NOT NULL DEFAULT 0,
+  cuota_mensual      NUMERIC,
+  fecha_retiro       TIMESTAMP WITH TIME ZONE,
+  monto_al_cierre    NUMERIC,
+  estado             TEXT NOT NULL DEFAULT 'activo'::text CHECK (estado = ANY (ARRAY['activo'::text, 'inactivo'::text])),
+  fecha_cierre       TIMESTAMP WITH TIME ZONE,
+  anulado            BOOLEAN NOT NULL DEFAULT false,
+  anulado_por        UUID,
+  anulado_en         TIMESTAMP WITH TIME ZONE,
+  motivo_anulacion   TEXT,
+  created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  observaciones      TEXT,
+  cedula             TEXT,
+  multa_mora_vigente NUMERIC,
+  CONSTRAINT cuentas_ahorro_pkey PRIMARY KEY (id),
+  CONSTRAINT cuentas_ahorro_periodo_id_fkey FOREIGN KEY (periodo_id) REFERENCES public.periodos(id) ON DELETE CASCADE,
+  CONSTRAINT cuentas_ahorro_asociado_id_fkey FOREIGN KEY (asociado_id) REFERENCES public.usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT cuentas_ahorro_anulado_por_fkey FOREIGN KEY (anulado_por) REFERENCES public.usuarios(id) ON DELETE SET NULL
+);
+
+CREATE OR REPLACE TRIGGER trg_updated_at_cuentas_ahorro
+  BEFORE UPDATE ON public.cuentas_ahorro
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+-- ── TRANSACCIONES ──────────────────────────────────────────
+CREATE TABLE public.transacciones (
+  id                   UUID NOT NULL DEFAULT gen_random_uuid(),
+  tipo                 TEXT NOT NULL CHECK (tipo = ANY (ARRAY['aporte_permanente'::text, 'aporte_voluntario'::text, 'pago_credito'::text, 'abono_capital'::text, 'cancelacion_total'::text])),
+  asociado_id          UUID,
+  registrado_por       UUID,
+  ahorro_id            UUID,
+  credito_id           UUID,
+  cuota_id             UUID,
+  periodo_id           UUID,
+  monto                NUMERIC NOT NULL CHECK (monto > 0::numeric),
+  capital              NUMERIC NOT NULL DEFAULT 0,
+  interes              NUMERIC NOT NULL DEFAULT 0,
+  monto_mora           NUMERIC NOT NULL DEFAULT 0,
+  dias_mora            INTEGER NOT NULL DEFAULT 0,
+  saldo_antes          NUMERIC,
+  saldo_despues        NUMERIC,
+  mes_correspondiente  DATE,
+  fecha_pago           DATE NOT NULL,
+  metodo_pago          TEXT,
+  url_comprobante      TEXT,
+  observacion          TEXT,
+  anulado              BOOLEAN NOT NULL DEFAULT false,
+  anulado_por          UUID,
+  anulado_en           TIMESTAMP WITH TIME ZONE,
+  motivo_anulacion     TEXT,
+  created_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  CONSTRAINT transacciones_pkey PRIMARY KEY (id),
+  CONSTRAINT transacciones_ahorro_id_fkey FOREIGN KEY (ahorro_id) REFERENCES public.cuentas_ahorro(id) ON DELETE CASCADE,
+  CONSTRAINT transacciones_credito_id_fkey FOREIGN KEY (credito_id) REFERENCES public.creditos(id) ON DELETE CASCADE,
+  CONSTRAINT transacciones_cuota_id_fkey FOREIGN KEY (cuota_id) REFERENCES public.cuotas_credito(id) ON DELETE SET NULL,
+  CONSTRAINT transacciones_periodo_id_fkey FOREIGN KEY (periodo_id) REFERENCES public.periodos(id) ON DELETE SET NULL,
+  CONSTRAINT transacciones_asociado_id_fkey FOREIGN KEY (asociado_id) REFERENCES public.usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT transacciones_anulado_por_fkey FOREIGN KEY (anulado_por) REFERENCES public.usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT transacciones_registrado_por_fkey FOREIGN KEY (registrado_por) REFERENCES public.usuarios(id) ON DELETE SET NULL
+);
+
+CREATE OR REPLACE TRIGGER trg_updated_at_transacciones
+  BEFORE UPDATE ON public.transacciones
+  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
 
 
 -- ============================================================
 -- FUNCIONES Y TRIGGERS DE NEGOCIO
 -- ============================================================
 
--- Actualizar stock al recibir una compra
-CREATE OR REPLACE FUNCTION actualizar_stock_compra()
-RETURNS TRIGGER AS $$
+-- ── 1. AUDITORÍA INMUTABLE ──────────────────────────────────
+CREATE OR REPLACE FUNCTION public.bloquear_modificacion_auditoria()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
 BEGIN
-  IF NEW.estado = 'Recibida' AND OLD.estado <> 'Recibida' THEN
-    UPDATE productos p
-    SET stock = p.stock + cd.cantidad,
-        estado = CASE
-          WHEN (p.stock + cd.cantidad) <= 0 THEN 'Agotado'
-          WHEN (p.stock + cd.cantidad) <= p.stock_minimo THEN 'Stock bajo'
-          ELSE 'Disponible'
-        END,
-        updated_at = NOW()
-    FROM compras_detalle cd
-    WHERE cd.compra_id = NEW.id AND cd.producto_id = p.id;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE TRIGGER trg_stock_compra
-  AFTER UPDATE ON compras
-  FOR EACH ROW EXECUTE FUNCTION actualizar_stock_compra();
-
-
--- Reducir stock al completar una venta
-CREATE OR REPLACE FUNCTION reducir_stock_venta()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.estado = 'completada' AND OLD.estado <> 'completada' THEN
-    UPDATE productos p
-    SET stock = p.stock - vd.cantidad,
-        estado = CASE
-          WHEN (p.stock - vd.cantidad) <= 0 THEN 'Agotado'
-          WHEN (p.stock - vd.cantidad) <= p.stock_minimo THEN 'Stock bajo'
-          ELSE 'Disponible'
-        END,
-        updated_at = NOW()
-    FROM ventas_detalle vd
-    WHERE vd.venta_id = NEW.id AND vd.producto_id = p.id;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE TRIGGER trg_stock_venta
-  AFTER UPDATE ON ventas
-  FOR EACH ROW EXECUTE FUNCTION reducir_stock_venta();
-
-
--- Actualizar monto_ahorrado en ahorros tras cada movimiento
-CREATE OR REPLACE FUNCTION actualizar_saldo_ahorro()
-RETURNS TRIGGER AS $$
-BEGIN
-  UPDATE ahorros
-  SET monto_ahorrado = NEW.saldo_nuevo, updated_at = NOW()
-  WHERE id = NEW.ahorro_id;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE TRIGGER trg_saldo_ahorro
-  AFTER INSERT ON movimientos_ahorro
-  FOR EACH ROW EXECUTE FUNCTION actualizar_saldo_ahorro();
-
-
--- Actualizar saldo del crédito tras cada pago
-CREATE OR REPLACE FUNCTION actualizar_saldo_credito()
-RETURNS TRIGGER AS $$
-BEGIN
-  UPDATE creditos
-  SET saldo      = NEW.saldo_pendiente,
-      estado     = CASE WHEN NEW.saldo_pendiente <= 0 THEN 'pagado' ELSE estado END,
-      updated_at = NOW()
-  WHERE id = NEW.credito_id;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE TRIGGER trg_saldo_credito
-  AFTER INSERT ON pagos_credito
-  FOR EACH ROW EXECUTE FUNCTION actualizar_saldo_credito();
-
-
--- ============================================================
--- ROW LEVEL SECURITY (RLS)
--- ============================================================
-
-ALTER TABLE roles              ENABLE ROW LEVEL SECURITY;
-ALTER TABLE usuarios           ENABLE ROW LEVEL SECURITY;
-ALTER TABLE asociados          ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ahorros            ENABLE ROW LEVEL SECURITY;
-ALTER TABLE movimientos_ahorro ENABLE ROW LEVEL SECURITY;
-ALTER TABLE creditos           ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pagos_credito      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE categorias         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE proveedores        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE productos          ENABLE ROW LEVEL SECURITY;
-ALTER TABLE compras            ENABLE ROW LEVEL SECURITY;
-ALTER TABLE compras_detalle    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ventas             ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ventas_detalle     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pedidos            ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pedidos_detalle    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE eventos            ENABLE ROW LEVEL SECURITY;
-ALTER TABLE eventos_inscritos  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pagos_premios      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE liquidaciones      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE excepciones        ENABLE ROW LEVEL SECURITY;
-
--- Función: obtener rol del usuario autenticado
-CREATE OR REPLACE FUNCTION get_user_role()
-RETURNS TEXT AS $$
-  SELECT r.nombre
-  FROM usuarios u
-  JOIN roles r ON r.id = u.rol_id
-  WHERE u.id = auth.uid()
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
-
--- Función: obtener asociado_id del usuario autenticado
-CREATE OR REPLACE FUNCTION get_asociado_id()
-RETURNS UUID AS $$
-  SELECT asociado_id FROM usuarios WHERE id = auth.uid()
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
-
--- ── ROLES: lectura para todos ──────────────────────────────
-CREATE POLICY "roles_select" ON roles
-  FOR SELECT TO authenticated USING (true);
-
--- ── USUARIOS ───────────────────────────────────────────────
-CREATE POLICY "usuarios_select" ON usuarios
-  FOR SELECT TO authenticated
-  USING (get_user_role() = 'admin' OR id = auth.uid());
-
-CREATE POLICY "usuarios_insert" ON usuarios
-  FOR INSERT TO authenticated
-  WITH CHECK (get_user_role() = 'admin');
-
-CREATE POLICY "usuarios_update" ON usuarios
-  FOR UPDATE TO authenticated
-  USING (get_user_role() = 'admin' OR id = auth.uid());
-
-CREATE POLICY "usuarios_delete" ON usuarios
-  FOR DELETE TO authenticated
-  USING (get_user_role() = 'admin');
-
--- ── ASOCIADOS ──────────────────────────────────────────────
-CREATE POLICY "asociados_select" ON asociados
-  FOR SELECT TO authenticated
-  USING (get_user_role() = 'admin' OR id = get_asociado_id());
-
-CREATE POLICY "asociados_insert" ON asociados
-  FOR INSERT TO authenticated
-  WITH CHECK (get_user_role() = 'admin');
-
-CREATE POLICY "asociados_update" ON asociados
-  FOR UPDATE TO authenticated
-  USING (get_user_role() = 'admin' OR id = get_asociado_id());
-
-CREATE POLICY "asociados_delete" ON asociados
-  FOR DELETE TO authenticated
-  USING (get_user_role() = 'admin');
-
--- ── AHORROS ────────────────────────────────────────────────
-CREATE POLICY "ahorros_select" ON ahorros
-  FOR SELECT TO authenticated
-  USING (get_user_role() = 'admin' OR asociado_id = get_asociado_id());
-
-CREATE POLICY "ahorros_write" ON ahorros
-  FOR ALL TO authenticated
-  USING (get_user_role() = 'admin')
-  WITH CHECK (get_user_role() = 'admin');
-
--- ── MOVIMIENTOS AHORRO ─────────────────────────────────────
-CREATE POLICY "movimientos_ahorro_select" ON movimientos_ahorro
-  FOR SELECT TO authenticated
-  USING (get_user_role() = 'admin' OR asociado_id = get_asociado_id());
-
-CREATE POLICY "movimientos_ahorro_write" ON movimientos_ahorro
-  FOR ALL TO authenticated
-  USING (get_user_role() = 'admin')
-  WITH CHECK (get_user_role() = 'admin');
-
--- ── CRÉDITOS ───────────────────────────────────────────────
-CREATE POLICY "creditos_select" ON creditos
-  FOR SELECT TO authenticated
-  USING (get_user_role() = 'admin' OR asociado_id = get_asociado_id());
-
-CREATE POLICY "creditos_insert" ON creditos
-  FOR INSERT TO authenticated
-  WITH CHECK (get_user_role() = 'admin' OR asociado_id = get_asociado_id());
-
-CREATE POLICY "creditos_update" ON creditos
-  FOR UPDATE TO authenticated
-  USING (get_user_role() = 'admin');
-
--- ── TABLAS SOLO ADMIN ──────────────────────────────────────
-DO $$
-DECLARE t TEXT;
-BEGIN
-  FOREACH t IN ARRAY ARRAY[
-    'categorias','proveedores','productos',
-    'compras','compras_detalle',
-    'ventas','ventas_detalle',
-    'liquidaciones','pagos_premios',
-    'pagos_credito'
-  ] LOOP
-    EXECUTE format(
-      'CREATE POLICY "%s_admin_all" ON %I FOR ALL TO authenticated
-       USING (get_user_role() = ''admin'')
-       WITH CHECK (get_user_role() = ''admin'');',
-      t, t
-    );
-  END LOOP;
+  RAISE EXCEPTION 'Los registros de auditoría son inmutables — no se permite % en la tabla auditoria.', TG_OP;
+  RETURN NULL;
 END;
 $$;
 
--- ── PEDIDOS ────────────────────────────────────────────────
-CREATE POLICY "pedidos_select" ON pedidos
-  FOR SELECT TO authenticated
-  USING (get_user_role() = 'admin' OR asociado_id = get_asociado_id());
+CREATE TRIGGER tg_auditoria_inmutable_delete
+  BEFORE DELETE ON public.auditoria
+  FOR EACH ROW EXECUTE FUNCTION public.bloquear_modificacion_auditoria();
 
-CREATE POLICY "pedidos_insert" ON pedidos
-  FOR INSERT TO authenticated
-  WITH CHECK (get_user_role() = 'admin' OR asociado_id = get_asociado_id());
-
-CREATE POLICY "pedidos_update" ON pedidos
-  FOR UPDATE TO authenticated
-  USING (get_user_role() = 'admin');
-
-CREATE POLICY "pedidos_detalle_select" ON pedidos_detalle
-  FOR SELECT TO authenticated
-  USING (
-    get_user_role() = 'admin'
-    OR pedido_id IN (SELECT id FROM pedidos WHERE asociado_id = get_asociado_id())
-  );
-
-CREATE POLICY "pedidos_detalle_insert" ON pedidos_detalle
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    get_user_role() = 'admin'
-    OR pedido_id IN (SELECT id FROM pedidos WHERE asociado_id = get_asociado_id())
-  );
-
--- ── EVENTOS ────────────────────────────────────────────────
-CREATE POLICY "eventos_select" ON eventos
-  FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "eventos_write" ON eventos
-  FOR ALL TO authenticated
-  USING (get_user_role() = 'admin')
-  WITH CHECK (get_user_role() = 'admin');
-
-CREATE POLICY "ev_inscritos_select" ON eventos_inscritos
-  FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "ev_inscritos_insert" ON eventos_inscritos
-  FOR INSERT TO authenticated
-  WITH CHECK (asociado_id = get_asociado_id() OR get_user_role() = 'admin');
-
-CREATE POLICY "ev_inscritos_delete" ON eventos_inscritos
-  FOR DELETE TO authenticated
-  USING (asociado_id = get_asociado_id() OR get_user_role() = 'admin');
-
--- ── EXCEPCIONES ────────────────────────────────────────────
-CREATE POLICY "excepciones_select" ON excepciones
-  FOR SELECT TO authenticated
-  USING (get_user_role() = 'admin' OR asociado_id = get_asociado_id());
-
-CREATE POLICY "excepciones_insert" ON excepciones
-  FOR INSERT TO authenticated
-  WITH CHECK (get_user_role() = 'admin');
-
-CREATE POLICY "excepciones_update" ON excepciones
-  FOR UPDATE TO authenticated
-  USING (get_user_role() = 'admin');
+CREATE TRIGGER tg_auditoria_inmutable_update
+  BEFORE UPDATE ON public.auditoria
+  FOR EACH ROW EXECUTE FUNCTION public.bloquear_modificacion_auditoria();
 
 
--- ============================================================
--- DATOS INICIALES
--- ============================================================
-INSERT INTO roles (nombre, descripcion, permisos, activo, es_sistema)
-VALUES
-  (
-    'admin',
-    'Acceso completo al sistema',
-    '["dashboard","configuracion","roles","usuarios","asociados","ahorros","creditos","eventos","compras","ventas","reportes"]',
-    TRUE, TRUE
-  ),
-  (
-    'asociado',
-    'Acceso limitado a consultas personales',
-    '["dashboard","mis_ahorros","mis_creditos"]',
-    TRUE, TRUE
-  ),
-  (
-    'usuario',
-    'Acceso básico al sistema',
-    '["dashboard","mi_solicitud"]',
-    TRUE, TRUE
+-- ── 2. AUDITORÍA AUTOMÁTICA ──────────────────────────────────
+CREATE OR REPLACE FUNCTION public.registrar_auditoria_automatica()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO auditoria (
+    tabla,
+    operacion,
+    registro_id,
+    datos_antes,
+    datos_despues,
+    usuario_id,
+    created_at
   )
-ON CONFLICT (nombre) DO NOTHING;
+  VALUES (
+    TG_TABLE_NAME,
+    TG_OP,
+    CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NEW.id END,
+    CASE WHEN TG_OP IN ('UPDATE','DELETE') THEN row_to_json(OLD)::jsonb ELSE NULL END,
+    CASE WHEN TG_OP IN ('INSERT','UPDATE') THEN row_to_json(NEW)::jsonb ELSE NULL END,
+    auth.uid(),
+    now()
+  );
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
+
+-- Triggers de auditoría
+CREATE TRIGGER tg_auditoria_creditos
+  AFTER INSERT OR UPDATE OR DELETE ON public.creditos
+  FOR EACH ROW EXECUTE FUNCTION public.registrar_auditoria_automatica();
+
+CREATE TRIGGER tg_auditoria_cuentas_ahorro
+  AFTER INSERT OR UPDATE OR DELETE ON public.cuentas_ahorro
+  FOR EACH ROW EXECUTE FUNCTION public.registrar_auditoria_automatica();
+
+CREATE TRIGGER tg_auditoria_liquidaciones
+  AFTER INSERT OR UPDATE OR DELETE ON public.liquidaciones
+  FOR EACH ROW EXECUTE FUNCTION public.registrar_auditoria_automatica();
+
+CREATE TRIGGER tg_auditoria_transacciones
+  AFTER INSERT OR UPDATE OR DELETE ON public.transacciones
+  FOR EACH ROW EXECUTE FUNCTION public.registrar_auditoria_automatica();
+
+
+-- ── 3. SEGURIDAD FINANCIERA (BLOQUEO FÍSICO) ─────────────────
+CREATE OR REPLACE FUNCTION public.bloquear_delete_financiero()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION
+    'Eliminación física bloqueada en tabla %. Use el campo anulado=true para anular registros financieros.',
+    TG_TABLE_NAME;
+  RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER tg_bloquear_delete_creditos
+  BEFORE DELETE ON public.creditos
+  FOR EACH ROW EXECUTE FUNCTION public.bloquear_delete_financiero();
+
+CREATE TRIGGER tg_bloquear_delete_liquidaciones
+  BEFORE DELETE ON public.liquidaciones
+  FOR EACH ROW EXECUTE FUNCTION public.bloquear_delete_financiero();
+
+
+-- ── 4. COMPLETAR TASA MORA AL INSERTAR CRÉDITO ───────────────
+CREATE OR REPLACE FUNCTION public.fn_completar_tasa_mora()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.tasa_mora IS NULL THEN
+    SELECT valor::numeric
+    INTO NEW.tasa_mora
+    FROM configuracion
+    WHERE clave = 'tasa_mora_credito'
+    LIMIT 1;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_completar_tasa_mora
+  BEFORE INSERT ON public.creditos
+  FOR EACH ROW EXECUTE FUNCTION public.fn_completar_tasa_mora();
+
+
+-- ── 5. NOTIFICACIÓN DE NUEVA SOLICITUD DE AFILIACIÓN ────────
+CREATE OR REPLACE FUNCTION public.notificar_nueva_solicitud_afiliacion()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.estado = 'pendiente' THEN
+    INSERT INTO notificaciones (titulo, mensaje, tipo, leida, para_admin, created_at)
+    VALUES (
+      'Nueva solicitud de afiliación',
+      NEW.nombres || ' ' || NEW.apellidos ||
+        ' ha enviado una solicitud de membresía y está pendiente de revisión.',
+      'solicitud_afiliacion',
+      false,
+      true,
+      now()
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER tg_notif_nueva_solicitud_afiliacion
+  AFTER INSERT ON public.solicitudes_asociados
+  FOR EACH ROW EXECUTE FUNCTION public.notificar_nueva_solicitud_afiliacion();
+
+
+-- ── 6. ACTIVAR ASOCIADO POR PAGO (CORREGIDO) ──────────────────
+CREATE OR REPLACE FUNCTION public.fn_activar_asociado_por_pago()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_asociado_id UUID;
+  v_tipo_cuenta TEXT;
+BEGIN
+  -- Solo nos interesan los aportes permanentes
+  IF NEW.tipo != 'aporte_permanente' THEN
+    RETURN NEW;
+  END IF;
+
+  -- Obtener a qué asociado pertenece la cuenta (ahorro_id) y qué tipo de cuenta es
+  SELECT asociado_id, tipo INTO v_asociado_id, v_tipo_cuenta
+  FROM cuentas_ahorro
+  WHERE id = NEW.ahorro_id;
+
+  -- Si es un aporte a la cuenta de ahorro permanente y el monto es mayor a 0
+  IF v_tipo_cuenta = 'permanente' AND NEW.monto > 0 THEN
+    -- Cambiar la solicitud de pendiente_activacion a aprobada
+    UPDATE solicitudes_asociados
+    SET estado = 'aprobada', 
+        fecha_activacion = CURRENT_DATE
+    WHERE usuario_id = v_asociado_id
+      AND estado = 'pendiente_activacion';
+
+    -- Activar la cuenta del usuario en la tabla usuarios para permitir su login
+    UPDATE usuarios
+    SET estado_cuenta = 'activo',
+        activo = true,
+        updated_at = NOW()
+    WHERE id = v_asociado_id
+      AND estado_cuenta = 'pendiente_activacion';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_activar_asociado_por_pago
+  AFTER INSERT ON public.transacciones
+  FOR EACH ROW EXECUTE FUNCTION public.fn_activar_asociado_por_pago();
+
+
+-- ── 7. ACTIVAR CUENTA PRIMER PAGO (CORREGIDO) ──────────────────
+CREATE OR REPLACE FUNCTION public.fn_activar_cuenta_primer_pago()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_cuenta_id     uuid;
+  v_user_estado   text;
+BEGIN
+  -- Solo actuar en aportes permanentes
+  IF NEW.tipo != 'aporte_permanente' THEN
+    RETURN NEW;
+  END IF;
+
+  -- Buscar la cuenta permanente del asociado
+  SELECT id INTO v_cuenta_id
+  FROM cuentas_ahorro
+  WHERE asociado_id = NEW.asociado_id
+    AND tipo        = 'permanente'
+    AND anulado     = false
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  -- Buscar el estado del usuario asociado
+  SELECT estado_cuenta INTO v_user_estado
+  FROM usuarios
+  WHERE id = NEW.asociado_id;
+
+  -- Si el usuario estaba suspendido → Reactivar a activo
+  IF v_cuenta_id IS NOT NULL AND v_user_estado = 'suspendido' THEN
+    -- Reactivar usuario
+    UPDATE usuarios SET
+      estado_cuenta = 'activo',
+      activo        = true,
+      updated_at    = NOW()
+    WHERE id = NEW.asociado_id;
+
+    -- Reactivar cuenta de ahorro
+    UPDATE cuentas_ahorro SET
+      estado     = 'activo',
+      updated_at = NOW()
+    WHERE id = v_cuenta_id;
+
+    -- Notificar al asociado que su cuenta quedó activa
+    INSERT INTO notificaciones (usuario_id, tipo, titulo, mensaje, leida, para_admin)
+    VALUES (
+      NEW.asociado_id,
+      'pago_registrado',
+      '🎉 ¡Tu cuenta UFCA está activa!',
+      'Tu primer aporte de ahorro permanente fue registrado. Ya tienes acceso a todos los módulos: ahorro voluntario, créditos y más.',
+      false,
+      false
+    );
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER tg_activar_cuenta_primer_pago
+  AFTER INSERT ON public.transacciones
+  FOR EACH ROW EXECUTE FUNCTION public.fn_activar_cuenta_primer_pago();
+
+
+-- ── 8. PROTEGER ROL DEL PROPIO USUARIO ────────────────────────
+CREATE OR REPLACE FUNCTION public.fn_proteger_rol_usuario()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  -- No permitir que el propio usuario se degrade su rol o se desactive a sí mismo sin permisos
+  IF NEW.id = auth.uid() THEN
+    -- Aquí podrías incluir un check de permisos dinámico si es necesario
+    NEW.rol_id := OLD.rol_id;
+    NEW.activo := OLD.activo;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_proteger_rol_usuario
+  BEFORE UPDATE ON public.usuarios
+  FOR EACH ROW EXECUTE FUNCTION public.fn_proteger_rol_usuario();
+
+
+-- ============================================================
+-- SEGURIDAD ROW LEVEL SECURITY (RLS)
+-- ============================================================
+
+ALTER TABLE public.roles              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.usuarios           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.permisos           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rol_permisos       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.configuracion      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.periodos           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.solicitudes_asociados ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.comite_evaluador   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.creditos           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cuotas_credito      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.liquidaciones      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.distribuciones_utilidades ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.excepciones        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notificaciones     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.auditoria          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.referidos          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.credito_historial_estados ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cuentas_ahorro     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transacciones      ENABLE ROW LEVEL SECURITY;
+
+-- Nota: Las políticas RLS dinámicas están definidas en el script
+-- supabase_security_rls_completa.sql, usando fn_tiene_permiso().

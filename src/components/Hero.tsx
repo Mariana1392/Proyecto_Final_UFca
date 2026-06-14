@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
-import { supabaseAdmin } from '../lib/supabaseAdmin';
 
-const db = supabaseAdmin ?? supabase; // bypasea RLS para verificaciones
+const db = supabase; // Standard supabase client (no RLS bypass)
 import { CheckCircle, Sparkles, Target, Trophy, UserPlus, Users, X, Shield, UserCircle2, Award, Calendar, MapPin, Clock, PiggyBank, CreditCard, TrendingUp, Upload, FileText, Briefcase, Trash2, AlertCircle, Mail, Smartphone, Download } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import { Label } from './ui/label';

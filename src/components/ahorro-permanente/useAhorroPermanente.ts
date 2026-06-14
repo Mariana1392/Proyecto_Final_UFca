@@ -7,7 +7,6 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription';
-import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { asociadosApi } from '../../lib/api';
 import { formatCurrency } from '../../lib/formatters';
 import type { UserRole } from '../../contexts/AuthContext';
@@ -97,8 +96,8 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
     try {
       setLoading(true);
       const [ahorrosRes, asociadosData, configData, periodosData, auditRes] = await Promise.all([
-        // supabaseAdmin para bypasear RLS si está configurado, fallback a supabase normal
-        (supabaseAdmin ?? supabase)
+        // Usar supabase normal con RLS políticas
+        supabase
           .from('cuentas_ahorro')
           .select('*')
           .eq('tipo', 'permanente')
@@ -113,7 +112,7 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
           .from('periodos')
           .select('id, nombre, estado, fecha_inicio, fecha_fin')
           .order('fecha_inicio', { ascending: false }),
-        (supabaseAdmin ?? supabase)
+        supabase
           .from('auditoria')
           .select('id, accion, operacion, datos_antes, datos_despues, usuario_id, registro_id, created_at')
           .eq('tabla', 'cuentas_ahorro')
@@ -155,7 +154,7 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
       const primerDiaMes   = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
 
       const ahorrosConPagoEsteMes: Set<string> = new Set();
-      const { data: pagos } = await (supabaseAdmin ?? supabase)
+      const { data: pagos } = await supabase
         .from('transacciones')
         .select('ahorro_id')
         .eq('tipo', 'aporte_permanente')
@@ -213,7 +212,7 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
         const userIds = [...new Set(audits.map((r: any) => r.usuario_id).filter(Boolean))];
         const usersMap: Record<string, string> = {};
         if (userIds.length > 0) {
-          const { data: usrs } = await (supabaseAdmin ?? supabase)
+          const { data: usrs } = await supabase
             .from('usuarios')
             .select('id, nombre')
             .in('id', userIds);
@@ -328,8 +327,8 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
     setIsDetailDialogOpen(true);
     setLoadingMovimientos(true);
     try {
-      // Cargar transacciones, saldo real y auditoría en paralelo, ambos con supabaseAdmin
-      const db = supabaseAdmin ?? supabase;
+      // Cargar transacciones, saldo real y auditoría en paralelo con supabase normal
+      const db = supabase;
       const [txRes, cuentaRes, auditoriaRes] = await Promise.all([
         db
           .from('transacciones')
