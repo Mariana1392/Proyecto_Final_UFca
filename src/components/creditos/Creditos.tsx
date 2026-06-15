@@ -504,7 +504,6 @@ export default function Creditos({ userData }: CreditosProps) {
                       // Usar tasa guardada; si es 0 o nula, usar la parametrizada para ese tipo
                       const tasaGuardada  = sol.tasaInteres ?? 0;
                       const claveTasa     = TIPO_TASA[sol.tipo] ?? '';
-<<<<<<< HEAD
                       const defaultTasa   = tasaGuardada > 0 ? tasaGuardada : (tasasAdmin[claveTasa] ?? 0);
 
                       const valMonto = montoAprobadoAdmin[sol.id] ?? sol.monto.toLocaleString('es-CO');
@@ -515,13 +514,8 @@ export default function Creditos({ userData }: CreditosProps) {
                       const plazoNum = parseInt(valPlazo, 10) || 0;
                       const tasaNum  = parseFloat(valTasa) || 0;
 
-                      const tipoInt       = tipoInteresAdmin[sol.id] ?? 'compuesto';
-                      const r             = tasaNum > 0 ? (Math.pow(1 + tasaNum / 100, 1 / 12) - 1) : 0;
-=======
-                      const tasa          = tasaGuardada > 0 ? tasaGuardada : (tasasAdmin[claveTasa] ?? 0);
                       const tipoInt       = tipoInteresAdmin[sol.id] ?? sol.tipoInteres ?? 'compuesto';
-                      const r             = tasa > 0 ? (Math.pow(1 + tasa / 100, 1 / 12) - 1) : 0;
->>>>>>> 1093451be53ebfdf5c4c9930d8bc58eb11bc0173
+                      const r             = tasaNum > 0 ? (Math.pow(1 + tasaNum / 100, 1 / 12) - 1) : 0;
                       const cuotaEst      = tipoInt === 'simple'
                         ? (tasaNum > 0 ? Math.round(montoNum / plazoNum + montoNum * r) : Math.round(montoNum / plazoNum))
                         : calcularCuota(montoNum, tasaNum, plazoNum);
