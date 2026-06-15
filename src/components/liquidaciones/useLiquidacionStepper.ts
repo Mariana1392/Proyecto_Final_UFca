@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import { Concepto, LiqDoc } from './liquidacionTypes';
-import { fmtCOP } from './liquidacionUtils';
+import { sendLiquidacionEmail } from '../../lib/email';
 
 interface UseLiquidacionStepperProps {
   userData: any;
@@ -322,6 +322,9 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
         tipo: formTipo, montoTotal: montoCalculado, estado: formEstado,
         fechaCorte: formFechaCorte, cantConceptos: formConceptos.length, docSubido: !!urlFinal
       });
+
+      // Mostrar notificación breve en pantalla al asociado
+      toast.info(`Liquidación ${formTipo} - Corte: ${formFechaCorte} - Monto neto: ${montoCalculado}`);
 
       toast.success('Liquidación creada correctamente');
       setIsCreateOpen(false);
