@@ -6,7 +6,6 @@ import { useState, useEffect } from 'react';
 import type { Dispatch, SetStateAction, ChangeEvent } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
-import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { ahorroPermanenteApi } from '../../lib/api';
 import { formatCurrency, formatCurrencyInput, parseCurrencyInput, formatCurrencyRealTime } from '../../lib/formatters';
 import { resolverPeriodoId, notificarAsociado } from './ahorroPermanenteUtils';
@@ -154,7 +153,7 @@ export function useAhorroPermanenteCRUD({
         await ahorroPermanenteApi.anular(id, justificacion);
 
         // Registrar en auditoría
-        await (supabaseAdmin ?? supabase).from('auditoria').insert({
+        await supabase.from('auditoria').insert({
           tabla:       'cuentas_ahorro',
           registro_id: id,
           accion:      'ANULAR',
@@ -188,7 +187,7 @@ export function useAhorroPermanenteCRUD({
         });
 
         // Registrar en auditoría
-        await (supabaseAdmin ?? supabase).from('auditoria').insert({
+        await supabase.from('auditoria').insert({
           tabla:       'cuentas_ahorro',
           registro_id: id,
           accion:      'EDITAR',
@@ -242,7 +241,7 @@ export function useAhorroPermanenteCRUD({
       await ahorroPermanenteApi.anular(id, justificacion);
 
       // Registrar en auditoría
-      await (supabaseAdmin ?? supabase).from('auditoria').insert({
+      await supabase.from('auditoria').insert({
         tabla:       'cuentas_ahorro',
         registro_id: id,
         accion:      'ANULAR',
@@ -414,7 +413,7 @@ export function useAhorroPermanenteCRUD({
         await ahorroPermanenteApi.update(selectedItem.id, updatePayload);
 
         // Registrar en auditoría
-        await (supabaseAdmin ?? supabase).from('auditoria').insert({
+        await supabase.from('auditoria').insert({
           tabla:       'cuentas_ahorro',
           registro_id: selectedItem.id,
           accion:      'EDITAR',
@@ -465,7 +464,7 @@ export function useAhorroPermanenteCRUD({
         });
 
         // Registrar en auditoría
-        await (supabaseAdmin ?? supabase).from('auditoria').insert({
+        await supabase.from('auditoria').insert({
           tabla:       'cuentas_ahorro',
           registro_id: nuevo.id,
           accion:      'CREAR',

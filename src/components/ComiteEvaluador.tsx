@@ -25,7 +25,6 @@ import {
 } from './ui/alert-dialog';
 import { Textarea } from './ui/textarea';
 import { supabase } from '../lib/supabase';
-import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { formatCurrencyInput, parseCurrencyInput, formatCurrency } from '../lib/formatters';
 
 // URL pública de la app — siempre apunta a producción, nunca a localhost.
@@ -539,13 +538,14 @@ export default function ComiteEvaluador() {
 
       if (selectedSolicitud.email && !selectedSolicitud.usuario_id) {
         try {
-          const { error: invErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-            selectedSolicitud.email,
-            {
+          const { error: invErr } = await supabase.functions.invoke('admin-helper', {
+            body: {
+              action: 'inviteUser',
+              email: selectedSolicitud.email,
               redirectTo: `${APP_URL}/?bienvenido=1`,
               data: { nombre: selectedSolicitud.nombres, rol: 'asociado' },
             }
-          );
+          });
 
           if (invErr) {
             const msg = invErr.message.toLowerCase();
@@ -567,7 +567,7 @@ export default function ComiteEvaluador() {
       const fechaRes = new Date().toISOString();
       setSolicitudes(prev => prev.map(s =>
         s.id === selectedSolicitud.id
-          ? { ...s, estado: 'pendiente_activacion', fechaResolucion: fechaRes, observaciones: 'Aprobada — pendiente de pago de activación' }
+          ? { ...s, estado: 'pendiente_activacion', usuario_id: aspiranteId, fechaResolucion: fechaRes, observaciones: 'Aprobada — pendiente de pago de activación' }
           : s
       ));
 
@@ -711,13 +711,14 @@ export default function ComiteEvaluador() {
       }
 
       // Usuario sin cuenta: enviar invitación
-      const { error: invErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-        sol.email,
-        {
+      const { error: invErr } = await supabase.functions.invoke('admin-helper', {
+        body: {
+          action: 'inviteUser',
+          email: sol.email,
           redirectTo: `${APP_URL}/?bienvenido=1`,
           data: { nombre: sol.nombres, rol: 'asociado' },
         }
-      );
+      });
 
       // Si el email ya está registrado, el aspirante ya tiene cuenta — no se necesita correo
       const yaRegistrado = invErr && (
@@ -791,7 +792,7 @@ export default function ComiteEvaluador() {
     setSavingPago(true);
     try {
       // 1. Período activo — si no hay uno, se usa null (campo nullable en la BD)
-      const { data: periodo } = await supabaseAdmin
+      const { data: periodo } = await supabase
         .from('periodos').select('id').eq('estado', 'activo').order('fecha_inicio', { ascending: false }).limit(1).maybeSingle();
       const periodoId: string | null = periodo?.id ?? null;
 
@@ -801,11 +802,11 @@ export default function ComiteEvaluador() {
         try {
           const ext  = pagoComprobante.name.split('.').pop() ?? 'jpg';
           const path = `comprobantes-activacion/${pagoSolicitud.usuario_id}/${Date.now()}.${ext}`;
-          const { error: uploadErr } = await supabaseAdmin.storage
+          const { error: uploadErr } = await supabase.storage
             .from('solicitudes-documentos')
             .upload(path, pagoComprobante, { upsert: true });
           if (!uploadErr) {
-            const { data: { publicUrl } } = supabaseAdmin.storage
+            const { data: { publicUrl } } = supabase.storage
               .from('solicitudes-documentos')
               .getPublicUrl(path);
             urlComprobante = publicUrl;
@@ -813,22 +814,22 @@ export default function ComiteEvaluador() {
         } catch { /* no bloquea */ }
       }
 
-      // 3. Buscar cuenta de ahorro permanente (puede existir del RPC aprobar_afiliacion)
-      // Usamos supabaseAdmin para bypasear RLS en escrituras sobre cuentas_ahorro
-      const { data: cuentaExistente } = await supabaseAdmin
+      // 3. Buscar cuenta de ahorro permanente (puede existir del RPC aprobar_afiliacion o reactivación)
+      const { data: cuentaExistente } = await supabase
         .from('cuentas_ahorro')
         .select('id, monto_ahorrado')
         .eq('asociado_id', pagoSolicitud.usuario_id)
         .eq('tipo', 'permanente')
-        .eq('anulado', false)
         .maybeSingle();
 
       let cuentaId: string;
       const saldoAntes = Number(cuentaExistente?.monto_ahorrado) || 0;
 
       if (cuentaExistente) {
-        const { error: updateErr } = await supabaseAdmin.from('cuentas_ahorro').update({
+        const { error: updateErr } = await supabase.from('cuentas_ahorro').update({
           estado: 'activo',
+          anulado: false,
+          motivo_anulacion: null,
           monto_ahorrado: saldoAntes + montoNum,
           cuota_mensual: montoNum,
           updated_at: new Date().toISOString(),
@@ -836,7 +837,7 @@ export default function ComiteEvaluador() {
         if (updateErr) throw updateErr;
         cuentaId = cuentaExistente.id;
       } else {
-        const { data: nuevaCuenta, error: cuentaErr } = await supabaseAdmin
+        const { data: nuevaCuenta, error: cuentaErr } = await supabase
           .from('cuentas_ahorro')
           .insert({
             asociado_id: pagoSolicitud.usuario_id,
@@ -845,15 +846,16 @@ export default function ComiteEvaluador() {
             monto_ahorrado: montoNum,
             cuota_mensual: montoNum,
             estado: 'activo',
+            anulado: false,
           })
           .select('id').single();
         if (cuentaErr) throw cuentaErr;
         cuentaId = nuevaCuenta.id;
       }
 
-      // 4. Registrar transacción (supabaseAdmin para bypasear RLS en transacciones)
+      // 4. Registrar transacción (ahora usa RLS estándar)
       const { data: { user } } = await supabase.auth.getUser();
-      const { error: txErr } = await supabaseAdmin.from('transacciones').insert({
+      const { error: txErr } = await supabase.from('transacciones').insert({
         tipo: 'aporte_permanente',
         asociado_id: pagoSolicitud.usuario_id,
         registrado_por: user?.id ?? null,
@@ -873,8 +875,8 @@ export default function ComiteEvaluador() {
       });
       if (txErr) throw txErr;
 
-      // 5. Marcar solicitud como aprobada — supabaseAdmin para evitar bloqueo RLS
-      const { error: solErr } = await supabaseAdmin
+      // 5. Marcar solicitud como aprobada — RLS estándar
+      const { error: solErr } = await supabase
         .from('solicitudes_asociados').update({ estado: 'aprobada' }).eq('id', pagoSolicitud.id);
       if (solErr) throw solErr;
 

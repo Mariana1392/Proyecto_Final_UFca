@@ -77,7 +77,7 @@ const CLAVES_CONFIG = [
   'tasa_educacion',
   'tasa_vivienda',
   'tasa_calamidad',
-  'tasa_mora_creditos',
+  'tasa_mora_credito',
   'tasa_interes_ahorros',
   'multa_mora_ahorro_diaria',
 ] as const;
@@ -156,7 +156,7 @@ class BusinessRulesEngine {
       tasaEducacion:      Number(get('tasa_educacion')       ?? CONFIG_DEFAULTS.tasaEducacion),
       tasaVivienda:       Number(get('tasa_vivienda')        ?? CONFIG_DEFAULTS.tasaVivienda),
       tasaCalamidad:      Number(get('tasa_calamidad')       ?? CONFIG_DEFAULTS.tasaCalamidad),
-      tasaMoraCreditos:   Number(get('tasa_mora_creditos')   ?? CONFIG_DEFAULTS.tasaMoraCreditos),
+      tasaMoraCreditos:   Number(get('tasa_mora_credito')   ?? CONFIG_DEFAULTS.tasaMoraCreditos),
       tasaInteresAhorros: Number(get('tasa_interes_ahorros') ?? CONFIG_DEFAULTS.tasaInteresAhorros),
       multaMoraAhorroDiaria: Number(get('multa_mora_ahorro_diaria') ?? CONFIG_DEFAULTS.multaMoraAhorroDiaria),
     };

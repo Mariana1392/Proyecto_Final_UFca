@@ -4,7 +4,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
-import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription';
 import { ahorroVoluntarioApi, asociadosApi } from '../../lib/api';
 import { formatCurrency, formatCurrencyRealTime } from '../../lib/formatters';
@@ -156,7 +155,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
         asociadosApi.getAll(),
         supabase.from('configuracion').select('valor')
           .eq('clave', 'cuota_ahorro_voluntario').maybeSingle(),
-        (supabaseAdmin ?? supabase)
+        supabase
           .from('auditoria')
           .select('id, accion, operacion, datos_antes, datos_despues, usuario_id, registro_id, created_at')
           .eq('tabla', 'cuentas_ahorro')

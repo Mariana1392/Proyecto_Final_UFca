@@ -8,6 +8,30 @@ import { Lock, CheckCircle, AlertCircle, Eye, EyeOff, Sparkles, Loader2 } from '
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 
+// ── Fondo decorativo reutilizable ────────────────────────────────────────
+const Fondo = ({ children }: { children: React.ReactNode }) => (
+  <div className="relative min-h-screen overflow-hidden flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #064e3b 0%, #065f46 40%, #047857 70%, #059669 100%)' }}>
+    {/* Círculos decorativos */}
+    <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full opacity-20" style={{ background: '#34d399' }} />
+    <div className="absolute top-10 right-16 w-48 h-48 rounded-full opacity-15" style={{ background: '#6ee7b7' }} />
+    <div className="absolute top-1/3 -left-16 w-64 h-64 rounded-full opacity-10" style={{ background: '#a7f3d0' }} />
+    <div className="absolute -bottom-20 right-0 w-96 h-96 rounded-full opacity-20" style={{ background: '#10b981' }} />
+    <div className="absolute bottom-16 left-1/4 w-40 h-40 rounded-full opacity-15" style={{ background: '#34d399' }} />
+    <div className="absolute top-1/2 right-1/4 w-24 h-24 rounded-full opacity-10" style={{ background: '#d1fae5' }} />
+    <div className="absolute top-3/4 -right-10 w-56 h-56 rounded-full opacity-15" style={{ background: '#059669' }} />
+    {/* Marranitos flotantes */}
+    <span className="absolute top-8 left-12 text-4xl opacity-30 select-none" style={{ transform: 'rotate(-15deg)' }}>🐷</span>
+    <span className="absolute top-1/4 right-10 text-3xl opacity-25 select-none" style={{ transform: 'rotate(10deg)' }}>🐽</span>
+    <span className="absolute bottom-1/3 left-8 text-5xl opacity-20 select-none" style={{ transform: 'rotate(-8deg)' }}>🐷</span>
+    <span className="absolute bottom-10 right-20 text-3xl opacity-30 select-none" style={{ transform: 'rotate(20deg)' }}>🐽</span>
+    <span className="absolute top-2/3 left-1/3 text-2xl opacity-20 select-none" style={{ transform: 'rotate(-5deg)' }}>🐷</span>
+    <span className="absolute top-16 right-1/3 text-xl opacity-25 select-none" style={{ transform: 'rotate(12deg)' }}>🐽</span>
+    <div className="relative z-10 w-full flex items-center justify-center px-4 py-8">
+      {children}
+    </div>
+  </div>
+);
+
 interface CrearPasswordProps {
   onSuccess: () => void;
 }
@@ -143,29 +167,7 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
     setIsLoading(false);
   };
 
-  // ── Fondo decorativo reutilizable ────────────────────────────────────────
-  const Fondo = ({ children }: { children: React.ReactNode }) => (
-    <div className="relative min-h-screen overflow-hidden flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #064e3b 0%, #065f46 40%, #047857 70%, #059669 100%)' }}>
-      {/* Círculos decorativos */}
-      <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full opacity-20" style={{ background: '#34d399' }} />
-      <div className="absolute top-10 right-16 w-48 h-48 rounded-full opacity-15" style={{ background: '#6ee7b7' }} />
-      <div className="absolute top-1/3 -left-16 w-64 h-64 rounded-full opacity-10" style={{ background: '#a7f3d0' }} />
-      <div className="absolute -bottom-20 right-0 w-96 h-96 rounded-full opacity-20" style={{ background: '#10b981' }} />
-      <div className="absolute bottom-16 left-1/4 w-40 h-40 rounded-full opacity-15" style={{ background: '#34d399' }} />
-      <div className="absolute top-1/2 right-1/4 w-24 h-24 rounded-full opacity-10" style={{ background: '#d1fae5' }} />
-      <div className="absolute top-3/4 -right-10 w-56 h-56 rounded-full opacity-15" style={{ background: '#059669' }} />
-      {/* Marranitos flotantes */}
-      <span className="absolute top-8 left-12 text-4xl opacity-30 select-none" style={{ transform: 'rotate(-15deg)' }}>🐷</span>
-      <span className="absolute top-1/4 right-10 text-3xl opacity-25 select-none" style={{ transform: 'rotate(10deg)' }}>🐽</span>
-      <span className="absolute bottom-1/3 left-8 text-5xl opacity-20 select-none" style={{ transform: 'rotate(-8deg)' }}>🐷</span>
-      <span className="absolute bottom-10 right-20 text-3xl opacity-30 select-none" style={{ transform: 'rotate(20deg)' }}>🐽</span>
-      <span className="absolute top-2/3 left-1/3 text-2xl opacity-20 select-none" style={{ transform: 'rotate(-5deg)' }}>🐷</span>
-      <span className="absolute top-16 right-1/3 text-xl opacity-25 select-none" style={{ transform: 'rotate(12deg)' }}>🐽</span>
-      <div className="relative z-10 w-full flex items-center justify-center px-4 py-8">
-        {children}
-      </div>
-    </div>
-  );
+  // (Fondo movido al nivel superior para evitar desmontaje y pérdida de foco)
 
   // ── Verificando sesión ───────────────────────────────────────────────────
   if (sessionStatus === 'checking') {
