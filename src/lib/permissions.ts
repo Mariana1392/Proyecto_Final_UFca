@@ -48,23 +48,23 @@ export type Permission = typeof PERM[keyof typeof PERM];
 // Centralizado aquí para no repetirlo en App.tsx ni en cada componente.
 // Vistas con array: accesible si el usuario tiene AL MENOS UNO (OR)
 // ─────────────────────────────────────────────────────────────────────────────
-export const VIEW_PERMISO: Record<string, string | string[]> = {
+export const VIEW_PERMISO: Record<string, string> = {
   'mi-solicitud':      PERM.SOLICITUD_ASOCIACION,
   dashboard:           PERM.DASHBOARD,
   roles:               PERM.ROLES,
   usuarios:            PERM.USUARIOS,
   asociados:           PERM.ASOCIADOS,
   'asociado-detalle':  PERM.ASOCIADOS,
-  'ahorro-permanente': [PERM.AHORROS, PERM.MIS_AHORROS],
-  'ahorro-voluntario': [PERM.AHORROS, PERM.MIS_AHORROS],
-  liquidacion:         [PERM.LIQUIDACION, PERM.MI_LIQUIDACION],
+  'ahorro-permanente': PERM.AHORROS,
+  'ahorro-voluntario': PERM.AHORROS,
+  liquidacion:         PERM.LIQUIDACION,
   'comite-evaluador':  PERM.ASOCIADOS,
-  creditos:            [PERM.CREDITOS, PERM.MIS_CREDITOS],
-  referidos:           [PERM.ASOCIADOS, PERM.MIS_REFERIDOS],
+  creditos:            PERM.CREDITOS,
+  referidos:           PERM.ASOCIADOS,
   parametros:          PERM.CONFIGURACION,
   // A-07: mi-perfil requiere estar autenticado (cualquier permiso activo)
-  'mi-perfil':         [PERM.DASHBOARD, PERM.MIS_AHORROS, PERM.SOLICITUD_ASOCIACION],
-  reportes:            [PERM.DASHBOARD, PERM.MIS_AHORROS],
+  'mi-perfil':         PERM.DASHBOARD,
+  reportes:            PERM.DASHBOARD,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

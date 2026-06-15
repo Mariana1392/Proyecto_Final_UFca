@@ -41,8 +41,8 @@ interface DBPermiso {
 
 interface AuditEntry { id: string; accion: string; detalle: string; fecha: string; usuario: string; }
 
-// Permiso mínimo que todo rol debe conservar
-const PERMISOS_MINIMOS: PermisoKey[] = ['dashboard'];
+// Permiso mínimo que todo rol debe conservar (ahora es solo al menos 1 de cualquiera)
+const PERMISOS_MINIMOS: PermisoKey[] = [];
 
 // Los permisos de cada rol se leen siempre desde la base de datos (roles.permisos)
 // No existen objetos hardcoded — la BD es la única fuente de verdad
@@ -1198,9 +1198,8 @@ export default function Roles({ userRole }: RolesProps) {
                   onChange={(e) => {
                     const val = e.target.value;
                     setFormData(prev => ({ ...prev, nombre: val }));
-                    if (formTouched.nombre) {
-                      setFormErrors(prev => ({ ...prev, nombre: validateField('nombre', val) }));
-                    }
+                    setFormTouched(prev => ({ ...prev, nombre: true }));
+                    setFormErrors(prev => ({ ...prev, nombre: validateField('nombre', val) }));
                   }}
                   onBlur={() => {
                     setFormTouched(prev => ({ ...prev, nombre: true }));
@@ -1225,9 +1224,8 @@ export default function Roles({ userRole }: RolesProps) {
                   onChange={(e) => {
                     const val = e.target.value;
                     setFormData(prev => ({ ...prev, descripcion: val }));
-                    if (formTouched.descripcion) {
-                      setFormErrors(prev => ({ ...prev, descripcion: validateField('descripcion', val) }));
-                    }
+                    setFormTouched(prev => ({ ...prev, descripcion: true }));
+                    setFormErrors(prev => ({ ...prev, descripcion: validateField('descripcion', val) }));
                   }}
                   onBlur={() => {
                     setFormTouched(prev => ({ ...prev, descripcion: true }));
@@ -1310,7 +1308,11 @@ export default function Roles({ userRole }: RolesProps) {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancelar</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleCreateRol}>
+            <Button 
+              className="bg-emerald-600 hover:bg-emerald-700" 
+              onClick={handleCreateRol}
+              disabled={!!formErrors.nombre || !!formErrors.descripcion || !formData.nombre.trim() || !formData.descripcion.trim()}
+            >
               Crear rol
             </Button>
           </DialogFooter>
@@ -1362,9 +1364,8 @@ export default function Roles({ userRole }: RolesProps) {
                     if (selectedItem?.esSistema) return;
                     const val = e.target.value;
                     setFormData(prev => ({ ...prev, nombre: val }));
-                    if (formTouched.nombre) {
-                      setFormErrors(prev => ({ ...prev, nombre: validateField('nombre', val, true) }));
-                    }
+                    setFormTouched(prev => ({ ...prev, nombre: true }));
+                    setFormErrors(prev => ({ ...prev, nombre: validateField('nombre', val, true) }));
                   }}
                   onBlur={() => {
                     if (selectedItem?.esSistema) return;
@@ -1396,9 +1397,8 @@ export default function Roles({ userRole }: RolesProps) {
                   onChange={(e) => {
                     const val = e.target.value;
                     setFormData(prev => ({ ...prev, descripcion: val }));
-                    if (formTouched.descripcion) {
-                      setFormErrors(prev => ({ ...prev, descripcion: validateField('descripcion', val) }));
-                    }
+                    setFormTouched(prev => ({ ...prev, descripcion: true }));
+                    setFormErrors(prev => ({ ...prev, descripcion: validateField('descripcion', val, true) }));
                   }}
                   onBlur={() => {
                     setFormTouched(prev => ({ ...prev, descripcion: true }));
@@ -1491,7 +1491,11 @@ export default function Roles({ userRole }: RolesProps) {
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleEditRol}>
+            <Button 
+              className="bg-emerald-600 hover:bg-emerald-700" 
+              onClick={handleEditRol}
+              disabled={!!formErrors.nombre || !!formErrors.descripcion || !formData.nombre.trim() || !formData.descripcion.trim()}
+            >
               Guardar cambios
             </Button>
           </DialogFooter>

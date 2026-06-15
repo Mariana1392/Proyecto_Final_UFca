@@ -129,7 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user && !cacheGet()) {
+      if (session?.user) {
+        if (cacheGet()) setLoading(false);
         cargarPerfil(session.user.id);
       } else {
         setLoading(false);
@@ -139,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         setU(null);
-      } else if (event === 'SIGNED_IN' && session?.user && !cacheGet()) {
+      } else if (event === 'SIGNED_IN' && session?.user) {
         cargarPerfil(session.user.id);
       } else if (event === 'EMAIL_CHANGED' && session?.user) {
         // Sincronizar el nuevo correo en la tabla public.usuarios

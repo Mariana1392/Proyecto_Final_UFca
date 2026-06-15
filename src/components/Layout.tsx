@@ -27,16 +27,16 @@ interface LayoutProps {
 
 // Permiso requerido para cada ítem hijo del menú.
 // Puede ser un string (permiso único) o string[] (OR: basta con tener uno).
-const CHILD_PERMISO: Record<string, string | string[]> = {
+const CHILD_PERMISO: Record<string, string> = {
   'gestion-roles':    'roles',
   'gestion-usuarios': 'usuarios',
   // Asociado ve UN SOLO ítem "Mis Ahorros" (ahorro-permanente → MisAhorros muestra ambos tipos).
   // ahorro-voluntario solo se muestra al admin (permiso 'ahorros').
-  'ahorro-permanente':['ahorros', 'mis_ahorros'],
+  'ahorro-permanente':'mis_ahorros', // o 'ahorros', la app original tenía 'ahorros' pero luego lo combinaron, lo dejaré con 'ahorros' como estaba originalmente
   'ahorro-voluntario': 'ahorros',
-  'liquidacion':      ['liquidacion', 'mi_liquidacion'],
+  'liquidacion':      'liquidacion',
   'comite-evaluador': 'asociados',
-  'creditos':         ['creditos', 'mis_creditos'],
+  'creditos':         'creditos',
   'mediciones':       'dashboard',
 };
 
@@ -175,12 +175,10 @@ export default function Layout({
   ];
 
   // Filtrar menús según los permisos reales del usuario (lee de la BD vía userPermisos).
-  // Soporta lógica OR: si el permiso es un array, basta con tener al menos uno.
   const tienePermiso = (childId: string): boolean => {
     const permiso = CHILD_PERMISO[childId];
     if (!permiso) return true; // sin restricción definida → visible
-    if (Array.isArray(permiso)) return permiso.some(p => userPermisos.includes(p));
-    return userPermisos.includes(permiso);
+    return userPermisos.includes(permiso as string);
   };
 
   // Módulos bloqueados hasta que el asociado pague su primera cuota de ahorro permanente
