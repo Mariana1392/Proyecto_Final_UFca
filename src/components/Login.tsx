@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
-import { Mail, Lock, AlertCircle, Shield, CheckCircle2, RefreshCw, ArrowLeft, InboxIcon, Eye, EyeOff, Smartphone, Download } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Shield, CheckCircle2, RefreshCw, ArrowLeft, InboxIcon, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import logo from '../assets/logo.svg';
 
@@ -390,28 +390,6 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
 
               {/* Avisos Inferiores */}
               <div className="mt-6 pt-5 border-t border-slate-100 space-y-4">
-                
-                {/* Banner de Descarga de App */}
-                <div className="flex items-start gap-3 p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl">
-                  <div className="p-2 bg-emerald-100/80 rounded-xl shrink-0 mt-0.5">
-                    <Smartphone className="size-4 text-emerald-700"/>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-emerald-900">Lleva UFCA en tu bolsillo</p>
-                    <p className="text-xs text-emerald-700 mt-0.5 mb-3 leading-relaxed">
-                      Descarga nuestra aplicación móvil oficial. <strong>Recuerda:</strong> El acceso desde la app es exclusivo para asociados activos de la cooperativa.
-                    </p>
-                    <a 
-                      href="/ufca-app.apk" 
-                      download="UFCA_Mobile.apk"
-                      className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 text-xs font-bold text-emerald-900 bg-emerald-200/50 hover:bg-emerald-200 rounded-xl border border-emerald-300 transition-colors"
-                    >
-                      <Download className="size-3.5" />
-                      Descargar APK (Android)
-                    </a>
-                  </div>
-                </div>
-
                 <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
                   <CheckCircle2 className="size-4 text-amber-600 shrink-0 mt-0.5"/>
                   <div>

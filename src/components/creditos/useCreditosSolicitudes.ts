@@ -44,8 +44,11 @@ export function useCreditosSolicitudes({
   const [notaRechazoSol, setNotaRechazoSol]                   = useState('');
   const [savingRechazarSol, setSavingRechazarSol]             = useState(false);
   const [solBanco, setSolBanco]               = useState('');
+  const [solBancoSeleccionado, setSolBancoSeleccionado] = useState('');
+  const [solBancoSubSeleccionado, setSolBancoSubSeleccionado] = useState('');
   const [solTipoCuenta, setSolTipoCuenta]     = useState('ahorros');
   const [solNumeroCuenta, setSolNumeroCuenta] = useState('');
+  const [solTipoDesembolso, setSolTipoDesembolso] = useState<'efectivo' | 'transferencia'>('transferencia');
   const [tasasParametrizadas, setTasasParametrizadas] = useState<Record<string, number>>({});
   // Documentos adjuntos a la solicitud (Mejora F)
   const [solDocCartaLaboral, setSolDocCartaLaboral] = useState<File | null>(null);
@@ -121,9 +124,9 @@ export function useCreditosSolicitudes({
       toast.error('Ingresa el nombre del referido'); return;
     }
 
-    if (monto > totalAhorros) {
-      toast.error(`El monto solicitado excede el total de tus ahorros (${formatCurrency(totalAhorros)}).`);
-      return;
+    if (solTipoDesembolso === 'transferencia') {
+      if (!solBanco.trim()) { toast.error('Ingresa el nombre del banco'); return; }
+      if (!solNumeroCuenta.trim()) { toast.error('Ingresa el número de cuenta'); return; }
     }
 
     // ── Validar Reglas de Negocio ──
@@ -200,16 +203,17 @@ export function useCreditosSolicitudes({
       const tasa  = parseFloat(solTasa) || 0;
       const cuota = calcularCuota(monto, tasa, plazo);
 
-      // Construir observaciones incluyendo datos bancarios si los ingresó
+      // Construir observaciones incluyendo tipo de desembolso y datos bancarios si aplica
       const parteDestino  = solDestino.trim();
       const parteObs      = solObs.trim();
-      const parteBancaria = [
+      const parteDesembolso = `Tipo de desembolso: ${solTipoDesembolso === 'efectivo' ? 'Efectivo' : 'Transferencia'}`;
+      const parteBancaria = solTipoDesembolso === 'transferencia' ? [
         solBanco.trim()        && `Banco: ${solBanco.trim()}`,
         solTipoCuenta          && `Tipo de cuenta: ${solTipoCuenta}`,
         solNumeroCuenta.trim() && `N° cuenta: ${solNumeroCuenta.trim()}`,
-      ].filter(Boolean).join(' · ');
+      ].filter(Boolean).join(' · ') : '';
 
-      const observacionesFinal = [parteDestino, parteObs, parteBancaria]
+      const observacionesFinal = [parteDestino, parteObs, parteDesembolso, parteBancaria]
         .filter(Boolean).join('\n') || null;
 
       const { data, error } = await supabase
@@ -297,6 +301,8 @@ export function useCreditosSolicitudes({
       setSolTasa(''); setSolDestino(''); setSolObs('');
       setSolDocCartaLaboral(null); setSolDocCedula(null);
       setSolEsParaReferido(false); setSolReferidoNombre('');
+      setSolBanco(''); setSolBancoSeleccionado(''); setSolBancoSubSeleccionado(''); setSolTipoCuenta('ahorros'); setSolNumeroCuenta('');
+      setSolTipoDesembolso('transferencia');
     } catch (err: any) {
       toast.error('Error al enviar la solicitud: ' + err.message);
     } finally {
@@ -439,8 +445,11 @@ export function useCreditosSolicitudes({
     notaRechazoSol, setNotaRechazoSol,
     savingRechazarSol,
     solBanco, setSolBanco,
+    solBancoSeleccionado, setSolBancoSeleccionado,
+    solBancoSubSeleccionado, setSolBancoSubSeleccionado,
     solTipoCuenta, setSolTipoCuenta,
     solNumeroCuenta, setSolNumeroCuenta,
+    solTipoDesembolso, setSolTipoDesembolso,
     tasasParametrizadas,
     solDocCartaLaboral, setSolDocCartaLaboral,
     solDocCedula, setSolDocCedula,

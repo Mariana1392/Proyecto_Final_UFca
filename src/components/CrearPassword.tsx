@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -50,6 +50,16 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
 
   // Estado de la sesión: 'checking' → 'ready' | 'error'
   const [sessionStatus, setSessionStatus] = useState<'checking' | 'ready' | 'error'>('checking');
+  const newPasswordRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (sessionStatus === 'ready' && !done) {
+      const timer = setTimeout(() => {
+        newPasswordRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [sessionStatus, done]);
 
   // Verificar que Supabase procesó el token del link y hay una sesión activa
   useEffect(() => {
@@ -318,6 +328,7 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
                     id="newPassword"
+                    ref={newPasswordRef}
                     type={showNew ? 'text' : 'password'}
                     autoComplete="new-password"
                     placeholder="••••••••"
@@ -326,7 +337,6 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     disabled={isLoading}
-                    autoFocus
                   />
                   <button
                     type="button"

@@ -591,6 +591,19 @@ export default function Creditos({ userData }: CreditosProps) {
                               </div>
                             </div>
 
+                            {/* Alerta de límite de ahorros para el Administrador */}
+                            {sol.monto > sol.totalAhorrosAsociado && (
+                              <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl flex items-start gap-3 mt-2 mb-2">
+                                <AlertTriangle className="size-5 shrink-0 mt-0.5" />
+                                <div>
+                                  <h4 className="font-bold text-xs">Límite de préstamo excedido</h4>
+                                  <p className="text-[11px] mt-0.5">
+                                    El monto solicitado ({formatCurrency(sol.monto)}) excede el total de los ahorros del asociado ({formatCurrency(sol.totalAhorrosAsociado)}).
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+
                             {/* KPIs financieros */}
                             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                               {[

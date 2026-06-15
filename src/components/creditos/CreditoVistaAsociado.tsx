@@ -89,8 +89,11 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
     solDestino, setSolDestino,
     solObs, setSolObs,
     solBanco, setSolBanco,
+    solBancoSeleccionado, setSolBancoSeleccionado,
+    solBancoSubSeleccionado, setSolBancoSubSeleccionado,
     solTipoCuenta, setSolTipoCuenta,
     solNumeroCuenta, setSolNumeroCuenta,
+    solTipoDesembolso, setSolTipoDesembolso,
     solDocCartaLaboral, setSolDocCartaLaboral,
     solDocCedula, setSolDocCedula,
     tasasParametrizadas,
@@ -824,7 +827,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
     {/* ── Dialog solicitar crédito (asociado) ── */}
     <Dialog open={isSolicitudDialogOpen} onOpenChange={(open) => {
       setIsSolicitudDialogOpen(open);
-      if (!open) { setSolMonto(''); setSolTipo('libre_inversion'); setSolPlazo(''); setSolTasa(''); setSolDestino(''); setSolObs(''); setSolBanco(''); setSolTipoCuenta('ahorros'); setSolNumeroCuenta(''); setSolDocCartaLaboral(null); setSolDocCedula(null); setSolEsParaReferido(false); setSolReferidoNombre(''); }
+      if (!open) { setSolMonto(''); setSolTipo('libre_inversion'); setSolPlazo(''); setSolTasa(''); setSolDestino(''); setSolObs(''); setSolBanco(''); setSolBancoSeleccionado(''); setSolBancoSubSeleccionado(''); setSolTipoCuenta('ahorros'); setSolNumeroCuenta(''); setSolDocCartaLaboral(null); setSolDocCedula(null); setSolEsParaReferido(false); setSolReferidoNombre(''); }
     }}>
       <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto">
         <DialogHeader>
@@ -951,18 +954,6 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
             </div>
           </div>
 
-          {/* ── Alerta de límite de ahorros ── */}
-          {parseMonto(solMonto) > totalAhorros && totalAhorros > 0 && (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl flex items-start gap-3 animate-pulse mt-2 mb-2">
-              <AlertTriangle className="size-6 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-sm">Límite de préstamo excedido</h4>
-                <p className="text-xs mt-0.5">
-                  El monto solicitado ({formatCurrency(parseMonto(solMonto))}) excede el total de tus ahorros ({formatCurrency(totalAhorros)}).
-                </p>
-              </div>
-            </div>
-          )}
 
           {/* ── Capacidad de endeudamiento (30% del ingreso mensual) ── */}
           {!solEsParaReferido && asocIngresoMensual > 0 && (
@@ -1112,54 +1103,130 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
               </label>
             </div>
           </div>
+          <div className="space-y-1.5 pt-2 border-t border-slate-100">
+            <Label>Tipo de desembolso <span className="text-red-500">*</span></Label>
+            <Select value={solTipoDesembolso} onValueChange={(val: any) => setSolTipoDesembolso(val)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="transferencia">Transferencia bancaria</SelectItem>
+                <SelectItem value="efectivo">Efectivo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <div className="space-y-3 pt-1">
-            <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2 border-t border-slate-100 pt-3">
-              <Users className="size-4 text-indigo-500" />
-              Datos bancarios para desembolso
-            </h4>
-            <p className="text-[11px] text-slate-400 -mt-1">Si el crédito es aprobado, el dinero se transferirá a esta cuenta.</p>
-            <div className="space-y-1.5">
-              <Label>Banco <span className="text-red-500">*</span></Label>
-              <Input
-                placeholder="Ej. Bancolombia, Nequi, Davivienda…"
-                value={solBanco}
-                onChange={e => { setSolBanco(e.target.value); if (solErrors.banco) validarSolCampo('banco', e.target.value); }}
-                onBlur={e => validarSolCampo('banco', e.target.value)}
-                className={solErrors.banco ? 'border-red-400' : ''}
-              />
-              {solErrors.banco && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{solErrors.banco}</p>}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+          {solTipoDesembolso === 'transferencia' && (
+            <div className="space-y-3 pt-1">
+              <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2 border-t border-slate-100 pt-3">
+                <Users className="size-4 text-indigo-500" />
+                Datos bancarios para desembolso
+              </h4>
+              <p className="text-[11px] text-slate-400 -mt-1">Si el crédito es aprobado, el dinero se transferirá a esta cuenta.</p>
               <div className="space-y-1.5">
-                <Label>Tipo de cuenta <span className="text-red-500">*</span></Label>
-                <Select value={solTipoCuenta} onValueChange={setSolTipoCuenta}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Label>Banco <span className="text-red-500">*</span></Label>
+                <Select
+                  value={solBancoSeleccionado}
+                  onValueChange={(val) => {
+                    setSolBancoSeleccionado(val);
+                    setSolBancoSubSeleccionado('');
+                    if (val !== 'Otro') {
+                      setSolBanco(val);
+                      setSolErrors(prev => ({ ...prev, banco: '' }));
+                    } else {
+                      setSolBanco('');
+                    }
+                  }}
+                >
+                  <SelectTrigger className={solErrors.banco ? 'border-red-400' : ''}>
+                    <SelectValue placeholder="Selecciona un banco" />
+                  </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ahorros">Ahorros</SelectItem>
-                    <SelectItem value="corriente">Corriente</SelectItem>
-                    <SelectItem value="digital">Digital / Billetera</SelectItem>
+                    <SelectItem value="Bancolombia">Bancolombia</SelectItem>
+                    <SelectItem value="Nequi">Nequi</SelectItem>
+                    <SelectItem value="Daviplata">Daviplata</SelectItem>
+                    <SelectItem value="BBVA">BBVA</SelectItem>
+                    <SelectItem value="Davivienda">Davivienda</SelectItem>
+                    <SelectItem value="Otro">Otro</SelectItem>
                   </SelectContent>
                 </Select>
+                {solBancoSeleccionado === 'Otro' && (
+                  <div className="space-y-1.5 mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <Label className="text-xs text-slate-500 font-medium">Otros bancos colombianos <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={solBancoSubSeleccionado}
+                      onValueChange={(val) => {
+                        setSolBancoSubSeleccionado(val);
+                        if (val !== 'Manual') {
+                          setSolBanco(val);
+                          setSolErrors(prev => ({ ...prev, banco: '' }));
+                        } else {
+                          setSolBanco('');
+                        }
+                      }}
+                    >
+                      <SelectTrigger className={solErrors.banco ? 'border-red-400' : ''}>
+                        <SelectValue placeholder="Selecciona otro banco" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Banco de Bogotá">Banco de Bogotá</SelectItem>
+                        <SelectItem value="Banco de Occidente">Banco de Occidente</SelectItem>
+                        <SelectItem value="Banco Popular">Banco Popular</SelectItem>
+                        <SelectItem value="Banco AV Villas">Banco AV Villas</SelectItem>
+                        <SelectItem value="Lulo Bank">Lulo Bank</SelectItem>
+                        <SelectItem value="Nubank">Nubank (Nu Colombia)</SelectItem>
+                        <SelectItem value="Banco Caja Social">Banco Caja Social</SelectItem>
+                        <SelectItem value="Manual">Escribir otro banco...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {solBancoSeleccionado === 'Otro' && solBancoSubSeleccionado === 'Manual' && (
+                  <div className="space-y-1.5 mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <Label className="text-xs text-slate-500 font-medium">Especificar banco <span className="text-red-500">*</span></Label>
+                    <Input
+                      placeholder="Escribe el nombre del banco"
+                      value={solBanco}
+                      onChange={e => {
+                        setSolBanco(e.target.value);
+                        if (solErrors.banco) validarSolCampo('banco', e.target.value);
+                      }}
+                      onBlur={e => validarSolCampo('banco', e.target.value)}
+                      className={solErrors.banco ? 'border-red-400' : ''}
+                    />
+                  </div>
+                )}
+                {solErrors.banco && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{solErrors.banco}</p>}
               </div>
-              <div className="space-y-1.5">
-                <Label>Número de cuenta <span className="text-red-500">*</span></Label>
-                <Input
-                  placeholder="Ej. 1234567890"
-                  value={solNumeroCuenta}
-                  onChange={e => { const v = e.target.value.replace(/\D/g, ''); setSolNumeroCuenta(v); if (solErrors.numeroCuenta) validarSolCampo('numeroCuenta', v); }}
-                  onBlur={e => validarSolCampo('numeroCuenta', e.target.value)}
-                  className={solErrors.numeroCuenta ? 'border-red-400' : ''}
-                />
-                {solErrors.numeroCuenta && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{solErrors.numeroCuenta}</p>}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Tipo de cuenta <span className="text-red-500">*</span></Label>
+                  <Select value={solTipoCuenta} onValueChange={setSolTipoCuenta}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ahorros">Ahorros</SelectItem>
+                      <SelectItem value="corriente">Corriente</SelectItem>
+                      <SelectItem value="digital">Digital / Billetera</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Número de cuenta <span className="text-red-500">*</span></Label>
+                  <Input
+                    placeholder="Ej. 1234567890"
+                    value={solNumeroCuenta}
+                    onChange={e => { const v = e.target.value.replace(/\D/g, ''); setSolNumeroCuenta(v); if (solErrors.numeroCuenta) validarSolCampo('numeroCuenta', v); }}
+                    onBlur={e => validarSolCampo('numeroCuenta', e.target.value)}
+                    className={solErrors.numeroCuenta ? 'border-red-400' : ''}
+                  />
+                  {solErrors.numeroCuenta && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{solErrors.numeroCuenta}</p>}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={() => setIsSolicitudDialogOpen(false)}>Cancelar</Button>
-          <Button className="bg-blue-600 hover:bg-blue-700" disabled={savingSolicitud || parseMonto(solMonto) > totalAhorros || (solEsParaReferido && !solReferidoNombre.trim()) || !(parseInt(solPlazo) > 0 && parseInt(solPlazo) <= 12)} onClick={handleSolicitarCredito}>
+          <Button className="bg-blue-600 hover:bg-blue-700" disabled={savingSolicitud || (solEsParaReferido && !solReferidoNombre.trim()) || !(parseInt(solPlazo) > 0 && parseInt(solPlazo) <= 12)} onClick={handleSolicitarCredito}>
             {savingSolicitud ? 'Enviando...' : 'Enviar solicitud'}
           </Button>
         </DialogFooter>
@@ -1267,7 +1334,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
             </Button>
             <Button
               className="bg-blue-600 hover:bg-blue-700 gap-2"
-              disabled={savingSolicitud || parseMonto(solMonto) > totalAhorros || (solEsParaReferido && !solReferidoNombre.trim()) || !(parseInt(solPlazo) > 0 && parseInt(solPlazo) <= 12)}
+              disabled={savingSolicitud || (solEsParaReferido && !solReferidoNombre.trim()) || !(parseInt(solPlazo) > 0 && parseInt(solPlazo) <= 12)}
               onClick={() => { setIsSolSimOpen(false); handleSolicitarCredito(); }}
             >
               {savingSolicitud ? 'Enviando...' : '📤 Enviar solicitud'}

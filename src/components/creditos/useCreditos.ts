@@ -75,17 +75,34 @@ export function useCreditos(userData?: any) {
       ]);
       if (creditosRes.error) throw creditosRes.error;
 
-      // ── Join manual: traer nombre/cedula de cada asociado_id único ────────
+      // ── Join manual: traer nombre/cedula/ahorros de cada asociado_id único ────────
       const asocIds = [...new Set((creditosRes.data || []).map((c: any) => c.asociado_id).filter(Boolean))];
       const usuariosMap: Record<string, { nombre: string; cedula: string }> = {};
+      const ahorrosMap: Record<string, number> = {};
       if (asocIds.length > 0) {
-        const { data: usrsData } = await supabase
-          .from('usuarios').select('id, nombre, cedula').in('id', asocIds);
-        (usrsData || []).forEach((u: any) => { usuariosMap[u.id] = u; });
+        const [usrsRes, ahorrosRes] = await Promise.all([
+          supabase.from('usuarios').select('id, nombre, cedula').in('id', asocIds),
+          supabase.from('cuentas_ahorro')
+            .select('asociado_id, monto_ahorrado')
+            .in('asociado_id', asocIds)
+            .eq('anulado', false)
+            .eq('estado', 'activo')
+        ]);
+        if (usrsRes.data) {
+          usrsRes.data.forEach((u: any) => { usuariosMap[u.id] = u; });
+        }
+        if (ahorrosRes.data) {
+          ahorrosRes.data.forEach((a: any) => {
+            const current = ahorrosMap[a.asociado_id] || 0;
+            ahorrosMap[a.asociado_id] = current + (Number(a.monto_ahorrado) || 0);
+          });
+        }
       }
       const creditosData = {
         data: (creditosRes.data || []).map((c: any) => ({
-          ...c, usuarios: usuariosMap[c.asociado_id] ?? null,
+          ...c,
+          usuarios: usuariosMap[c.asociado_id] ?? null,
+          totalAhorrosAsociado: ahorrosMap[c.asociado_id] || 0,
         })),
       };
 
@@ -117,6 +134,7 @@ export function useCreditos(userData?: any) {
         tipoInteres:        c.tipo_interes ?? 'compuesto',
         referidoNombre:     c.referido_nombre ?? '',
         createdAt:          c.created_at,
+        totalAhorrosAsociado: c.totalAhorrosAsociado,
       }));
 
       const noSimulacion = mapeados.filter((c: any) => c.estadoAprobacion !== 'simulacion');
@@ -318,8 +336,11 @@ export function useCreditos(userData?: any) {
     notaRechazoSol: solicitudes.notaRechazoSol, setNotaRechazoSol: solicitudes.setNotaRechazoSol,
     savingRechazarSol: solicitudes.savingRechazarSol,
     solBanco: solicitudes.solBanco, setSolBanco: solicitudes.setSolBanco,
+    solBancoSeleccionado: solicitudes.solBancoSeleccionado, setSolBancoSeleccionado: solicitudes.setSolBancoSeleccionado,
+    solBancoSubSeleccionado: solicitudes.solBancoSubSeleccionado, setSolBancoSubSeleccionado: solicitudes.setSolBancoSubSeleccionado,
     solTipoCuenta: solicitudes.solTipoCuenta, setSolTipoCuenta: solicitudes.setSolTipoCuenta,
     solNumeroCuenta: solicitudes.solNumeroCuenta, setSolNumeroCuenta: solicitudes.setSolNumeroCuenta,
+    solTipoDesembolso: solicitudes.solTipoDesembolso, setSolTipoDesembolso: solicitudes.setSolTipoDesembolso,
     tasasParametrizadas: solicitudes.tasasParametrizadas,
     solDocCartaLaboral: solicitudes.solDocCartaLaboral, setSolDocCartaLaboral: solicitudes.setSolDocCartaLaboral,
     solDocCedula: solicitudes.solDocCedula, setSolDocCedula: solicitudes.setSolDocCedula,
