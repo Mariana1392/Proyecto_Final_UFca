@@ -47,6 +47,13 @@ export function useCreditos(userData?: any) {
   const [isInformeDialogOpen, setIsInformeDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem]               = useState<any>(null);
 
+  // ── Diálogo de confirmación de cambio de estado ───────────────────────────
+  const [isConfirmEstadoOpen, setIsConfirmEstadoOpen] = useState(false);
+  const [confirmEstadoItem, setConfirmEstadoItem]     = useState<any>(null);
+  const [confirmEstadoNuevo, setConfirmEstadoNuevo]   = useState<string>('');
+  const [confirmEstadoMora1, setConfirmEstadoMora1]   = useState(false);
+  const [confirmEstadoMora2, setConfirmEstadoMora2]   = useState(false);
+
   // ── Datos ─────────────────────────────────────────────────────────────────
   const [creditos, setCreditos]                     = useState<any[]>([]);
   const [asociadosDisponibles, setAsociadosDisponibles] = useState<any[]>([]);
@@ -226,6 +233,80 @@ export function useCreditos(userData?: any) {
     parseMonto,
   });
 
+  // ── Actualizar estado de un crédito directamente ────────────────────────
+  const handleUpdateEstado = async (credito: any, nuevoEstado: string) => {
+    if (!credito) return;
+    const estadoActual = credito.estadoAprobacion;
+
+    if (estadoActual === nuevoEstado) return;
+
+    // 1. No permitir cambiar a desembolsado directamente desde el select
+    if (nuevoEstado === 'desembolsado') {
+      toast.error('❌ Operación no permitida', {
+        description: "No se puede cambiar el estado a Desembolsado directamente. Use el botón 'Registrar desembolso' (icono de Landmark) en las acciones del crédito.",
+      });
+      return;
+    }
+
+    // 2. No permitir marcar como pagado si todavía tiene saldo
+    if (nuevoEstado === 'pagado' && (credito.saldo ?? 0) > 0) {
+      toast.error('❌ Operación no permitida', {
+        description: `El crédito aún tiene un saldo pendiente de ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(credito.saldo)}. Registre los pagos correspondientes para saldarlo.`,
+      });
+      return;
+    }
+
+    // 3. No permitir poner en mora si no ha sido desembolsado
+    if (nuevoEstado === 'en_mora' && !['desembolsado', 'activo', 'en_mora'].includes(estadoActual)) {
+      toast.error('❌ Operación no permitida', {
+        description: "No se puede poner en mora un crédito que no ha sido desembolsado.",
+      });
+      return;
+    }
+
+    // 4. No permitir revertir un crédito desembolsado, en mora o pagado a estados previos (pendiente/aprobado/en_revision/rechazado)
+    const estadosPost = ['desembolsado', 'en_mora', 'pagado', 'activo'];
+    if (estadosPost.includes(estadoActual) && !estadosPost.includes(nuevoEstado)) {
+      toast.error('❌ Operación no permitida', {
+        description: "No se puede revertir un crédito desembolsado, en mora o pagado a un estado previo al desembolso (Pendiente/Aprobado/Rechazado).",
+      });
+      return;
+    }
+
+    // Si pasa todas las validaciones de negocio, abrimos la confirmación interactiva
+    setConfirmEstadoItem(credito);
+    setConfirmEstadoNuevo(nuevoEstado);
+    setConfirmEstadoMora1(false);
+    setConfirmEstadoMora2(false);
+    setIsConfirmEstadoOpen(true);
+  };
+
+  const handleExecuteUpdateEstado = async () => {
+    if (!confirmEstadoItem || !confirmEstadoNuevo) return;
+    const estadoActual = confirmEstadoItem.estadoAprobacion;
+
+    try {
+      const ahora = new Date().toISOString();
+      const { error } = await supabase
+        .from('creditos')
+        .update({
+          estado: confirmEstadoNuevo,
+          fecha_estado_cambio: ahora,
+          motivo_estado_cambio: `Cambio de estado directo de "${estadoActual}" a "${confirmEstadoNuevo}" desde el listado administrativo`,
+        })
+        .eq('id', confirmEstadoItem.id);
+      if (error) throw error;
+
+      toast.success('✅ Estado del crédito actualizado');
+      setIsConfirmEstadoOpen(false);
+      setConfirmEstadoItem(null);
+      setConfirmEstadoNuevo('');
+      await cargarDatos();
+    } catch (err: any) {
+      toast.error('Error al actualizar el estado: ' + err.message);
+    }
+  };
+
   // ── Exportar historial de pagos a CSV ─────────────────────────────────────
   const exportarHistorialCSV = (historial: any[], credito: any) => {
     const numCredito = `CRE-${String(credito.id ?? '').substring(0, 8).toUpperCase()}`;
@@ -251,6 +332,14 @@ export function useCreditos(userData?: any) {
   return {
     // Auth
     can, user,
+    handleUpdateEstado,
+    // Confirmación de cambio de estado
+    isConfirmEstadoOpen, setIsConfirmEstadoOpen,
+    confirmEstadoItem, setConfirmEstadoItem,
+    confirmEstadoNuevo, setConfirmEstadoNuevo,
+    confirmEstadoMora1, setConfirmEstadoMora1,
+    confirmEstadoMora2, setConfirmEstadoMora2,
+    handleExecuteUpdateEstado,
     // Estado compartido
     searchTerm, setSearchTerm,
     filterEstado, setFilterEstado,

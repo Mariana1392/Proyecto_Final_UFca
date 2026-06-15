@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency } from '../../lib/formatters';
 import { TIPOS_CREDITO } from '../../lib/constants';
-import { calcularCuota, FilaAmortizacion } from './creditoHelpers';
+import { calcularCuota, calcularCuotaSimple, FilaAmortizacion } from './creditoHelpers';
 
 // Mapa tipo de crédito → clave en tabla configuracion
 const TIPO_A_CLAVE: Record<string, string> = {
@@ -198,7 +198,8 @@ export function useCreditosSolicitudes({
       const periodoId = periodoData?.id ?? null;
 
       const tasa  = parseFloat(solTasa) || 0;
-      const cuota = calcularCuota(monto, tasa, plazo);
+      const esSimple = !solEsParaReferido;
+      const cuota = esSimple ? calcularCuotaSimple(monto, tasa, plazo) : calcularCuota(monto, tasa, plazo);
 
       // Construir observaciones incluyendo datos bancarios si los ingresó
       const parteDestino  = solDestino.trim();
@@ -226,6 +227,7 @@ export function useCreditosSolicitudes({
           observaciones:     observacionesFinal,
           anulado:           false,
           referido_nombre:   solEsParaReferido && solReferidoNombre.trim() ? solReferidoNombre.trim() : null,
+          tipo_interes:      esSimple ? 'simple' : 'compuesto',
         })
         .select('*')
         .single();

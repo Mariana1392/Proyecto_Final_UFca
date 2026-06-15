@@ -718,7 +718,7 @@ export default function CreditoDialogDetalle({ hook }: CreditoDialogDetalleProps
           <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>Cerrar</Button>
           {selectedItem && !selectedItem.anulado && !esVistaPropia && (
             <>
-              {(selectedItem.estadoAprobacion === 'aprobado' || selectedItem.estadoAprobacion === 'activo') && !selectedItem.fechaDesembolso && (
+              {(selectedItem.estadoAprobacion === 'aprobado' || selectedItem.estadoAprobacion === 'activo') && (
                 <Button
                   className="gap-2 bg-indigo-600 hover:bg-indigo-700"
                   onClick={() => {

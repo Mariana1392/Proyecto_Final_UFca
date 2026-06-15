@@ -462,109 +462,22 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="fecha" className="flex items-center gap-1.5">
-                    <Calendar className="size-3.5 text-slate-500" /> Fecha de desembolso <span className="text-red-500">*</span>
-                  </Label>
-                  <Input id="fecha" type="date" value={formFecha}
-                    min={!selectedItem ? new Date().toISOString().split('T')[0] : undefined}
-                    onChange={(e) => {
-                      setFormFecha(e.target.value);
-                      if (fieldErrors.fecha) validarCampo('fecha', e.target.value);
-                    }}
-                    onBlur={(e) => validarCampo('fecha', e.target.value)}
-                    disabled={bloqueado}
-                    className={fieldErrors.fecha ? 'border-red-400' : ''}
-                  />
-                  {fieldErrors.fecha && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{fieldErrors.fecha}</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5">
-                    <Check className="size-3.5 text-emerald-500" /> Estado
-                  </Label>
-                  {selectedItem ? (
-                    /* Edición: selector completo para el admin */
-                    <Select
-                      value={formEstadoAprobacion}
-                      onValueChange={(v) => {
-                        setFormEstadoAprobacion(v);
-                        if (!formFechaEstado) {
-                          setFormFechaEstado(new Date().toISOString().split('T')[0]);
-                        }
-                      }}
-                      disabled={bloqueado}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {ESTADOS_APROBACION
-                          .filter(e => ['pendiente', 'aprobado', 'desembolsado', 'rechazado', 'en_mora', 'pagado'].includes(e.value))
-                          .map(e => (
-                            <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    /* Nuevo crédito: siempre empieza en Pendiente */
-                    <div className="flex items-center h-9 px-3 rounded-md border border-slate-200 bg-slate-50 gap-2">
-                      <Badge variant="outline" className="bg-yellow-100 text-yellow-700 border-yellow-200 text-xs font-medium">
-                        Pendiente
-                      </Badge>
-                      <span className="text-xs text-slate-400">Cambia a <strong>Aprobado</strong> cuando el asociado confirme</span>
-                    </div>
-                  )}
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="fecha" className="flex items-center gap-1.5">
+                  <Calendar className="size-3.5 text-slate-500" /> Fecha de desembolso <span className="text-red-500">*</span>
+                </Label>
+                <Input id="fecha" type="date" value={formFecha}
+                  min={!selectedItem ? new Date().toISOString().split('T')[0] : undefined}
+                  onChange={(e) => {
+                    setFormFecha(e.target.value);
+                    if (fieldErrors.fecha) validarCampo('fecha', e.target.value);
+                  }}
+                  onBlur={(e) => validarCampo('fecha', e.target.value)}
+                  disabled={bloqueado}
+                  className={fieldErrors.fecha ? 'border-red-400' : ''}
+                />
+                {fieldErrors.fecha && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{fieldErrors.fecha}</p>}
               </div>
-
-              {/* ── Campos de cambio de estado ── */}
-              {(selectedItem || ['en_mora', 'pagado', 'rechazado', 'desembolsado'].includes(formEstadoAprobacion)) && (
-                <div className={`grid gap-3 p-3 rounded-xl border ${
-                  selectedItem && formEstadoAprobacion !== formEstadoOriginal
-                    ? 'bg-amber-50 border-amber-200'
-                    : 'bg-slate-50 border-slate-200'
-                }`}>
-                  {selectedItem && formEstadoAprobacion !== formEstadoOriginal && (
-                    <div className="flex items-center gap-2 text-xs text-amber-700 font-medium mb-0.5">
-                      <AlertTriangle className="size-3.5" />
-                      Estás cambiando el estado de <strong>{ESTADOS_APROBACION.find(e => e.value === formEstadoOriginal)?.label ?? formEstadoOriginal}</strong> a <strong>{ESTADOS_APROBACION.find(e => e.value === formEstadoAprobacion)?.label ?? formEstadoAprobacion}</strong>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="fecha-estado" className="flex items-center gap-1.5 text-xs">
-                        <Calendar className="size-3.5 text-slate-500" />
-                        Fecha efectiva del cambio
-                        {selectedItem && formEstadoAprobacion !== formEstadoOriginal && (
-                          <span className="text-red-500">*</span>
-                        )}
-                      </Label>
-                      <Input
-                        id="fecha-estado"
-                        type="date"
-                        value={formFechaEstado}
-                        onChange={(e) => setFormFechaEstado(e.target.value)}
-                        className="text-sm"
-                        disabled={bloqueado}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="motivo-estado" className="flex items-center gap-1.5 text-xs">
-                        <FileText className="size-3.5 text-slate-500" />
-                        Motivo del cambio
-                        <span className="text-slate-400 font-normal">(opcional)</span>
-                      </Label>
-                      <Input
-                        id="motivo-estado"
-                        placeholder="Ej: Aprobado en comité, cuota vencida..."
-                        value={formMotivoEstado}
-                        onChange={(e) => setFormMotivoEstado(e.target.value)}
-                        className="text-sm"
-                        disabled={bloqueado}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* ── Sección: Documentación de soporte ── */}
