@@ -40,7 +40,7 @@ interface ExcepcionesManagerProps {
 /** Deriva el nivel de impacto a partir del tipo de excepción en lugar de hardcodearlo */
 function getImpactoFromTipo(tipo: string): Excepcion['impacto'] {
   const mapa: Record<string, Excepcion['impacto']> = {
-    // Crítico — comprometen directamente la cartera o la liquidez del fondo
+    // Crítico — comprometen directamente los créditos o la liquidez del fondo
     'credito_con_mora':              'critico',
     'retiro_con_deudas':             'critico',
     // Alto — operaciones que violan reglas financieras importantes

@@ -155,7 +155,7 @@ export function useCreditosCRUD({
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const acSuggestions = asociadosDisponibles
-    .filter(a => a.estado_cuenta !== 'inactivo' && (
+    .filter(a => a.activo !== false && a.estado_cuenta !== 'inactivo' && (
       (a.nombre ?? '').toLowerCase().includes(autocompleteSearch.toLowerCase()) ||
       (a.cedula ?? '').includes(autocompleteSearch)
     ))
@@ -227,6 +227,13 @@ export function useCreditosCRUD({
   // ── Guardar crédito (crear / editar) ─────────────────────────────────────
   const handleSaveCredito = async () => {
     if (!formAsociadoId)      { toast.error('Selecciona un asociado'); return; }
+    const asoc = asociadosDisponibles.find(a => a.id === formAsociadoId);
+    if (!selectedItem && asoc && asoc.activo === false) {
+      toast.error('Operación no permitida', {
+        description: 'El asociado seleccionado no tiene su correo o cuenta activa en el sistema.',
+      });
+      return;
+    }
     const monto = parseMonto(formMonto);
     if (!monto || monto <= 0) { toast.error('Ingresa un monto válido'); return; }
     const tasa  = parseFloat(formTasa);

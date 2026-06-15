@@ -63,6 +63,13 @@ export function useCreditosSimulacion({
     const tasa  = parseFloat(formTasa) || 0;
     const plazo = parseInt(formPlazo)  || 0;
     if (!formAsociadoId) { toast.error('Selecciona un asociado'); return; }
+    const asoc = asociadosDisponibles.find(a => a.id === formAsociadoId);
+    if (asoc && asoc.activo === false) {
+      toast.error('Operación no permitida', {
+        description: 'El asociado seleccionado no tiene su correo o cuenta activa en el sistema.',
+      });
+      return;
+    }
     if (!monto || monto <= 0) { toast.error('Ingresa un monto válido'); return; }
     if (plazo <= 0)  { toast.error('El plazo debe ser mayor a 0'); return; }
     if (plazo > 12)  { toast.error('El plazo máximo permitido es de 12 meses'); return; }
@@ -74,14 +81,19 @@ export function useCreditosSimulacion({
   };
 
   const handleEnviarSimulacion = async () => {
-    if (!formAsociadoId) return;
+    const asociado = asociadosDisponibles.find(a => a.id === formAsociadoId);
+    if (asociado && asociado.activo === false) {
+      toast.error('Operación no permitida', {
+        description: 'El asociado seleccionado no tiene su correo o cuenta activa en el sistema.',
+      });
+      return;
+    }
     const monto = parseMonto(formMonto);
     const tasa  = parseFloat(formTasa) || 0;
     const plazo = parseInt(formPlazo)  || 0;
     const cuota = formTipoInteres === 'simple'
       ? calcularCuotaSimple(monto, tasa, plazo)
       : calcularCuota(monto, tasa, plazo);
-    const asociado = asociadosDisponibles.find(a => a.id === formAsociadoId);
     setEnviandoSimulacion(true);
     try {
       const nuevo = await creditosApi.create({

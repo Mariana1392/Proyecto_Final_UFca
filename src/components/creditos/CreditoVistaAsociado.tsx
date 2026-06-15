@@ -973,7 +973,8 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
             const _monto   = parseMonto(solMonto);
             const _tasa    = parseFloat(solTasa) || 0;
             const _plazo   = parseInt(solPlazo);
-            const _cuota   = calcularCuota(_monto, _tasa, _plazo);
+            const esSimple = !solEsParaReferido;
+            const _cuota   = esSimple ? calcularCuotaSimple(_monto, _tasa, _plazo) : calcularCuota(_monto, _tasa, _plazo);
             const _total   = _cuota * _plazo;
             const _interes = _total - _monto;
             return (
@@ -983,7 +984,9 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                     <BarChart2 className="size-4 text-white" />
                     <span className="text-white text-sm font-bold">Simulación del crédito</span>
                   </div>
-                  <span className="text-purple-200 text-[10px] font-medium uppercase tracking-wide">Método francés · cuota fija</span>
+                  <span className="text-purple-200 text-[10px] font-medium uppercase tracking-wide">
+                    {esSimple ? 'Interés simple · cuota de capital fija' : 'Método francés · cuota fija'}
+                  </span>
                 </div>
                 <div className="grid grid-cols-3 divide-x divide-purple-100 bg-white">
                   <div className="px-3 py-3 text-center">
@@ -1012,7 +1015,9 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                     type="button" variant="outline" size="sm"
                     className="flex-1 border-purple-300 text-purple-700 hover:bg-purple-50 gap-1.5 text-xs"
                     onClick={() => {
-                      const t = generarTablaAmortizacion(_monto, _tasa, _plazo, new Date().toISOString().split('T')[0]);
+                      const t = esSimple
+                        ? generarTablaAmortizacionSimple(_monto, _tasa, _plazo, new Date().toISOString().split('T')[0])
+                        : generarTablaAmortizacion(_monto, _tasa, _plazo, new Date().toISOString().split('T')[0]);
                       setTablaSolSim(t);
                       setIsSolSimOpen(true);
                     }}
@@ -1023,8 +1028,10 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                     type="button" variant="outline" size="sm"
                     className="border-slate-300 text-slate-600 hover:bg-slate-100 gap-1.5 text-xs"
                     onClick={() => {
-                      const t = generarTablaAmortizacion(_monto, _tasa, _plazo, new Date().toISOString().split('T')[0]);
-                      descargarPDFAmortizacion(t, { monto: _monto, tasa: _tasa, plazo: _plazo, nombreAsociado: userData?.nombre });
+                      const t = esSimple
+                        ? generarTablaAmortizacionSimple(_monto, _tasa, _plazo, new Date().toISOString().split('T')[0])
+                        : generarTablaAmortizacion(_monto, _tasa, _plazo, new Date().toISOString().split('T')[0]);
+                      descargarPDFAmortizacion(t, { monto: _monto, tasa: _tasa, plazo: _plazo, nombreAsociado: userData?.nombre, tipoInteres: esSimple ? 'simple' : 'compuesto' });
                     }}
                   >
                     <Download className="size-3.5" /> PDF

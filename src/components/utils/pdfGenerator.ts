@@ -1029,8 +1029,8 @@ export const generateHistorialCreditoPDF = (credito: any, historial: any[]) => {
   }
 };
 
-// ==================== PDF INFORME DE CARTERA ====================
-export const generateCarteraPDF = (datos: {
+// ==================== PDF INFORME DE DESEMPEÑO DE CRÉDITOS ====================
+export const generateCreditosPDF = (datos: {
   creditos:         any[];
   creditosAnulados: any[];
   totalCartera:     number;
@@ -1057,7 +1057,7 @@ export const generateCarteraPDF = (datos: {
     };
 
     const doc = new jsPDF();
-    let yPos = addHeader(doc, 'INFORME DE DESEMPEÑO DE CARTERA');
+    let yPos = addHeader(doc, 'INFORME DE DESEMPEÑO DE CRÉDITOS');
 
     // ── Fecha ───────────────────────────────────────────────────────────────
     doc.setFontSize(9);
@@ -1132,7 +1132,7 @@ export const generateCarteraPDF = (datos: {
 
     autoTable(doc, {
       startY: yPos,
-      head: [['Estado', 'Cant.', '% total', 'Monto (cartera)', 'Cuota mensual']],
+      head: [['Estado', 'Cant.', '% total', 'Monto de crédito', 'Cuota mensual']],
       body: estadosData,
       theme: 'striped',
       headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
@@ -1206,7 +1206,7 @@ export const generateCarteraPDF = (datos: {
     const listaData = creditos.map((c: any) => [
       c.asociado        || 'N/A',
       c.cedula          || 'N/A',
-      formatCurrency(c.monto        ?? 0),   // cartera (monto otorgado)
+      formatCurrency(c.monto        ?? 0),   // monto de crédito (monto otorgado)
       formatCurrency(c.cuotaMensual ?? 0),   // cuota mensual
       c.tasaInteres > 0 ? `${c.tasaInteres}%` : '—',
       `${c.plazo ?? 0} m.`,
@@ -1215,7 +1215,7 @@ export const generateCarteraPDF = (datos: {
 
     autoTable(doc, {
       startY: yPos,
-      head: [['Asociado', 'Cédula', 'Monto (cartera)', 'Cuota mensual', 'Tasa EA', 'Plazo', 'Estado']],
+      head: [['Asociado', 'Cédula', 'Monto de crédito', 'Cuota mensual', 'Tasa EA', 'Plazo', 'Estado']],
       body: listaData,
       theme: 'striped',
       headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
@@ -1232,10 +1232,10 @@ export const generateCarteraPDF = (datos: {
 
     addFooter(doc);
     const fechaArchivo = new Date().toISOString().slice(0, 10);
-    doc.save(`Informe_Cartera_UFCA_${fechaArchivo}.pdf`);
+    doc.save(`Informe_Creditos_UFCA_${fechaArchivo}.pdf`);
     return true;
   } catch (error) {
-    console.error('Error al generar informe de cartera:', error);
+    console.error('Error al generar informe de créditos:', error);
     return false;
   }
 };

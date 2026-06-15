@@ -24,7 +24,7 @@ import {
 } from '../ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { toast } from 'sonner';
-import { generateCarteraPDF } from '../utils/pdfGenerator';
+import { generateCreditosPDF } from '../utils/pdfGenerator';
 import { formatCurrency } from '../../lib/formatters';
 import { TIPOS_CREDITO } from '../../lib/constants';
 import { useCreditos } from './useCreditos';
@@ -176,10 +176,10 @@ export default function Creditos({ userData }: CreditosProps) {
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href     = url;
-    a.download = `Cartera_UFCA_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `Creditos_UFCA_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('📊 Cartera exportada a CSV', {
+    toast.success('📊 Créditos exportados a CSV', {
       description: `${filteredCreditos.length} crédito${filteredCreditos.length !== 1 ? 's' : ''} exportado${filteredCreditos.length !== 1 ? 's' : ''}`,
     });
   };
@@ -214,7 +214,7 @@ export default function Creditos({ userData }: CreditosProps) {
                 className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                 onClick={() => setIsInformeDialogOpen(true)}
               >
-                <BarChart2 className="size-4" /> Informe de cartera
+                <BarChart2 className="size-4" /> Informe de desempeño de créditos
               </Button>
               <Button className="gap-2 bg-blue-600 hover:bg-blue-700" onClick={() => handleOpenCreate()}>
                 <Plus className="size-4" /> Nuevo crédito
@@ -223,7 +223,7 @@ export default function Creditos({ userData }: CreditosProps) {
           )}
         </div>
 
-        {/* ── Resumen de cartera ── */}
+        {/* ── Resumen de créditos ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
 
           {/* Card 1 — Créditos activos + distribución por estado */}
@@ -309,7 +309,7 @@ export default function Creditos({ userData }: CreditosProps) {
               {/* Relación cuota / cartera: qué % de la cartera se recauda cada mes */}
               <div className="mt-3">
                 <div className="flex justify-between text-[10px] text-slate-400 mb-1">
-                  <span>Cuota / Cartera</span>
+                  <span>Cuota / Crédito</span>
                   <span>
                     {totalCartera > 0
                       ? `${((totalCuotaMensual / totalCartera) * 100).toFixed(2)}% mensual`
@@ -343,7 +343,7 @@ export default function Creditos({ userData }: CreditosProps) {
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
                     {carteraActivos.length > 0
-                      ? `${(((countByEstado['en_mora'] ?? 0) / carteraActivos.length) * 100).toFixed(1)}% de la cartera`
+                      ? `${(((countByEstado['en_mora'] ?? 0) / carteraActivos.length) * 100).toFixed(1)}% de los créditos`
                       : 'Sin créditos activos'}
                   </p>
                 </div>
@@ -361,7 +361,7 @@ export default function Creditos({ userData }: CreditosProps) {
                   </button>
                 ) : (
                   <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                    <CheckCircle2 className="size-3" /> Cartera al día
+                    <CheckCircle2 className="size-3" /> Créditos al día
                   </p>
                 )}
               </div>
@@ -874,13 +874,13 @@ export default function Creditos({ userData }: CreditosProps) {
         </DialogContent>
       </Dialog>
 
-      {/* ── Informe de cartera ── */}
+      {/* ── Informe de desempeño de créditos ── */}
       <Dialog open={isInformeDialogOpen} onOpenChange={setIsInformeDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BarChart2 className="size-5 text-emerald-600" />
-              Informe de desempeño
+              Informe de desempeño de créditos
             </DialogTitle>
             <DialogDescription>
               Vista previa del informe · {new Date().toLocaleDateString('es-CO', {
@@ -1149,7 +1149,7 @@ export default function Creditos({ userData }: CreditosProps) {
             <Button
               className="gap-2 bg-emerald-600 hover:bg-emerald-700"
               onClick={() => {
-                const ok = generateCarteraPDF({
+                const ok = generateCreditosPDF({
                   creditos:         carteraActivos,
                   creditosAnulados: creditosAnulados,
                   totalCartera,

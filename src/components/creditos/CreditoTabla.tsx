@@ -7,10 +7,11 @@ import {
 import { toast } from 'sonner';
 import { TIPOS_CREDITO } from '../../lib/constants';
 import { formatCurrency } from '../../lib/formatters';
-import { getEstadoBadge } from './creditoHelpers';
+import { getEstadoBadge, ESTADOS_APROBACION } from './creditoHelpers';
 import { generateCreditoPDF } from '../utils/pdfGenerator';
 import { pagosCreditoApi } from '../../lib/api';
 import type { CreditosHook } from './useCreditos';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface CreditoTablaProps {
   list: any[];
@@ -33,6 +34,7 @@ export default function CreditoTabla({ list, isAnulados = false, hook }: Credito
     handleOpenAnular,
     handleOpenHardDelete,
     handleOpenPago,
+    handleUpdateEstado,
   } = hook;
 
   return (
@@ -102,10 +104,28 @@ export default function CreditoTabla({ list, isAnulados = false, hook }: Credito
               </TableCell>
               <TableCell><p className="text-slate-600">{formatCurrency(c.cuotaMensual)}</p></TableCell>
               <TableCell><p className="font-medium text-blue-700">{formatCurrency(c.saldo)}</p></TableCell>
-              <TableCell>
-                {isAnulados
-                  ? <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200">Anulado</Badge>
-                  : getEstadoBadge(c.estadoAprobacion)}
+              <TableCell onClick={(e) => e.stopPropagation()}>
+                {isAnulados || esVistaPropia || ['pagado', 'anulado', 'desembolsado', 'activo'].includes(c.estadoAprobacion)
+                  ? getEstadoBadge(c.estadoAprobacion)
+                  : (
+                    <Select
+                      value={c.estadoAprobacion}
+                      onValueChange={(v) => handleUpdateEstado(c, v)}
+                    >
+                      <SelectTrigger className="h-8 w-[130px] text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ESTADOS_APROBACION
+                          .filter(e => ['pendiente', 'en_revision', 'aprobado', 'rechazado', 'en_mora'].includes(e.value))
+                          .map(e => (
+                            <SelectItem key={e.value} value={e.value} className="text-xs">
+                              {e.label}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  )}
               </TableCell>
               <TableCell>
                 {c.descripcionSoporte || c.urlDocumento ? (
@@ -131,7 +151,7 @@ export default function CreditoTabla({ list, isAnulados = false, hook }: Credito
                   )}
                   {!isAnulados && !esVistaPropia && (
                     <>
-                      {(c.estadoAprobacion === 'aprobado' || c.estadoAprobacion === 'activo') && !c.fechaDesembolso && (
+                      {(c.estadoAprobacion === 'aprobado' || c.estadoAprobacion === 'activo') && (
                         <Button
                           variant="outline" size="sm"
                           title="Registrar desembolso"

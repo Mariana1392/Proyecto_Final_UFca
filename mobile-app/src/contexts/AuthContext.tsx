@@ -95,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .eq('asociado_id', userId)
             .eq('tipo', 'permanente')
             .eq('anulado', false)
+            .limit(1)
             .maybeSingle(),
         ]);
 

@@ -1,4 +1,4 @@
-import { AlertTriangle, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, ShieldAlert, CheckCircle2, Landmark } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -48,6 +48,13 @@ export default function CreditoDialogsConfirmacion({ hook }: CreditoDialogsConfi
     notaRechazoSol, setNotaRechazoSol,
     savingRechazarSol,
     handleRechazarSolicitudCredito,
+    // Confirmación de cambio de estado
+    isConfirmEstadoOpen, setIsConfirmEstadoOpen,
+    confirmEstadoItem, setConfirmEstadoItem,
+    confirmEstadoNuevo, setConfirmEstadoNuevo,
+    confirmEstadoMora1, setConfirmEstadoMora1,
+    confirmEstadoMora2, setConfirmEstadoMora2,
+    handleExecuteUpdateEstado,
   } = hook;
 
   return (
@@ -400,6 +407,123 @@ export default function CreditoDialogsConfirmacion({ hook }: CreditoDialogsConfi
             >
               {savingRechazarSol ? 'Rechazando...' : 'Confirmar rechazo'}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Confirmación de Cambio de Estado ── */}
+      <AlertDialog open={isConfirmEstadoOpen} onOpenChange={setIsConfirmEstadoOpen}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {confirmEstadoNuevo === 'en_mora' ? (
+                <>
+                  <AlertTriangle className="size-5 text-red-500 animate-pulse" />
+                  <span className="text-red-700">Declarar Crédito EN MORA</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="size-5 text-blue-500" />
+                  <span className="text-slate-800">Confirmar cambio de estado</span>
+                </>
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 pt-2 text-sm text-slate-600">
+                {confirmEstadoItem && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2 text-xs">
+                    <div className="flex justify-between border-b border-slate-100 pb-1.5">
+                      <span className="text-slate-500">Asociado:</span>
+                      <span className="font-bold text-slate-800">{confirmEstadoItem.asociado}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-100 pb-1.5">
+                      <span className="text-slate-500">Monto original:</span>
+                      <span className="font-semibold text-slate-700">{formatCurrency(confirmEstadoItem.monto)}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-100 pb-1.5">
+                      <span className="text-slate-500">Saldo pendiente:</span>
+                      <span className="font-bold text-blue-600">{formatCurrency(confirmEstadoItem.saldo)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Transición de estado:</span>
+                      <span className="font-semibold">
+                        <span className="text-slate-500 line-through mr-1">{confirmEstadoItem.estadoAprobacion}</span>
+                        {" → "}
+                        <span className="text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-150">{confirmEstadoNuevo}</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {confirmEstadoNuevo === 'en_mora' ? (
+                  <div className="space-y-3 pt-2">
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs flex items-start gap-2">
+                      <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+                      <p className="leading-relaxed">
+                        <strong>ADVERTENCIA CRÍTICA:</strong> El estado de mora inhabilita la capacidad del asociado para realizar retiros, liquidaciones o recibir excedentes del fondo.
+                      </p>
+                    </div>
+
+                    <p className="text-xs font-semibold text-slate-750">Por favor, complete las siguientes 2 validaciones para confirmar:</p>
+                    
+                    <div className="space-y-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                      <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-650 font-medium select-none">
+                        <input
+                          type="checkbox"
+                          checked={confirmEstadoMora1}
+                          onChange={(e) => setConfirmEstadoMora1(e.target.checked)}
+                          className="mt-0.5 size-4 rounded border-slate-300 text-red-650 focus:ring-red-500 cursor-pointer"
+                        />
+                        <span>1. He verificado que el asociado presenta una mora real en sus cuotas y el saldo no se ha cubierto.</span>
+                      </label>
+
+                      <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-650 font-medium select-none pt-2 border-t border-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={confirmEstadoMora2}
+                          onChange={(e) => setConfirmEstadoMora2(e.target.checked)}
+                          className="mt-0.5 size-4 rounded border-slate-300 text-red-650 focus:ring-red-500 cursor-pointer"
+                        />
+                        <span>2. Entiendo que declarar la mora suspenderá el derecho del asociado a retirar fondos o percibir utilidades.</span>
+                      </label>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 pt-2">
+                    <p className="text-xs text-slate-500">Confirme la modificación para aplicar los cambios en el sistema.</p>
+                    <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-650 font-medium select-none bg-slate-50 p-3 rounded-lg border border-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={confirmEstadoMora1}
+                        onChange={(e) => setConfirmEstadoMora1(e.target.checked)}
+                        className="mt-0.5 size-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <span>Confirmo que he verificado los soportes y autorizo este cambio de estado.</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel onClick={() => {
+              setIsConfirmEstadoOpen(false);
+              setConfirmEstadoItem(null);
+              setConfirmEstadoNuevo('');
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <Button
+              className={confirmEstadoNuevo === 'en_mora' ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"}
+              disabled={
+                confirmEstadoNuevo === 'en_mora'
+                  ? !(confirmEstadoMora1 && confirmEstadoMora2)
+                  : !confirmEstadoMora1
+              }
+              onClick={handleExecuteUpdateEstado}
+            >
+              Confirmar y aplicar cambio
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
