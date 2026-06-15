@@ -174,8 +174,29 @@ export default function CreditoDialogDetalle({ hook }: CreditoDialogDetalleProps
                       <Users className="size-3.5 text-blue-600" />
                     </div>
                     <div>
-                      <p className="font-bold text-slate-900">{selectedItem.asociado}</p>
-                      <p className="text-slate-500">C.C. {selectedItem.cedula}</p>
+                      {selectedItem.referidoNombre?.trim() ? (
+                        <>
+                          <p className="font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
+                            <span>{selectedItem.referidoNombre}</span>
+                            <span className="text-[10px] bg-purple-100 text-purple-750 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">
+                              Referido de {selectedItem.asociado}
+                            </span>
+                          </p>
+                          <p className="text-slate-500 text-[10px] mt-0.5">
+                            Asociado garante/responsable: {selectedItem.asociado} (C.C. {selectedItem.cedula})
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                            {selectedItem.asociado}
+                            <span className="text-[10px] bg-blue-100 text-blue-750 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                              Asociado directo
+                            </span>
+                          </p>
+                          <p className="text-slate-500 text-[10px]">C.C. {selectedItem.cedula}</p>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div>
@@ -222,6 +243,8 @@ export default function CreditoDialogDetalle({ hook }: CreditoDialogDetalleProps
                   </div>
                 </div>
               </div>
+
+
 
               {/* Resumen financiero en tiempo real */}
               <div className="rounded-xl border border-slate-200 overflow-hidden">

@@ -1245,9 +1245,11 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
       <DialogContent className="max-w-4xl p-0 overflow-hidden">
         <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 text-white">
           <DialogTitle className="text-lg font-bold flex items-center gap-2 mb-1">
-            <BarChart2 className="size-5" /> Tabla de amortización — Método Francés
+            <BarChart2 className="size-5" /> {!solEsParaReferido ? 'Tabla de pagos — Interés Simple' : 'Tabla de amortización — Método Francés'}
           </DialogTitle>
-          <p className="text-purple-200 text-xs">Cuota fija mensual · cálculo orientativo, sujeto a aprobación</p>
+          <p className="text-purple-200 text-xs">
+            {!solEsParaReferido ? 'Cuota de capital fija · cálculo orientativo, sujeto a aprobación' : 'Cuota fija mensual · cálculo orientativo, sujeto a aprobación'}
+          </p>
           {tablaSolSim.length > 0 && (() => {
             const totalIntereses = tablaSolSim.reduce((s, r) => s + r.interes, 0);
             const totalPagado    = tablaSolSim.reduce((s, r) => s + r.cuota,   0);
@@ -1332,6 +1334,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                 tasa:           parseFloat(solTasa) || 0,
                 plazo:          tablaSolSim.length,
                 nombreAsociado: userData?.nombre,
+                tipoInteres:    !solEsParaReferido ? 'simple' : 'compuesto',
               })}
             >
               <Download className="size-4" /> Descargar PDF
@@ -1496,6 +1499,8 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                   </div>
                 </div>
               </div>
+
+
 
               <div className="rounded-xl border border-slate-200 overflow-hidden">
                 <div className="bg-slate-700 px-4 py-2.5 flex items-center gap-2">

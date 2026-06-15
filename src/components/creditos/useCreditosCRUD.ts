@@ -64,7 +64,7 @@ export function useCreditosCRUD({
   const [formMotivoEstado, setFormMotivoEstado]       = useState('');
   const [formDescSoporte, setFormDescSoporte]         = useState('');
   const [formUrlDocumento, setFormUrlDocumento]       = useState('');
-  const [formTipoInteres, setFormTipoInteres]         = useState<'simple' | 'compuesto'>('compuesto');
+  const [formTipoInteres, setFormTipoInteres]         = useState<'simple' | 'compuesto'>('simple');
   const [saving, setSaving]                           = useState(false);
   // Referido: el crédito puede ser para el asociado o para un referido (persona externa)
   const [formEsParaReferido, setFormEsParaReferido]   = useState(false);
@@ -197,7 +197,7 @@ export function useCreditosCRUD({
       setFormEstadoOriginal('pendiente');
       setFormFechaEstado(''); setFormMotivoEstado('');
       setFormDescSoporte(''); setFormUrlDocumento('');
-      setFormTipoInteres('compuesto');
+      setFormTipoInteres('simple');
       setFormArchivoFile(null);
       setFormEsParaReferido(false); setFormReferidoNombre('');
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -364,6 +364,8 @@ export function useCreditosCRUD({
             urlDocumento:       urlFinal ?? '',
             fechaEstadoCambio:  estadoCambio ? (formFechaEstado || ahora) : c.fechaEstadoCambio,
             motivoEstadoCambio: estadoCambio ? formMotivoEstado.trim() : c.motivoEstadoCambio,
+            tipoInteres:        formTipoInteres,
+            referidoNombre:     formEsParaReferido && formReferidoNombre.trim() ? formReferidoNombre.trim() : '',
           } : c
         ));
         toast.success('✅ Crédito actualizado correctamente', {
@@ -406,6 +408,7 @@ export function useCreditosCRUD({
           fechaEstadoCambio:  formFechaEstado || '',
           motivoEstadoCambio: formMotivoEstado || '',
           createdAt:          ahora,
+          referidoNombre:     formEsParaReferido && formReferidoNombre.trim() ? formReferidoNombre.trim() : '',
         }, ...prev]);
         toast.success('✅ Crédito registrado exitosamente', {
           description: `${asociado?.nombre} · ${formatCurrency(monto)} · ${plazo} meses`,

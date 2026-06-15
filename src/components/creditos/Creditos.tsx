@@ -502,7 +502,7 @@ export default function Creditos({ userData }: CreditosProps) {
                       const tasaGuardada  = sol.tasaInteres ?? 0;
                       const claveTasa     = TIPO_TASA[sol.tipo] ?? '';
                       const tasa          = tasaGuardada > 0 ? tasaGuardada : (tasasAdmin[claveTasa] ?? 0);
-                      const tipoInt       = tipoInteresAdmin[sol.id] ?? 'compuesto';
+                      const tipoInt       = tipoInteresAdmin[sol.id] ?? sol.tipoInteres ?? 'compuesto';
                       const r             = tasa > 0 ? (Math.pow(1 + tasa / 100, 1 / 12) - 1) : 0;
                       const cuotaEst      = tipoInt === 'simple'
                         ? (tasa > 0 ? Math.round(sol.monto / sol.plazoMeses + sol.monto * r) : Math.round(sol.monto / sol.plazoMeses))

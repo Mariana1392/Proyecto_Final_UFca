@@ -37,7 +37,6 @@ const CHILD_PERMISO: Record<string, string | string[]> = {
   'liquidacion':      ['liquidacion', 'mi_liquidacion'],
   'comite-evaluador': 'asociados',
   'creditos':         ['creditos', 'mis_creditos'],
-  'referidos':        ['asociados', 'mis_referidos'],
   'mediciones':       'dashboard',
 };
 
@@ -52,7 +51,6 @@ const VIEW_TO_CHILD_ID: Record<string, string> = {
   'liquidacion':       'liquidacion',
   'comite-evaluador':  'comite-evaluador',
   'creditos':          'creditos',
-  'referidos':         'referidos',
   'dashboard':         'mediciones',
 };
 
@@ -97,7 +95,7 @@ export default function Layout({
     const parentGroups: Record<string, string[]> = {
       configuracion: ['gestion-roles'],
       usuarios:      ['gestion-usuarios'],
-      asociados:     ['gestion-asociados', 'ahorro-permanente', 'ahorro-voluntario', 'liquidacion', 'comite-evaluador', 'creditos', 'referidos'],
+      asociados:     ['gestion-asociados', 'ahorro-permanente', 'ahorro-voluntario', 'liquidacion', 'comite-evaluador', 'creditos'],
     };
     const parentId = Object.entries(parentGroups).find(([, children]) => children.includes(activeChildId))?.[0];
     if (parentId) {
@@ -172,7 +170,6 @@ export default function Layout({
         { id: "liquidacion",        label: userPermisos.includes('mi_liquidacion') && !userPermisos.includes('liquidacion') ? "Mi Liquidación" : "Liquidación" },
         { id: "comite-evaluador",   label: "Comité evaluador" },
         { id: "creditos",           label: userPermisos.includes('mis_creditos') && !userPermisos.includes('creditos') ? "Mis Créditos" : "Créditos" },
-        { id: "referidos",          label: userPermisos.includes('mis_referidos') && !userPermisos.includes('asociados') ? "Mis Referidos" : "Referidos" },
       ],
     },
   ];
@@ -187,7 +184,7 @@ export default function Layout({
   };
 
   // Módulos bloqueados hasta que el asociado pague su primera cuota de ahorro permanente
-  const ITEMS_REQUIEREN_CUENTA_ACTIVA = new Set(['liquidacion', 'creditos', 'referidos', 'ahorro-voluntario']);
+  const ITEMS_REQUIEREN_CUENTA_ACTIVA = new Set(['liquidacion', 'creditos', 'ahorro-voluntario']);
   const cuentaActivadaOK = userData?.rol !== 'asociado' || (userData?.cuentaActivada ?? true);
 
   const filteredMenuItems = menuItems
@@ -224,7 +221,6 @@ export default function Layout({
     'liquidacion':           'liquidacion',
     'comite-evaluador':      'comite-evaluador',
     'creditos':              'creditos',
-    'referidos':             'referidos',
     'eventos':               'eventos',
     'pagos-premios':         'pagos-premios',
     'compras-list':          'compras',
