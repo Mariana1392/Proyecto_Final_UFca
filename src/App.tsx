@@ -160,9 +160,9 @@ function AppContent() {
       return <CuentaPendienteActivacion userData={userData} />;
     }
 
-    // Guard de permisos: autenticado pero sin acceso al módulo
+    // Guard de permisos: autenticado pero sin acceso al módulo (soporta OR con arrays)
     const permisoRequerido = VIEW_PERMISO[currentView];
-    if (isAuthenticated && permisoRequerido && !can(permisoRequerido as any)) {
+    if (isAuthenticated && permisoRequerido && !canAny(permisoRequerido)) {
       return (
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center space-y-4 max-w-sm">
