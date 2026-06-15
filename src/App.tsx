@@ -23,7 +23,6 @@ const AhorroVoluntario      = lazy(() => import('./components/ahorro-voluntario/
 const Liquidacion           = lazy(() => import('./components/liquidaciones'));
 const ComiteEvaluador       = lazy(() => import('./components/ComiteEvaluador'));
 const Creditos              = lazy(() => import('./components/creditos/Creditos'));
-const Referidos             = lazy(() => import('./components/Referidos'));
 const GestionUsuarios       = lazy(() => import('./components/GestionUsuarios'));
 
 const MiSolicitud           = lazy(() => import('./components/MiSolicitud'));
@@ -34,7 +33,7 @@ const CuentaPendienteActivacion = lazy(() => import('./components/CuentaPendient
 const Servicios                 = lazy(() => import('./components/Servicios'));
 
 
-type View = 'home' | 'solicitud' | 'login' | 'recuperar-password' | 'crear-password' | 'mi-solicitud' | 'mi-perfil' | 'dashboard' | 'roles' | 'usuarios' | 'asociados' | 'asociado-detalle' | 'ahorro-permanente' | 'ahorro-voluntario' | 'liquidacion' | 'comite-evaluador' | 'creditos' | 'referidos' | 'servicios';
+type View = 'home' | 'solicitud' | 'login' | 'recuperar-password' | 'crear-password' | 'mi-solicitud' | 'mi-perfil' | 'dashboard' | 'roles' | 'usuarios' | 'asociados' | 'asociado-detalle' | 'ahorro-permanente' | 'ahorro-voluntario' | 'liquidacion' | 'comite-evaluador' | 'creditos' | 'servicios';
 
 function AppContent() {
   const [currentView, setCurrentView]         = useState<View>('home');
@@ -141,7 +140,7 @@ function AppContent() {
     const rutasProtegidas: View[] = [
       'dashboard', 'mi-solicitud', 'mi-perfil',
       'roles', 'usuarios', 'asociados', 'asociado-detalle', 'ahorro-permanente',
-      'ahorro-voluntario', 'liquidacion', 'comite-evaluador', 'creditos', 'referidos',
+      'ahorro-voluntario', 'liquidacion', 'comite-evaluador', 'creditos',
     ];
     if (!isAuthenticated && rutasProtegidas.includes(currentView as View)) {
       return <Login onLogin={handleLogin} onShowRecovery={() => setCurrentView('recuperar-password')} />;
@@ -150,7 +149,7 @@ function AppContent() {
     // Guard: asociado con cuenta no activada (aún no pagó su primera cuota)
     // Solo puede ver su perfil y mis-ahorros (ahorro permanente). Todo lo demás bloqueado.
     const MODULOS_REQUIEREN_CUENTA_ACTIVA: View[] = [
-      'ahorro-voluntario', 'creditos', 'referidos', 'liquidacion',
+      'ahorro-voluntario', 'creditos', 'liquidacion',
     ];
     if (
       isAuthenticated &&
@@ -185,7 +184,7 @@ function AppContent() {
     }
 
     // Guard: asociado pendiente de pago de activación — solo puede acceder a ahorro permanente
-    const MODULOS_BLOQUEADOS_PENDIENTE: View[] = ['ahorro-voluntario', 'liquidacion', 'creditos', 'referidos'];
+    const MODULOS_BLOQUEADOS_PENDIENTE: View[] = ['ahorro-voluntario', 'liquidacion', 'creditos'];
     if (userData?.pendienteActivacion && MODULOS_BLOQUEADOS_PENDIENTE.includes(currentView as View)) {
       return <DashboardAsociado userData={userData} onNavigate={handleNavigate} />;
     }
@@ -259,8 +258,6 @@ function AppContent() {
         return <ComiteEvaluador />;
       case 'creditos':
         return <Creditos userData={userData} />;
-      case 'referidos':
-        return <Referidos userData={userData} />;
       case 'usuarios':
         return <GestionUsuarios userRole={userRole ?? undefined} />;
       default:

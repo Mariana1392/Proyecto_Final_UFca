@@ -276,7 +276,7 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => { setFormEsParaReferido(false); setFormReferidoNombre(''); }}
+                  onClick={() => { setFormEsParaReferido(false); setFormReferidoNombre(''); setFormTipoInteres('simple'); }}
                   className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
                     !formEsParaReferido
                       ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
@@ -288,7 +288,7 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFormEsParaReferido(true)}
+                  onClick={() => { setFormEsParaReferido(true); setFormTipoInteres('compuesto'); }}
                   className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
                     formEsParaReferido
                       ? 'border-purple-500 bg-purple-50 text-purple-700 shadow-sm'
