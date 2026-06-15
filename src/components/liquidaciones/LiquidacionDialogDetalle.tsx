@@ -79,14 +79,13 @@ export function LiquidacionDialogDetalle({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="info" className="w-full">
-          <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="info" className="text-xs gap-1"><FileCog className="size-3" />Información</TabsTrigger>
-            <TabsTrigger value="conceptos" className="text-xs gap-1"><BarChart2 className="size-3" />Desglose ({(si.conceptos as Concepto[])?.length ?? 0})</TabsTrigger>
-            <TabsTrigger value="documentos" className="text-xs gap-1"><Paperclip className="size-3" />Documentos ({docsLiquidacion.length})</TabsTrigger>
+        <Tabs defaultValue="recibo" className="w-full mt-4">
+          <TabsList className="grid grid-cols-2 w-full max-w-sm mx-auto mb-4">
+            <TabsTrigger value="recibo" className="text-xs gap-1"><FileCog className="size-3" />Recibo de liquidación</TabsTrigger>
+            <TabsTrigger value="historial" className="text-xs gap-1"><Activity className="size-3" />Historial</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="info" className="space-y-4 pt-4">
+          <TabsContent value="recibo" className="space-y-6">
             {/* ── Encabezado ── */}
             <div className="rounded-xl border overflow-hidden">
               <div className={`px-4 py-3 flex items-center justify-between ${si.anulado ? 'bg-gradient-to-r from-red-500 to-red-600' : 'bg-gradient-to-r from-emerald-600 to-teal-600'}`}>
@@ -142,19 +141,40 @@ export function LiquidacionDialogDetalle({
               )}
             </div>
 
-            {/* ── Resumen financiero ── */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
-                <p className="text-[10px] text-emerald-600 uppercase tracking-wider font-semibold">Total créditos</p>
-                <p className="text-base font-bold text-emerald-700 mt-1">+{fmtCOP(totalCreditos)}</p>
+            {/* ── Desglose Financiero (Recibo) ── */}
+            <div className="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+              <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2"><BarChart2 className="size-4" /> Balance Financiero</p>
               </div>
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
-                <p className="text-[10px] text-red-600 uppercase tracking-wider font-semibold">Total débitos</p>
-                <p className="text-base font-bold text-red-600 mt-1">−{fmtCOP(totalDebitos)}</p>
+              
+              <div className="p-0">
+                {(si.conceptos as Concepto[])?.length > 0 ? (
+                  <div className="divide-y divide-slate-100">
+                    {(si.conceptos as Concepto[]).map((c, idx) => {
+                      const esCredito = c.tipo === 'credito';
+                      const monto = parseFloat(String(c.monto).replace(/[^\d.-]/g,'')) || 0;
+                      return (
+                        <div key={idx} className="flex justify-between items-center px-4 py-3 hover:bg-slate-50 transition-colors">
+                          <span className="text-sm text-slate-600 font-medium">{c.nombre}</span>
+                          <span className={`text-sm font-bold ${esCredito ? 'text-emerald-600' : 'text-red-500'}`}>
+                            {esCredito ? '+' : '−'} {fmtCOP(Math.abs(monto))}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400 p-4 text-center">No hay conceptos registrados</p>
+                )}
               </div>
-              <div className={`border rounded-xl p-3 text-center ${si.montoFinal >= 0 ? 'bg-gradient-to-b from-emerald-50 to-teal-50 border-emerald-300' : 'bg-red-50 border-red-300'}`}>
-                <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Monto final</p>
-                <p className={`text-xl font-bold mt-1 ${si.montoFinal >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{fmtCOP(si.montoFinal ?? 0)}</p>
+              
+              <div className="bg-slate-50 border-t border-slate-200 p-5">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-bold text-slate-700 uppercase tracking-wider">TOTAL A ENTREGAR</span>
+                  <span className={`text-3xl font-black ${si.montoFinal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {fmtCOP(si.montoFinal ?? 0)}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -232,17 +252,11 @@ export function LiquidacionDialogDetalle({
               </div>
             )}
 
-            {/* ── Auditoría ── */}
-            <div className="rounded-xl border border-slate-200 overflow-hidden">
-              <button className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left" onClick={() => setAuditOpen(o => !o)}>
-                <div className="flex items-center gap-2">
-                  <Activity className="size-4 text-slate-500" />
-                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Historial de auditoría</p>
-                  {auditEntries.length > 0 && <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-bold">{auditEntries.length}</span>}
-                </div>
-                <div className={`transition-transform duration-200 ${auditOpen ? 'rotate-90' : '-rotate-90'}`}><ChevronLeft className="size-4 text-slate-400" /></div>
-              </button>
-              {auditOpen && (
+          </TabsContent>
+
+          <TabsContent value="historial" className="space-y-6">
+            <div className="space-y-3">
+              <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
                 <div className="divide-y divide-slate-100">
                   {loadingAudit ? (
                     <div className="flex items-center justify-center py-8 gap-2 text-slate-400"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-400" /><span className="text-xs">Cargando historial...</span></div>
@@ -281,96 +295,10 @@ export function LiquidacionDialogDetalle({
                     })
                   )}
                 </div>
-              )}
+              </div>
             </div>
-          </TabsContent>
 
-          <TabsContent value="conceptos" className="pt-4">
-            <div className="rounded-xl border border-slate-200 overflow-hidden">
-              <div className="bg-slate-700 px-4 py-2.5 flex items-center justify-between">
-                <div className="flex items-center gap-2"><BarChart2 className="size-4 text-slate-300" /><p className="text-xs font-semibold text-slate-200 uppercase tracking-wider">Desglose de conceptos</p></div>
-                <span className="text-[10px] text-slate-400">{(si.conceptos as Concepto[])?.length ?? 0} conceptos</span>
-              </div>
-              {(si.conceptos as Concepto[])?.length > 0 ? (
-                <>
-                  <div className="px-4 py-1.5 bg-emerald-50 border-b border-emerald-100"><p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Créditos (ingresos)</p></div>
-                  {(si.conceptos as Concepto[]).filter(c => c.tipo === 'credito').map((c, idx) => {
-                    const monto = parseFloat(String(c.monto).replace(/[^\d.-]/g,'')) || 0;
-                    return (
-                      <div key={`cr-${idx}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-emerald-50/40 border-b border-slate-50">
-                        <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" /><span className="text-sm text-slate-700">{c.nombre}</span></div>
-                        <span className="text-sm font-semibold text-emerald-700">+{fmtCOP(monto)}</span>
-                      </div>
-                    );
-                  })}
-                  {(si.conceptos as Concepto[]).some(c => c.tipo === 'debito') && (
-                    <>
-                      <div className="px-4 py-1.5 bg-red-50 border-y border-red-100"><p className="text-[10px] font-bold text-red-600 uppercase tracking-wider">Débitos (descuentos)</p></div>
-                      {(si.conceptos as Concepto[]).filter(c => c.tipo === 'debito').map((c, idx) => {
-                        const monto = Math.abs(parseFloat(String(c.monto).replace(/[^\d.-]/g,'')) || 0);
-                        return (
-                          <div key={`db-${idx}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-red-50/40 border-b border-slate-50">
-                            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-400 shrink-0" /><span className="text-sm text-slate-700">{c.nombre}</span></div>
-                            <span className="text-sm font-semibold text-red-600">−{fmtCOP(monto)}</span>
-                          </div>
-                        );
-                      })}
-                    </>
-                  )}
-                  <div className="border-t-2 border-slate-200 bg-slate-50 px-4 py-3 grid grid-cols-3 gap-2 text-xs">
-                    <div className="text-center"><p className="text-slate-400 uppercase tracking-wider text-[10px]">Total créditos</p><p className="font-bold text-emerald-700 text-base">+{fmtCOP(totalCreditos)}</p></div>
-                    <div className="text-center"><p className="text-slate-400 uppercase tracking-wider text-[10px]">Total débitos</p><p className="font-bold text-red-600 text-base">−{fmtCOP(totalDebitos)}</p></div>
-                    <div className="text-center border-l border-slate-200"><p className="text-slate-400 uppercase tracking-wider text-[10px]">Neto a pagar</p><p className={`font-bold text-lg ${si.montoFinal >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{fmtCOP(si.montoFinal ?? 0)}</p></div>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center py-10 text-slate-400 gap-2"><BarChart2 className="size-8 text-slate-300" /><p className="text-sm font-medium text-slate-600">Sin conceptos registrados</p><p className="text-xs text-slate-400">Esta liquidación no tiene desglose de conceptos guardado.</p></div>
-              )}
-            </div>
-          </TabsContent>
 
-          <TabsContent value="documentos" className="pt-4 space-y-3">
-            {!esVistaPropia && !si.anulado && (
-              <div className="flex justify-end">
-                <Button size="sm" className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => { setUploadDocNombre(''); setUploadDocFile(null); setIsUploadDocOpen(true); }}>
-                  <Upload className="size-3.5" /> Subir documento
-                </Button>
-              </div>
-            )}
-            {loadingDocs ? (
-              <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600" /></div>
-            ) : docsLiquidacion.length === 0 ? (
-              <div className="flex flex-col items-center py-10 text-slate-400 gap-2">
-                <Paperclip className="size-8 text-slate-300" />
-                <p className="text-sm font-medium text-slate-600">Sin documentos adjuntos</p>
-                {!esVistaPropia ? <p className="text-xs text-slate-400">Sube documentos de soporte usando el botón de arriba.</p> : <p className="text-xs text-slate-400">El administrador puede adjuntar documentos a esta liquidación.</p>}
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
-                {docsLiquidacion.map(doc => {
-                  const icons: Record<string, string> = { pdf:'📄', jpg:'🖼', jpeg:'🖼', png:'🖼', webp:'🖼', doc:'📝', docx:'📝' };
-                  const icon = icons[doc.tipo_archivo] ?? '📎';
-                  return (
-                    <div key={doc.id} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-xl shrink-0">{icon}</span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-800 truncate">{doc.nombre}</p>
-                          <p className="text-xs text-slate-400">{(doc as any).usuarios?.nombre ?? (doc as any).subido_por_nombre ?? 'Administrador'} · {new Date(doc.created_at).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' })}</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 shrink-0 ml-3">
-                        <a href={doc.url} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="gap-1 text-xs h-7 text-blue-600 border-blue-200 hover:bg-blue-50"><ExternalLink className="size-3" /> Ver</Button></a>
-                        <a href={doc.url} download><Button variant="outline" size="sm" className="h-7 text-emerald-600 border-emerald-200 hover:bg-emerald-50"><Download className="size-3.5" /></Button></a>
-                        {!esVistaPropia && (
-                          <Button variant="outline" size="sm" className="h-7 text-red-500 border-red-200 hover:bg-red-50" onClick={() => handleDeleteDoc(doc.id)}><Trash2 className="size-3.5" /></Button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </TabsContent>
         </Tabs>
 

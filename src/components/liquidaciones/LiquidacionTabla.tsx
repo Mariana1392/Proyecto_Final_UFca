@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import {
   Search, Plus, Eye, ChevronLeft, ChevronRight,
   Calculator, CheckCircle2, Clock, AlertTriangle, Activity,
-  FileX, TrendingUp, ListFilter
+  FileX, TrendingUp, ListFilter, Upload
 } from 'lucide-react';
 import { getEstadoBadge, fmtCOP, numLiq } from './liquidacionUtils';
 import { LiquidacionRecord } from './liquidacionTypes';
@@ -52,6 +52,7 @@ interface LiquidacionTablaProps {
   setSelectedItem: (item: any) => void;
   setIsDetailOpen: (b: boolean) => void;
   setIsAnularOpen: (b: boolean) => void;
+  setIsUploadDocOpen: (b: boolean) => void;
 }
 
 export function LiquidacionTabla({
@@ -64,7 +65,7 @@ export function LiquidacionTabla({
   currentPage, setCurrentPage, totalPagActivas,
   currentPageAnuladas, setCurrentPageAnuladas, totalPagAn,
   montoTotal, cantPagadas, cantPendientes,
-  setIsCreateOpen, setSelectedItem, setIsDetailOpen, setIsAnularOpen
+  setIsCreateOpen, setSelectedItem, setIsDetailOpen, setIsAnularOpen, setIsUploadDocOpen
 }: LiquidacionTablaProps) {
 
   // Lógica local para el rol Asociado (criterios de consulta simplificada)
@@ -455,7 +456,8 @@ export function LiquidacionTabla({
                     pagAsoc.map((liq) => (
                       <TableRow
                         key={liq.id}
-                        className="hover:bg-emerald-50/30 transition-colors border-b border-slate-50 group"
+                        className="hover:bg-emerald-50/30 transition-colors border-b border-slate-50 group cursor-pointer"
+                        onClick={() => { setSelectedItem(liq); setIsDetailOpen(true); }}
                       >
                         <TableCell className="py-3.5">
                           <div className="font-semibold text-slate-800 text-sm">{numLiq(liq.id)}</div>
@@ -489,14 +491,27 @@ export function LiquidacionTabla({
                         </TableCell>
 
                         <TableCell className="text-right py-3.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-3 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
-                            onClick={() => { setSelectedItem(liq); setIsDetailOpen(true); }}
-                          >
-                            <Eye className="w-4 h-4 mr-1" /> Ver
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            {!esVistaPropia && !liq.anulado && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => { e.stopPropagation(); setSelectedItem(liq); setIsUploadDocOpen(true); }}
+                                title="Subir soporte"
+                              >
+                                <Upload className="w-4 h-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-3 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => { e.stopPropagation(); setSelectedItem(liq); setIsDetailOpen(true); }}
+                            >
+                              <Eye className="w-4 h-4 mr-1" /> Ver
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -539,7 +554,8 @@ export function LiquidacionTabla({
                     pagActivas.map((liq) => (
                       <TableRow
                         key={liq.id}
-                        className="hover:bg-emerald-50/30 transition-colors border-b border-slate-50 group"
+                        className="hover:bg-emerald-50/30 transition-colors border-b border-slate-50 group cursor-pointer"
+                        onClick={() => { setSelectedItem(liq); setIsDetailOpen(true); }}
                       >
                         <TableCell className="py-3.5">
                           <div className="font-semibold text-slate-800 text-sm">{numLiq(liq.id)}</div>
@@ -578,14 +594,27 @@ export function LiquidacionTabla({
                         </TableCell>
 
                         <TableCell className="text-right py-3.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-3 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
-                            onClick={() => { setSelectedItem(liq); setIsDetailOpen(true); }}
-                          >
-                            <Eye className="w-4 h-4 mr-1" /> Ver
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            {!esVistaPropia && !liq.anulado && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => { e.stopPropagation(); setSelectedItem(liq); setIsUploadDocOpen(true); }}
+                                title="Subir soporte"
+                              >
+                                <Upload className="w-4 h-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-3 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => { e.stopPropagation(); setSelectedItem(liq); setIsDetailOpen(true); }}
+                            >
+                              <Eye className="w-4 h-4 mr-1" /> Ver
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -682,7 +711,7 @@ export function LiquidacionTabla({
                 </TableHeader>
                 <TableBody>
                   {pagAnuladas.map((liq) => (
-                    <TableRow key={liq.id} className="hover:bg-red-50/20 transition-colors border-b border-red-50 opacity-80 group">
+                    <TableRow key={liq.id} className="hover:bg-red-50/20 transition-colors border-b border-red-50 opacity-80 group cursor-pointer" onClick={() => { setSelectedItem(liq); setIsDetailOpen(true); }}>
                       <TableCell className="py-3.5">
                         <div className="font-semibold text-slate-700 text-sm">{numLiq(liq.id)}</div>
                       </TableCell>
@@ -705,7 +734,7 @@ export function LiquidacionTabla({
                         <Button
                           variant="ghost" size="sm"
                           className="h-8 px-3 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg opacity-60 group-hover:opacity-100"
-                          onClick={() => { setSelectedItem(liq); setIsDetailOpen(true); }}
+                          onClick={(e) => { e.stopPropagation(); setSelectedItem(liq); setIsDetailOpen(true); }}
                         >
                           <Eye className="w-4 h-4 mr-1" /> Ver
                         </Button>

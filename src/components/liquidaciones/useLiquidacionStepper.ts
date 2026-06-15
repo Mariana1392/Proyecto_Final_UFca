@@ -161,20 +161,20 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
 
     if (credActivos && credActivos.length > 0) {
       const totalDeuda = credActivos.reduce((s: number, c: any) => s + (Number(c.saldo) || 0), 0);
-      toast.error(
-        `El asociado tiene ${credActivos.length} crédito(s) activo(s) con saldo pendiente de $${totalDeuda.toLocaleString('es-CO')}. ` +
-        `Debe cancelar sus deudas antes de liquidar.`,
-        { duration: 6000 }
-      );
-      return;
+      
+      const msg1 = `ATENCIÓN: El asociado tiene ${credActivos.length} crédito(s) activo(s) con saldo pendiente de $${totalDeuda.toLocaleString('es-CO')}.\n\n¿Desea continuar con la liquidación a pesar de la deuda?`;
+      if (!window.confirm(msg1)) return;
+
+      const msg2 = `CONFIRMACIÓN FINAL:\nEstá permitiendo la liquidación de un asociado con una deuda activa por $${totalDeuda.toLocaleString('es-CO')}.\n\n¿Está absolutamente seguro de proceder?`;
+      if (!window.confirm(msg2)) return;
     }
 
-    setFormStep(2);
+    const ok = await handleGenerarConceptos();
+    if (ok) setFormStep(2);
   };
 
   const irAPaso3 = async () => {
-    const ok = await handleGenerarConceptos();
-    if (ok) setFormStep(3);
+    // Ya no se usa, consolidado en irAPaso2
   };
 
   const montoCalculado = formConceptos.reduce((s, c) => {

@@ -116,6 +116,7 @@ export default function Liquidacion({ userData, esVistaPropia }: LiquidacionProp
           setIsDetailOpen(b);
         }}
         setIsAnularOpen={anular.setIsAnularOpen}
+        setIsUploadDocOpen={docs.setIsUploadDocOpen}
       />
 
       <LiquidacionDialogCrear
