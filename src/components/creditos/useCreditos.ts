@@ -12,7 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { TIPOS_CREDITO } from '../../lib/constants';
 import {
   generateCreditoPDF,
-  generateCarteraPDF,
+  generateCreditosPDF,
   generateComprobantePagoPDF,
   generateHistorialCreditoPDF,
 } from '../utils/pdfGenerator';
@@ -68,12 +68,18 @@ export function useCreditos(userData?: any) {
   async function cargarDatos() {
     try {
       setLoading(true);
-      // ── Fetch creditos + asociados en paralelo ────────────────────────────
-      const [creditosRes, asociadosData] = await Promise.all([
+      // ── Fetch creditos + asociados + ahorros en paralelo ────────────────────────────
+      const [creditosRes, asociadosData, cuentasRes] = await Promise.all([
         supabase.from('creditos').select('*').order('created_at', { ascending: false }),
         asociadosApi.getAll(),
+        supabase.from('cuentas_ahorro')
+          .select('asociado_id')
+          .eq('tipo', 'permanente')
+          .eq('estado', 'activo')
+          .eq('anulado', false),
       ]);
       if (creditosRes.error) throw creditosRes.error;
+      if (cuentasRes.error) throw cuentasRes.error;
 
       // ── Join manual: traer nombre/cedula de cada asociado_id único ────────
       const asocIds = [...new Set((creditosRes.data || []).map((c: any) => c.asociado_id).filter(Boolean))];
@@ -119,10 +125,13 @@ export function useCreditos(userData?: any) {
         createdAt:          c.created_at,
       }));
 
+      const idsConAhorroActivo = new Set((cuentasRes.data || []).map((c: any) => c.asociado_id));
+      const asociadosFiltrados = (asociadosData || []).filter((a: any) => a.activo !== false && idsConAhorroActivo.has(a.id));
+
       const noSimulacion = mapeados.filter((c: any) => c.estadoAprobacion !== 'simulacion');
       setCreditos(noSimulacion);
       setCreditosSimulacion(mapeados.filter((c: any) => c.estadoAprobacion === 'simulacion'));
-      setAsociadosDisponibles(asociadosData || []);
+      setAsociadosDisponibles(asociadosFiltrados);
 
       // ── Solicitudes pendientes / en revisión (para el tab admin) ──────────
       const solicitudesMapped = noSimulacion
@@ -349,7 +358,7 @@ export function useCreditos(userData?: any) {
     exportarHistorialCSV,
     // PDF generators
     generateCreditoPDF,
-    generateCarteraPDF,
+    generateCreditosPDF,
     generateComprobantePagoPDF,
     generateHistorialCreditoPDF,
   };

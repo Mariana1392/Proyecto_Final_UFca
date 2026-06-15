@@ -1,5 +1,5 @@
 // ── useCreditosFiltros.ts ─────────────────────────────────────────────────────
-// Calcula todos los valores derivados (filtros, paginación, resumen de cartera,
+// Calcula todos los valores derivados (filtros, paginación, resumen de créditos,
 // vista del asociado) a partir del estado del orquestador.
 // No tiene estado propio (solo cómputos), por lo que no añade re-renders extra.
 
@@ -112,7 +112,7 @@ export function useCreditosFiltros({
   const startIndexRec     = (currentPageRechazados - 1) * itemsPerPage;
   const currentRechazados = filteredRechazados.slice(startIndexRec, startIndexRec + itemsPerPage);
 
-  // ── Resumen de cartera ────────────────────────────────────────────────────
+  // ── Resumen de créditos ────────────────────────────────────────────────────
   const carteraActivos    = creditosBase;
   const totalCartera      = carteraActivos.reduce((s, c) => s + (c.monto ?? 0), 0);
   const totalCuotaMensual = carteraActivos.reduce((s, c) => s + (c.cuotaMensual ?? 0), 0);

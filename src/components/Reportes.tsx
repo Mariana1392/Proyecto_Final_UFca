@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { dashboardApi } from '../lib/api';
+import ExcelJS from 'exceljs';
 
 interface Asociado {
   id: string;
@@ -417,37 +418,116 @@ export default function Reportes() {
     }
   };
 
-  const exportarUtilidadesCsv = () => {
+  const exportarUtilidadesCsv = async () => {
     if (!utilidadesData || utilidadesData.historial.length === 0) {
       return toast.info('No hay datos de utilidades para exportar');
     }
     
-    const cabeceras = ['Fecha', 'Asociado', 'Cedula', 'Tipo de Transaccion', 'Monto Mora (Utilidad)'];
-    const lineas = ['sep=,', cabeceras.join(',')];
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'UFCA - Sistema de Gestión';
+    wb.created = new Date();
+    const ws = wb.addWorksheet('Utilidades por Mora', { views: [{ showGridLines: false }] });
+
+    // --- Título ---
+    ws.mergeCells('A1:E1');
+    const titleCell = ws.getCell('A1');
+    titleCell.value = 'REPORTE DE UTILIDADES POR MORA';
+    titleCell.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 40;
+
+    ws.mergeCells('A2:E2');
+    const subtitleCell = ws.getCell('A2');
+    subtitleCell.value = `UFCA — Unión Familiar de Crédito y Ahorro  •  Generado: ${new Date().toLocaleDateString('es-CO')}`;
+    subtitleCell.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF94A3B8' } };
+    subtitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(2).height = 25;
+
+    // Fila vacía
+    ws.addRow([]);
+
+    // --- Resumen ---
+    ws.mergeCells('A4:B4');
+    const resumenTitle = ws.getCell('A4');
+    resumenTitle.value = '📊 RESUMEN';
+    resumenTitle.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F172A' } };
     
-    utilidadesData.historial.forEach((r: any) => {
-      const linea = [
-        new Date(r.fecha_pago).toLocaleDateString('es-CO'),
-        r.asociado?.nombre ?? 'Desconocido',
-        r.asociado?.cedula ?? 'N/A',
-        r.tipo.replace(/_/g, ' ').toUpperCase(),
-        r.monto_mora
-      ].map(c => `"${c}"`).join(',');
-      lineas.push(linea);
+    const resumenData = [
+      ['Utilidades Totales:', formatCurrency(utilidadesData.utilidadTotal)],
+      ['Mora en Créditos:', formatCurrency(utilidadesData.utilidadCreditos)],
+      ['Mora en Ahorros:', formatCurrency(utilidadesData.utilidadAhorros)],
+    ];
+    resumenData.forEach((r, i) => {
+      const row = ws.getRow(5 + i);
+      row.getCell(1).value = r[0];
+      row.getCell(1).font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF475569' } };
+      row.getCell(2).value = r[1];
+      row.getCell(2).font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF059669' } };
     });
-    
-    const blob = new Blob([lineas.join('\n')], { type: 'text/csv;charset=utf-8;' });
+
+    ws.addRow([]);
+    const startRow = 9;
+
+    // --- Headers de tabla ---
+    const headers = ['#', 'Fecha', 'Asociado', 'Cédula', 'Concepto', 'Utilidad Generada'];
+    const headerRow = ws.getRow(startRow);
+    headers.forEach((h, i) => {
+      const cell = headerRow.getCell(i + 1);
+      cell.value = h;
+      cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } };
+      cell.alignment = { horizontal: i === 5 ? 'right' : 'left', vertical: 'middle' };
+      cell.border = {
+        bottom: { style: 'thin', color: { argb: 'FF047857' } },
+      };
+    });
+    headerRow.height = 28;
+
+    // --- Datos ---
+    utilidadesData.historial.forEach((r: any, idx: number) => {
+      const dataRow = ws.getRow(startRow + 1 + idx);
+      dataRow.getCell(1).value = idx + 1;
+      dataRow.getCell(2).value = new Date(r.fecha_pago).toLocaleDateString('es-CO');
+      dataRow.getCell(3).value = r.asociado?.nombre ?? 'Desconocido';
+      dataRow.getCell(4).value = r.asociado?.cedula ?? 'N/A';
+      dataRow.getCell(5).value = r.tipo.replace(/_/g, ' ').toUpperCase();
+      dataRow.getCell(6).value = r.monto_mora;
+      dataRow.getCell(6).numFmt = '$#,##0';
+      dataRow.getCell(6).alignment = { horizontal: 'right' };
+
+      const bgColor = idx % 2 === 0 ? 'FFF0FDF4' : 'FFFFFFFF';
+      for (let c = 1; c <= 6; c++) {
+        dataRow.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+        dataRow.getCell(c).font = { name: 'Calibri', size: 10, color: { argb: 'FF334155' } };
+        dataRow.getCell(c).border = {
+          bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } },
+        };
+      }
+    });
+
+    // Ancho de columnas
+    ws.getColumn(1).width = 6;
+    ws.getColumn(2).width = 16;
+    ws.getColumn(3).width = 30;
+    ws.getColumn(4).width = 18;
+    ws.getColumn(5).width = 28;
+    ws.getColumn(6).width = 22;
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `utilidades_mora_ufca_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `Utilidades_Mora_UFCA_${new Date().toISOString().split('T')[0]}.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success('Reporte de utilidades exportado a CSV');
+    toast.success('Reporte de utilidades exportado a Excel');
   };
 
-  const exportarCarteraCsv = async () => {
+  const exportarCreditosCsv = async () => {
     setExportingCsv(true);
     try {
       const { data: creditosList, error } = await supabase
@@ -472,28 +552,84 @@ export default function Reportes() {
         (usrsData || []).forEach((u: any) => { usuariosMap[u.id] = u; });
       }
 
-      const headers = ['ID Credito', 'Cedula Asociado', 'Nombre Asociado', 'Monto Otorgado', 'Saldo Pendiente', 'Cuota', 'Tasa (%)', 'Plazo (Meses)', 'Fecha Desembolso', 'Estado'];
-      const rows = creditosList.map((c: any) => {
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'UFCA - Sistema de Gestión';
+      const ws = wb.addWorksheet('Monto Créditos', { views: [{ showGridLines: false }] });
+
+      // Título
+      ws.mergeCells('A1:J1');
+      const titleCell = ws.getCell('A1');
+      titleCell.value = 'MONTOS DE CRÉDITOS';
+      titleCell.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 40;
+
+      ws.mergeCells('A2:J2');
+      const sub = ws.getCell('A2');
+      sub.value = `UFCA — Unión Familiar de Crédito y Ahorro  •  Generado: ${new Date().toLocaleDateString('es-CO')}`;
+      sub.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF94A3B8' } };
+      sub.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      sub.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(2).height = 25;
+
+      ws.addRow([]);
+
+      const headers = ['#', 'ID Crédito', 'Cédula', 'Nombre Asociado', 'Monto Otorgado', 'Saldo Pendiente', 'Cuota Mensual', 'Tasa (%)', 'Plazo (Meses)', 'Estado'];
+      const headerRow = ws.getRow(4);
+      headers.forEach((h, i) => {
+        const cell = headerRow.getCell(i + 1);
+        cell.value = h;
+        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+        cell.alignment = { horizontal: [4, 5, 6, 7].includes(i) ? 'right' : 'left', vertical: 'middle' };
+        cell.border = { bottom: { style: 'thin', color: { argb: 'FF1D4ED8' } } };
+      });
+      headerRow.height = 28;
+
+      creditosList.forEach((c: any, idx: number) => {
         const usr = usuariosMap[c.asociado_id] || {};
-        return [
-          c.id,
-          usr.cedula || '—',
-          usr.nombre || '—',
-          c.monto || 0,
-          c.saldo ?? c.monto,
-          c.cuota_mensual || 0,
-          c.tasa_interes || 0,
-          c.plazo_meses || 0,
-          c.fecha_desembolso || '—',
-          c.estado || '—'
-        ];
+        const row = ws.getRow(5 + idx);
+        row.getCell(1).value = idx + 1;
+        row.getCell(2).value = c.id?.substring(0, 8) + '...';
+        row.getCell(3).value = usr.cedula || '—';
+        row.getCell(4).value = usr.nombre || '—';
+        row.getCell(5).value = c.monto || 0;
+        row.getCell(5).numFmt = '$#,##0';
+        row.getCell(6).value = c.saldo ?? c.monto;
+        row.getCell(6).numFmt = '$#,##0';
+        row.getCell(7).value = c.cuota_mensual || 0;
+        row.getCell(7).numFmt = '$#,##0';
+        row.getCell(8).value = c.tasa_interes || 0;
+        row.getCell(8).numFmt = '0.0%';
+        row.getCell(9).value = c.plazo_meses || 0;
+        row.getCell(10).value = (c.estado || '—').toUpperCase();
+
+        const bgColor = idx % 2 === 0 ? 'FFEFF6FF' : 'FFFFFFFF';
+        for (let col = 1; col <= 10; col++) {
+          row.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+          row.getCell(col).font = { name: 'Calibri', size: 10, color: { argb: 'FF334155' } };
+          row.getCell(col).border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } };
+        }
       });
 
-      descargarArchivoCsv(headers, rows, `Cartera_Creditos_${new Date().toISOString().split('T')[0]}.csv`);
+      ws.getColumn(1).width = 5;
+      ws.getColumn(2).width = 16;
+      ws.getColumn(3).width = 16;
+      ws.getColumn(4).width = 30;
+      ws.getColumn(5).width = 18;
+      ws.getColumn(6).width = 18;
+      ws.getColumn(7).width = 18;
+      ws.getColumn(8).width = 12;
+      ws.getColumn(9).width = 14;
+      ws.getColumn(10).width = 14;
+
+      const buffer = await wb.xlsx.writeBuffer();
+      descargarExcel(buffer, `Monto_Creditos_${new Date().toISOString().split('T')[0]}.xlsx`);
       return true;
     } catch (err) {
-      console.error('Error exportando cartera:', err);
-      toast.error('Hubo un error exportando la cartera a CSV');
+      console.error('Error exportando créditos:', err);
+      toast.error('Hubo un error exportando los créditos');
       return false;
     } finally {
       setExportingCsv(false);
@@ -530,31 +666,82 @@ export default function Reportes() {
         (usrsData || []).forEach((u: any) => { usuariosMap[u.id] = u; });
       }
 
-      const headers = ['ID Transaccion', 'Fecha Pago', 'Cedula', 'Nombre', 'Tipo', 'Monto', 'Metodo', 'Estado', 'Observacion'];
-      const rows = pagos.map((p: any) => {
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'UFCA - Sistema de Gestión';
+      const ws = wb.addWorksheet('Historial de Transacciones', { views: [{ showGridLines: false }] });
+
+      ws.mergeCells('A1:I1');
+      const titleCell = ws.getCell('A1');
+      titleCell.value = filterAsociado ? `TRANSACCIONES — ${filterAsociado.nombre}` : 'HISTORIAL DE TRANSACCIONES';
+      titleCell.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 40;
+
+      ws.mergeCells('A2:I2');
+      const sub = ws.getCell('A2');
+      sub.value = `UFCA — Unión Familiar de Crédito y Ahorro  •  Generado: ${new Date().toLocaleDateString('es-CO')}`;
+      sub.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF94A3B8' } };
+      sub.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      sub.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(2).height = 25;
+
+      ws.addRow([]);
+
+      const headers = ['#', 'Fecha Pago', 'Cédula', 'Nombre', 'Tipo', 'Monto', 'Método', 'Estado', 'Observación'];
+      const headerRow = ws.getRow(4);
+      headers.forEach((h, i) => {
+        const cell = headerRow.getCell(i + 1);
+        cell.value = h;
+        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7C3AED' } };
+        cell.alignment = { horizontal: i === 5 ? 'right' : 'left', vertical: 'middle' };
+        cell.border = { bottom: { style: 'thin', color: { argb: 'FF6D28D9' } } };
+      });
+      headerRow.height = 28;
+
+      pagos.forEach((p: any, idx: number) => {
         const usr = usuariosMap[p.asociado_id] || {};
-        return [
-          p.id,
-          p.fecha_pago || '—',
-          usr.cedula || '—',
-          usr.nombre || '—',
-          p.tipo || '—',
-          p.monto || 0,
-          p.metodo_pago || '—',
-          p.estado || '—',
-          p.observacion || '—'
-        ];
+        const row = ws.getRow(5 + idx);
+        row.getCell(1).value = idx + 1;
+        row.getCell(2).value = p.fecha_pago || '—';
+        row.getCell(3).value = usr.cedula || '—';
+        row.getCell(4).value = usr.nombre || '—';
+        row.getCell(5).value = (p.tipo || '—').replace(/_/g, ' ').toUpperCase();
+        row.getCell(6).value = p.monto || 0;
+        row.getCell(6).numFmt = '$#,##0';
+        row.getCell(6).alignment = { horizontal: 'right' };
+        row.getCell(7).value = (p.metodo_pago || '—').toUpperCase();
+        row.getCell(8).value = (p.estado || '—').toUpperCase();
+        row.getCell(9).value = p.observacion || '—';
+
+        const bgColor = idx % 2 === 0 ? 'FFF5F3FF' : 'FFFFFFFF';
+        for (let col = 1; col <= 9; col++) {
+          row.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+          row.getCell(col).font = { name: 'Calibri', size: 10, color: { argb: 'FF334155' } };
+          row.getCell(col).border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } };
+        }
       });
 
+      ws.getColumn(1).width = 5;
+      ws.getColumn(2).width = 16;
+      ws.getColumn(3).width = 16;
+      ws.getColumn(4).width = 28;
+      ws.getColumn(5).width = 24;
+      ws.getColumn(6).width = 18;
+      ws.getColumn(7).width = 14;
+      ws.getColumn(8).width = 14;
+      ws.getColumn(9).width = 35;
+
+      const buffer = await wb.xlsx.writeBuffer();
       const nombreArchivo = (selectedAsociado && forceGlobal !== true)
-        ? `Historial_Pagos_${selectedAsociado.cedula}.csv` 
-        : `Historial_Pagos_Global_${new Date().toISOString().split('T')[0]}.csv`;
-        
-      descargarArchivoCsv(headers, rows, nombreArchivo);
+        ? `Historial_Pagos_${selectedAsociado.cedula}.xlsx` 
+        : `Historial_Pagos_Global_${new Date().toISOString().split('T')[0]}.xlsx`;
+      descargarExcel(buffer, nombreArchivo);
       return true;
     } catch (err) {
       console.error('Error exportando pagos:', err);
-      toast.error('Hubo un error exportando los pagos a CSV');
+      toast.error('Hubo un error exportando las transacciones');
       return false;
     } finally {
       setExportingCsv(false);
@@ -585,26 +772,79 @@ export default function Reportes() {
         (usrsData || []).forEach((u: any) => { usuariosMap[u.id] = u; });
       }
 
-      const headers = ['ID Cuenta', 'Cedula Asociado', 'Nombre Asociado', 'Tipo Cuenta', 'Monto Ahorrado ($)', 'Estado', 'Mora Vigente ($)', 'Fecha Creacion'];
-      const rows = ahorrosList.map((a: any) => {
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'UFCA - Sistema de Gestión';
+      const ws = wb.addWorksheet('Cuentas de Ahorro', { views: [{ showGridLines: false }] });
+
+      ws.mergeCells('A1:H1');
+      const titleCell = ws.getCell('A1');
+      titleCell.value = 'CUENTAS DE AHORRO';
+      titleCell.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 40;
+
+      ws.mergeCells('A2:H2');
+      const sub = ws.getCell('A2');
+      sub.value = `UFCA — Unión Familiar de Crédito y Ahorro  •  Generado: ${new Date().toLocaleDateString('es-CO')}`;
+      sub.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF94A3B8' } };
+      sub.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      sub.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(2).height = 25;
+
+      ws.addRow([]);
+
+      const headers = ['#', 'Cédula', 'Nombre Asociado', 'Tipo Cuenta', 'Monto Ahorrado', 'Estado', 'Mora Vigente', 'Fecha Creación'];
+      const headerRow = ws.getRow(4);
+      headers.forEach((h, i) => {
+        const cell = headerRow.getCell(i + 1);
+        cell.value = h;
+        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } };
+        cell.alignment = { horizontal: [4, 6].includes(i) ? 'right' : 'left', vertical: 'middle' };
+        cell.border = { bottom: { style: 'thin', color: { argb: 'FF047857' } } };
+      });
+      headerRow.height = 28;
+
+      ahorrosList.forEach((a: any, idx: number) => {
         const usr = usuariosMap[a.asociado_id] || {};
-        return [
-          a.id,
-          usr.cedula || '—',
-          usr.nombre || '—',
-          a.tipo ? a.tipo.toUpperCase() : '—',
-          a.monto_ahorrado || 0,
-          a.estado || '—',
-          a.multa_mora_vigente || 0,
-          a.created_at ? new Date(a.created_at).toLocaleDateString('es-CO') : '—'
-        ];
+        const row = ws.getRow(5 + idx);
+        row.getCell(1).value = idx + 1;
+        row.getCell(2).value = usr.cedula || '—';
+        row.getCell(3).value = usr.nombre || '—';
+        row.getCell(4).value = a.tipo ? a.tipo.toUpperCase() : '—';
+        row.getCell(5).value = a.monto_ahorrado || 0;
+        row.getCell(5).numFmt = '$#,##0';
+        row.getCell(5).alignment = { horizontal: 'right' };
+        row.getCell(6).value = (a.estado || '—').toUpperCase();
+        row.getCell(7).value = a.multa_mora_vigente || 0;
+        row.getCell(7).numFmt = '$#,##0';
+        row.getCell(7).alignment = { horizontal: 'right' };
+        row.getCell(8).value = a.created_at ? new Date(a.created_at).toLocaleDateString('es-CO') : '—';
+
+        const bgColor = idx % 2 === 0 ? 'FFF0FDF4' : 'FFFFFFFF';
+        for (let col = 1; col <= 8; col++) {
+          row.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+          row.getCell(col).font = { name: 'Calibri', size: 10, color: { argb: 'FF334155' } };
+          row.getCell(col).border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } };
+        }
       });
 
-      descargarArchivoCsv(headers, rows, `Cuentas_Ahorro_Global_${new Date().toISOString().split('T')[0]}.csv`);
+      ws.getColumn(1).width = 5;
+      ws.getColumn(2).width = 16;
+      ws.getColumn(3).width = 30;
+      ws.getColumn(4).width = 18;
+      ws.getColumn(5).width = 20;
+      ws.getColumn(6).width = 14;
+      ws.getColumn(7).width = 18;
+      ws.getColumn(8).width = 18;
+
+      const buffer = await wb.xlsx.writeBuffer();
+      descargarExcel(buffer, `Cuentas_Ahorro_Global_${new Date().toISOString().split('T')[0]}.xlsx`);
       return true;
     } catch (err) {
       console.error('Error exportando ahorros:', err);
-      toast.error('Hubo un error exportando las cuentas de ahorro a CSV');
+      toast.error('Hubo un error exportando las cuentas de ahorro');
       return false;
     } finally {
       setExportingCsv(false);
@@ -636,37 +876,158 @@ export default function Reportes() {
         (usrsData || []).forEach((u: any) => { usuariosMap[u.id] = u; });
       }
 
-      const headers = ['ID Liquidacion', 'Cedula Asociado', 'Nombre Asociado', 'Tipo Liquidacion', 'Monto Total ($)', 'Fecha', 'Detalle'];
-      const rows = liquidacionesList.map((l: any) => {
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'UFCA - Sistema de Gestión';
+      const ws = wb.addWorksheet('Liquidaciones', { views: [{ showGridLines: false }] });
+
+      ws.mergeCells('A1:G1');
+      const titleCell = ws.getCell('A1');
+      titleCell.value = 'LIQUIDACIONES DE ASOCIADOS';
+      titleCell.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 40;
+
+      ws.mergeCells('A2:G2');
+      const sub = ws.getCell('A2');
+      sub.value = `UFCA — Unión Familiar de Crédito y Ahorro  •  Generado: ${new Date().toLocaleDateString('es-CO')}`;
+      sub.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF94A3B8' } };
+      sub.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      sub.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(2).height = 25;
+
+      ws.addRow([]);
+
+      const headers = ['#', 'Cédula', 'Nombre Asociado', 'Tipo Liquidación', 'Monto Total', 'Fecha', 'Detalle'];
+      const headerRow = ws.getRow(4);
+      headers.forEach((h, i) => {
+        const cell = headerRow.getCell(i + 1);
+        cell.value = h;
+        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD97706' } };
+        cell.alignment = { horizontal: i === 4 ? 'right' : 'left', vertical: 'middle' };
+        cell.border = { bottom: { style: 'thin', color: { argb: 'FFB45309' } } };
+      });
+      headerRow.height = 28;
+
+      liquidacionesList.forEach((l: any, idx: number) => {
         const usr = usuariosMap[l.asociado_id] || {};
-        const detalleStr = l.detalle ? JSON.stringify(l.detalle) : '';
-        return [
-          l.id,
-          usr.cedula || '—',
-          usr.nombre || '—',
-          l.tipo ? l.tipo.toUpperCase() : '—',
-          l.monto_total || 0,
-          l.fecha || '—',
-          detalleStr
-        ];
+        const row = ws.getRow(5 + idx);
+        row.getCell(1).value = idx + 1;
+        row.getCell(2).value = usr.cedula || '—';
+        row.getCell(3).value = usr.nombre || '—';
+        row.getCell(4).value = l.tipo ? l.tipo.toUpperCase() : '—';
+        row.getCell(5).value = l.monto_total || 0;
+        row.getCell(5).numFmt = '$#,##0';
+        row.getCell(5).alignment = { horizontal: 'right' };
+        row.getCell(6).value = l.fecha || '—';
+        row.getCell(7).value = l.detalle ? JSON.stringify(l.detalle) : '—';
+
+        const bgColor = idx % 2 === 0 ? 'FFFFFBEB' : 'FFFFFFFF';
+        for (let col = 1; col <= 7; col++) {
+          row.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+          row.getCell(col).font = { name: 'Calibri', size: 10, color: { argb: 'FF334155' } };
+          row.getCell(col).border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } };
+        }
       });
 
-      descargarArchivoCsv(headers, rows, `Liquidaciones_Asociados_${new Date().toISOString().split('T')[0]}.csv`);
+      ws.getColumn(1).width = 5;
+      ws.getColumn(2).width = 16;
+      ws.getColumn(3).width = 30;
+      ws.getColumn(4).width = 22;
+      ws.getColumn(5).width = 20;
+      ws.getColumn(6).width = 16;
+      ws.getColumn(7).width = 40;
+
+      const buffer = await wb.xlsx.writeBuffer();
+      descargarExcel(buffer, `Liquidaciones_Asociados_${new Date().toISOString().split('T')[0]}.xlsx`);
       return true;
     } catch (err) {
       console.error('Error exportando liquidaciones:', err);
-      toast.error('Hubo un error exportando las liquidaciones a CSV');
+      toast.error('Hubo un error exportando las liquidaciones');
       return false;
     } finally {
       setExportingCsv(false);
     }
   };
 
+  // ── Helper: crear hoja con estilo corporativo ──
+  const crearHojaConEstilo = (
+    wb: ExcelJS.Workbook,
+    sheetName: string,
+    title: string,
+    headers: string[],
+    headerColor: string,
+    headerBorderColor: string,
+    zebraColor: string,
+    data: any[][],
+    colWidths: number[],
+    currencyCols: number[] = [],
+    percentCols: number[] = [],
+  ) => {
+    const ws = wb.addWorksheet(sheetName, { views: [{ showGridLines: false }] });
+    const colCount = headers.length;
+    const lastCol = String.fromCharCode(64 + colCount); // A=65
+
+    // Título
+    ws.mergeCells(`A1:${lastCol}1`);
+    const titleCell = ws.getCell('A1');
+    titleCell.value = title;
+    titleCell.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 40;
+
+    ws.mergeCells(`A2:${lastCol}2`);
+    const sub = ws.getCell('A2');
+    sub.value = `UFCA — Unión Familiar de Crédito y Ahorro  •  Generado: ${new Date().toLocaleDateString('es-CO')}`;
+    sub.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF94A3B8' } };
+    sub.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    sub.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(2).height = 25;
+
+    ws.addRow([]);
+
+    // Headers
+    const headerRow = ws.getRow(4);
+    headers.forEach((h, i) => {
+      const cell = headerRow.getCell(i + 1);
+      cell.value = h;
+      cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerColor } };
+      cell.alignment = { horizontal: currencyCols.includes(i + 1) || percentCols.includes(i + 1) ? 'right' : 'left', vertical: 'middle' };
+      cell.border = { bottom: { style: 'thin', color: { argb: headerBorderColor } } };
+    });
+    headerRow.height = 28;
+
+    // Datos
+    data.forEach((rowData, idx) => {
+      const row = ws.getRow(5 + idx);
+      rowData.forEach((val: any, ci: number) => {
+        const cell = row.getCell(ci + 1);
+        cell.value = val;
+        if (currencyCols.includes(ci + 1)) cell.numFmt = '$#,##0';
+        if (percentCols.includes(ci + 1)) cell.numFmt = '0.0%';
+      });
+
+      const bgColor = idx % 2 === 0 ? zebraColor : 'FFFFFFFF';
+      for (let col = 1; col <= colCount; col++) {
+        row.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+        row.getCell(col).font = { name: 'Calibri', size: 10, color: { argb: 'FF334155' } };
+        row.getCell(col).border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } };
+      }
+    });
+
+    // Anchos
+    colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+
+    return ws;
+  };
+
   const exportarTodoSistema = async () => {
     toast.info('Generando reporte consolidado de todo el sistema...');
     setExportingCsv(true);
     try {
-      // 1. Obtener todos los asociados
       const { data: usuariosData, error: errUsrs } = await supabase
         .from('usuarios')
         .select('id, nombre, cedula');
@@ -675,141 +1036,145 @@ export default function Reportes() {
       const usuariosMap: Record<string, any> = {};
       (usuariosData || []).forEach((u: any) => { usuariosMap[u.id] = u; });
 
-      // 2. Obtener créditos
-      const { data: creditosList, error: errCreds } = await supabase
-        .from('creditos')
-        .select('*');
+      const { data: creditosList, error: errCreds } = await supabase.from('creditos').select('*');
       if (errCreds) throw errCreds;
 
-      // 3. Obtener cuentas de ahorro
-      const { data: ahorrosList, error: errAhorros } = await supabase
-        .from('cuentas_ahorro')
-        .select('*');
+      const { data: ahorrosList, error: errAhorros } = await supabase.from('cuentas_ahorro').select('*');
       if (errAhorros) throw errAhorros;
 
-      // 4. Obtener liquidaciones
-      const { data: liquidacionesList, error: errLiqs } = await supabase
-        .from('liquidaciones')
-        .select('*');
+      const { data: liquidacionesList, error: errLiqs } = await supabase.from('liquidaciones').select('*');
       if (errLiqs) throw errLiqs;
 
-      // 5. Obtener transacciones
       const { data: pagosList, error: errPagos } = await supabase
-        .from('transacciones')
-        .select('*')
-        .order('fecha_pago', { ascending: false });
+        .from('transacciones').select('*').order('fecha_pago', { ascending: false });
       if (errPagos) throw errPagos;
 
-      const lines: string[] = ['sep=,'];
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'UFCA - Sistema de Gestión';
+      wb.created = new Date();
 
-      // --- SECCIÓN 1: CARTERA DE CRÉDITOS ---
-      lines.push('--- CARTERA DE CRÉDITOS ---');
-      const creditHeaders = ['ID Credito', 'Cedula Asociado', 'Nombre Asociado', 'Monto Otorgado', 'Saldo Pendiente', 'Cuota', 'Tasa (%)', 'Plazo (Meses)', 'Fecha Desembolso', 'Estado'];
-      lines.push(creditHeaders.join(','));
-      if (creditosList && creditosList.length > 0) {
-        creditosList.forEach((c: any) => {
-          const usr = usuariosMap[c.asociado_id] || {};
-          const row = [
-            c.id,
-            usr.cedula || '—',
-            usr.nombre || '—',
-            c.monto || 0,
-            c.saldo ?? c.monto,
-            c.cuota_mensual || 0,
-            c.tasa_interes || 0,
-            c.plazo_meses || 0,
-            c.fecha_desembolso || '—',
-            c.estado || '—'
-          ].map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',');
-          lines.push(row);
+      // ── Hoja 0: Portada / Resumen General ──
+      const wsPortada = wb.addWorksheet('Resumen General', { views: [{ showGridLines: false }] });
+      
+      // Título
+      wsPortada.mergeCells('A1:D1');
+      const portTitle = wsPortada.getCell('A1');
+      portTitle.value = 'REPORTE CONSOLIDADO DE ACTIVIDADES';
+      portTitle.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+      portTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+      portTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+      wsPortada.getRow(1).height = 40;
+
+      wsPortada.mergeCells('A2:D2');
+      const portSub = wsPortada.getCell('A2');
+      portSub.value = `UFCA — Unión Familiar de Crédito y Ahorro  •  Generado: ${new Date().toLocaleDateString('es-CO')}`;
+      portSub.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF94A3B8' } };
+      portSub.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      portSub.alignment = { horizontal: 'center', vertical: 'middle' };
+      wsPortada.getRow(2).height = 25;
+
+      wsPortada.addRow([]);
+      
+      // Mensaje explicativo
+      wsPortada.mergeCells('A4:D4');
+      const noteCell = wsPortada.getCell('A4');
+      noteCell.value = '📌 Este archivo contiene la información consolidada de la cooperativa. Navegue por las pestañas inferiores de Excel para ver el detalle de cada módulo.';
+      noteCell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF1E293B' } };
+      noteCell.alignment = { vertical: 'middle', wrapText: true };
+      wsPortada.getRow(4).height = 30;
+
+      wsPortada.addRow([]);
+
+      // Headers de la tabla de contenidos
+      const portHeaders = ['Módulo', 'Descripción del Reporte', 'N° Registros', 'Color Pestaña'];
+      const portHeaderRow = wsPortada.getRow(6);
+      portHeaders.forEach((h, i) => {
+        const cell = portHeaderRow.getCell(i + 1);
+        cell.value = h;
+        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      });
+      portHeaderRow.height = 25;
+
+      // Filas de contenidos
+      const portRows = [
+        ['🔵 Monto Créditos', 'Detalle de créditos otorgados, saldos pendientes y plazos', `${creditosList.length} registros`, 'Azul'],
+        ['🟢 Cuentas Ahorro', 'Saldos de cuentas de ahorro permanente y voluntario', `${ahorrosList.length} cuentas`, 'Verde'],
+        ['🟡 Liquidaciones', 'Historial de cierres de cuenta y retiros definitivos', `${liquidacionesList.length} liquidaciones`, 'Naranja'],
+        ['🟣 Transacciones', 'Historial de aportes, cuotas pagadas y penalidades de mora', `${pagosList.length} transacciones`, 'Púrpura']
+      ];
+
+      portRows.forEach((r, idx) => {
+        const row = wsPortada.getRow(7 + idx);
+        r.forEach((val, ci) => {
+          const cell = row.getCell(ci + 1);
+          cell.value = val;
+          cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF334155' } };
+          cell.border = { bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
         });
-      } else {
-        lines.push('"No hay créditos registrados en el sistema"');
-      }
-      lines.push(''); // Salto de línea
+        row.height = 22;
+      });
 
-      // --- SECCIÓN 2: CUENTAS DE AHORRO ---
-      lines.push('--- CUENTAS DE AHORRO ---');
-      const savingsHeaders = ['ID Cuenta', 'Cedula Asociado', 'Nombre Asociado', 'Tipo Cuenta', 'Monto Ahorrado ($)', 'Estado', 'Mora Vigente ($)', 'Fecha Creacion'];
-      lines.push(savingsHeaders.join(','));
-      if (ahorrosList && ahorrosList.length > 0) {
-        ahorrosList.forEach((a: any) => {
-          const usr = usuariosMap[a.asociado_id] || {};
-          const row = [
-            a.id,
-            usr.cedula || '—',
-            usr.nombre || '—',
-            a.tipo ? a.tipo.toUpperCase() : '—',
-            a.monto_ahorrado || 0,
-            a.estado || '—',
-            a.multa_mora_vigente || 0,
-            a.created_at ? new Date(a.created_at).toLocaleDateString('es-CO') : '—'
-          ].map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',');
-          lines.push(row);
-        });
-      } else {
-        lines.push('"No hay cuentas de ahorro registradas en el sistema"');
-      }
-      lines.push(''); // Salto de línea
+      wsPortada.getColumn(1).width = 25;
+      wsPortada.getColumn(2).width = 50;
+      wsPortada.getColumn(3).width = 18;
+      wsPortada.getColumn(4).width = 18;
 
-      // --- SECCIÓN 3: LIQUIDACIONES ---
-      lines.push('--- LIQUIDACIONES ---');
-      const liqHeaders = ['ID Liquidacion', 'Cedula Asociado', 'Nombre Asociado', 'Tipo Liquidacion', 'Monto Total ($)', 'Fecha', 'Detalle'];
-      lines.push(liqHeaders.join(','));
-      if (liquidacionesList && liquidacionesList.length > 0) {
-        liquidacionesList.forEach((l: any) => {
-          const usr = usuariosMap[l.asociado_id] || {};
-          const detalleStr = l.detalle ? JSON.stringify(l.detalle) : '';
-          const row = [
-            l.id,
-            usr.cedula || '—',
-            usr.nombre || '—',
-            l.tipo ? l.tipo.toUpperCase() : '—',
-            l.monto_total || 0,
-            l.fecha || '—',
-            detalleStr
-          ].map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',');
-          lines.push(row);
-        });
-      } else {
-        lines.push('"No hay liquidaciones registradas en el sistema"');
-      }
-      lines.push(''); // Salto de línea
+      // ── Hoja 1: Créditos (azul) ──
+      const creditData = (creditosList || []).map((c: any, i: number) => {
+        const usr = usuariosMap[c.asociado_id] || {};
+        return [i + 1, usr.cedula || '—', usr.nombre || '—', c.monto || 0, c.saldo ?? c.monto, c.cuota_mensual || 0, c.tasa_interes || 0, c.plazo_meses || 0, c.fecha_desembolso || '—', (c.estado || '—').toUpperCase()];
+      });
+      crearHojaConEstilo(wb, 'Monto Créditos', 'MONTOS DE CRÉDITOS',
+        ['#', 'Cédula', 'Nombre', 'Monto Otorgado', 'Saldo Pendiente', 'Cuota Mensual', 'Tasa (%)', 'Plazo', 'Fecha Desembolso', 'Estado'],
+        'FF2563EB', 'FF1D4ED8', 'FFEFF6FF',
+        creditData,
+        [5, 14, 28, 18, 18, 16, 12, 10, 18, 14],
+        [4, 5, 6], [7],
+      );
 
-      // --- SECCIÓN 4: HISTORIAL DE TRANSACCIONES ---
-      lines.push('--- HISTORIAL DE TRANSACCIONES ---');
-      const transHeaders = ['ID Transaccion', 'Fecha Pago', 'Cedula', 'Nombre', 'Tipo', 'Monto', 'Metodo', 'Estado', 'Observacion'];
-      lines.push(transHeaders.join(','));
-      if (pagosList && pagosList.length > 0) {
-        pagosList.forEach((p: any) => {
-          const usr = usuariosMap[p.asociado_id] || {};
-          const row = [
-            p.id,
-            p.fecha_pago || '—',
-            usr.cedula || '—',
-            usr.nombre || '—',
-            p.tipo || '—',
-            p.monto || 0,
-            p.metodo_pago || '—',
-            p.estado || '—',
-            p.observacion || '—'
-          ].map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',');
-          lines.push(row);
-        });
-      } else {
-        lines.push('"No hay transacciones registradas en el sistema"');
-      }
+      // ── Hoja 2: Ahorros (verde) ──
+      const ahorroData = (ahorrosList || []).map((a: any, i: number) => {
+        const usr = usuariosMap[a.asociado_id] || {};
+        return [i + 1, usr.cedula || '—', usr.nombre || '—', a.tipo?.toUpperCase() || '—', a.monto_ahorrado || 0, (a.estado || '—').toUpperCase(), a.multa_mora_vigente || 0, a.created_at ? new Date(a.created_at).toLocaleDateString('es-CO') : '—'];
+      });
+      crearHojaConEstilo(wb, 'Cuentas Ahorro', 'CUENTAS DE AHORRO',
+        ['#', 'Cédula', 'Nombre', 'Tipo', 'Monto Ahorrado', 'Estado', 'Mora Vigente', 'Fecha Creación'],
+        'FF059669', 'FF047857', 'FFF0FDF4',
+        ahorroData,
+        [5, 14, 28, 16, 18, 14, 18, 16],
+        [5, 7], [],
+      );
 
-      // Descargar el archivo consolidado único
-      const csvContent = lines.join('\n');
-      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Reporte_Consolidado_Sistema_UFCA_${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // ── Hoja 3: Liquidaciones (naranja) ──
+      const liqData = (liquidacionesList || []).map((l: any, i: number) => {
+        const usr = usuariosMap[l.asociado_id] || {};
+        return [i + 1, usr.cedula || '—', usr.nombre || '—', l.tipo?.toUpperCase() || '—', l.monto_total || 0, l.fecha || '—', l.detalle ? JSON.stringify(l.detalle) : '—'];
+      });
+      crearHojaConEstilo(wb, 'Liquidaciones', 'LIQUIDACIONES DE ASOCIADOS',
+        ['#', 'Cédula', 'Nombre', 'Tipo', 'Monto Total', 'Fecha', 'Detalle'],
+        'FFD97706', 'FFB45309', 'FFFFFBEB',
+        liqData,
+        [5, 14, 28, 20, 18, 16, 40],
+        [5], [],
+      );
+
+      // ── Hoja 4: Transacciones (púrpura) ──
+      const transData = (pagosList || []).map((p: any, i: number) => {
+        const usr = usuariosMap[p.asociado_id] || {};
+        return [i + 1, p.fecha_pago || '—', usr.cedula || '—', usr.nombre || '—', (p.tipo || '—').replace(/_/g, ' ').toUpperCase(), p.monto || 0, (p.metodo_pago || '—').toUpperCase(), (p.estado || '—').toUpperCase(), p.observacion || '—'];
+      });
+      crearHojaConEstilo(wb, 'Transacciones', 'HISTORIAL DE TRANSACCIONES',
+        ['#', 'Fecha Pago', 'Cédula', 'Nombre', 'Tipo', 'Monto', 'Método', 'Estado', 'Observación'],
+        'FF7C3AED', 'FF6D28D9', 'FFF5F3FF',
+        transData,
+        [5, 16, 14, 28, 24, 18, 14, 14, 35],
+        [6], [],
+      );
+
+      const buffer = await wb.xlsx.writeBuffer();
+      descargarExcel(buffer, `Reporte_Consolidado_Sistema_UFCA_${new Date().toISOString().split('T')[0]}.xlsx`);
 
       toast.success('Se descargó el reporte consolidado de todo el sistema correctamente.');
     } catch (err) {
@@ -820,14 +1185,8 @@ export default function Reportes() {
     }
   };
 
-  const descargarArchivoCsv = (headers: string[], rows: any[][], filename: string) => {
-    const csvContent = [
-      'sep=,',
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const descargarExcel = (buffer: ExcelJS.Buffer, filename: string) => {
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -835,7 +1194,7 @@ export default function Reportes() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success('Archivo descargado correctamente');
+    toast.success('Archivo Excel descargado correctamente');
   };
 
   return (
@@ -1150,7 +1509,7 @@ export default function Reportes() {
                   </span>
                   <h2 className="text-2xl font-extrabold tracking-tight text-white mt-1">Exportar Todo el Sistema</h2>
                   <p className="text-slate-300 text-sm leading-relaxed">
-                    Descarga en un solo paso todos los registros de la cooperativa. Se generará un único archivo CSV consolidado estructurado con las tablas de: Créditos, Cuentas de Ahorro, Liquidaciones e Historial completo de Transacciones.
+                    Descarga en un solo paso todos los registros de la cooperativa. Se generará un archivo Excel con hojas separadas para: Créditos, Cuentas de Ahorro, Liquidaciones e Historial completo de Transacciones.
                   </p>
                 </div>
                 <div className="shrink-0">
@@ -1160,7 +1519,7 @@ export default function Reportes() {
                     disabled={exportingCsv}
                   >
                     {exportingCsv ? <div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="size-5 stroke-[2.2]" />}
-                    Exportar Todo (1 CSV Consolidado)
+                    Exportar Todo (Excel Consolidado)
                   </Button>
                 </div>
               </CardContent>
@@ -1169,14 +1528,14 @@ export default function Reportes() {
             {/* Grid of 4 Specific Exports */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               
-              {/* Card 1: Cartera de Créditos */}
+              {/* Card 1: Montos de Créditos */}
               <Card className="overflow-hidden border border-slate-100 shadow-sm transition-all duration-300 hover:shadow-md bg-white rounded-2xl relative group flex flex-col justify-between">
                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-500 to-indigo-500" />
                 <CardHeader className="p-5 pb-3">
                   <div className="size-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3.5 transition-colors group-hover:bg-blue-100/80">
                     <FileSpreadsheet className="size-5.5 stroke-[1.8]" />
                   </div>
-                  <CardTitle className="text-base font-bold text-slate-800">Cartera de Créditos</CardTitle>
+                  <CardTitle className="text-base font-bold text-slate-800">Montos de Créditos</CardTitle>
                   <CardDescription className="text-slate-500 text-xs leading-relaxed mt-1.5">
                     Reporte global de créditos activos e inactivos, montos desembolsados, saldos deudores y cuotas vigentes.
                   </CardDescription>
@@ -1184,11 +1543,11 @@ export default function Reportes() {
                 <CardContent className="p-5 pt-0">
                   <Button 
                     className="w-full gap-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold py-4 rounded-xl shadow-sm text-xs transition-colors"
-                    onClick={exportarCarteraCsv}
+                    onClick={exportarCreditosCsv}
                     disabled={exportingCsv}
                   >
                     {exportingCsv ? <div className="size-3.5 border-2 border-slate-700 border-t-transparent rounded-full animate-spin" /> : <Download className="size-3.5 stroke-[2]" />}
-                    Exportar Créditos (CSV)
+                    Exportar Créditos (Excel)
                   </Button>
                 </CardContent>
               </Card>
@@ -1212,7 +1571,7 @@ export default function Reportes() {
                     disabled={exportingCsv}
                   >
                     {exportingCsv ? <div className="size-3.5 border-2 border-slate-700 border-t-transparent rounded-full animate-spin" /> : <Download className="size-3.5 stroke-[2]" />}
-                    Exportar Ahorros (CSV)
+                    Exportar Ahorros (Excel)
                   </Button>
                 </CardContent>
               </Card>
@@ -1236,7 +1595,7 @@ export default function Reportes() {
                     disabled={exportingCsv}
                   >
                     {exportingCsv ? <div className="size-3.5 border-2 border-slate-700 border-t-transparent rounded-full animate-spin" /> : <Download className="size-3.5 stroke-[2]" />}
-                    Exportar Liquidaciones (CSV)
+                    Exportar Liquidaciones (Excel)
                   </Button>
                 </CardContent>
               </Card>
@@ -1268,7 +1627,7 @@ export default function Reportes() {
                     disabled={exportingCsv}
                   >
                     {exportingCsv ? <div className="size-3.5 border-2 border-slate-700 border-t-transparent rounded-full animate-spin" /> : <Download className="size-3.5 stroke-[2]" />}
-                    {selectedAsociado ? 'Exportar Filtrado (CSV)' : 'Exportar Pagos (CSV)'}
+                    {selectedAsociado ? 'Exportar Filtrado (Excel)' : 'Exportar Pagos (Excel)'}
                   </Button>
                 </CardContent>
               </Card>
@@ -1345,7 +1704,7 @@ export default function Reportes() {
                       <CardDescription className="text-xs text-slate-500 font-medium mt-1">Registro detallado de transacciones que generaron recargo por mora para el fondo.</CardDescription>
                     </div>
                     <Button onClick={exportarUtilidadesCsv} className="gap-2 bg-slate-900 hover:bg-slate-850 text-white font-bold rounded-xl px-4 py-2.5 text-xs shadow-sm transition-all duration-300 hover:shadow">
-                      <Download className="size-4 stroke-[2]" /> Exportar a CSV
+                      <Download className="size-4 stroke-[2]" /> Exportar a Excel
                     </Button>
                   </CardHeader>
                   <CardContent className="p-0">

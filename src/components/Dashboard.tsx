@@ -441,7 +441,7 @@ export default function Dashboard({ userRole, userData, onNavigate }: DashboardP
   // ── Tarjetas admin (datos 100% reales) ───────────────────────────────────
   const adminStats = [
     {
-      title: 'Cartera de créditos',
+      title: 'Monto total de créditos',
       value: fmtCOP(liveStats.totalCarteraCreditos),
       sub:   `${liveStats.totalCreditos} crédito${liveStats.totalCreditos !== 1 ? 's' : ''} activo${liveStats.totalCreditos !== 1 ? 's' : ''}`,
       icon: Landmark, color: 'amber',
