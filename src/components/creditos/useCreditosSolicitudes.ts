@@ -349,22 +349,36 @@ export function useCreditosSolicitudes({
     }
   };
 
-  const handleAprobarSolicitudCredito = async (sol: any, tipoInteres: 'simple' | 'compuesto' = 'compuesto') => {
+  const handleAprobarSolicitudCredito = async (
+    sol: any, 
+    tipoInteres: 'simple' | 'compuesto' = 'compuesto',
+    montoAprobado?: number,
+    tasaAprobada?: number,
+    plazoAprobado?: number
+  ) => {
     try {
       const ahora = new Date().toISOString();
-      const tasa  = sol.tasaInteres || 0;
+      const finalMonto = montoAprobado !== undefined ? montoAprobado : sol.monto;
+      const finalTasa  = tasaAprobada !== undefined ? tasaAprobada : (sol.tasaInteres || 0);
+      const finalPlazo = plazoAprobado !== undefined ? plazoAprobado : sol.plazoMeses;
+
+      const r = finalTasa > 0 ? (Math.pow(1 + finalTasa / 100, 1 / 12) - 1) : 0;
       const cuota = tipoInteres === 'simple'
-        ? (tasa > 0 ? Math.round(sol.monto / sol.plazoMeses + sol.monto * (Math.pow(1 + tasa / 100, 1 / 12) - 1)) : Math.round(sol.monto / sol.plazoMeses))
-        : calcularCuota(sol.monto, tasa, sol.plazoMeses);
+        ? (finalTasa > 0 ? Math.round(finalMonto / finalPlazo + finalMonto * r) : Math.round(finalMonto / finalPlazo))
+        : calcularCuota(finalMonto, finalTasa, finalPlazo);
 
       const { data: creditoData, error: creditoErr } = await supabase
         .from('creditos')
         .update({
-          estado:               'aprobado',
+          estado:               'simulacion',
+          monto:                finalMonto,
+          plazo_meses:          finalPlazo,
+          tasa_interes:         finalTasa,
           tipo_interes:         tipoInteres,
           cuota_mensual:        cuota,
+          saldo:                finalMonto,
           fecha_estado_cambio:  ahora,
-          motivo_estado_cambio: 'Aprobado por administrador',
+          motivo_estado_cambio: 'Aprobado con condiciones por administrador — pendiente de aceptación del asociado',
         })
         .eq('id', sol.id)
         .select()
@@ -376,19 +390,31 @@ export function useCreditosSolicitudes({
         usuario_id:  sol.asociadoId,
         tipo:        'solicitud_credito',
         titulo:      '✅ Solicitud de crédito aprobada',
-        mensaje:     `Tu solicitud de crédito por ${formatCurrency(sol.monto)} fue aprobada.`,
+        mensaje:     `Su crédito fue aprobado. Revise las condiciones y la tabla de amortización definitiva.`,
         leida:       false,
       });
 
       setSolicitudesCredito(prev => prev.filter(s => s.id !== sol.id));
       setCreditos(prev => prev.map(c =>
         c.id === sol.id
-          ? { ...c, estado: 'aprobado', estadoAprobacion: 'aprobado', fechaEstadoCambio: ahora, motivoEstadoCambio: 'Aprobado por administrador' }
+          ? {
+              ...c,
+              estado: 'simulacion',
+              estadoAprobacion: 'simulacion',
+              monto: finalMonto,
+              plazo: finalPlazo,
+              tasaInteres: finalTasa,
+              tipoInteres: tipoInteres,
+              cuotaMensual: cuota,
+              saldo: finalMonto,
+              fechaEstadoCambio: ahora,
+              motivoEstadoCambio: 'Aprobado con condiciones por administrador',
+            }
           : c
       ));
 
-      toast.success(`✅ Solicitud de ${sol.asociado} aprobada`, {
-        description: `Crédito de ${formatCurrency(sol.monto)} creado y listo para desembolso.`,
+      toast.success(`✅ Solicitud de ${sol.asociado} aprobada con condiciones`, {
+        description: `Enviada al asociado para su aceptación por un monto de ${formatCurrency(finalMonto)}.`,
       });
     } catch (err: any) {
       toast.error('Error al aprobar la solicitud: ' + err.message);

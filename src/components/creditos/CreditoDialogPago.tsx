@@ -190,49 +190,47 @@ export default function CreditoDialogPago({ hook, isAsociado = false }: CreditoD
                   </Select>
                 </div>
 
-                {/* Comprobante — obligatorio si es transferencia */}
-                {pagoMetodo === 'transferencia' && (
-                  <div className="space-y-1.5">
-                    <Label className="flex items-center gap-1.5 text-sm font-medium">
-                      <Upload className="size-3.5 text-blue-500" />
-                      Comprobante de transferencia <span className="text-red-500">*</span>
-                    </Label>
-                    <div
-                      className={`relative flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-5 cursor-pointer transition-colors ${
-                        pagoComprobante
-                          ? 'border-emerald-400 bg-emerald-50'
-                          : 'border-blue-300 bg-blue-50 hover:bg-blue-100'
-                      }`}
-                      onClick={() => document.getElementById(isAsociado ? 'asoc-comprobante-input' : 'admin-comprobante-input')?.click()}
-                    >
-                      <input
-                        id={isAsociado ? 'asoc-comprobante-input' : 'admin-comprobante-input'}
-                        type="file"
-                        accept="image/*,.pdf"
-                        className="hidden"
-                        onChange={e => setPagoComprobante(e.target.files?.[0] ?? null)}
-                      />
-                      {pagoComprobante ? (
-                        <>
-                          <CheckCircle2 className="size-6 text-emerald-500" />
-                          <p className="text-sm font-medium text-emerald-700 text-center break-all">{pagoComprobante.name}</p>
-                          <p className="text-xs text-slate-500">{(pagoComprobante.size / 1024).toFixed(0)} KB · haz clic para cambiar</p>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="size-6 text-blue-400" />
-                          <p className="text-sm font-medium text-blue-700">Haz clic para adjuntar el comprobante</p>
-                          <p className="text-xs text-slate-500">JPG, PNG o PDF · máx. 5 MB</p>
-                        </>
-                      )}
-                    </div>
-                    {!pagoComprobante && (
-                      <p className="text-xs text-amber-600 flex items-center gap-1">
-                        <AlertTriangle className="size-3" /> Requerido para pagos por transferencia
-                      </p>
+                {/* Comprobante de pago */}
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-sm font-medium">
+                    <Upload className="size-3.5 text-blue-500" />
+                    Comprobante de pago {pagoMetodo === 'transferencia' ? <span className="text-red-500">*</span> : <span className="text-xs text-slate-400 font-normal">(opcional)</span>}
+                  </Label>
+                  <div
+                    className={`relative flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-5 cursor-pointer transition-colors ${
+                      pagoComprobante
+                        ? 'border-emerald-400 bg-emerald-50'
+                        : 'border-blue-300 bg-blue-50 hover:bg-blue-100'
+                    }`}
+                    onClick={() => document.getElementById(isAsociado ? 'asoc-comprobante-input' : 'admin-comprobante-input')?.click()}
+                  >
+                    <input
+                      id={isAsociado ? 'asoc-comprobante-input' : 'admin-comprobante-input'}
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      onChange={e => setPagoComprobante(e.target.files?.[0] ?? null)}
+                    />
+                    {pagoComprobante ? (
+                      <>
+                        <CheckCircle2 className="size-6 text-emerald-500" />
+                        <p className="text-sm font-medium text-emerald-700 text-center break-all">{pagoComprobante.name}</p>
+                        <p className="text-xs text-slate-500">{(pagoComprobante.size / 1024).toFixed(0)} KB · haz clic para cambiar</p>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="size-6 text-blue-400" />
+                        <p className="text-sm font-medium text-blue-700">Haz clic para adjuntar el comprobante</p>
+                        <p className="text-xs text-slate-500">JPG, PNG o PDF · máx. 5 MB</p>
+                      </>
                     )}
                   </div>
-                )}
+                  {pagoMetodo === 'transferencia' && !pagoComprobante && (
+                    <p className="text-xs text-amber-600 flex items-center gap-1">
+                      <AlertTriangle className="size-3" /> Requerido para pagos por transferencia
+                    </p>
+                  )}
+                </div>
 
                 <div className="space-y-1.5">
                   <Label htmlFor={isAsociado ? 'asoc-pago-obs' : 'pago-obs'} className="flex items-center gap-1.5">

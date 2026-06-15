@@ -86,7 +86,7 @@ export function useCreditosPagos({
     setPagando(true);
     try {
       let urlComprobante: string | undefined;
-      if (pagoMetodo === 'transferencia' && pagoComprobante) {
+      if (pagoComprobante) {
         const ext      = pagoComprobante.name.split('.').pop() ?? 'bin';
         const filePath = `comprobantes/${selectedItem.id}/${Date.now()}.${ext}`;
         const { error: uploadErr } = await supabase.storage

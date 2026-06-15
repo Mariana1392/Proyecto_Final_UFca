@@ -220,7 +220,11 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                           <CreditCard className="size-5 text-white" />
                         </div>
                         <div>
-                          <p className="font-black text-white text-base leading-tight">Simulación de crédito</p>
+                          <p className="font-black text-white text-base leading-tight">
+                             {sim.motivoEstadoCambio?.includes('Aprobado con condiciones') 
+                               ? 'Crédito pre-aprobado (Condiciones definitivas)' 
+                               : 'Simulación de crédito'}
+                           </p>
                           <p className="text-purple-200 text-xs">{tipoLabel} · Pendiente de confirmación</p>
                         </div>
                       </div>
@@ -258,7 +262,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                         }}
                       >
                         <Table2 className="size-4" />
-                        {(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'Ver tabla de pagos completa' : 'Ver tabla de amortización completa'}
+                        {(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'Ver tabla de pagos definitiva' : 'Ver tabla de amortización definitiva'}
                       </Button>
                       <Button
                         className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700"
@@ -680,7 +684,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                   </div>
                   <div>
                     <h2 className="text-white font-black text-lg leading-tight">
-                      {(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'Tabla de Pagos — Interés Simple' : 'Tabla de Amortización Francesa'}
+                      {(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'Tabla de Pagos Definitiva — Interés Simple' : 'Tabla de Amortización Definitiva — Francesa'}
                     </h2>
                     <p className="text-purple-200 text-sm">{tipoLabel} · {sim.plazo} meses · {sim.tasaInteres}% {(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'N.A.' : 'EA'}</p>
                   </div>
@@ -703,7 +707,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
               <div className="px-6 py-4">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <Table2 className="size-3.5" />
-                  {(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'Tabla de pagos' : 'Tabla de amortización'} — {tabla.length} cuotas
+                  {(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'Tabla de pagos definitiva' : 'Tabla de amortización definitiva'} — {tabla.length} cuotas
                 </p>
                 <div className="rounded-xl border border-slate-200 overflow-hidden">
                   <div className="overflow-x-auto" style={{ maxHeight: '42vh', overflowY: 'auto' }}>
@@ -985,7 +989,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                     <span className="text-white text-sm font-bold">Simulación del crédito</span>
                   </div>
                   <span className="text-purple-200 text-[10px] font-medium uppercase tracking-wide">
-                    {esSimple ? 'Interés simple · cuota de capital fija' : 'Método francés · cuota fija'}
+                    Estimado de cuotas (Sujeto a aprobación)
                   </span>
                 </div>
                 <div className="grid grid-cols-3 divide-x divide-purple-100 bg-white">
@@ -1010,6 +1014,13 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                     </span>
                   </div>
                 )}
+                <div className="flex items-start gap-2 px-4 py-2.5 bg-blue-50/50 border-t border-purple-100 text-xs text-blue-800">
+                  <AlertTriangle className="size-3.5 shrink-0 text-blue-600 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-semibold">Simulación informativa (Interés estimado)</p>
+                    <p>La siguiente tabla de amortización es una simulación informativa calculada con la tasa del tipo de crédito seleccionado. El tipo de interés y las condiciones definitivas serán establecidos por el administrador durante el proceso de aprobación.</p>
+                  </div>
+                </div>
                 <div className="flex gap-2 px-4 py-3 bg-slate-50 border-t border-purple-100">
                   <Button
                     type="button" variant="outline" size="sm"
@@ -1245,9 +1256,9 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
       <DialogContent className="max-w-4xl p-0 overflow-hidden">
         <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 text-white">
           <DialogTitle className="text-lg font-bold flex items-center gap-2 mb-1">
-            <BarChart2 className="size-5" /> Tabla de amortización — Método Francés
+            <BarChart2 className="size-5" /> Tabla de amortización preliminar
           </DialogTitle>
-          <p className="text-purple-200 text-xs">Cuota fija mensual · cálculo orientativo, sujeto a aprobación</p>
+          <p className="text-purple-200 text-xs">Estimación de cuotas con tasa de interés del tipo de crédito · el tipo de interés definitivo será establecido por el administrador</p>
           {tablaSolSim.length > 0 && (() => {
             const totalIntereses = tablaSolSim.reduce((s, r) => s + r.interes, 0);
             const totalPagado    = tablaSolSim.reduce((s, r) => s + r.cuota,   0);
@@ -1272,6 +1283,13 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
               </div>
             );
           })()}
+        </div>
+        <div className="bg-blue-50 border-b border-blue-100 px-6 py-3 text-xs text-blue-800 flex items-start gap-2">
+          <AlertTriangle className="size-4 shrink-0 text-blue-600 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-semibold">Simulación informativa (Interés estimado)</p>
+            <p>La siguiente tabla de amortización es una simulación informativa calculada con la tasa del tipo de crédito seleccionado. El tipo de interés y las condiciones definitivas serán establecidos por el administrador durante el proceso de aprobación.</p>
+          </div>
         </div>
 
         <div className="rounded-xl overflow-hidden mx-5 my-4 border border-slate-200">

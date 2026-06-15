@@ -57,6 +57,9 @@ export default function Creditos({ userData }: CreditosProps) {
   const [tasasAdmin, setTasasAdmin] = useState<Record<string, number>>({});
   // Tipo de interés decidido por el admin por cada solicitud (id → 'simple' | 'compuesto')
   const [tipoInteresAdmin, setTipoInteresAdmin] = useState<Record<string, 'simple' | 'compuesto'>>({});
+  const [montoAprobadoAdmin, setMontoAprobadoAdmin] = useState<Record<string, string>>({});
+  const [plazoAprobadoAdmin, setPlazoAprobadoAdmin] = useState<Record<string, string>>({});
+  const [tasaAprobadaAdmin, setTasaAprobadaAdmin] = useState<Record<string, string>>({});
 
   useEffect(() => {
     supabase.from('configuracion').select('clave, valor')
@@ -501,22 +504,31 @@ export default function Creditos({ userData }: CreditosProps) {
                       // Usar tasa guardada; si es 0 o nula, usar la parametrizada para ese tipo
                       const tasaGuardada  = sol.tasaInteres ?? 0;
                       const claveTasa     = TIPO_TASA[sol.tipo] ?? '';
-                      const tasa          = tasaGuardada > 0 ? tasaGuardada : (tasasAdmin[claveTasa] ?? 0);
+                      const defaultTasa   = tasaGuardada > 0 ? tasaGuardada : (tasasAdmin[claveTasa] ?? 0);
+
+                      const valMonto = montoAprobadoAdmin[sol.id] ?? sol.monto.toLocaleString('es-CO');
+                      const valPlazo = plazoAprobadoAdmin[sol.id] ?? String(sol.plazoMeses);
+                      const valTasa  = tasaAprobadaAdmin[sol.id] ?? String(defaultTasa);
+
+                      const montoNum = parseInt(valMonto.replace(/\./g, '').replace(/[^\d]/g, ''), 10) || 0;
+                      const plazoNum = parseInt(valPlazo, 10) || 0;
+                      const tasaNum  = parseFloat(valTasa) || 0;
+
                       const tipoInt       = tipoInteresAdmin[sol.id] ?? 'compuesto';
-                      const r             = tasa > 0 ? (Math.pow(1 + tasa / 100, 1 / 12) - 1) : 0;
+                      const r             = tasaNum > 0 ? (Math.pow(1 + tasaNum / 100, 1 / 12) - 1) : 0;
                       const cuotaEst      = tipoInt === 'simple'
-                        ? (tasa > 0 ? Math.round(sol.monto / sol.plazoMeses + sol.monto * r) : Math.round(sol.monto / sol.plazoMeses))
-                        : calcularCuota(sol.monto, tasa, sol.plazoMeses);
-                      const totalPag   = cuotaEst * sol.plazoMeses;
-                      const totalInt   = totalPag - sol.monto;
+                        ? (tasaNum > 0 ? Math.round(montoNum / plazoNum + montoNum * r) : Math.round(montoNum / plazoNum))
+                        : calcularCuota(montoNum, tasaNum, plazoNum);
+                      const totalPag   = cuotaEst * plazoNum;
+                      const totalInt   = totalPag - montoNum;
                       const tablaAmort = (() => {
                         const rows = [];
-                        let saldo = sol.monto;
-                        for (let i = 1; i <= sol.plazoMeses; i++) {
+                        let saldo = montoNum;
+                        for (let i = 1; i <= plazoNum; i++) {
                           let interes: number; let capital: number;
                           if (tipoInt === 'simple') {
-                            interes = Math.round(sol.monto * r);
-                            capital = i < sol.plazoMeses ? Math.round(sol.monto / sol.plazoMeses) : saldo;
+                            interes = Math.round(montoNum * r);
+                            capital = i < plazoNum ? Math.round(montoNum / plazoNum) : saldo;
                           } else {
                             interes = Math.round(saldo * r);
                             capital = Math.min(cuotaEst - interes, saldo);
@@ -550,7 +562,7 @@ export default function Creditos({ userData }: CreditosProps) {
                               </div>
                               <div className="flex flex-col gap-2 shrink-0">
                                 <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                  onClick={() => handleAprobarSolicitudCredito(sol, tipoInt)}>
+                                  onClick={() => handleAprobarSolicitudCredito(sol, tipoInt, montoNum, tasaNum, plazoNum)}>
                                   <Check className="size-3.5" /> Aprobar
                                 </Button>
                                 {!enRevision && (
@@ -563,6 +575,46 @@ export default function Creditos({ userData }: CreditosProps) {
                                   onClick={() => { setSolicitudSeleccionada(sol); setNotaRechazoSol(''); setIsRechazarSolOpen(true); }}>
                                   <X className="size-3.5" /> Rechazar
                                 </Button>
+                              </div>
+                            </div>
+
+                            {/* Ajuste de condiciones de crédito por el administrador */}
+                            <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">Ajustar condiciones para aprobación</h4>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="space-y-1">
+                                  <span className="text-[11px] text-slate-500 font-medium block">Monto Aprobado ($)</span>
+                                  <Input
+                                    value={valMonto}
+                                    onChange={(e) => {
+                                      const raw = e.target.value.replace(/\./g, '').replace(/[^\d]/g, '');
+                                      const formatted = raw ? parseInt(raw, 10).toLocaleString('es-CO') : '';
+                                      setMontoAprobadoAdmin(prev => ({ ...prev, [sol.id]: formatted }));
+                                    }}
+                                    className="h-8 text-xs bg-white dark:bg-slate-900"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="text-[11px] text-slate-500 font-medium block">Plazo (meses)</span>
+                                  <Input
+                                    type="number"
+                                    value={valPlazo}
+                                    onChange={(e) => setPlazoAprobadoAdmin(prev => ({ ...prev, [sol.id]: e.target.value }))}
+                                    className="h-8 text-xs bg-white dark:bg-slate-900"
+                                    min={1}
+                                    max={12}
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="text-[11px] text-slate-500 font-medium block">Tasa de interés (% EA)</span>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={valTasa}
+                                    onChange={(e) => setTasaAprobadaAdmin(prev => ({ ...prev, [sol.id]: e.target.value }))}
+                                    className="h-8 text-xs bg-white dark:bg-slate-900"
+                                  />
+                                </div>
                               </div>
                             </div>
 
@@ -592,13 +644,13 @@ export default function Creditos({ userData }: CreditosProps) {
                             </div>
 
                             {/* Alerta de límite de ahorros para el Administrador */}
-                            {sol.monto > sol.totalAhorrosAsociado && (
+                            {montoNum > sol.totalAhorrosAsociado && (
                               <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl flex items-start gap-3 mt-2 mb-2">
                                 <AlertTriangle className="size-5 shrink-0 mt-0.5" />
                                 <div>
                                   <h4 className="font-bold text-xs">Límite de préstamo excedido</h4>
                                   <p className="text-[11px] mt-0.5">
-                                    El monto solicitado ({formatCurrency(sol.monto)}) excede el total de los ahorros del asociado ({formatCurrency(sol.totalAhorrosAsociado)}).
+                                    El monto aprobado ({formatCurrency(montoNum)}) excede el total de los ahorros del asociado ({formatCurrency(sol.totalAhorrosAsociado)}).
                                   </p>
                                 </div>
                               </div>
@@ -608,9 +660,9 @@ export default function Creditos({ userData }: CreditosProps) {
                             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                               {[
                                 { l: 'Tipo',          v: sol.tipoCreditoLabel,       c: 'text-slate-700' },
-                                { l: 'Monto',         v: formatCurrency(sol.monto),  c: 'text-indigo-700 font-bold' },
-                                { l: 'Plazo',         v: `${sol.plazoMeses} meses`,  c: 'text-slate-700' },
-                                { l: tasa > 0 ? 'Tasa EA' : 'Tasa', v: tasa > 0 ? `${tasa}%` : 'Sin tasa', c: 'text-orange-600' },
+                                { l: 'Monto',         v: formatCurrency(montoNum),  c: 'text-indigo-700 font-bold' },
+                                { l: 'Plazo',         v: `${plazoNum} meses`,  c: 'text-slate-700' },
+                                { l: tasaNum > 0 ? 'Tasa EA' : 'Tasa', v: tasaNum > 0 ? `${tasaNum}%` : 'Sin tasa', c: 'text-orange-600' },
                                 { l: 'Cuota mensual', v: formatCurrency(cuotaEst),   c: 'text-emerald-700 font-bold' },
                               ].map(k => (
                                 <div key={k.l} className="bg-white rounded-lg border border-slate-100 px-3 py-2 text-center">
@@ -636,7 +688,7 @@ export default function Creditos({ userData }: CreditosProps) {
                             <details className="group">
                               <summary className="cursor-pointer text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 select-none">
                                 <Table2 className="size-3.5" />
-                                Ver tabla de amortización ({sol.plazoMeses} cuotas)
+                                Ver tabla de amortización ({plazoNum} cuotas)
                               </summary>
                               <div className="mt-2 rounded-xl border border-slate-200 overflow-hidden">
                                 <div className="overflow-x-auto max-h-48 overflow-y-auto">
