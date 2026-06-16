@@ -52,14 +52,13 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
   const [sessionStatus, setSessionStatus] = useState<'checking' | 'ready' | 'error'>('checking');
   const newPasswordRef = useRef<HTMLInputElement>(null);
 
+  // Foco inicial automático cuando el enlace es válido
+  // Ejecutamos solo una vez cuando el estado cambia a 'ready' para evitar bucles de enfoque al escribir
   useEffect(() => {
     if (sessionStatus === 'ready' && !done) {
-      const timer = setTimeout(() => {
-        newPasswordRef.current?.focus();
-      }, 50);
-      return () => clearTimeout(timer);
+      newPasswordRef.current?.focus();
     }
-  }, [sessionStatus, done]);
+  }, [sessionStatus === 'ready']);
 
   // Verificar que Supabase procesó el token del link y hay una sesión activa
   useEffect(() => {
