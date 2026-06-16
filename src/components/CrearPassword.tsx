@@ -304,7 +304,9 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
                     id="cp-newPassword"
-                    type={showNew ? 'text' : 'password'}
+                    type="text"
+                    style={{ WebkitTextSecurity: showNew ? 'none' : 'disc' }}
+                    autoComplete="off"
                     placeholder="••••••••"
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={newPassword}
@@ -330,7 +332,9 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
                     id="cp-confirmPassword"
-                    type={showConfirm ? 'text' : 'password'}
+                    type="text"
+                    style={{ WebkitTextSecurity: showConfirm ? 'none' : 'disc' }}
+                    autoComplete="off"
                     placeholder="••••••••"
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={confirmPassword}

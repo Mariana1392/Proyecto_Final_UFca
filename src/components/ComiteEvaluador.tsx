@@ -26,11 +26,7 @@ import {
 import { Textarea } from './ui/textarea';
 import { supabase } from '../lib/supabase';
 import { formatCurrencyInput, parseCurrencyInput, formatCurrency } from '../lib/formatters';
-
-// URL pública de la app — siempre apunta a producción, nunca a localhost.
-// Viene de la variable de entorno VITE_PUBLIC_URL definida en .env y Vercel.
-const APP_URL = (import.meta.env.VITE_PUBLIC_URL as string | undefined)?.replace(/\/$/, '')
-  || 'https://interfaz-web-profesional-ufca-9.vercel.app';
+import { sendStatusChangeNotification } from '../lib/email';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface EvaluacionComite {
@@ -542,7 +538,7 @@ export default function ComiteEvaluador() {
             body: {
               action: 'inviteUser',
               email: selectedSolicitud.email,
-              redirectTo: `${APP_URL}/?bienvenido=1`,
+              redirectTo: `${window.location.origin}/?bienvenido=1`,
               data: { nombre: selectedSolicitud.nombres, rol: 'asociado' },
             }
           });
@@ -690,7 +686,7 @@ export default function ComiteEvaluador() {
       if (sol.usuario_id) {
         const { error: resetErr } = await supabase.auth.resetPasswordForEmail(
           sol.email,
-          { redirectTo: `${APP_URL}/?bienvenido=1` },
+          { redirectTo: `${window.location.origin}/?bienvenido=1` },
         );
         if (resetErr) throw resetErr;
 
@@ -715,7 +711,7 @@ export default function ComiteEvaluador() {
         body: {
           action: 'inviteUser',
           email: sol.email,
-          redirectTo: `${APP_URL}/?bienvenido=1`,
+          redirectTo: `${window.location.origin}/?bienvenido=1`,
           data: { nombre: sol.nombres, rol: 'asociado' },
         }
       });

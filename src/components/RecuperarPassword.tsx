@@ -8,7 +8,6 @@ import { Mail, Lock, ArrowLeft, CheckCircle, AlertCircle, Clock } from 'lucide-r
 
 import { supabase } from '../lib/supabase';
 
-const APP_URL = import.meta.env.VITE_PUBLIC_URL || 'https://interfaz-web-profesional-ufca-9.vercel.app';
 const LS_KEY = 'ufca_recuperar_cooldown_until';
 
 interface RecuperarPasswordProps {
@@ -66,7 +65,7 @@ export default function RecuperarPassword({ onBack }: RecuperarPasswordProps) {
     setIsLoading(true);
     try {
       const { error: supaErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: APP_URL + '/?recuperar=1',
+        redirectTo: `${window.location.origin}/?recuperar=1`,
       });
 
       if (supaErr) {
