@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { FileText, Download, Calendar, Search, PiggyBank, FileSpreadsheet, User, CheckCircle2, TrendingUp, Printer } from 'lucide-react';
+import { FileText, Download, Calendar, Search, PiggyBank, FileSpreadsheet, User, CheckCircle2, TrendingUp, Printer, Loader2 } from 'lucide-react';
 import { formatCurrency } from '../lib/formatters';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
@@ -46,11 +46,14 @@ export default function Reportes() {
   const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState('');
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [pdfPreviewFilename, setPdfPreviewFilename] = useState('');
+  const [pdfPreviewType, setPdfPreviewType] = useState<'extracto' | 'consolidado'>('extracto');
 
   // Estados de carga
   const [loadingAsociados, setLoadingAsociados] = useState(false);
   const [loadingDatos, setLoadingDatos] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [generatingPdfConsolidado, setGeneratingPdfConsolidado] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
 
   // Utilidades
@@ -377,6 +380,7 @@ export default function Reportes() {
 
       const pdfOutput = doc.output('blob');
       setPdfBlob(pdfOutput);
+      setPdfPreviewFilename(selectedAsociado ? `Extracto_${selectedAsociado.cedula}_${fechaInicio}_al_${fechaFin}.pdf` : 'Extracto.pdf');
       const url = URL.createObjectURL(pdfOutput);
       setPdfPreviewUrl(url);
       setIsPdfPreviewOpen(true);
@@ -390,15 +394,15 @@ export default function Reportes() {
   };
 
   const descargarPdf = () => {
-    if (!pdfBlob || !selectedAsociado) return;
+    if (!pdfBlob) return;
     const url = URL.createObjectURL(pdfBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Extracto_${selectedAsociado.cedula}_${fechaInicio}_al_${fechaFin}.pdf`;
+    link.download = pdfPreviewFilename || (selectedAsociado ? `Extracto_${selectedAsociado.cedula}_${fechaInicio}_al_${fechaFin}.pdf` : 'Reporte.pdf');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success('Extracto descargado correctamente');
+    toast.success('Documento descargado correctamente');
   };
 
   const imprimirPdf = () => {
