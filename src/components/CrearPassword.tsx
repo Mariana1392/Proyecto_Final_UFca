@@ -308,7 +308,7 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
                     id="sec-alpha-input"
                     name="sec-alpha-input"
                     type="text"
-                    style={{ WebkitTextSecurity: showNew ? 'none' : 'disc' }}
+                    style={{ WebkitTextSecurity: showNew ? 'none' : 'disc' } as any}
                     autoComplete="off"
                     data-lpignore="true"
                     data-1p-ignore="true"
@@ -342,7 +342,7 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
                     id="sec-beta-input"
                     name="sec-beta-input"
                     type="text"
-                    style={{ WebkitTextSecurity: showConfirm ? 'none' : 'disc' }}
+                    style={{ WebkitTextSecurity: showConfirm ? 'none' : 'disc' } as any}
                     autoComplete="off"
                     data-lpignore="true"
                     data-1p-ignore="true"

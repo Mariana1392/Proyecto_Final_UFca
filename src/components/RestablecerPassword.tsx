@@ -224,7 +224,7 @@ const RestablecerPassword = ({ onSuccess, onBack }: RestablecerPasswordProps) =>
                     id="sec-rp-alpha-input"
                     name="sec-rp-alpha-input"
                     type="text"
-                    style={{ WebkitTextSecurity: showNew ? 'none' : 'disc' }}
+                    style={{ WebkitTextSecurity: showNew ? 'none' : 'disc' } as any}
                     autoComplete="off"
                     data-lpignore="true"
                     data-1p-ignore="true"
@@ -258,7 +258,7 @@ const RestablecerPassword = ({ onSuccess, onBack }: RestablecerPasswordProps) =>
                     id="sec-rp-beta-input"
                     name="sec-rp-beta-input"
                     type="text"
-                    style={{ WebkitTextSecurity: showConfirm ? 'none' : 'disc' }}
+                    style={{ WebkitTextSecurity: showConfirm ? 'none' : 'disc' } as any}
                     autoComplete="off"
                     data-lpignore="true"
                     data-1p-ignore="true"
