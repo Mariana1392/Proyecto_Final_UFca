@@ -16,8 +16,8 @@ interface LiquidacionProps {
 
 export default function Liquidacion({ userData, esVistaPropia }: LiquidacionProps) {
   // Permisos básicos
-  const permisosMap = (userData?.permisos || []).reduce((acc: any, p: any) => { acc[p.modulo] = true; return acc; }, {});
-  const can = (perm: string) => permisosMap[perm] === true || userData?.rol === 'admin';
+  const permisosList = Array.isArray(userData?.permisos) ? userData.permisos : [];
+  const can = (perm: string) => permisosList.includes(perm) || permisosList.includes(perm + 'es') || userData?.rol === 'admin' || userData?.rol === 'administrador';
 
   // Deducir esVistaPropia final
   const esVistaPropiaFinal = esVistaPropia !== undefined ? esVistaPropia : !can('liquidacion');
