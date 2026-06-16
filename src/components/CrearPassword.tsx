@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -36,7 +36,7 @@ interface CrearPasswordProps {
   onSuccess: () => void;
 }
 
-export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
+const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNew, setShowNew] = useState(false);
@@ -315,7 +315,7 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                     data-bwignore="true"
                     placeholder="Escribe aquí..."
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
-                    value={newPassword}
+                    defaultValue={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     disabled={isLoading}
@@ -349,7 +349,7 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                     data-bwignore="true"
                     placeholder="Escribe aquí..."
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
-                    value={confirmPassword}
+                    defaultValue={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     disabled={isLoading}
@@ -398,4 +398,6 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
       </div>
     </Fondo>
   );
-}
+};
+
+export default React.memo(CrearPassword, () => true);

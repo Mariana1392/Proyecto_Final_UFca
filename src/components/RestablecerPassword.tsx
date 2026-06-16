@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -27,9 +27,10 @@ const Fondo = ({ children }: { children: React.ReactNode }) => (
 
 interface RestablecerPasswordProps {
   onSuccess: () => void;
+  onBack: () => void;
 }
 
-export default function RestablecerPassword({ onSuccess }: RestablecerPasswordProps) {
+const RestablecerPassword = ({ onSuccess, onBack }: RestablecerPasswordProps) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNew, setShowNew] = useState(false);
@@ -37,6 +38,9 @@ export default function RestablecerPassword({ onSuccess }: RestablecerPasswordPr
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [done, setDone] = useState(false);
+  
+  const newPasswordRef = useRef<HTMLInputElement>(null);
+  const confirmPasswordRef = useRef<HTMLInputElement>(null);
 
   // Estado de la sesión: 'checking' → 'ready' | 'error'
   const [sessionStatus, setSessionStatus] = useState<'checking' | 'ready' | 'error'>('checking');
@@ -150,7 +154,7 @@ export default function RestablecerPassword({ onSuccess }: RestablecerPasswordPr
           <p className="text-emerald-200 text-sm leading-relaxed mb-6">
             El enlace para restablecer tu contraseña ya fue usado o ha expirado. Por favor, solicita uno nuevo desde la pantalla de inicio de sesión.
           </p>
-          <Button variant="outline" className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 bg-white" onClick={onSuccess}>
+          <Button variant="outline" className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 bg-white" onClick={onBack}>
             Volver al inicio
           </Button>
         </div>
@@ -211,11 +215,12 @@ export default function RestablecerPassword({ onSuccess }: RestablecerPasswordPr
 
               <div className="space-y-2">
                 <span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  Nueva c<span>ontras</span>eña
+                  Nueva contraseña
                 </span>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
+                    ref={newPasswordRef}
                     id="sec-rp-alpha-input"
                     name="sec-rp-alpha-input"
                     type="text"
@@ -226,7 +231,6 @@ export default function RestablecerPassword({ onSuccess }: RestablecerPasswordPr
                     data-bwignore="true"
                     placeholder="Escribe aquí..."
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
-                    value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     disabled={isLoading}
@@ -245,11 +249,12 @@ export default function RestablecerPassword({ onSuccess }: RestablecerPasswordPr
 
               <div className="space-y-2">
                 <span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  Confirmar c<span>ontras</span>eña
+                  Confirmar contraseña
                 </span>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
+                    ref={confirmPasswordRef}
                     id="sec-rp-beta-input"
                     name="sec-rp-beta-input"
                     type="text"
@@ -260,7 +265,6 @@ export default function RestablecerPassword({ onSuccess }: RestablecerPasswordPr
                     data-bwignore="true"
                     placeholder="Escribe aquí..."
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
-                    value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     disabled={isLoading}
@@ -309,4 +313,6 @@ export default function RestablecerPassword({ onSuccess }: RestablecerPasswordPr
       </div>
     </Fondo>
   );
-}
+};
+
+export default React.memo(RestablecerPassword, () => true);
