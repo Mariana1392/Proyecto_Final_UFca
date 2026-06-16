@@ -214,23 +214,16 @@ const RestablecerPassword = ({ onSuccess, onBack }: RestablecerPasswordProps) =>
               )}
 
               <div className="space-y-2">
-                <span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  Nueva contraseña
-                </span>
+                <Label htmlFor="newPassword">Nueva contraseña</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
                     ref={newPasswordRef}
-                    id="sec-rp-alpha-input"
-                    name="sec-rp-alpha-input"
-                    type="text"
-                    style={{ WebkitTextSecurity: showNew ? 'none' : 'disc' } as any}
-                    autoComplete="off"
-                    data-lpignore="true"
-                    data-1p-ignore="true"
-                    data-bwignore="true"
-                    placeholder="Escribe aquí..."
+                    id="newPassword"
+                    type={showNew ? 'text' : 'password'}
+                    placeholder="••••••••"
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
+                    value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     disabled={isLoading}
@@ -248,23 +241,16 @@ const RestablecerPassword = ({ onSuccess, onBack }: RestablecerPasswordProps) =>
               </div>
 
               <div className="space-y-2">
-                <span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  Confirmar contraseña
-                </span>
+                <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
                     ref={confirmPasswordRef}
-                    id="sec-rp-beta-input"
-                    name="sec-rp-beta-input"
-                    type="text"
-                    style={{ WebkitTextSecurity: showConfirm ? 'none' : 'disc' } as any}
-                    autoComplete="off"
-                    data-lpignore="true"
-                    data-1p-ignore="true"
-                    data-bwignore="true"
-                    placeholder="Escribe aquí..."
+                    id="confirmPassword"
+                    type={showConfirm ? 'text' : 'password'}
+                    placeholder="••••••••"
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
+                    value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     disabled={isLoading}
@@ -315,4 +301,4 @@ const RestablecerPassword = ({ onSuccess, onBack }: RestablecerPasswordProps) =>
   );
 };
 
-export default React.memo(RestablecerPassword, () => true);
+export default RestablecerPassword;
