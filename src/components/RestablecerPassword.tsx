@@ -210,7 +210,9 @@ export default function RestablecerPassword({ onSuccess }: RestablecerPasswordPr
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="sec-rp-alpha-input">Nueva contraseña</Label>
+                <span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Nueva c<span>ontras</span>eña
+                </span>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
@@ -222,7 +224,7 @@ export default function RestablecerPassword({ onSuccess }: RestablecerPasswordPr
                     data-lpignore="true"
                     data-1p-ignore="true"
                     data-bwignore="true"
-                    placeholder="••••••••"
+                    placeholder="Escribe aquí..."
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
@@ -242,7 +244,9 @@ export default function RestablecerPassword({ onSuccess }: RestablecerPasswordPr
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="sec-rp-beta-input">Confirmar contraseña</Label>
+                <span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Confirmar c<span>ontras</span>eña
+                </span>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
@@ -254,7 +258,7 @@ export default function RestablecerPassword({ onSuccess }: RestablecerPasswordPr
                     data-lpignore="true"
                     data-1p-ignore="true"
                     data-bwignore="true"
-                    placeholder="••••••••"
+                    placeholder="Escribe aquí..."
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
