@@ -16,6 +16,7 @@ const Hero                  = lazy(() => import('./components/Hero'));
 const Dashboard             = lazy(() => import('./components/Dashboard'));
 const DashboardAsociado     = lazy(() => import('./components/DashboardAsociado'));
 const RecuperarPassword     = lazy(() => import('./components/RecuperarPassword'));
+const RestablecerPassword   = lazy(() => import('./components/RestablecerPassword'));
 const CrearPassword         = lazy(() => import('./components/CrearPassword'));
 const Roles                 = lazy(() => import('./components/Roles'));
 const AhorroPermanente      = lazy(() => import('./components/ahorro-permanente/AhorroPermanente'));
@@ -33,7 +34,7 @@ const CuentaPendienteActivacion = lazy(() => import('./components/CuentaPendient
 const Servicios                 = lazy(() => import('./components/Servicios'));
 
 
-type View = 'home' | 'solicitud' | 'login' | 'recuperar-password' | 'crear-password' | 'mi-solicitud' | 'mi-perfil' | 'dashboard' | 'roles' | 'usuarios' | 'asociados' | 'asociado-detalle' | 'ahorro-permanente' | 'ahorro-voluntario' | 'liquidacion' | 'comite-evaluador' | 'creditos' | 'servicios';
+type View = 'home' | 'solicitud' | 'login' | 'recuperar-password' | 'restablecer-password' | 'crear-password' | 'mi-solicitud' | 'mi-perfil' | 'dashboard' | 'roles' | 'usuarios' | 'asociados' | 'asociado-detalle' | 'ahorro-permanente' | 'ahorro-voluntario' | 'liquidacion' | 'comite-evaluador' | 'creditos' | 'servicios';
 
 function AppContent() {
   const [currentView, setCurrentView]         = useState<View>('home');
@@ -58,14 +59,21 @@ function AppContent() {
     // Interceptar CUALQUIER visita con ?bienvenido=1 o ?recuperar=1,
     // independientemente de si el hash tiene token válido, error, o está vacío.
     // Esto cubre: token válido, token expirado, enlace ya usado, celular que se apagó.
-    const esFlujoPassword =
+    const esFlujoInvitacion =
       params.get('bienvenido') === '1' ||
+      hash.includes('type=invite');
+
+    const esFlujoRecuperacion =
       params.get('recuperar')  === '1' ||
-      hash.includes('type=invite') ||
       hash.includes('type=recovery');
 
-    if (esFlujoPassword) {
+    if (esFlujoInvitacion) {
       setCurrentView('crear-password');
+      return;
+    }
+
+    if (esFlujoRecuperacion) {
+      setCurrentView('restablecer-password');
       return;
     }
 
@@ -208,6 +216,22 @@ function AppContent() {
         return <Login onLogin={handleLogin} onShowRecovery={() => setCurrentView('recuperar-password')} />;
       case 'recuperar-password':
         return <RecuperarPassword onBack={() => setCurrentView('login')} />;
+      case 'restablecer-password':
+        return (
+          <RestablecerPassword
+            onSuccess={() => {
+              if (isAuthenticated) {
+                if (userData?.rol_nombre === 'usuario') {
+                  setCurrentView('mi-perfil');
+                } else {
+                  setCurrentView('dashboard');
+                }
+              } else {
+                setCurrentView('login');
+              }
+            }}
+          />
+        );
       case 'crear-password':
         return (
           <CrearPassword

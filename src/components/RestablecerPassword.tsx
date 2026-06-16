@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
-import { Lock, CheckCircle, AlertCircle, Eye, EyeOff, Sparkles, Loader2 } from 'lucide-react';
+import { Lock, CheckCircle, AlertCircle, Eye, EyeOff, Loader2, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 
@@ -19,24 +19,18 @@ const Fondo = ({ children }: { children: React.ReactNode }) => (
     <div className="absolute bottom-16 left-1/4 w-40 h-40 rounded-full opacity-15" style={{ background: '#34d399' }} />
     <div className="absolute top-1/2 right-1/4 w-24 h-24 rounded-full opacity-10" style={{ background: '#d1fae5' }} />
     <div className="absolute top-3/4 -right-10 w-56 h-56 rounded-full opacity-15" style={{ background: '#059669' }} />
-    {/* Marranitos flotantes */}
-    <span className="absolute top-8 left-12 text-4xl opacity-30 select-none" style={{ transform: 'rotate(-15deg)' }}>🐷</span>
-    <span className="absolute top-1/4 right-10 text-3xl opacity-25 select-none" style={{ transform: 'rotate(10deg)' }}>🐽</span>
-    <span className="absolute bottom-1/3 left-8 text-5xl opacity-20 select-none" style={{ transform: 'rotate(-8deg)' }}>🐷</span>
-    <span className="absolute bottom-10 right-20 text-3xl opacity-30 select-none" style={{ transform: 'rotate(20deg)' }}>🐽</span>
-    <span className="absolute top-2/3 left-1/3 text-2xl opacity-20 select-none" style={{ transform: 'rotate(-5deg)' }}>🐷</span>
-    <span className="absolute top-16 right-1/3 text-xl opacity-25 select-none" style={{ transform: 'rotate(12deg)' }}>🐽</span>
     <div className="relative z-10 w-full flex items-center justify-center px-4 py-8">
       {children}
     </div>
   </div>
 );
 
-interface CrearPasswordProps {
+interface RestablecerPasswordProps {
   onSuccess: () => void;
+  onBack: () => void;
 }
 
-const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
+const RestablecerPassword = ({ onSuccess, onBack }: RestablecerPasswordProps) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNew, setShowNew] = useState(false);
@@ -44,16 +38,14 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [done, setDone] = useState(false);
-
-  // Recovery email temporal en caso de token expirado
-  const [recoveryEmail, setRecoveryEmail] = useState('');
-  const [recoverySent, setRecoverySent] = useState(false);
-  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  
+  const newPasswordRef = useRef<HTMLInputElement>(null);
+  const confirmPasswordRef = useRef<HTMLInputElement>(null);
 
   // Estado de la sesión: 'checking' → 'ready' | 'error'
   const [sessionStatus, setSessionStatus] = useState<'checking' | 'ready' | 'error'>('checking');
 
-  // Verificar que Supabase procesó el token del link de invitación
+  // Verificar que Supabase procesó el token del link de recuperación
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
     const hash = window.location.hash;
@@ -68,8 +60,6 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
       // 1. Intentar obtener sesión existente
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        localStorage.setItem('ufca_creando_password', '1');
-        setRecoveryEmail(session.user.email ?? '');
         setSessionStatus('ready');
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
         return;
@@ -77,9 +67,7 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
 
       // 2. Si no hay sesión, configurar listener
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
-        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && s) {
-          localStorage.setItem('ufca_creando_password', '1');
-          setRecoveryEmail(s.user.email ?? '');
+        if ((event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') && s) {
           setSessionStatus('ready');
           window.history.replaceState(null, '', window.location.pathname + window.location.search);
           subscription.unsubscribe();
@@ -97,17 +85,6 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
     verificarSesion();
     return () => clearTimeout(timeout);
   }, []);
-
-  // Advertir si intenta salir a la mitad
-  useEffect(() => {
-    if (sessionStatus !== 'ready' || done) return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [sessionStatus, done]);
 
   const validaciones = {
     longitud: newPassword.length >= 8,
@@ -132,46 +109,20 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
     try {
       const { error: supaErr } = await supabase.auth.updateUser({ password: newPassword });
 
-      if (supaErr) {
-        if (
-          supaErr.message.toLowerCase().includes('session') ||
-          supaErr.message.toLowerCase().includes('auth session missing')
-        ) {
-          setSessionStatus('error');
-          setIsLoading(false);
-          return;
-        }
-        throw supaErr;
-      }
+      if (supaErr) throw supaErr;
 
-      localStorage.removeItem('ufca_creando_password');
       setDone(true);
-      toast.success('¡Contraseña creada exitosamente!', {
-        description: 'Ya puedes acceder a tu cuenta de asociado UFCA.',
+      toast.success('¡Contraseña actualizada!', {
+        description: 'Tu nueva clave ha sido guardada correctamente.',
       });
 
       setTimeout(() => {
         onSuccess();
       }, 2000);
     } catch (err: any) {
-      setError(err.message || 'Ocurrió un error al crear la contraseña.');
+      setError(err.message || 'Ocurrió un error al actualizar la contraseña.');
     }
     setIsLoading(false);
-  };
-
-  const handleRecovery = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!recoveryEmail.trim()) return;
-    setRecoveryLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail.trim(), {
-      redirectTo: `${window.location.origin}/?bienvenido=1`,
-    });
-    setRecoveryLoading(false);
-    if (error) {
-      toast.error('No se pudo enviar el correo. Contacta al administrador.');
-    } else {
-      setRecoverySent(true);
-    }
   };
 
   // ── Verificando sesión ───────────────────────────────────────────────────
@@ -183,65 +134,29 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
             <Loader2 className="size-10 text-white animate-spin" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-white mb-2">Verificando tu invitación…</h2>
-            <p className="text-emerald-200 text-sm">Estamos validando tu acceso. Esto solo toma un momento.</p>
+            <h2 className="text-xl font-bold text-white mb-2">Verificando enlace de recuperación…</h2>
+            <p className="text-emerald-200 text-sm">Por favor, espera un momento.</p>
           </div>
         </div>
       </Fondo>
     );
   }
 
-  // ── Link expirado o ya usado ─────────────────────────────────────────────
+  // ── Link expirado o inválido ─────────────────────────────────────────────
   if (sessionStatus === 'error') {
     return (
       <Fondo>
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center size-20 rounded-3xl mb-4 shadow-lg" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
-              <AlertCircle className="size-10 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Enlace inválido o expirado</h1>
-            <p className="text-emerald-200 text-sm leading-relaxed">
-              Este enlace de invitación ya fue usado o expiró. Ingresa tu correo para recibir un nuevo enlace.
-            </p>
+        <div className="w-full max-w-sm text-center">
+          <div className="inline-flex items-center justify-center size-20 rounded-3xl mb-4 shadow-lg" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
+            <AlertCircle className="size-10 text-white" />
           </div>
-          <div className="rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(16px)' }}>
-            <div className="p-6 space-y-4">
-              {recoverySent ? (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-800 text-center space-y-2">
-                  <CheckCircle className="size-8 text-emerald-500 mx-auto" />
-                  <p className="font-semibold">¡Correo enviado!</p>
-                  <p className="text-xs">Revisa tu bandeja de entrada y haz clic en el nuevo enlace.</p>
-                </div>
-              ) : (
-                <form onSubmit={handleRecovery} className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="cp-recoveryEmail">Tu correo electrónico</Label>
-                    <Input
-                      id="cp-recoveryEmail"
-                      type="email"
-                      placeholder="ejemplo@correo.com"
-                      value={recoveryEmail}
-                      onChange={e => setRecoveryEmail(e.target.value)}
-                      required
-                      disabled={recoveryLoading}
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full text-white font-semibold"
-                    style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
-                    disabled={recoveryLoading || !recoveryEmail.trim()}
-                  >
-                    {recoveryLoading ? 'Enviando…' : 'Enviarme un nuevo enlace'}
-                  </Button>
-                </form>
-              )}
-              <Button variant="outline" className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 bg-white" onClick={onSuccess}>
-                Ir al inicio de sesión
-              </Button>
-            </div>
-          </div>
+          <h1 className="text-2xl font-bold text-white mb-2">Enlace inválido o expirado</h1>
+          <p className="text-emerald-200 text-sm leading-relaxed mb-6">
+            El enlace para restablecer tu contraseña ya fue usado o ha expirado. Por favor, solicita uno nuevo desde la pantalla de inicio de sesión.
+          </p>
+          <Button variant="outline" className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 bg-white" onClick={onBack}>
+            Volver al inicio
+          </Button>
         </div>
       </Fondo>
     );
@@ -256,8 +171,8 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
             <CheckCircle className="size-12 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-white mb-3">¡Bienvenido/a a UFCA!</h1>
-            <p className="text-emerald-200">Tu contraseña fue creada correctamente. Estás ingresando a tu cuenta…</p>
+            <h1 className="text-3xl font-bold text-white mb-3">¡Clave actualizada!</h1>
+            <p className="text-emerald-200">Tu contraseña fue modificada correctamente. Estás ingresando a tu cuenta…</p>
           </div>
           <div className="flex justify-center">
             <div className="size-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
@@ -273,11 +188,11 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center size-20 rounded-3xl mb-4 shadow-xl" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
-            <Sparkles className="size-10 text-white" />
+            <KeyRound className="size-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">¡Bienvenido/a a UFCA!</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">Restablecer contraseña</h1>
           <p className="text-emerald-200 text-sm leading-relaxed">
-            Tu cuenta ha sido aprobada. Crea una contraseña segura para acceder al sistema.
+            Ingresa tu nueva contraseña para recuperar el acceso a tu cuenta.
           </p>
         </div>
 
@@ -285,7 +200,7 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
           <div className="px-6 pt-5 pb-2 border-b border-emerald-100">
             <h2 className="flex items-center gap-2 text-base font-semibold text-slate-800">
               <Lock className="size-4 text-emerald-600" />
-              Crear mi contraseña
+              Tu nueva clave
             </h2>
           </div>
 
@@ -300,13 +215,14 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
 
               <div className="space-y-2">
                 <span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  Nueva c<span>ontras</span>eña
+                  Nueva contraseña
                 </span>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
-                    id="sec-alpha-input"
-                    name="sec-alpha-input"
+                    ref={newPasswordRef}
+                    id="sec-rp-alpha-input"
+                    name="sec-rp-alpha-input"
                     type="text"
                     style={{ WebkitTextSecurity: showNew ? 'none' : 'disc' } as any}
                     autoComplete="off"
@@ -315,7 +231,6 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
                     data-bwignore="true"
                     placeholder="Escribe aquí..."
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
-                    defaultValue={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     disabled={isLoading}
@@ -334,13 +249,14 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
 
               <div className="space-y-2">
                 <span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  Confirmar c<span>ontras</span>eña
+                  Confirmar contraseña
                 </span>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
-                    id="sec-beta-input"
-                    name="sec-beta-input"
+                    ref={confirmPasswordRef}
+                    id="sec-rp-beta-input"
+                    name="sec-rp-beta-input"
                     type="text"
                     style={{ WebkitTextSecurity: showConfirm ? 'none' : 'disc' } as any}
                     autoComplete="off"
@@ -349,7 +265,6 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
                     data-bwignore="true"
                     placeholder="Escribe aquí..."
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
-                    defaultValue={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     disabled={isLoading}
@@ -390,7 +305,7 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
                 style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
                 disabled={isLoading || !todasOk}
               >
-                {isLoading ? 'Creando...' : 'Crear contraseña e ingresar'}
+                {isLoading ? 'Actualizando...' : 'Guardar y Entrar'}
               </Button>
             </form>
           </div>
@@ -400,4 +315,4 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
   );
 };
 
-export default React.memo(CrearPassword, () => true);
+export default React.memo(RestablecerPassword, () => true);
