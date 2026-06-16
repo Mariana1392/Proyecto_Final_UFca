@@ -187,6 +187,8 @@ export default function MiSolicitud() {
   const [ingresoError, setIngresoError]         = useState<string | null>(null);
   const [motivacionError, setMotivacionError]   = useState<string | null>(null);
   const [cedulaDuplicada, setCedulaDuplicada]   = useState(false);
+  const [checkingCedula, setCheckingCedula]     = useState(false);
+  const debCedula = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { cargarSolicitud(); }, []);
   useRealtimeSubscription('mi_solicitud_realtime', ['solicitudes_asociados'], cargarSolicitud);
@@ -223,6 +225,42 @@ export default function MiSolicitud() {
     } catch { /* tabla puede no existir aún */ }
     setLoading(false);
   }
+
+  const verificarCedula = async (valor: string, tipo: string) => {
+    if (!valor.trim() || valor.length < 5 || !user) return;
+    setCheckingCedula(true);
+    try {
+      const { data: existente } = await supabase
+        .from('solicitudes_asociados')
+        .select('id, usuario_id')
+        .eq('cedula', valor.trim())
+        .maybeSingle();
+      
+      if (existente?.usuario_id && existente.usuario_id !== user.id) {
+        setCedulaError('Esta identificación ya tiene una solicitud por otro usuario.');
+        setCedulaDuplicada(true);
+      } else {
+        const { data: usr } = await supabase
+          .from('usuarios')
+          .select('id')
+          .eq('cedula', valor.trim())
+          .neq('id', user.id)
+          .maybeSingle();
+        
+        if (usr) {
+           setCedulaError('Esta identificación ya está registrada por otro usuario.');
+           setCedulaDuplicada(true);
+        } else {
+           setCedulaDuplicada(false);
+           setCedulaError(validarNumeroId(tipo, valor.trim()));
+        }
+      }
+    } catch {
+      // Ignorar errores
+    } finally {
+      setCheckingCedula(false);
+    }
+  };
 
   // Sube un archivo a Supabase Storage y devuelve la URL pública
   async function subirArchivo(file: File): Promise<string> {
@@ -574,29 +612,42 @@ export default function MiSolicitud() {
                         setCedula(filtrado);
                         setCedulaTouched(true);
                         setCedulaDuplicada(false);
-                        setCedulaError(validarNumeroId(tipoId, filtrado));
+                        
+                        const errorFormato = validarNumeroId(tipoId, filtrado);
+                        setCedulaError(errorFormato);
+                        
+                        if (debCedula.current) clearTimeout(debCedula.current);
+                        if (!errorFormato && filtrado.length >= 5) {
+                          debCedula.current = setTimeout(() => verificarCedula(filtrado, tipoId), 600);
+                        }
                       }}
                       onBlur={() => {
                         setCedulaTouched(true);
-                        setCedulaError(validarNumeroId(tipoId, cedula));
+                        if (!cedulaError && !cedulaDuplicada) setCedulaError(validarNumeroId(tipoId, cedula));
                       }}
                     />
                     {/* Hint de formato */}
                     {!cedulaTouched && ID_RULES[tipoId] && (
                       <p className="text-xs text-slate-400">{ID_RULES[tipoId].hint}</p>
                     )}
+                    {/* Verificando */}
+                    {checkingCedula && (
+                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-1">
+                        Verificando disponibilidad...
+                      </p>
+                    )}
                     {/* Error en tiempo real */}
-                    {cedulaTouched && cedulaError && (
-                      <p className="text-xs text-red-500 flex items-center gap-1">
+                    {cedulaTouched && cedulaError && !checkingCedula && (
+                      <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
                         <AlertTriangle className="size-3 shrink-0" />
                         {cedulaError}
                       </p>
                     )}
                     {/* Éxito */}
-                    {cedulaTouched && !cedulaError && cedula.trim() && (
-                      <p className="text-xs text-emerald-600 flex items-center gap-1">
+                    {cedulaTouched && !cedulaError && cedula.trim() && !checkingCedula && (
+                      <p className="text-xs text-emerald-600 flex items-center gap-1 mt-1">
                         <CheckCircle2 className="size-3 shrink-0" />
-                        Número válido
+                        Número válido y disponible
                       </p>
                     )}
                   </div>

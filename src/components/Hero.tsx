@@ -185,30 +185,16 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
     if (!valor.trim()) { setInfo(null); return; }
     setCheck(true);
     try {
-      // 1. ¿Ya es asociado? (usa db con service role para bypassar RLS)
-      const { data: usr } = await db
-        .from('usuarios')
-        .select('id, roles(nombre)')
-        .eq(tipo, valor.trim())
-        .maybeSingle();
-      if ((usr as any)?.roles?.nombre === 'asociado') {
-        setInfo({ tipo: 'asociado', mensaje: 'Ya eres asociado UFCA — inicia sesión', bloquea: true });
-        return;
-      }
-      // 2. ¿Tiene solicitud previa?
-      const campo = tipo === 'cedula' ? 'cedula' : 'email';
-      const { data: sol } = await db
-        .from('solicitudes_asociados')
-        .select('id, estado')
-        .eq(campo, valor.trim())
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (!sol) { setInfo(null); return; }
-      if (sol.estado === 'rechazada') {
-        setInfo({ tipo: 'rechazada', mensaje: 'Tu solicitud fue rechazada — puedes reenviarla', bloquea: false });
+      const { data, error } = await db.rpc('verificar_disponibilidad_solicitud', {
+        p_campo: tipo,
+        p_valor: valor.trim()
+      });
+      if (error) throw error;
+      
+      if (data && data.tipo !== 'disponible') {
+        setInfo(data);
       } else {
-        setInfo({ tipo: 'en_proceso', mensaje: 'Ya tienes una solicitud en proceso', bloquea: true });
+        setInfo(null);
       }
     } catch { setInfo(null); } finally { setCheck(false); }
   };
