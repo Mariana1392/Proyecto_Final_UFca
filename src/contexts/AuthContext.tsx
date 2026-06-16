@@ -60,14 +60,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const cargarPerfil = async (userId: string) => {
     try {
+      console.log('[AuthContext] Fetching usuarios for', userId);
       const { data } = await supabase
         .from('usuarios')
         .select('id,nombre,email,username,cedula,telefono,activo,rol_id,roles(nombre,label,rol_permisos(permiso_clave,activo))')
         .eq('id', userId)
         .single();
+      console.log('[AuthContext] Fetched data:', !!data);
       if (!data || !data.activo) { setU(null); return; }
-      // Registrar último acceso (fire-and-forget)
-      void supabase.from('usuarios').update({ ultimo_acceso: new Date().toISOString() }).eq('id', userId);
       const rolNombre  = (data as any).roles?.nombre ?? 'asociado';
       const rolLabelDB = (data as any).roles?.label  ?? undefined;
       const dbPermisos: string[] = Array.isArray((data as any).roles?.rol_permisos)
@@ -128,17 +128,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    console.log('[AuthContext] Iniciando getSession...');
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      console.log('[AuthContext] getSession result:', { hasSession: !!session, error });
       if (session?.user) {
         if (cacheGet()) setLoading(false);
-        cargarPerfil(session.user.id);
+        console.log('[AuthContext] calling cargarPerfil...');
+        setTimeout(() => cargarPerfil(session.user.id), 0);
       } else {
+        console.log('[AuthContext] No session, setting loading false');
         setLoading(false);
       }
+    }).catch(err => {
+      console.error('[AuthContext] getSession crash:', err);
+      setLoading(false);
     });
 
-    // Suscripción en tiempo real a cambios de roles y rol_permisos
-    // Para recargar dinámicamente los permisos del usuario activo si se le quitan o agregan permisos.
     const canalPermisos = supabase
       .channel('realtime_permisos_usuario')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rol_permisos' }, () => {
@@ -155,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_OUT') {
         setU(null);
       } else if (event === 'SIGNED_IN' && session?.user) {
-        cargarPerfil(session.user.id);
+        setTimeout(() => cargarPerfil(session.user.id), 0);
       } else if (event === 'EMAIL_CHANGED' && session?.user) {
         // Sincronizar el nuevo correo en la tabla public.usuarios
         // (auth.users se actualiza solo, pero usuarios no)
@@ -175,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         // Recargar perfil para que el UI refleje el nuevo correo
-        cargarPerfil(session.user.id);
+        setTimeout(() => cargarPerfil(session.user.id), 0);
       }
     });
 

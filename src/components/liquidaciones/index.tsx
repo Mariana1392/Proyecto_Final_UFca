@@ -151,6 +151,7 @@ export default function Liquidacion({ userData, esVistaPropia }: LiquidacionProp
         addConcepto={stepper.addConcepto} updateConcepto={stepper.updateConcepto} removeConcepto={stepper.removeConcepto}
         montoCalculado={stepper.montoCalculado}
         saving={stepper.saving} handleSave={stepper.handleSave}
+        alertConfig={stepper.alertConfig} setAlertConfig={stepper.setAlertConfig}
       />
 
       <LiquidacionDialogDetalle

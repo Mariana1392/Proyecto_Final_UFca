@@ -294,7 +294,7 @@ function AppContent() {
   // Spinner reutilizable para Suspense y carga de sesión
   const Spinner = (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <PiggyBankLoader title="Cargando..." />
+      <PiggyBankLoader title="Cargando App..." />
     </div>
   );
 
@@ -302,7 +302,7 @@ function AppContent() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        {Spinner}
+        <PiggyBankLoader title="Cargando App..." />
       </div>
     );
   }

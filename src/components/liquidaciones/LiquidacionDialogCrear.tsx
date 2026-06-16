@@ -1,5 +1,6 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -9,6 +10,7 @@ import { FileCog, Check, CheckCircle2, Info, FileText, Upload, X, AlertTriangle,
 import { TIPOS_LIQUIDACION as TIPOS_LIQ } from '../../lib/constants';
 import { fmtCOP } from './liquidacionUtils';
 import { Concepto } from './liquidacionTypes';
+import type { AlertConfig } from './useLiquidacionStepper';
 
 interface LiquidacionDialogCrearProps {
   isCreateOpen: boolean;
@@ -73,6 +75,9 @@ interface LiquidacionDialogCrearProps {
   montoCalculado: number;
   saving: boolean;
   handleSave: () => void;
+  
+  alertConfig: AlertConfig | null;
+  setAlertConfig: (cfg: AlertConfig | null) => void;
 }
 
 export function LiquidacionDialogCrear({
@@ -89,9 +94,11 @@ export function LiquidacionDialogCrear({
   formUtilidades, setFormUtilidades, formCreditoPend, setFormCreditoPend,
   setConceptosGenerados, generando, irAPaso3,
   formConceptos, addConcepto, updateConcepto, removeConcepto,
-  montoCalculado, saving, handleSave
+  montoCalculado, saving, handleSave,
+  alertConfig, setAlertConfig
 }: LiquidacionDialogCrearProps) {
   return (
+    <>
     <Dialog open={isCreateOpen} onOpenChange={open => { if (!open) resetForm(); setIsCreateOpen(open); }}>
       <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
@@ -274,5 +281,34 @@ export function LiquidacionDialogCrear({
         </div>
       </DialogContent>
     </Dialog>
+    
+    <AlertDialog open={!!alertConfig} onOpenChange={o => !o && setAlertConfig(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className={`flex items-center gap-2 ${alertConfig?.isDestructive ? 'text-red-600' : 'text-slate-900'}`}>
+            <AlertTriangle className="size-5" />
+            {alertConfig?.title}
+          </AlertDialogTitle>
+          <AlertDialogDescription className="whitespace-pre-line text-sm mt-2">
+            {alertConfig?.description}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="mt-4">
+          <AlertDialogCancel onClick={() => {
+            if (alertConfig?.onCancel) alertConfig.onCancel();
+            setAlertConfig(null);
+          }}>
+            {alertConfig?.cancelText || 'Cancelar'}
+          </AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={alertConfig?.onConfirm}
+            className={alertConfig?.isDestructive ? 'bg-red-600 hover:bg-red-700 text-white' : ''}
+          >
+            {alertConfig?.confirmText || 'Aceptar'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

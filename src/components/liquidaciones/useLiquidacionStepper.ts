@@ -4,6 +4,16 @@ import { toast } from 'sonner';
 import { Concepto, LiqDoc } from './liquidacionTypes';
 import { sendLiquidacionEmail } from '../../lib/email';
 
+export type AlertConfig = {
+  title: string;
+  description: string | React.ReactNode;
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm: () => void;
+  onCancel?: () => void;
+  isDestructive?: boolean;
+};
+
 interface UseLiquidacionStepperProps {
   userData: any;
   setLiquidaciones: any;
@@ -35,6 +45,8 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
   
   const [formStep, setFormStep] = useState<1|2|3>(1);
   const [formConceptos, setFormConceptos] = useState<Concepto[]>([]);
+  
+  const [alertConfig, setAlertConfig] = useState<AlertConfig | null>(null);
   
   const [formArchivoFile, setFormArchivoFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -162,11 +174,27 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
     if (credActivos && credActivos.length > 0) {
       const totalDeuda = credActivos.reduce((s: number, c: any) => s + (Number(c.saldo) || 0), 0);
       
-      const msg1 = `ATENCIÓN: El asociado tiene ${credActivos.length} crédito(s) activo(s) con saldo pendiente de $${totalDeuda.toLocaleString('es-CO')}.\n\n¿Desea continuar con la liquidación a pesar de la deuda?`;
-      if (!window.confirm(msg1)) return;
-
-      const msg2 = `CONFIRMACIÓN FINAL:\nEstá permitiendo la liquidación de un asociado con una deuda activa por $${totalDeuda.toLocaleString('es-CO')}.\n\n¿Está absolutamente seguro de proceder?`;
-      if (!window.confirm(msg2)) return;
+      setAlertConfig({
+        title: 'Atención: Deuda activa detectada',
+        description: `El asociado tiene ${credActivos.length} crédito(s) activo(s) con saldo pendiente de $${totalDeuda.toLocaleString('es-CO')}.\n\n¿Desea continuar con la liquidación a pesar de la deuda?`,
+        confirmText: 'Continuar',
+        onConfirm: () => {
+          setTimeout(() => {
+            setAlertConfig({
+              title: 'Confirmación final',
+              description: `Está permitiendo la liquidación de un asociado con una deuda activa por $${totalDeuda.toLocaleString('es-CO')}.\n\n¿Está absolutamente seguro de proceder?`,
+              confirmText: 'Sí, estoy seguro',
+              isDestructive: true,
+              onConfirm: async () => {
+                setAlertConfig(null);
+                const ok = await handleGenerarConceptos();
+                if (ok) setFormStep(2);
+              }
+            });
+          }, 300);
+        }
+      });
+      return;
     }
 
     const ok = await handleGenerarConceptos();
@@ -189,17 +217,32 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
     if (formConceptos.some(c => !c.nombre.trim())) { toast.error('Todos los conceptos deben tener nombre'); return; }
     if (formConceptos.some(c => isNaN(parseFloat(String(c.monto))) || parseFloat(String(c.monto)) <= 0)) { toast.error('Los montos de los conceptos deben ser mayores a cero'); return; }
 
-    // Confirmación final de la acción
-    let msg = '¿Está seguro de que desea registrar esta liquidación?\n\n';
+    let warningLines = [];
     if (montoCalculado <= 0) {
-      msg += `⚠️ Advertencia: El monto final neto es menor o igual a cero (${montoCalculado.toLocaleString('es-CO')} COP).\n`;
+      warningLines.push(`⚠️ Advertencia: El monto final neto es menor o igual a cero (${montoCalculado.toLocaleString('es-CO')} COP).`);
     }
     if (formCreditoPend && parseFloat(formCreditoPend.replace(/[^\d]/g, '')) > 0) {
-      msg += `⚠️ El asociado tiene créditos debiendo en el sistema por un total de $${formCreditoPend} COP.\n`;
+      warningLines.push(`⚠️ El asociado tiene créditos debiendo en el sistema por un total de $${formCreditoPend} COP.`);
     }
-    if (!window.confirm(msg)) {
+
+    if (warningLines.length > 0) {
+      setAlertConfig({
+        title: '¿Está seguro de que desea registrar esta liquidación?',
+        description: warningLines.join('\n\n'),
+        confirmText: 'Registrar liquidación',
+        isDestructive: true,
+        onConfirm: () => {
+          setAlertConfig(null);
+          executeSave();
+        }
+      });
       return;
     }
+
+    executeSave();
+  };
+
+  const executeSave = async () => {
 
     let urlFinal: string | null = null;
     if (formArchivoFile) {
@@ -314,6 +357,7 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
     fileRef, acRef,
     handleSelectAsociado, resetForm,
     handleGenerarConceptos, irAPaso2, irAPaso3, handleSave,
-    montoCalculado, addConcepto, removeConcepto, updateConcepto, handleFileSelect
+    montoCalculado, addConcepto, removeConcepto, updateConcepto, handleFileSelect,
+    alertConfig, setAlertConfig
   };
 }
