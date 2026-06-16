@@ -104,7 +104,7 @@ function AppContent() {
   useEffect(() => {
     if (isAuthenticated && currentView === 'login') {
       if (userData?.rol_nombre === 'usuario') {
-        setCurrentView('mi-solicitud');
+        setCurrentView('mi-perfil');
       } else {
         setCurrentView('dashboard');
       }
@@ -113,7 +113,7 @@ function AppContent() {
 
   const handleLogin = (_role: 'admin' | 'asociado' | 'usuario', _data: any) => {
     if (_role === 'usuario' || _data?.rol_nombre === 'usuario') {
-      setCurrentView('mi-solicitud');
+      setCurrentView('mi-perfil');
     } else {
       setCurrentView('dashboard');
     }
@@ -191,7 +191,9 @@ function AppContent() {
 
     switch (vistaBase) {
       case 'mi-solicitud':
-        return <MiSolicitud />;
+        return userData?.rol_nombre === 'usuario'
+          ? <MiPerfil userData={userData} />
+          : <MiSolicitud />;
       case 'mi-perfil':
         return userRole === 'admin'
           ? <PerfilAdmin />
@@ -214,7 +216,7 @@ function AppContent() {
               // El useEffect de isAuthenticated se encargará del resto si el rol está listo.
               if (isAuthenticated) {
                 if (userData?.rol_nombre === 'usuario') {
-                  setCurrentView('mi-solicitud');
+                  setCurrentView('mi-perfil');
                 } else {
                   setCurrentView('dashboard');
                 }

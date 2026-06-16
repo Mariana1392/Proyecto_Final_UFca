@@ -417,7 +417,7 @@ export default function MiSolicitud() {
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       {/* Título */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Mi Portal</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Mi Perfil</h1>
         <p className="text-slate-500 mt-1 text-sm">
           Gestiona tu perfil y solicitud de membresía en UFCA
         </p>
