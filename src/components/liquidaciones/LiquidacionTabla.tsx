@@ -9,9 +9,10 @@ import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import {
   Search, Plus, Eye, ChevronLeft, ChevronRight,
   Calculator, CheckCircle2, Clock, AlertTriangle, Activity,
-  FileX, TrendingUp, ListFilter, Upload
+  FileX, TrendingUp, ListFilter, Upload, Download
 } from 'lucide-react';
-import { getEstadoBadge, fmtCOP, numLiq } from './liquidacionUtils';
+import { getEstadoBadge, fmtCOP, numLiq, generateLiquidacionPDF } from './liquidacionUtils';
+import { toast } from 'sonner';
 import { LiquidacionRecord } from './liquidacionTypes';
 
 interface LiquidacionTablaProps {
@@ -71,6 +72,30 @@ export function LiquidacionTabla({
   // Lógica local para el rol Asociado (criterios de consulta simplificada)
   const [asocTab, setAsocTab] = React.useState<'activas' | 'historial'>('activas');
   const [asocPage, setAsocPage] = React.useState(1);
+  const [filterAnio, setFilterAnio] = React.useState<string>('todas');
+
+  // Auxiliar para extraer año del registro
+  const getLiquidationYear = React.useCallback((l: LiquidacionRecord) => {
+    const dateStr = l.fechaCorte || l.createdAt || '';
+    const match = dateStr.match(/^(\d{4})/);
+    return match ? match[1] : null;
+  }, []);
+
+  // Calcular años con registros (desde 2026 en adelante)
+  const anosDisponibles = React.useMemo(() => {
+    const yearsSet = new Set<string>();
+    const startYear = 2026;
+    const currentYear = new Date().getFullYear();
+    const endYear = Math.max(2028, currentYear + 2);
+    for (let yr = startYear; yr <= endYear; yr++) {
+      yearsSet.add(String(yr));
+    }
+    liquidaciones.forEach(l => {
+      const yr = getLiquidationYear(l);
+      if (yr && parseInt(yr, 10) >= 2026) yearsSet.add(yr);
+    });
+    return Array.from(yearsSet).sort((a, b) => a.localeCompare(b));
+  }, [liquidaciones, getLiquidationYear]);
 
   // Filtrar liquidaciones en memoria
   const filteredAsoc = React.useMemo(() => {
@@ -98,6 +123,12 @@ export function LiquidacionTabla({
         }
       }
 
+      // 4. Filtrar por Año (CA_62_01)
+      if (filterAnio && filterAnio !== 'todas') {
+        const yr = getLiquidationYear(l);
+        if (yr !== filterAnio) return false;
+      }
+
       return true;
     }).sort((a, b) => {
       if (sortBy === 'fecha_desc') return new Date(b.fechaCorte||b.createdAt).getTime() - new Date(a.fechaCorte||a.createdAt).getTime();
@@ -107,7 +138,7 @@ export function LiquidacionTabla({
       if (sortBy === 'estado_az') return (a.estado??'').localeCompare(b.estado??'', 'es');
       return 0;
     });
-  }, [esVistaPropia, liquidaciones, asocTab, filterTipo, filterEstado, sortBy]);
+  }, [esVistaPropia, liquidaciones, asocTab, filterTipo, filterEstado, filterAnio, getLiquidationYear, sortBy]);
 
   const itemsPerPage = 10;
   const pagAsoc = React.useMemo(() => {
@@ -224,12 +255,12 @@ export function LiquidacionTabla({
       {/* ── Tabs de Filtro para Asociado ── */}
       {esVistaPropia && (
         <div className="flex justify-center sm:justify-start">
-          <Tabs defaultValue="activas" value={asocTab} onValueChange={(v) => { setAsocTab(v as 'activas' | 'historial'); setAsocPage(1); setFilterEstado('todas'); }} className="w-full max-w-md">
-            <TabsList className="grid w-full grid-cols-2 bg-slate-100 p-1 rounded-xl shadow-sm border border-slate-200">
-              <TabsTrigger value="activas" className="rounded-lg py-2 text-sm font-semibold transition-all data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm">
+          <Tabs defaultValue="activas" value={asocTab} onValueChange={(v) => { setAsocTab(v as 'activas' | 'historial'); setAsocPage(1); setFilterEstado('todas'); setFilterAnio('todas'); }} className="w-full max-w-md">
+            <TabsList className="grid w-full grid-cols-2 bg-slate-100 p-1 rounded-xl shadow-sm border border-slate-200 h-auto">
+              <TabsTrigger value="activas" className="rounded-lg py-1.5 text-sm font-semibold transition-all data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm">
                 Solicitudes Activas
               </TabsTrigger>
-              <TabsTrigger value="historial" className="rounded-lg py-2 text-sm font-semibold transition-all data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm">
+              <TabsTrigger value="historial" className="rounded-lg py-1.5 text-sm font-semibold transition-all data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm">
                 Historial y Finalizadas
               </TabsTrigger>
             </TabsList>
@@ -248,8 +279,23 @@ export function LiquidacionTabla({
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             {esVistaPropia ? (
               <>
-                {/* CA_62_01: Filtrar por estado actual / histórico */}
-                <div className="md:col-span-4">
+                {/* CA_62_01: Filtrar por Año */}
+                <div className="md:col-span-3">
+                  <Select value={filterAnio} onValueChange={setFilterAnio}>
+                    <SelectTrigger className="bg-white border-slate-200 rounded-xl w-full">
+                      <SelectValue placeholder="Todos los años" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas">Todos los años</SelectItem>
+                      {anosDisponibles.map(yr => (
+                        <SelectItem key={yr} value={yr}>{yr}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* CA_62_02: Filtrar por Estado */}
+                <div className="md:col-span-3">
                   <Select value={filterEstado} onValueChange={setFilterEstado}>
                     <SelectTrigger className="bg-white border-slate-200 rounded-xl w-full">
                       <SelectValue placeholder="Todos los estados" />
@@ -273,8 +319,8 @@ export function LiquidacionTabla({
                   </Select>
                 </div>
 
-                {/* CA_62_02: Filtrar por tipo de liquidación */}
-                <div className="md:col-span-4">
+                {/* Filtrar por tipo de liquidación */}
+                <div className="md:col-span-3">
                   <Select value={filterTipo} onValueChange={setFilterTipo}>
                     <SelectTrigger className="bg-white border-slate-200 rounded-xl w-full">
                       <SelectValue placeholder="Cualquier tipo" />
@@ -290,7 +336,7 @@ export function LiquidacionTabla({
                 </div>
 
                 {/* Ordenamiento simple */}
-                <div className="md:col-span-4">
+                <div className="md:col-span-3">
                   <Select value={sortBy} onValueChange={setSortBy}>
                     <SelectTrigger className="bg-white border-slate-200 rounded-xl w-full">
                       <SelectValue placeholder="Ordenar por" />
@@ -392,14 +438,14 @@ export function LiquidacionTabla({
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-slate-50/80 border-b border-slate-100 hover:bg-slate-50/80">
-                  <TableHead className="font-semibold text-slate-500 text-xs uppercase tracking-wide py-3">Liquidación</TableHead>
-                  {!esVistaPropia && <TableHead className="font-semibold text-slate-500 text-xs uppercase tracking-wide">Asociado</TableHead>}
-                  <TableHead className="font-semibold text-slate-500 text-xs uppercase tracking-wide">Fechas</TableHead>
-                  <TableHead className="font-semibold text-slate-500 text-xs uppercase tracking-wide">Tipo</TableHead>
-                  <TableHead className="text-right font-semibold text-slate-500 text-xs uppercase tracking-wide">Total a Pagar</TableHead>
-                  <TableHead className="text-center font-semibold text-slate-500 text-xs uppercase tracking-wide">Estado</TableHead>
-                  <TableHead className="text-right font-semibold text-slate-500 text-xs uppercase tracking-wide">Acciones</TableHead>
+                <TableRow className="bg-slate-50/60 border-b border-slate-100 hover:bg-slate-50/60">
+                  <TableHead className="font-semibold text-slate-400 text-[11px] uppercase tracking-wider py-4 px-6">Liquidación</TableHead>
+                  {!esVistaPropia && <TableHead className="font-semibold text-slate-400 text-[11px] uppercase tracking-wider py-4 px-6">Asociado</TableHead>}
+                  <TableHead className="font-semibold text-slate-400 text-[11px] uppercase tracking-wider py-4 px-6">Fechas</TableHead>
+                  <TableHead className="font-semibold text-slate-400 text-[11px] uppercase tracking-wider py-4 px-6">Tipo</TableHead>
+                  <TableHead className="text-right font-semibold text-slate-400 text-[11px] uppercase tracking-wider py-4 px-6">Total a Pagar</TableHead>
+                  <TableHead className="text-center font-semibold text-slate-400 text-[11px] uppercase tracking-wider py-4 px-6">Estado</TableHead>
+                  <TableHead className="text-right font-semibold text-slate-400 text-[11px] uppercase tracking-wider py-4 px-6">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -456,60 +502,70 @@ export function LiquidacionTabla({
                     pagAsoc.map((liq) => (
                       <TableRow
                         key={liq.id}
-                        className="hover:bg-emerald-50/30 transition-colors border-b border-slate-50 group cursor-pointer"
+                        className="hover:bg-slate-50/70 border-b border-slate-100 transition-all duration-200 group cursor-pointer"
                         onClick={() => { setSelectedItem(liq); setIsDetailOpen(true); }}
                       >
-                        <TableCell className="py-3.5">
-                          <div className="font-semibold text-slate-800 text-sm">{numLiq(liq.id)}</div>
-                          <div className="text-xs text-slate-400 mt-0.5 line-clamp-1" title={liq.motivo}>
-                            {liq.motivo || 'Sin motivo especificado'}
+                        <TableCell className="py-4 px-6 align-middle">
+                          <div className="font-semibold text-slate-800 text-sm tracking-tight">{numLiq(liq.id)}</div>
+                          {liq.motivo && (
+                            <div className="text-xs text-slate-400 mt-0.5 line-clamp-1 max-w-[200px]" title={liq.motivo}>
+                              {liq.motivo}
+                            </div>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="py-4 px-6 align-middle">
+                          <div className="text-sm text-slate-700 flex flex-col gap-0.5">
+                            <span>
+                              <span className="text-slate-400 text-xs font-normal mr-1">Corte:</span>
+                              <span className="font-medium text-slate-800">{liq.fechaCorte || '—'}</span>
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              Reg: {liq.createdAt ? new Date(liq.createdAt).toLocaleDateString('es-CO') : '—'}
+                            </span>
                           </div>
                         </TableCell>
 
-                        <TableCell className="py-3.5">
-                          <div className="text-sm text-slate-700">
-                            <span className="text-slate-400 text-xs">Corte: </span>
-                            <span className="font-medium">{liq.fechaCorte || '—'}</span>
+                        <TableCell className="py-4 px-6 align-middle">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-slate-50 text-slate-600 border border-slate-200 capitalize">
+                            {liq.tipo === 'anual' ? 'Liquidación anual' : liq.tipo === 'retiro' ? 'Retiro voluntario' : liq.tipo}
+                          </span>
+                        </TableCell>
+
+                        <TableCell className="text-right py-4 px-6 align-middle">
+                          <span className="text-sm font-bold text-emerald-600 font-mono tracking-tight">{fmtCOP(liq.montoFinal)}</span>
+                        </TableCell>
+
+                        <TableCell className="text-center py-4 px-6 align-middle">
+                          <div className="flex justify-center">
+                            {getEstadoBadge(liq.estado, liq.anulado)}
                           </div>
-                          <div className="text-xs text-slate-400 mt-0.5">
-                            Reg: {liq.createdAt ? new Date(liq.createdAt).toLocaleDateString('es-CO') : '—'}
-                          </div>
                         </TableCell>
 
-                        <TableCell className="py-3.5">
-                          <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-normal text-xs border-0">
-                            {liq.tipo}
-                          </Badge>
-                        </TableCell>
-
-                        <TableCell className="text-right py-3.5">
-                          <span className="text-sm font-bold text-emerald-700">{fmtCOP(liq.montoFinal)}</span>
-                        </TableCell>
-
-                        <TableCell className="text-center py-3.5">
-                          {getEstadoBadge(liq.estado, liq.anulado)}
-                        </TableCell>
-
-                        <TableCell className="text-right py-3.5">
-                          <div className="flex items-center justify-end gap-1">
-                            {!esVistaPropia && !liq.anulado && (
+                        <TableCell className="text-right py-4 px-6 align-middle" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-2">
+                            {esVistaPropia && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
-                                onClick={(e) => { e.stopPropagation(); setSelectedItem(liq); setIsUploadDocOpen(true); }}
-                                title="Subir soporte"
+                                className="h-8 px-2.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg font-medium text-xs gap-1 border border-transparent hover:border-emerald-100 transition-all duration-200"
+                                onClick={() => {
+                                  const ok = generateLiquidacionPDF(liq);
+                                  if (ok) toast.success('PDF generado correctamente');
+                                  else toast.error('Error al generar PDF');
+                                }}
+                                title="Descargar comprobante PDF"
                               >
-                                <Upload className="w-4 h-4" />
+                                <Download className="w-3.5 h-3.5" /> PDF
                               </Button>
                             )}
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 px-3 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => { e.stopPropagation(); setSelectedItem(liq); setIsDetailOpen(true); }}
+                              className="h-8 px-2.5 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg font-medium text-xs gap-1 border border-transparent hover:border-slate-200 transition-all duration-200"
+                              onClick={() => { setSelectedItem(liq); setIsDetailOpen(true); }}
                             >
-                              <Eye className="w-4 h-4 mr-1" /> Ver
+                              <Eye className="w-3.5 h-3.5" /> Ver
                             </Button>
                           </div>
                         </TableCell>
@@ -554,65 +610,71 @@ export function LiquidacionTabla({
                     pagActivas.map((liq) => (
                       <TableRow
                         key={liq.id}
-                        className="hover:bg-emerald-50/30 transition-colors border-b border-slate-50 group cursor-pointer"
+                        className="hover:bg-slate-50/70 border-b border-slate-100 transition-all duration-200 group cursor-pointer"
                         onClick={() => { setSelectedItem(liq); setIsDetailOpen(true); }}
                       >
-                        <TableCell className="py-3.5">
-                          <div className="font-semibold text-slate-800 text-sm">{numLiq(liq.id)}</div>
-                          <div className="text-xs text-slate-400 mt-0.5 line-clamp-1" title={liq.motivo}>
-                            {liq.motivo || 'Sin motivo especificado'}
-                          </div>
+                        <TableCell className="py-4 px-6 align-middle">
+                          <div className="font-semibold text-slate-800 text-sm tracking-tight">{numLiq(liq.id)}</div>
+                          {liq.motivo && (
+                            <div className="text-xs text-slate-400 mt-0.5 line-clamp-1 max-w-[200px]" title={liq.motivo}>
+                              {liq.motivo}
+                            </div>
+                          )}
                         </TableCell>
 
-                        <TableCell className="py-3.5">
+                        <TableCell className="py-4 px-6 align-middle">
                           <div className="font-medium text-slate-800 text-sm">{liq.asociado}</div>
                           <div className="text-xs text-slate-400 mt-0.5">{liq.cedula}</div>
                         </TableCell>
 
-                        <TableCell className="py-3.5">
-                          <div className="text-sm text-slate-700">
-                            <span className="text-slate-400 text-xs">Corte: </span>
-                            <span className="font-medium">{liq.fechaCorte || '—'}</span>
+                        <TableCell className="py-4 px-6 align-middle">
+                          <div className="text-sm text-slate-700 flex flex-col gap-0.5">
+                            <span>
+                              <span className="text-slate-400 text-xs font-normal mr-1">Corte:</span>
+                              <span className="font-medium text-slate-800">{liq.fechaCorte || '—'}</span>
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              Reg: {liq.createdAt ? new Date(liq.createdAt).toLocaleDateString('es-CO') : '—'}
+                            </span>
                           </div>
-                          <div className="text-xs text-slate-400 mt-0.5">
-                            Reg: {liq.createdAt ? new Date(liq.createdAt).toLocaleDateString('es-CO') : '—'}
+                        </TableCell>
+
+                        <TableCell className="py-4 px-6 align-middle">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-slate-50 text-slate-600 border border-slate-200 capitalize">
+                            {liq.tipo === 'anual' ? 'Liquidación anual' : liq.tipo === 'retiro' ? 'Retiro voluntario' : liq.tipo}
+                          </span>
+                        </TableCell>
+
+                        <TableCell className="text-right py-4 px-6 align-middle">
+                          <span className="text-sm font-bold text-emerald-600 font-mono tracking-tight">{fmtCOP(liq.montoFinal)}</span>
+                        </TableCell>
+
+                        <TableCell className="text-center py-4 px-6 align-middle">
+                          <div className="flex justify-center">
+                            {getEstadoBadge(liq.estado, liq.anulado)}
                           </div>
                         </TableCell>
 
-                        <TableCell className="py-3.5">
-                          <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-normal text-xs border-0">
-                            {liq.tipo}
-                          </Badge>
-                        </TableCell>
-
-                        <TableCell className="text-right py-3.5">
-                          <span className="text-sm font-bold text-emerald-700">{fmtCOP(liq.montoFinal)}</span>
-                        </TableCell>
-
-                        <TableCell className="text-center py-3.5">
-                          {getEstadoBadge(liq.estado, liq.anulado)}
-                        </TableCell>
-
-                        <TableCell className="text-right py-3.5">
-                          <div className="flex items-center justify-end gap-1">
+                        <TableCell className="text-right py-4 px-6 align-middle" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-2">
                             {!esVistaPropia && !liq.anulado && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
-                                onClick={(e) => { e.stopPropagation(); setSelectedItem(liq); setIsUploadDocOpen(true); }}
+                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg border border-transparent hover:border-blue-100 transition-all duration-200 flex items-center justify-center"
+                                onClick={() => { setSelectedItem(liq); setIsUploadDocOpen(true); }}
                                 title="Subir soporte"
                               >
-                                <Upload className="w-4 h-4" />
+                                <Upload className="w-3.5 h-3.5" />
                               </Button>
                             )}
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 px-3 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => { e.stopPropagation(); setSelectedItem(liq); setIsDetailOpen(true); }}
+                              className="h-8 px-2.5 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg font-medium text-xs gap-1 border border-transparent hover:border-slate-200 transition-all duration-200"
+                              onClick={() => { setSelectedItem(liq); setIsDetailOpen(true); }}
                             >
-                              <Eye className="w-4 h-4 mr-1" /> Ver
+                              <Eye className="w-3.5 h-3.5" /> Ver
                             </Button>
                           </div>
                         </TableCell>
