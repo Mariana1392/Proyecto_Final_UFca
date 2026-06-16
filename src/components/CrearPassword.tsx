@@ -50,16 +50,9 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
 
   // Estado de la sesión: 'checking' → 'ready' | 'error'
   const [sessionStatus, setSessionStatus] = useState<'checking' | 'ready' | 'error'>('checking');
-  const newPasswordRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (sessionStatus === 'ready' && !done) {
-      const timer = setTimeout(() => {
-        newPasswordRef.current?.focus();
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [sessionStatus, done]);
+  // Eliminamos el useEffect manual de autofocus que causaba saltos de foco
+  // y en su lugar usamos la propiedad autoFocus nativa de React.
 
   // Verificar que Supabase procesó el token del link y hay una sesión activa
   useEffect(() => {
@@ -328,15 +321,14 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
                     id="newPassword"
-                    ref={newPasswordRef}
                     type={showNew ? 'text' : 'password'}
-                    autoComplete="new-password"
                     placeholder="••••••••"
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     disabled={isLoading}
+                    autoFocus
                   />
                   <button
                     type="button"
@@ -356,7 +348,6 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                   <Input
                     id="confirmPassword"
                     type={showConfirm ? 'text' : 'password'}
-                    autoComplete="new-password"
                     placeholder="••••••••"
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={confirmPassword}
