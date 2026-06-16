@@ -11,34 +11,27 @@
 /** Claves de permisos disponibles en el sistema — deben coincidir exactamente con la tabla `permisos` en BD */
 export const PERM = {
   // ── Módulos de administración (vista completa) ───────────────────────────────
-  DASHBOARD:     'dashboard',
-  ROLES:         'roles',
-  USUARIOS:      'usuarios',
-  ASOCIADOS:     'asociados',
-  AHORROS:       'ahorros',
-  CREDITOS:      'creditos',
-  LIQUIDACION:   'liquidacion',
-  CONFIGURACION: 'configuracion',
+  DASHBOARD:          'dashboard',
+  GESTION_USUARIOS:   'gestion_usuarios',
+  GESTION_ROLES:      'gestion_roles',
+  GESTION_ASOCIADOS:  'gestion_asociados',
+  AHORROS:            'ahorros',
+  CREDITOS:           'creditos',
+  LIQUIDACIONES:      'liquidaciones',
+  SOLICITUDES:        'solicitudes',
+  EXCEPCIONES:        'excepciones',
+  AUDITORIA:          'auditoria',
+  CONFIGURACION:      'configuracion',
+  NOTIFICACIONES:     'notificaciones',
+  REPORTES:           'reportes',
 
   // ── Módulos de asociado (vista propia filtrada) ──────────────────────────────
-  MIS_AHORROS:    'mis_ahorros',
-  MIS_CREDITOS:   'mis_creditos',
-  MI_LIQUIDACION: 'mi_liquidacion',
-  MIS_REFERIDOS:  'mis_referidos',
-
-  // ── Usuario normal (pendiente de ser asociado) ───────────────────────────────
-  SOLICITUD_ASOCIACION: 'solicitud_asociacion',
-
-  // ── Acciones sobre usuarios ──────────────────────────────────────────────────
-  CREAR_USUARIO:    'crear_usuario',
-  EDITAR_USUARIO:   'editar_usuario',
-  ELIMINAR_USUARIO: 'eliminar_usuario',
-  VER_AUDITORIA:    'ver_auditoria',
-
-  // ── Acciones sobre asociados ─────────────────────────────────────────────────
-  CREAR_ASOCIADO:    'crear_asociado',
-  EDITAR_ASOCIADO:   'editar_asociado',
-  ELIMINAR_ASOCIADO: 'eliminar_asociado',
+  DASHBOARD_ASOCIADO: 'dashboard_asociado',
+  MIS_AHORROS:        'mis_ahorros',
+  MIS_CREDITOS:       'mis_creditos',
+  MI_LIQUIDACION:     'mi_liquidacion',
+  MIS_REFERIDOS:      'mis_referidos',
+  MIS_NOTIFICACIONES: 'mis_notificaciones',
 } as const;
 
 export type Permission = typeof PERM[keyof typeof PERM];
@@ -49,22 +42,20 @@ export type Permission = typeof PERM[keyof typeof PERM];
 // Vistas con array: accesible si el usuario tiene AL MENOS UNO (OR)
 // ─────────────────────────────────────────────────────────────────────────────
 export const VIEW_PERMISO: Record<string, string | string[]> = {
-  'mi-solicitud':      PERM.SOLICITUD_ASOCIACION,
-  dashboard:           PERM.DASHBOARD,
-  roles:               PERM.ROLES,
-  usuarios:            PERM.USUARIOS,
-  asociados:           PERM.ASOCIADOS,
-  'asociado-detalle':  PERM.ASOCIADOS,
+  dashboard:           [PERM.DASHBOARD, PERM.DASHBOARD_ASOCIADO],
+  roles:               PERM.GESTION_ROLES,
+  usuarios:            PERM.GESTION_USUARIOS,
+  asociados:           PERM.GESTION_ASOCIADOS,
+  'asociado-detalle':  PERM.GESTION_ASOCIADOS,
   'ahorro-permanente': [PERM.AHORROS, PERM.MIS_AHORROS],
   'ahorro-voluntario': [PERM.AHORROS, PERM.MIS_AHORROS],
-  liquidacion:         [PERM.LIQUIDACION, PERM.MI_LIQUIDACION],
-  'comite-evaluador':  PERM.ASOCIADOS,
+  liquidacion:         [PERM.LIQUIDACIONES, PERM.MI_LIQUIDACION],
+  'comite-evaluador':  PERM.GESTION_ASOCIADOS,
   creditos:            [PERM.CREDITOS, PERM.MIS_CREDITOS],
-  referidos:           [PERM.ASOCIADOS, PERM.MIS_REFERIDOS],
+  referidos:           [PERM.GESTION_ASOCIADOS, PERM.MIS_REFERIDOS],
   parametros:          PERM.CONFIGURACION,
-  // A-07: mi-perfil requiere estar autenticado (cualquier permiso activo)
-  'mi-perfil':         [PERM.DASHBOARD, PERM.MIS_AHORROS, PERM.SOLICITUD_ASOCIACION],
-  reportes:            [PERM.DASHBOARD, PERM.MIS_AHORROS],
+  // mi-perfil: accesible para CUALQUIER usuario autenticado, no requiere permiso específico
+  reportes:            [PERM.DASHBOARD, PERM.REPORTES],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -28,14 +28,14 @@ interface LayoutProps {
 // Permiso requerido para cada ítem hijo del menú.
 // Puede ser un string (permiso único) o string[] (OR: basta con tener uno).
 const CHILD_PERMISO: Record<string, string | string[]> = {
-  'gestion-roles':    'roles',
-  'gestion-usuarios': 'usuarios',
+  'gestion-roles':    'gestion_roles',
+  'gestion-usuarios': 'gestion_usuarios',
   // Asociado ve UN SOLO ítem "Mis Ahorros" (ahorro-permanente → MisAhorros muestra ambos tipos).
   // ahorro-voluntario solo se muestra al admin (permiso 'ahorros').
   'ahorro-permanente':['ahorros', 'mis_ahorros'],
   'ahorro-voluntario': 'ahorros',
-  'liquidacion':      ['liquidacion', 'mi_liquidacion'],
-  'comite-evaluador': 'asociados',
+  'liquidacion':      ['liquidaciones', 'mi_liquidacion'],
+  'comite-evaluador': 'gestion_asociados',
   'creditos':         ['creditos', 'mis_creditos'],
   'mediciones':       'dashboard',
 };
@@ -167,7 +167,7 @@ export default function Layout({
         // Admin    → "Ahorro permanente" + "Ahorro voluntario" (dos ítems separados)
         { id: "ahorro-permanente",  label: userPermisos.includes('mis_ahorros') && !userPermisos.includes('ahorros') ? "Mis Ahorros" : "Ahorro permanente" },
         { id: "ahorro-voluntario",  label: "Ahorro voluntario" },
-        { id: "liquidacion",        label: userPermisos.includes('mi_liquidacion') && !userPermisos.includes('liquidacion') ? "Mi Liquidación" : "Liquidación" },
+        { id: "liquidacion",        label: userPermisos.includes('mi_liquidacion') && !userPermisos.includes('liquidaciones') ? "Mi Liquidación" : "Liquidación" },
         { id: "comite-evaluador",   label: "Comité evaluador" },
         { id: "creditos",           label: userPermisos.includes('mis_creditos') && !userPermisos.includes('creditos') ? "Mis Créditos" : "Créditos" },
       ],

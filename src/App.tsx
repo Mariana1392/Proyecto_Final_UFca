@@ -226,7 +226,7 @@ function AppContent() {
           />
         );
       case 'dashboard':
-        return can('asociados') || can('usuarios') || can('roles')
+        return can('gestion_asociados') || can('gestion_usuarios') || can('gestion_roles')
           ? <Dashboard userRole={userRole ?? undefined} userData={userData} onNavigate={handleNavigate} />
           : <DashboardAsociado userData={userData} onNavigate={handleNavigate} />;
       case 'roles':
