@@ -279,7 +279,7 @@ function AppContent() {
           ? <AhorroVoluntario userRole={userRole ?? undefined} userData={userData} />
           : <MisAhorros userData={userData} />;
       case 'liquidacion':
-        return <Liquidacion userData={userData} esVistaPropia={!can('liquidacion')} />;
+        return <Liquidacion userData={userData} esVistaPropia={!can('liquidaciones') && userRole !== 'admin'} />;
       case 'comite-evaluador':
         return <ComiteEvaluador />;
       case 'creditos':
