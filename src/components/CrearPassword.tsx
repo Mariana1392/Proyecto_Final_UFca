@@ -37,30 +37,24 @@ interface CrearPasswordProps {
 }
 
 export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
-  const [newPassword, setNewPassword]         = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showNew, setShowNew]                 = useState(false);
-  const [showConfirm, setShowConfirm]         = useState(false);
-  const [error, setError]                     = useState('');
-  const [isLoading, setIsLoading]             = useState(false);
-  const [done, setDone]                       = useState(false);
-  const [recoveryEmail, setRecoveryEmail]     = useState('');
-  const [recoverySent, setRecoverySent]       = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoverySent, setRecoverySent] = useState(false);
   const [recoveryLoading, setRecoveryLoading] = useState(false);
 
-  // Estado de la sesión: 'checking' → 'ready' | 'error'
   const [sessionStatus, setSessionStatus] = useState<'checking' | 'ready' | 'error'>('checking');
-  const newPasswordRef = useRef<HTMLInputElement>(null);
-  const focusApplied = useRef(false);
 
-  // Solo enfoca el input UNA sola vez cuando la sesión queda lista
-  useEffect(() => {
-    if (sessionStatus === 'ready' && !focusApplied.current) {
-      focusApplied.current = true;
-      newPasswordRef.current?.focus();
-    }
-  }, [sessionStatus]);
+  // Eliminamos el useEffect manual de autofocus que causaba saltos de foco
+  // y en su lugar usamos la propiedad autoFocus nativa de React.
 
+  // Foco inicial automático cuando el enlace es válido
+  // Ejecutamos solo una vez cuando el estado cambia a 'ready' para evitar bucles de enfoque al escribir
   // Verificar que Supabase procesó el token del link y hay una sesión activa
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
@@ -122,11 +116,11 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
 
   // Validaciones en tiempo real
   const validaciones = {
-    longitud:   newPassword.length >= 8,
-    mayuscula:  /[A-Z]/.test(newPassword),
-    minuscula:  /[a-z]/.test(newPassword),
-    numero:     /[0-9]/.test(newPassword),
-    coinciden:  newPassword.length > 0 && newPassword === confirmPassword,
+    longitud: newPassword.length >= 8,
+    mayuscula: /[A-Z]/.test(newPassword),
+    minuscula: /[a-z]/.test(newPassword),
+    numero: /[0-9]/.test(newPassword),
+    coinciden: newPassword.length > 0 && newPassword === confirmPassword,
   };
 
   const todasOk = Object.values(validaciones).every(Boolean);
@@ -326,15 +320,14 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
                     id="newPassword"
-                    ref={newPasswordRef}
                     type={showNew ? 'text' : 'password'}
-                    autoComplete="new-password"
                     placeholder="••••••••"
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     disabled={isLoading}
+                    autoFocus
                   />
                   <button
                     type="button"
@@ -354,7 +347,6 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                   <Input
                     id="confirmPassword"
                     type={showConfirm ? 'text' : 'password'}
-                    autoComplete="new-password"
                     placeholder="••••••••"
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={confirmPassword}
@@ -378,10 +370,10 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
                 <p className="text-xs font-semibold text-emerald-800 mb-2">La contraseña debe tener:</p>
                 <ul className="space-y-1">
                   {[
-                    { ok: validaciones.longitud,  texto: 'Mínimo 8 caracteres' },
+                    { ok: validaciones.longitud, texto: 'Mínimo 8 caracteres' },
                     { ok: validaciones.mayuscula, texto: 'Al menos una letra mayúscula (A–Z)' },
                     { ok: validaciones.minuscula, texto: 'Al menos una letra minúscula (a–z)' },
-                    { ok: validaciones.numero,    texto: 'Al menos un número (0–9)' },
+                    { ok: validaciones.numero, texto: 'Al menos un número (0–9)' },
                     { ok: validaciones.coinciden, texto: 'Las contraseñas coinciden' },
                   ].map(({ ok, texto }) => (
                     <li key={texto} className="flex items-center gap-2 text-xs">

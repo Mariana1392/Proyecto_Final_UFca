@@ -647,7 +647,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
               telefono:       formData.telefono.trim(),
               direccion:      formData.direccion.trim(),
               rol:            formData.rol,
-              rol_id:         rolSeleccionado?.id,
+              rol_id:         formData.rolId,
               fechaModificacion: new Date().toISOString().split('T')[0],
             }
           : u

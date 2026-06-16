@@ -9,14 +9,14 @@ import { Mail, Lock, ArrowLeft, CheckCircle, AlertCircle, Clock } from 'lucide-r
 import { supabase } from '../lib/supabase';
 
 const APP_URL = import.meta.env.VITE_PUBLIC_URL || 'https://interfaz-web-profesional-ufca-9.vercel.app';
-const LS_KEY  = 'ufca_recuperar_cooldown_until';
+const LS_KEY = 'ufca_recuperar_cooldown_until';
 
 interface RecuperarPasswordProps {
   onBack: () => void;
 }
 
 export default function RecuperarPassword({ onBack }: RecuperarPasswordProps) {
-  const [step, setStep]   = useState<'email' | 'sent'>('email');
+  const [step, setStep] = useState<'email' | 'sent'>('email');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -36,7 +36,7 @@ export default function RecuperarPassword({ onBack }: RecuperarPasswordProps) {
       if (rem <= 0) { setCountdown(''); if (timerRef.current) clearInterval(timerRef.current); return; }
       const m = Math.floor(rem / 60000);
       const s = Math.floor((rem % 60000) / 1000);
-      setCountdown(m > 0 ? `${m}:${String(s).padStart(2,'0')} min` : `${s} seg`);
+      setCountdown(m > 0 ? `${m}:${String(s).padStart(2, '0')} min` : `${s} seg`);
     };
     tick();
     timerRef.current = setInterval(tick, 1000);
@@ -71,7 +71,7 @@ export default function RecuperarPassword({ onBack }: RecuperarPasswordProps) {
 
       if (supaErr) {
         if (supaErr.message.toLowerCase().includes('rate limit') ||
-            supaErr.message.toLowerCase().includes('too many')) {
+          supaErr.message.toLowerCase().includes('too many')) {
           iniciarCooldown(180); // 3 minutos de espera tras rate limit
           throw new Error('Demasiados intentos. El botón estará disponible de nuevo en 3 minutos.');
         }
@@ -96,7 +96,7 @@ export default function RecuperarPassword({ onBack }: RecuperarPasswordProps) {
           <h1 className="text-slate-900 mb-2">Recuperar Contraseña</h1>
           <p className="text-slate-600">
             {step === 'email' && 'Ingresa tu correo electrónico registrado'}
-            {step === 'sent'  && 'Revisa tu bandeja de entrada'}
+            {step === 'sent' && 'Revisa tu bandeja de entrada'}
           </p>
         </div>
 
@@ -104,13 +104,13 @@ export default function RecuperarPassword({ onBack }: RecuperarPasswordProps) {
           <CardHeader className="space-y-1 pb-4">
             <CardTitle className="flex items-center gap-2">
               {step === 'email' && <Mail className="size-5 text-emerald-600" />}
-              {step === 'sent'  && <CheckCircle className="size-5 text-emerald-600" />}
+              {step === 'sent' && <CheckCircle className="size-5 text-emerald-600" />}
               {step === 'email' && 'Solicitar enlace de recuperación'}
-              {step === 'sent'  && 'Enlace enviado'}
+              {step === 'sent' && 'Enlace enviado'}
             </CardTitle>
             <CardDescription>
               {step === 'email' && 'Te enviaremos un enlace seguro para restablecer tu contraseña'}
-              {step === 'sent'  && 'Haz clic en el enlace del correo para continuar'}
+              {step === 'sent' && 'Haz clic en el enlace del correo para continuar'}
             </CardDescription>
           </CardHeader>
 
