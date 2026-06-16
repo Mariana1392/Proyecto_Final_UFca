@@ -51,8 +51,18 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
   // Estado de la sesión: 'checking' → 'ready' | 'error'
   const [sessionStatus, setSessionStatus] = useState<'checking' | 'ready' | 'error'>('checking');
 
+<<<<<<< HEAD
   // Eliminamos el useEffect manual de autofocus que causaba saltos de foco
   // y en su lugar usamos la propiedad autoFocus nativa de React.
+=======
+  // Foco inicial automático cuando el enlace es válido
+  // Ejecutamos solo una vez cuando el estado cambia a 'ready' para evitar bucles de enfoque al escribir
+  useEffect(() => {
+    if (sessionStatus === 'ready' && !done) {
+      newPasswordRef.current?.focus();
+    }
+  }, [sessionStatus === 'ready']);
+>>>>>>> fd37769b1df251a73f475b5d44b3a454bc20395e
 
   // Verificar que Supabase procesó el token del link y hay una sesión activa
   useEffect(() => {

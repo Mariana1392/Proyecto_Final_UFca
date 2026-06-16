@@ -375,36 +375,8 @@ export default function Layout({
                   </div>
                 </div>
 
-                {/* Sidebar simplificado para rol usuario (solo portal + perfil) */}
-                {userRole === 'usuario' ? (
-                  <>
-                    <button
-                      onClick={() => { if (isMobile) setSidebarOpen(false); onNavigate('mi-solicitud'); }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm ${
-                        currentView === 'mi-solicitud'
-                          ? 'bg-emerald-600 text-white font-semibold shadow-sm'
-                          : 'hover:bg-slate-100 text-slate-700 hover:text-slate-900'
-                      }`}
-                    >
-                      <FileText className="size-5 shrink-0" />
-                      <span>Mi Portal</span>
-                    </button>
-                    <button
-                      onClick={() => { if (isMobile) setSidebarOpen(false); onNavigate('mi-perfil'); }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm ${
-                        currentView === 'mi-perfil'
-                          ? 'bg-emerald-600 text-white font-semibold shadow-sm'
-                          : 'hover:bg-slate-100 text-slate-700 hover:text-slate-900'
-                      }`}
-                    >
-                      <User className="size-5 shrink-0" />
-                      <span>Mi Perfil</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                {/* Acceso directo al Dashboard */}
-                {isAuthenticated && (
+                {/* Acceso directo al Dashboard para roles que tengan asignado el permiso */}
+                {isAuthenticated && (userPermisos.includes('dashboard') || userPermisos.includes('dashboard_asociado')) && (
                   <button
                     onClick={() => { if (isMobile) setSidebarOpen(false); onNavigate('dashboard'); }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm ${
@@ -418,8 +390,8 @@ export default function Layout({
                   </button>
                 )}
 
-                {/* Mi Perfil — visible para admin y asociado */}
-                {isAuthenticated && (userRole === 'admin' || userRole === 'asociado') && (
+                {/* Mi Perfil — visible para todos los usuarios autenticados */}
+                {isAuthenticated && (
                   <button
                     onClick={() => { if (isMobile) setSidebarOpen(false); onNavigate('mi-perfil'); }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm mb-1 ${
@@ -502,8 +474,6 @@ export default function Layout({
                     </div>
                   );
                 })}
-                  </>
-                )}
             </nav>
           </aside>
         )}

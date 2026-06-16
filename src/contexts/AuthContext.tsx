@@ -137,6 +137,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
+    // Suscripción en tiempo real a cambios de roles y rol_permisos
+    // Para recargar dinámicamente los permisos del usuario activo si se le quitan o agregan permisos.
+    const canalPermisos = supabase
+      .channel('realtime_permisos_usuario')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rol_permisos' }, () => {
+        const sesion = cacheGet();
+        if (sesion?.id) cargarPerfil(sesion.id);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'usuarios' }, () => {
+        const sesion = cacheGet();
+        if (sesion?.id) cargarPerfil(sesion.id);
+      })
+      .subscribe();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         setU(null);
@@ -164,7 +178,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         cargarPerfil(session.user.id);
       }
     });
-    return () => subscription.unsubscribe();
+
+    return () => {
+      subscription.unsubscribe();
+      supabase.removeChannel(canalPermisos);
+    };
   }, []);
 
   const iniciarSesion = (u: AuthUser) => setU(u);
