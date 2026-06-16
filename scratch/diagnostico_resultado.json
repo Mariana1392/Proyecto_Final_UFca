@@ -1,0 +1,271 @@
+{
+  "timestamp": "2026-06-16T17:11:43.105Z",
+  "frontend_files": {
+    "src/components/Roles.tsx": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\Roles.tsx",
+      "sizeBytes": 122404
+    },
+    "src/components/GestionUsuarios.tsx": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\GestionUsuarios.tsx",
+      "sizeBytes": 98702
+    },
+    "src/components/Login.tsx": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\Login.tsx",
+      "sizeBytes": 21713
+    },
+    "src/components/RecuperarPassword.tsx": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\RecuperarPassword.tsx",
+      "sizeBytes": 10133
+    },
+    "src/components/RestablecerPassword.tsx": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\RestablecerPassword.tsx",
+      "sizeBytes": 14735
+    },
+    "src/components/CrearPassword.tsx": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\CrearPassword.tsx",
+      "sizeBytes": 19283
+    },
+    "src/components/Dashboard.tsx": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\Dashboard.tsx",
+      "sizeBytes": 59328
+    },
+    "src/components/DashboardAsociado.tsx": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\DashboardAsociado.tsx",
+      "sizeBytes": 25296
+    },
+    "src/components/Reportes.tsx": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\Reportes.tsx",
+      "sizeBytes": 112068
+    },
+    "src/components/ComiteEvaluador.tsx": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\ComiteEvaluador.tsx",
+      "sizeBytes": 127144
+    },
+    "src/components/ahorro-permanente/AhorroPermanente.tsx": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\ahorro-permanente\\AhorroPermanente.tsx",
+      "sizeBytes": 33158
+    },
+    "src/components/ahorro-voluntario/AhorroVoluntario.tsx": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\ahorro-voluntario\\AhorroVoluntario.tsx",
+      "sizeBytes": 38467
+    },
+    "src/components/creditos/Creditos.tsx": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\creditos\\Creditos.tsx",
+      "sizeBytes": 70790
+    },
+    "src/components/liquidaciones/index.tsx": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\liquidaciones\\index.tsx",
+      "sizeBytes": 9980
+    },
+    "src/components/liquidaciones/useLiquidacionStepper.ts": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\liquidaciones\\useLiquidacionStepper.ts",
+      "sizeBytes": 16213
+    },
+    "src/components/liquidaciones/useLiquidacionesCRUD.ts": {
+      "exists": true,
+      "path": "C:\\Users\\dairi\\OneDrive\\Documentos\\Proyecto_Final_UFca\\src\\components\\liquidaciones\\useLiquidacionesCRUD.ts",
+      "sizeBytes": 10482
+    }
+  },
+  "database_tables": {
+    "usuarios": {
+      "exists": true,
+      "rowCount": 9
+    },
+    "roles": {
+      "exists": true,
+      "rowCount": 2
+    },
+    "permisos": {
+      "exists": true,
+      "rowCount": 19
+    },
+    "rol_permisos": {
+      "exists": true,
+      "rowCount": 31
+    },
+    "configuracion": {
+      "exists": true,
+      "rowCount": 25
+    },
+    "periodos": {
+      "exists": true,
+      "rowCount": 1
+    },
+    "solicitudes_asociados": {
+      "exists": true,
+      "rowCount": 8
+    },
+    "comite_evaluador": {
+      "exists": true,
+      "rowCount": 0
+    },
+    "creditos": {
+      "exists": true,
+      "rowCount": 5
+    },
+    "cuotas_credito": {
+      "exists": true,
+      "rowCount": 0
+    },
+    "liquidaciones": {
+      "exists": true,
+      "rowCount": 6
+    },
+    "distribuciones_utilidades": {
+      "exists": true,
+      "rowCount": 0
+    },
+    "excepciones": {
+      "exists": true,
+      "rowCount": 0
+    },
+    "notificaciones": {
+      "exists": true,
+      "rowCount": 35
+    },
+    "auditoria": {
+      "exists": true,
+      "rowCount": 233
+    },
+    "referidos": {
+      "exists": true,
+      "rowCount": 0
+    },
+    "credito_historial_estados": {
+      "exists": true,
+      "rowCount": 0
+    },
+    "cuentas_ahorro": {
+      "exists": true,
+      "rowCount": 10
+    },
+    "transacciones": {
+      "exists": true,
+      "rowCount": 9
+    }
+  },
+  "configuration_parameters": {
+    "dia_vencimiento_ahorro": {
+      "valor": "16",
+      "descripcion": "Día del mes límite para pagar el ahorro permanente"
+    },
+    "multa_mora_ahorro_diaria": {
+      "valor": "2000",
+      "descripcion": "Multa por día de mora en ahorro permanente (pesos)"
+    },
+    "monto_minimo_ahorro_voluntario": {
+      "valor": "50000",
+      "descripcion": "Monto mínimo para depósito de ahorro voluntario"
+    },
+    "plazo_maximo_credito_meses": {
+      "valor": "12",
+      "descripcion": "Plazo máximo para un crédito en meses"
+    },
+    "tasa_interes_credito": {
+      "valor": "0.0150",
+      "descripcion": "Tasa de interés mensual por defecto (1.5%)"
+    },
+    "tasa_mora_credito": {
+      "valor": "0.0200",
+      "descripcion": "Tasa de mora mensual sobre cuota vencida (2%)"
+    },
+    "monto_minimo_credito": {
+      "valor": "0",
+      "descripcion": "Monto mínimo para otorgar un crédito (0 = admin decide)"
+    },
+    "meses_suspension": {
+      "valor": "1",
+      "descripcion": "Meses de incumplimiento para suspender un asociado"
+    },
+    "periodo_cerrado": {
+      "valor": "false",
+      "descripcion": "Indica si el período actual está cerrado"
+    },
+    "permitir_retiros_parciales": {
+      "valor": "false",
+      "descripcion": "Si se permiten retiros parciales de ahorro voluntario"
+    },
+    "criterios_evaluacion_solicitud": {
+      "valor": "[\"documentacion\",\"ingresos\",\"referencias\",\"antecedentes\"]",
+      "descripcion": "Criterios del comité evaluador para solicitudes de afiliación"
+    },
+    "fecha_cierre_periodo": {
+      "valor": "null",
+      "descripcion": "Fecha en que se cerró el período actual"
+    },
+    "bonificacion_referido": {
+      "valor": "50000",
+      "descripcion": "Monto en COP de la bonificación asignada al asociado que refiere a un nuevo miembro activo"
+    },
+    "cuota_ahorro_permanente": {
+      "valor": "100000",
+      "descripcion": "Monto mínimo en COP por aporte al ahorro permanente. Si un aporte es menor, el administrador ve una advertencia pero puede continuar."
+    },
+    "cuota_ahorro_voluntario": {
+      "valor": "50000",
+      "descripcion": "Monto mínimo en COP por depósito al ahorro voluntario. Si un depósito es menor, el administrador ve una advertencia pero puede continuar."
+    },
+    "tasa_libre_inversion": {
+      "valor": "5",
+      "descripcion": null
+    },
+    "tasa_educacion": {
+      "valor": "5",
+      "descripcion": null
+    },
+    "tasa_vivienda": {
+      "valor": "8",
+      "descripcion": null
+    },
+    "tasa_calamidad": {
+      "valor": "2",
+      "descripcion": null
+    },
+    "tasa_mora_creditos": {
+      "valor": "11.99",
+      "descripcion": null
+    },
+    "tasa_interes_ahorros": {
+      "valor": "4",
+      "descripcion": null
+    },
+    "aporte_minimo": {
+      "valor": "100000",
+      "descripcion": "Aporte mínimo al ingresar al fondo"
+    },
+    "cuotas_maximas_incumplidas": {
+      "valor": "3",
+      "descripcion": null
+    },
+    "dias_mora_maximo": {
+      "valor": "90",
+      "descripcion": null
+    },
+    "permitir_retiros_parciales_defecto": {
+      "valor": "false",
+      "descripcion": null
+    }
+  },
+  "summary": {
+    "total_files_checked": 16,
+    "files_ok": 16,
+    "total_tables_checked": 19,
+    "tables_ok": 19
+  }
+}
