@@ -299,14 +299,18 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="cp-newPassword">Nueva contraseña</Label>
+                <Label htmlFor="sec-alpha-input">Nueva contraseña</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
-                    id="cp-newPassword"
+                    id="sec-alpha-input"
+                    name="sec-alpha-input"
                     type="text"
                     style={{ WebkitTextSecurity: showNew ? 'none' : 'disc' }}
                     autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
                     placeholder="••••••••"
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={newPassword}
@@ -327,14 +331,18 @@ export default function CrearPassword({ onSuccess }: CrearPasswordProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="cp-confirmPassword">Confirmar contraseña</Label>
+                <Label htmlFor="sec-beta-input">Confirmar contraseña</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
-                    id="cp-confirmPassword"
+                    id="sec-beta-input"
+                    name="sec-beta-input"
                     type="text"
                     style={{ WebkitTextSecurity: showConfirm ? 'none' : 'disc' }}
                     autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
                     placeholder="••••••••"
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={confirmPassword}

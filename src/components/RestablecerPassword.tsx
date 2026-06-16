@@ -210,14 +210,18 @@ export default function RestablecerPassword({ onSuccess }: RestablecerPasswordPr
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="rp-newPassword">Nueva contraseña</Label>
+                <Label htmlFor="sec-rp-alpha-input">Nueva contraseña</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
-                    id="rp-newPassword"
+                    id="sec-rp-alpha-input"
+                    name="sec-rp-alpha-input"
                     type="text"
                     style={{ WebkitTextSecurity: showNew ? 'none' : 'disc' }}
                     autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
                     placeholder="••••••••"
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={newPassword}
@@ -238,14 +242,18 @@ export default function RestablecerPassword({ onSuccess }: RestablecerPasswordPr
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="rp-confirmPassword">Confirmar contraseña</Label>
+                <Label htmlFor="sec-rp-beta-input">Confirmar contraseña</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
-                    id="rp-confirmPassword"
+                    id="sec-rp-beta-input"
+                    name="sec-rp-beta-input"
                     type="text"
                     style={{ WebkitTextSecurity: showConfirm ? 'none' : 'disc' }}
                     autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
                     placeholder="••••••••"
                     className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
                     value={confirmPassword}
