@@ -51,13 +51,13 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
     setDatosAsocLoading(true);
     try {
       const [ahPermRes, ahVolRes, crRes] = await Promise.all([
-        supabase.from('cuentas_ahorro').select('monto_ahorrado').eq('tipo','permanente').eq('asociado_id', id).eq('anulado', false),
-        supabase.from('cuentas_ahorro').select('monto_ahorrado').eq('tipo','voluntario').eq('asociado_id', id).eq('anulado', false),
-        supabase.from('creditos').select('saldo').eq('asociado_id', id).in('estado', ['activo', 'pendiente', 'aprobado', 'desembolsado', 'en_mora']).eq('anulado', false),
+        supabase.from('cuentas_ahorro').select('monto_ahorrado, anulado').eq('tipo','permanente').eq('asociado_id', id),
+        supabase.from('cuentas_ahorro').select('monto_ahorrado, anulado').eq('tipo','voluntario').eq('asociado_id', id),
+        supabase.from('creditos').select('saldo, anulado').eq('asociado_id', id).in('estado', ['activo', 'pendiente', 'aprobado', 'desembolsado', 'en_mora', 'en_revision']),
       ]);
-      const totAP = (ahPermRes.data || []).reduce((s: number, r: any) => s + (Number(r.monto_ahorrado) || 0), 0);
-      const totAV = (ahVolRes.data  || []).reduce((s: number, r: any) => s + (Number(r.monto_ahorrado) || 0), 0);
-      const totCr = (crRes.data     || []).reduce((s: number, r: any) => s + (Number(r.saldo)          || 0), 0);
+      const totAP = (ahPermRes.data || []).filter((a: any) => a.anulado !== true).reduce((s: number, r: any) => s + (Number(r.monto_ahorrado) || 0), 0);
+      const totAV = (ahVolRes.data  || []).filter((a: any) => a.anulado !== true).reduce((s: number, r: any) => s + (Number(r.monto_ahorrado) || 0), 0);
+      const totCr = (crRes.data     || []).filter((c: any) => c.anulado !== true).reduce((s: number, r: any) => s + (Number(r.saldo)          || 0), 0);
       setFormAhorroPerm(totAP > 0 ? Math.round(totAP).toLocaleString('es-CO') : '0');
       setFormAhorroVol(totAV  > 0 ? Math.round(totAV).toLocaleString('es-CO')  : '0');
       setFormCreditoPend(totCr > 0 ? Math.round(totCr).toLocaleString('es-CO') : '');

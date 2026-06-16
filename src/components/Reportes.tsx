@@ -1388,7 +1388,19 @@ export default function Reportes() {
         body: creditRows.length > 0 ? creditRows : [['—', '—', 'Sin registros de créditos', '—', '—', '—', '—', '—', '—', '—']],
         theme: 'striped',
         headStyles: { fillColor: [37, 99, 235], textColor: 255 }, // blue-600
-        styles: { fontSize: 7.5 },
+        styles: { fontSize: 7.5, cellPadding: 2 },
+        columnStyles: {
+          0: { cellWidth: 8 },
+          1: { cellWidth: 18 },
+          2: { cellWidth: 32 },
+          3: { cellWidth: 18 },
+          4: { cellWidth: 18 },
+          5: { cellWidth: 16 },
+          6: { cellWidth: 10 },
+          7: { cellWidth: 10 },
+          8: { cellWidth: 18 },
+          9: { cellWidth: 15 }
+        }
       });
 
       // --- SECCIÓN 3: CUENTAS DE AHORRO ---
@@ -1424,7 +1436,17 @@ export default function Reportes() {
         body: ahorroRows.length > 0 ? ahorroRows : [['—', '—', 'Sin registros de ahorros', '—', '—', '—', '—', '—']],
         theme: 'striped',
         headStyles: { fillColor: [16, 185, 129], textColor: 255 }, // emerald-500
-        styles: { fontSize: 7.5 },
+        styles: { fontSize: 7.5, cellPadding: 2 },
+        columnStyles: {
+          0: { cellWidth: 10 },
+          1: { cellWidth: 20 },
+          2: { cellWidth: 35 },
+          3: { cellWidth: 25 },
+          4: { cellWidth: 22 },
+          5: { cellWidth: 20 },
+          6: { cellWidth: 20 },
+          7: { cellWidth: 20 }
+        }
       });
 
       // --- SECCIÓN 4: LIQUIDACIONES ---
@@ -1441,6 +1463,15 @@ export default function Reportes() {
 
       const liqRows = (liquidacionesList || []).map((l, i) => {
         const usr = usuariosMap[l.asociado_id] || {};
+        let detalleText = '—';
+        if (l.detalle) {
+          try {
+            const det = typeof l.detalle === 'string' ? JSON.parse(l.detalle) : l.detalle;
+            detalleText = `Estado: ${det.estado || '—'} | Motivo: ${det.motivo || '—'}`;
+          } catch {
+            detalleText = 'Detalle inválido';
+          }
+        }
         return [
           i + 1,
           usr.cedula || '—',
@@ -1448,7 +1479,7 @@ export default function Reportes() {
           (l.tipo || '—').toUpperCase(),
           formatCurrency(l.monto_total || 0),
           l.fecha || '—',
-          l.detalle ? (typeof l.detalle === 'string' ? l.detalle : JSON.stringify(l.detalle)) : '—'
+          detalleText
         ];
       });
 
@@ -1459,7 +1490,16 @@ export default function Reportes() {
         body: liqRows.length > 0 ? liqRows : [['—', '—', 'Sin registros de liquidaciones', '—', '—', '—', '—']],
         theme: 'striped',
         headStyles: { fillColor: [217, 119, 6], textColor: 255 }, // amber-600
-        styles: { fontSize: 7.5 },
+        styles: { fontSize: 7.5, cellPadding: 2 },
+        columnStyles: {
+          0: { cellWidth: 10 },
+          1: { cellWidth: 20 },
+          2: { cellWidth: 35 },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 22 },
+          5: { cellWidth: 20 },
+          6: { cellWidth: 'auto' }
+        }
       });
 
       // --- SECCIÓN 5: TRANSACCIONES ---
@@ -1496,7 +1536,18 @@ export default function Reportes() {
         body: transRows.length > 0 ? transRows : [['—', '—', 'Sin registros de transacciones', '—', '—', '—', '—', '—', '—']],
         theme: 'striped',
         headStyles: { fillColor: [124, 58, 237], textColor: 255 }, // purple-600
-        styles: { fontSize: 7.5 },
+        styles: { fontSize: 7.5, cellPadding: 2 },
+        columnStyles: {
+          0: { cellWidth: 10 },
+          1: { cellWidth: 18 },
+          2: { cellWidth: 18 },
+          3: { cellWidth: 25 },
+          4: { cellWidth: 20 },
+          5: { cellWidth: 18 },
+          6: { cellWidth: 18 },
+          7: { cellWidth: 15 },
+          8: { cellWidth: 'auto' }
+        }
       });
 
       // --- FOOTER PARA TODAS LAS PÁGINAS ---
