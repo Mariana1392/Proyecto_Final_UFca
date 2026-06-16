@@ -188,7 +188,18 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
     if (formConceptos.length === 0) { toast.error('Debes agregar al menos un concepto'); return; }
     if (formConceptos.some(c => !c.nombre.trim())) { toast.error('Todos los conceptos deben tener nombre'); return; }
     if (formConceptos.some(c => isNaN(parseFloat(String(c.monto))) || parseFloat(String(c.monto)) <= 0)) { toast.error('Los montos de los conceptos deben ser mayores a cero'); return; }
-    if (montoCalculado <= 0) { toast.error('El monto total debe ser mayor a cero'); return; }
+
+    // Confirmación final de la acción
+    let msg = '¿Está seguro de que desea registrar esta liquidación?\n\n';
+    if (montoCalculado <= 0) {
+      msg += `⚠️ Advertencia: El monto final neto es menor o igual a cero (${montoCalculado.toLocaleString('es-CO')} COP).\n`;
+    }
+    if (formCreditoPend && parseFloat(formCreditoPend.replace(/[^\d]/g, '')) > 0) {
+      msg += `⚠️ El asociado tiene créditos debiendo en el sistema por un total de $${formCreditoPend} COP.\n`;
+    }
+    if (!window.confirm(msg)) {
+      return;
+    }
 
     let urlFinal: string | null = null;
     if (formArchivoFile) {

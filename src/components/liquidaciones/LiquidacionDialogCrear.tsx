@@ -259,13 +259,13 @@ export function LiquidacionDialogCrear({
               {montoCalculado <= 0 && formConceptos.length > 0 && (
                 <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-xs text-amber-700">
                   <AlertTriangle className="size-3.5 shrink-0" />
-                  El monto final debe ser mayor a cero para guardar la liquidación.
+                  El monto final es menor o igual a cero (saldo a favor del fondo).
                 </div>
               )}
 
               <div className="pt-4 mt-2 border-t border-slate-100 flex justify-between items-center">
                 <Button variant="outline" className="gap-1" onClick={() => setFormStep(1)}>← Modificar info</Button>
-                <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50" onClick={handleSave} disabled={saving || formConceptos.length === 0 || montoCalculado <= 0}>
+                <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50" onClick={handleSave} disabled={saving || formConceptos.length === 0}>
                   {saving ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Guardando…</> : <><CheckCircle2 className="size-4" /> Finalizar y Guardar</>}
                 </Button>
               </div>

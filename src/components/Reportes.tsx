@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { FileText, Download, Calendar, Search, PiggyBank, FileSpreadsheet, User, CheckCircle2, TrendingUp, Printer } from 'lucide-react';
+import { FileText, Download, Calendar, Search, PiggyBank, FileSpreadsheet, User, CheckCircle2, TrendingUp, Printer, Loader2 } from 'lucide-react';
 import { formatCurrency } from '../lib/formatters';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
@@ -46,11 +46,14 @@ export default function Reportes() {
   const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState('');
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [pdfPreviewFilename, setPdfPreviewFilename] = useState('');
+  const [pdfPreviewType, setPdfPreviewType] = useState<'extracto' | 'consolidado'>('extracto');
 
   // Estados de carga
   const [loadingAsociados, setLoadingAsociados] = useState(false);
   const [loadingDatos, setLoadingDatos] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [generatingPdfConsolidado, setGeneratingPdfConsolidado] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
 
   // Utilidades
@@ -377,8 +380,10 @@ export default function Reportes() {
 
       const pdfOutput = doc.output('blob');
       setPdfBlob(pdfOutput);
+      setPdfPreviewFilename(selectedAsociado ? `Extracto_${selectedAsociado.cedula}_${fechaInicio}_al_${fechaFin}.pdf` : 'Extracto.pdf');
       const url = URL.createObjectURL(pdfOutput);
       setPdfPreviewUrl(url);
+      setPdfPreviewType('extracto');
       setIsPdfPreviewOpen(true);
 
     } catch (err) {
@@ -390,15 +395,15 @@ export default function Reportes() {
   };
 
   const descargarPdf = () => {
-    if (!pdfBlob || !selectedAsociado) return;
+    if (!pdfBlob) return;
     const url = URL.createObjectURL(pdfBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Extracto_${selectedAsociado.cedula}_${fechaInicio}_al_${fechaFin}.pdf`;
+    link.download = pdfPreviewFilename || (selectedAsociado ? `Extracto_${selectedAsociado.cedula}_${fechaInicio}_al_${fechaFin}.pdf` : 'Reporte.pdf');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success('Extracto descargado correctamente');
+    toast.success('Documento descargado correctamente');
   };
 
   const imprimirPdf = () => {
@@ -1185,6 +1190,342 @@ export default function Reportes() {
     }
   };
 
+  const generarConsolidadoSistemaPdf = async () => {
+    toast.info('Generando vista previa del reporte consolidado de todo el sistema...');
+    setGeneratingPdfConsolidado(true);
+    try {
+      const { data: usuariosData, error: errUsrs } = await supabase
+        .from('usuarios')
+        .select('id, nombre, cedula');
+      if (errUsrs) throw errUsrs;
+
+      const usuariosMap: Record<string, any> = {};
+      (usuariosData || []).forEach((u: any) => { usuariosMap[u.id] = u; });
+
+      const { data: creditosList, error: errCreds } = await supabase.from('creditos').select('*');
+      if (errCreds) throw errCreds;
+
+      const { data: ahorrosList, error: errAhorros } = await supabase.from('cuentas_ahorro').select('*');
+      if (errAhorros) throw errAhorros;
+
+      const { data: liquidacionesList, error: errLiqs } = await supabase.from('liquidaciones').select('*');
+      if (errLiqs) throw errLiqs;
+
+      const { data: pagosList, error: errPagos } = await supabase
+        .from('transacciones').select('*').order('fecha_pago', { ascending: false });
+      if (errPagos) throw errPagos;
+
+      // 2. Generar PDF
+      const doc = new jsPDF();
+
+      // --- PÁGINA 1: PORTADA / RESUMEN GENERAL ---
+      // Header Bar - Slate/Navy Corporate design
+      doc.setFillColor(15, 23, 42); // slate-900
+      doc.rect(0, 0, 210, 42, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(22);
+      doc.setFont('helvetica', 'bold');
+      doc.text('UFCA — REPORTE CONSOLIDADO', 20, 20);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(148, 163, 184); // slate-400
+      doc.text('Unión Familiar de Crédito y Ahorro', 20, 29);
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('RESUMEN GENERAL DEL SISTEMA', 190, 20, { align: 'right' });
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(148, 163, 184);
+      doc.text('DOCUMENTO OFICIAL DIGITAL', 190, 29, { align: 'right' });
+
+      // Divider Line
+      doc.setDrawColor(226, 232, 240); // slate-200
+      doc.setLineWidth(0.5);
+      doc.line(20, 52, 190, 52);
+
+      // Metadata section (two columns)
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.text('INFORMACIÓN DE LA COOPERATIVA', 20, 60);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.setFont('helvetica', 'bold');
+      doc.text('UFCA - MÓDULO DE EXPORTACIÓN CONSOLIDADA', 20, 67);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105); // slate-600
+      doc.text('Estado del reporte: CONSOLIDADO ACTUALIZADO', 20, 73);
+      doc.text('Área: ADMINISTRACIÓN Y FINANZAS', 20, 79);
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(100, 116, 139);
+      doc.text('FECHA Y DETALLES DE GENERACIÓN', 115, 60);
+      
+      doc.setFontSize(9);
+      doc.setTextColor(71, 85, 105);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Fecha:  ${new Date().toLocaleDateString('es-CO')}`, 115, 67);
+      doc.text(`Hora:   ${new Date().toLocaleTimeString('es-CO', {hour: '2-digit', minute:'2-digit'})}`, 115, 73);
+      doc.text(`Registros totales: ${(creditosList?.length || 0) + (ahorrosList?.length || 0) + (liquidacionesList?.length || 0) + (pagosList?.length || 0)} ítems`, 115, 79);
+
+      let yPos = 88;
+
+      // Resumen Ahorros y Créditos (Card container)
+      const totalCreditos = (creditosList || []).reduce((sum, c) => sum + (c.saldo ?? c.monto ?? 0), 0);
+      const totalAhorros = (ahorrosList || []).reduce((sum, a) => sum + (a.monto_ahorrado || 0), 0);
+
+      // Background Box
+      doc.setFillColor(248, 250, 252); // slate-50
+      doc.roundedRect(20, yPos, 170, 36, 4, 4, 'F');
+      
+      doc.setDrawColor(241, 245, 249); // slate-100
+      doc.setLineWidth(0.5);
+      doc.roundedRect(20, yPos, 170, 36, 4, 4, 'S');
+
+      // Column 1: Total Ahorrado
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(100, 116, 139);
+      doc.text('TOTAL AHORRADO EN CUENTAS', 25, yPos + 10);
+      doc.setFontSize(11);
+      doc.setTextColor(16, 185, 129); // emerald-500
+      doc.text(formatCurrency(totalAhorros), 25, yPos + 18);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text(`${ahorrosList?.length || 0} cuenta(s) registrada(s)`, 25, yPos + 26);
+
+      // Column 2: Saldo Deudor Créditos
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(100, 116, 139);
+      doc.text('SALDO DEUDOR CRÉDITOS', 85, yPos + 10);
+      doc.setFontSize(11);
+      doc.setTextColor(37, 99, 235); // blue-600
+      doc.text(formatCurrency(totalCreditos), 85, yPos + 18);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      const credsActivosCount = (creditosList || []).filter(c => c.estado === 'activo' || c.estado === 'desembolsado').length;
+      doc.text(`${credsActivosCount} crédito(s) activo(s)`, 85, yPos + 26);
+
+      // Column 3: Transacciones y Liq
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(100, 116, 139);
+      doc.text('MOVIMIENTOS Y RETIROS', 140, yPos + 10);
+      doc.setFontSize(11);
+      doc.setTextColor(217, 119, 6); // amber-650
+      doc.text(`${pagosList?.length || 0} transacciones`, 140, yPos + 18);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text(`${liquidacionesList?.length || 0} liquidación(es)`, 140, yPos + 26);
+
+      yPos += 48;
+
+      // Tabla de Secciones del Reporte
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.text('ESTRUCTURA DEL REPORTE CONSOLIDADO', 20, yPos);
+      yPos += 4;
+
+      const summaryTableData = [
+        ['1. Créditos de Asociados', 'Detalle de montos, saldos, cuotas, tasas, plazos y estados.', `${creditosList?.length || 0} registros`, 'Sección 2'],
+        ['2. Cuentas de Ahorro', 'Saldos de cuentas de ahorro permanente y voluntario con moras.', `${ahorrosList?.length || 0} cuentas`, 'Sección 3'],
+        ['3. Liquidaciones de Retiros', 'Historial de cierres de cuenta y retiros definitivos ejecutados.', `${liquidacionesList?.length || 0} registros`, 'Sección 4'],
+        ['4. Historial de Transacciones', 'Detalle cronológico de aportes, cuotas y penalizaciones.', `${pagosList?.length || 0} registros`, 'Sección 5']
+      ];
+
+      autoTable(doc, {
+        startY: yPos,
+        margin: { left: 20, right: 20 },
+        head: [['Sección / Módulo', 'Descripción', 'Cantidad', 'Ubicación']],
+        body: summaryTableData,
+        theme: 'striped',
+        headStyles: { fillColor: [51, 65, 85], textColor: 255 }, // slate-700
+        styles: { fontSize: 8 },
+      });
+
+      // --- SECCIÓN 2: CRÉDITOS ---
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text('1. REPORTE GENERAL DE CRÉDITOS', 20, 20);
+      
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text('Listado detallado de todos los créditos otorgados a asociados de la cooperativa, incluyendo saldos y estados.', 20, 26);
+      
+      const creditRows = (creditosList || []).map((c, i) => {
+        const usr = usuariosMap[c.asociado_id] || {};
+        return [
+          i + 1,
+          usr.cedula || '—',
+          usr.nombre || '—',
+          formatCurrency(c.monto || 0),
+          formatCurrency(c.saldo ?? c.monto),
+          formatCurrency(c.cuota_mensual || 0),
+          `${c.tasa_interes || 0}%`,
+          `${c.plazo_meses || 0}m`,
+          c.fecha_desembolso || '—',
+          (c.estado || '—').toUpperCase()
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 32,
+        margin: { left: 20, right: 20 },
+        head: [['#', 'Cédula', 'Nombre', 'Monto', 'Saldo', 'Cuota', 'Tasa', 'Plazo', 'Fecha', 'Estado']],
+        body: creditRows.length > 0 ? creditRows : [['—', '—', 'Sin registros de créditos', '—', '—', '—', '—', '—', '—', '—']],
+        theme: 'striped',
+        headStyles: { fillColor: [37, 99, 235], textColor: 255 }, // blue-600
+        styles: { fontSize: 7.5 },
+      });
+
+      // --- SECCIÓN 3: CUENTAS DE AHORRO ---
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text('2. CUENTAS DE AHORRO DE ASOCIADOS', 20, 20);
+
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text('Estado de las cuentas de ahorro permanente y voluntario, montos acumulados y moras vigentes por asociado.', 20, 26);
+
+      const ahorroRows = (ahorrosList || []).map((a, i) => {
+        const usr = usuariosMap[a.asociado_id] || {};
+        return [
+          i + 1,
+          usr.cedula || '—',
+          usr.nombre || '—',
+          (a.tipo || '—').toUpperCase(),
+          formatCurrency(a.monto_ahorrado || 0),
+          (a.estado || '—').toUpperCase(),
+          formatCurrency(a.multa_mora_vigente || 0),
+          a.created_at ? new Date(a.created_at).toLocaleDateString('es-CO') : '—'
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 32,
+        margin: { left: 20, right: 20 },
+        head: [['#', 'Cédula', 'Nombre', 'Tipo', 'Monto Ahorrado', 'Estado', 'Mora Vigente', 'Fecha Creación']],
+        body: ahorroRows.length > 0 ? ahorroRows : [['—', '—', 'Sin registros de ahorros', '—', '—', '—', '—', '—']],
+        theme: 'striped',
+        headStyles: { fillColor: [16, 185, 129], textColor: 255 }, // emerald-500
+        styles: { fontSize: 7.5 },
+      });
+
+      // --- SECCIÓN 4: LIQUIDACIONES ---
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text('3. REPORTE DE LIQUIDACIONES', 20, 20);
+
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text('Historial de liquidaciones realizadas a asociados al retirarse o cancelar cuentas de la cooperativa.', 20, 26);
+
+      const liqRows = (liquidacionesList || []).map((l, i) => {
+        const usr = usuariosMap[l.asociado_id] || {};
+        return [
+          i + 1,
+          usr.cedula || '—',
+          usr.nombre || '—',
+          (l.tipo || '—').toUpperCase(),
+          formatCurrency(l.monto_total || 0),
+          l.fecha || '—',
+          l.detalle ? (typeof l.detalle === 'string' ? l.detalle : JSON.stringify(l.detalle)) : '—'
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 32,
+        margin: { left: 20, right: 20 },
+        head: [['#', 'Cédula', 'Nombre', 'Tipo', 'Monto Total', 'Fecha', 'Detalle']],
+        body: liqRows.length > 0 ? liqRows : [['—', '—', 'Sin registros de liquidaciones', '—', '—', '—', '—']],
+        theme: 'striped',
+        headStyles: { fillColor: [217, 119, 6], textColor: 255 }, // amber-600
+        styles: { fontSize: 7.5 },
+      });
+
+      // --- SECCIÓN 5: TRANSACCIONES ---
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text('4. HISTORIAL DE TRANSACCIONES', 20, 20);
+
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text('Listado cronológico de transacciones registradas (aportes, pagos de cuotas y penalizaciones).', 20, 26);
+
+      const transRows = (pagosList || []).map((p, i) => {
+        const usr = usuariosMap[p.asociado_id] || {};
+        return [
+          i + 1,
+          p.fecha_pago || '—',
+          usr.cedula || '—',
+          usr.nombre || '—',
+          (p.tipo || '—').replace(/_/g, ' ').toUpperCase(),
+          formatCurrency(p.monto || 0),
+          (p.metodo_pago || '—').toUpperCase(),
+          (p.estado || '—').toUpperCase(),
+          p.observacion || '—'
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 32,
+        margin: { left: 20, right: 20 },
+        head: [['#', 'Fecha', 'Cédula', 'Nombre', 'Tipo', 'Monto', 'Método', 'Estado', 'Observación']],
+        body: transRows.length > 0 ? transRows : [['—', '—', 'Sin registros de transacciones', '—', '—', '—', '—', '—', '—']],
+        theme: 'striped',
+        headStyles: { fillColor: [124, 58, 237], textColor: 255 }, // purple-600
+        styles: { fontSize: 7.5 },
+      });
+
+      // --- FOOTER PARA TODAS LAS PÁGINAS ---
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text(`Generado automáticamente vía plataforma UFCA el ${new Date().toLocaleString('es-CO')}`, 20, 288);
+        doc.text(`Página ${i} de ${pageCount}`, 190, 288, { align: 'right' });
+      }
+
+      const pdfOutput = doc.output('blob');
+      setPdfBlob(pdfOutput);
+      const filename = `Reporte_Consolidado_Sistema_UFCA_${new Date().toISOString().split('T')[0]}.pdf`;
+      setPdfPreviewFilename(filename);
+      const url = URL.createObjectURL(pdfOutput);
+      setPdfPreviewUrl(url);
+      setPdfPreviewType('consolidado');
+      setIsPdfPreviewOpen(true);
+      toast.success('Vista previa del reporte consolidado cargada correctamente.');
+    } catch (err) {
+      console.error('Error al generar el PDF consolidado:', err);
+      toast.error('Hubo un error al intentar generar la vista previa del reporte consolidado');
+    } finally {
+      setGeneratingPdfConsolidado(false);
+    }
+  };
+
   const descargarExcel = (buffer: ExcelJS.Buffer, filename: string) => {
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
@@ -1512,11 +1853,23 @@ export default function Reportes() {
                     Descarga en un solo paso todos los registros de la cooperativa. Se generará un archivo Excel con hojas separadas para: Créditos, Cuentas de Ahorro, Liquidaciones e Historial completo de Transacciones.
                   </p>
                 </div>
-                <div className="shrink-0">
+                <div className="shrink-0 flex flex-col sm:flex-row gap-3">
                   <Button 
-                    className="w-full md:w-auto gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-extrabold px-6 py-5 rounded-xl shadow-lg shadow-emerald-500/10 transition-all duration-300 hover:shadow-emerald-500/20 hover:-translate-y-0.5"
+                    className="w-full sm:w-auto gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold px-6 py-5 rounded-xl shadow-lg shadow-blue-500/10 transition-all duration-300 hover:shadow-blue-500/20 hover:-translate-y-0.5"
+                    onClick={generarConsolidadoSistemaPdf}
+                    disabled={generatingPdfConsolidado || exportingCsv}
+                  >
+                    {generatingPdfConsolidado ? (
+                      <div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <FileText className="size-5 stroke-[2.2]" />
+                    )}
+                    Vista Previa PDF Consolidado
+                  </Button>
+                  <Button 
+                    className="w-full sm:w-auto gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-extrabold px-6 py-5 rounded-xl shadow-lg shadow-emerald-500/10 transition-all duration-300 hover:shadow-emerald-500/20 hover:-translate-y-0.5"
                     onClick={exportarTodoSistema}
-                    disabled={exportingCsv}
+                    disabled={generatingPdfConsolidado || exportingCsv}
                   >
                     {exportingCsv ? <div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="size-5 stroke-[2.2]" />}
                     Exportar Todo (Excel Consolidado)
@@ -1768,10 +2121,12 @@ export default function Reportes() {
               <div>
                 <DialogTitle className="flex items-center gap-2.5 font-bold text-slate-800 text-lg">
                   <FileText className="size-5 text-emerald-600 stroke-[2]" />
-                  Vista Previa — Extracto Consolidado
+                  {pdfPreviewType === 'consolidado' ? 'Vista Previa — Reporte Consolidado del Sistema' : 'Vista Previa — Extracto Consolidado'}
                 </DialogTitle>
                 <DialogDescription className="mt-0.5 text-xs text-slate-400 font-medium">
-                  Revisa detalladamente los movimientos y saldos del extracto digital antes de exportarlo.
+                  {pdfPreviewType === 'consolidado' 
+                    ? 'Revisa detalladamente la información del sistema completo antes de exportarlo.' 
+                    : 'Revisa detalladamente los movimientos y saldos del extracto digital antes de exportarlo.'}
                 </DialogDescription>
               </div>
             </div>
@@ -1783,7 +2138,7 @@ export default function Reportes() {
                 id="pdf-iframe-preview"
                 src={pdfPreviewUrl}
                 className="w-full h-full border-0 absolute inset-0"
-                title="Vista previa del extracto PDF"
+                title={pdfPreviewType === 'consolidado' ? 'Vista previa del reporte consolidado PDF' : 'Vista previa del extracto PDF'}
               />
             ) : (
               <div className="flex items-center justify-center h-full">

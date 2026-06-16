@@ -524,64 +524,7 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
         </Card>
       </div>
 
-      {/* ── Créditos activos (si tiene) ── */}
-      {creditos.length > 0 && (
-        <Card className="border-0 shadow-md border-l-4 border-l-amber-400">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
-                <CreditCard className="size-4 text-amber-500" /> Mis créditos activos
-              </CardTitle>
-              <Button variant="ghost" size="sm" className="text-xs text-amber-600 gap-1 h-7"
-                onClick={() => onNavigate?.('creditos')}>
-                Ver detalle <ArrowRight className="size-3" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {creditos.map(c => (
-                <div key={c.id} className="p-3 rounded-xl bg-amber-50 border border-amber-100">
-                  <div className="flex items-center justify-between mb-2">
-                    {/* U-04: título refleja el estado real del crédito */}
-                  <span className="text-xs font-medium text-amber-700">
-                    {c.estado === 'en_mora' ? 'Crédito en mora' : 'Crédito activo'}
-                  </span>
-                    <Badge className={`text-xs border-0 ${c.estado === 'en_mora' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {c.estado}
-                    </Badge>
-                  </div>
-                  <p className="text-lg font-bold text-slate-900">{fmt(c.saldo || 0)}</p>
-                  <p className="text-xs text-slate-500">Saldo pendiente</p>
-                  <div className="mt-2 pt-2 border-t border-amber-100 flex justify-between text-xs text-slate-500">
-                    <span>Cuota: {fmt(c.cuota_mensual || 0)}</span>
-                    <span>{c.plazo_meses || 0} meses plazo</span>
-                  </div>
-                  {(() => {
-                    const pct = c.monto ? Math.round(100 - ((c.saldo / c.monto) * 100)) : 0;
-                    const porcentajePagado = Math.max(0, Math.min(100, pct));
-                    return (
-                      <div className="mt-3">
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="font-medium text-slate-600">Progreso del pago</span>
-                          <span className="font-bold text-amber-600">{porcentajePagado}%</span>
-                        </div>
-                        <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-amber-500 rounded-full transition-all duration-500"
-                            style={{ width: `${porcentajePagado}%` }} />
-                        </div>
-                        <p className="text-xs text-slate-400 mt-1.5">
-                          {porcentajePagado}% pagado de la deuda total
-                        </p>
-                      </div>
-                    );
-                  })()}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
 
     </div>
   );
