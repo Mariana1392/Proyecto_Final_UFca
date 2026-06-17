@@ -372,7 +372,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
           .select('*')
           .eq('ahorro_id', ahorro.id)
           .eq('tipo', 'aporte_voluntario')
-          .order('fecha_pago', { ascending: false }),
+          .order('created_at', { ascending: false }),
         supabase
           .from('auditoria')
           .select('id, accion, datos_antes, datos_despues, usuario_id, created_at')
@@ -566,7 +566,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
         .from('transacciones').select('*')
         .eq('ahorro_id', selectedItem.id)
         .eq('tipo', 'aporte_voluntario')
-        .order('fecha_pago', { ascending: false });
+        .order('created_at', { ascending: false });
       setMovimientosDetalle(movs || []);
 
       toast.success(

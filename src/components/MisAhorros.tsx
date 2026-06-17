@@ -105,12 +105,12 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
           .select('*')
           .eq('tipo', 'aporte_permanente')
           .eq('ahorro_id', mejorPerm.id)
-          .order('fecha_pago', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(50);
         setMovsPerm(movs ?? []);
       }
 
-      // 4. Movimientos de los ahorros voluntarios — pre-carga el plan activo
+       // 4. Movimientos de los ahorros voluntarios — pre-carga el plan activo
       const volData = volRes.data ?? [];
       if (volData.length > 0) {
         const volIds = volData.map((v: any) => v.id);
@@ -119,7 +119,7 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
           .select('*')
           .eq('tipo', 'aporte_voluntario')
           .in('ahorro_id', volIds)
-          .order('fecha_pago', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(50);
 
         // Pre-seleccionar el primer plan activo (o el primero de la lista)
@@ -147,7 +147,7 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
       .select('*')
       .eq('tipo', 'aporte_voluntario')
       .eq('ahorro_id', ahorro.id)
-      .order('fecha_pago', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(50);
     setMovsVol(data ?? []);
   }
@@ -176,7 +176,7 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
     return [...movsPerm].sort((a, b) => {
       let comparison = 0;
       if (sortPermKey === 'fecha') {
-        comparison = new Date(a.fecha_pago).getTime() - new Date(b.fecha_pago).getTime();
+        comparison = new Date(a.created_at || a.fecha_pago).getTime() - new Date(b.created_at || b.fecha_pago).getTime();
       } else {
         comparison = (a.monto || 0) - (b.monto || 0);
       }
@@ -188,7 +188,7 @@ export default function MisAhorros({ userData }: MisAhorrosProps) {
     return [...movsVol].sort((a, b) => {
       let comparison = 0;
       if (sortVolKey === 'fecha') {
-        comparison = new Date(a.fecha_pago).getTime() - new Date(b.fecha_pago).getTime();
+        comparison = new Date(a.created_at || a.fecha_pago).getTime() - new Date(b.created_at || b.fecha_pago).getTime();
       } else {
         comparison = (a.monto || 0) - (b.monto || 0);
       }
