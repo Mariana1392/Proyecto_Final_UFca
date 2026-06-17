@@ -39,6 +39,19 @@ export const TIPOS_INTERES = [
 
 export type TipoInteres = 'simple' | 'compuesto';
 
+/**
+ * Calcula el monto final (capital + intereses) aplicando la fórmula de interés compuesto:
+ * M = K * (1 + i)^n
+ * Donde:
+ * - K = Capital inicial (monto)
+ * - i = Tasa de interés por período (decimal)
+ * - n = Número de períodos (plazo)
+ */
+export const calcularMontoInteresCompuesto = (K: number, i: number, n: number): number => {
+  if (!K) return 0;
+  return K * Math.pow(1 + i, n);
+};
+
 /** Convierte tasa Efectiva Anual (EA) a tasa mensual efectiva */
 export const tasaEAaMensual = (tasaAnualPct: number): number => {
   if (!tasaAnualPct || tasaAnualPct <= 0) return 0;
