@@ -47,6 +47,7 @@ function validarIngreso(valor: string): string | null {
   if (!v) return null;
   if (!/^\d+(\.\d{1,2})?$/.test(v)) return 'Ingresa solo números (ej: 2500000)';
   if (parseFloat(v) <= 0) return 'El ingreso debe ser mayor a 0';
+  if (v.replace(/\D/g, '').length > 12) return 'El ingreso no puede superar los 12 dígitos';
   return null;
 }
 
@@ -709,6 +710,7 @@ export default function MiSolicitud() {
                       id="sol-ocupacion"
                       placeholder="Ej: Contador, Docente…"
                       value={ocupacion}
+                      maxLength={100}
                       onChange={e => setOcupacion(e.target.value)}
                     />
                   </div>
@@ -719,6 +721,7 @@ export default function MiSolicitud() {
                       inputMode="numeric"
                       placeholder="Ej: 2500000"
                       value={ingresoMensual}
+                      maxLength={12}
                       className={`transition-colors ${
                         ingresoError
                           ? 'border-red-400 focus-visible:ring-red-200 bg-red-50'
@@ -753,6 +756,7 @@ export default function MiSolicitud() {
                     inputMode="numeric"
                     placeholder="Ej: 50000"
                     value={montoAhorroPropuesto}
+                    maxLength={12}
                     className={`transition-colors ${
                       montoAhorroPropuesto && parseFloat(montoAhorroPropuesto) > 0
                         ? 'border-emerald-400 focus-visible:ring-emerald-200 bg-emerald-50/40'
