@@ -136,11 +136,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('[AuthContext] calling cargarPerfil...');
         setTimeout(() => cargarPerfil(session.user.id), 0);
       } else {
-        console.log('[AuthContext] No session, setting loading false');
+        console.log('[AuthContext] No session, clearing cache and setting loading false');
+        setU(null);
         setLoading(false);
       }
     }).catch(err => {
       console.error('[AuthContext] getSession crash:', err);
+      setU(null);
       setLoading(false);
     });
 
@@ -155,6 +157,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (sesion?.id) cargarPerfil(sesion.id);
       })
       .subscribe();
+
+    const handleVisibilityAndPageShow = () => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          cargarPerfil(session.user.id);
+        }
+      });
+    };
+
+    window.addEventListener('pageshow', handleVisibilityAndPageShow);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleVisibilityAndPageShow();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
@@ -187,6 +205,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
       supabase.removeChannel(canalPermisos);
+      window.removeEventListener('pageshow', handleVisibilityAndPageShow);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
