@@ -156,6 +156,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .subscribe();
 
+    const handleVisibilityAndPageShow = () => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          cargarPerfil(session.user.id);
+        }
+      });
+    };
+
+    window.addEventListener('pageshow', handleVisibilityAndPageShow);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleVisibilityAndPageShow();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         setU(null);
@@ -187,6 +203,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
       supabase.removeChannel(canalPermisos);
+      window.removeEventListener('pageshow', handleVisibilityAndPageShow);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
