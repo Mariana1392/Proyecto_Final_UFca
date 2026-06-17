@@ -45,7 +45,7 @@ BEGIN
   -- Buscar si existe una solicitud de afiliación aprobada o pendiente para este email
   SELECT * INTO v_solicitud 
   FROM public.solicitudes_asociados 
-  WHERE email = NEW.email 
+  WHERE LOWER(email) = LOWER(NEW.email) 
     AND estado IN ('aprobada', 'pendiente_activacion') 
   ORDER BY created_at DESC 
   LIMIT 1;
@@ -115,12 +115,12 @@ SET
   telefono = COALESCE(NULLIF(TRIM(u.telefono), ''), s.telefono),
   direccion = COALESCE(NULLIF(TRIM(u.direccion), ''), s.direccion)
 FROM public.solicitudes_asociados s
-WHERE u.email = s.email
+WHERE LOWER(u.email) = LOWER(s.email)
   AND (u.cedula IS NULL OR u.cedula = '');
 
 -- 3. Vincular solicitudes_asociados a usuarios existentes
 UPDATE public.solicitudes_asociados s
 SET usuario_id = u.id
 FROM public.usuarios u
-WHERE s.email = u.email
+WHERE LOWER(s.email) = LOWER(u.email)
   AND s.usuario_id IS NULL;
