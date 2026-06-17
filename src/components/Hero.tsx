@@ -770,8 +770,22 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       type="email"
                       value={formData.email}
                       onChange={e => {
-                        handleInputChange(e);
-                        const val = e.target.value;
+                        let val = e.target.value;
+                        const tlds = ['com.co', 'com', 'co', 'net', 'org', 'edu', 'gov', 'es', 'lat'];
+                        for (const tld of tlds) {
+                          const regex = new RegExp(`(@[a-zA-Z0-9.-]+\\.${tld})(.+)$`, 'i');
+                          const match = val.match(regex);
+                          if (match) {
+                            if (tld === 'com' && match[2].toLowerCase().startsWith('.c')) {
+                              continue;
+                            }
+                            val = val.substring(0, val.length - match[2].length);
+                            break;
+                          }
+                        }
+                        setFormData(prev => ({ ...prev, email: val }));
+                        if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
+
                         if (val.trim() !== '') {
                            if (!validateEmail(val)) {
                              setFormErrors(prev => ({ ...prev, email: 'Formato de correo no válido.' }));
@@ -817,6 +831,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       value={formData.direccion}
                       onChange={handleInputChange}
                       placeholder="Dirección de domicilio"
+                      maxLength={100}
                     />
                   </div>
                 </div>
