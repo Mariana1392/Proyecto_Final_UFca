@@ -59,7 +59,8 @@ BEGIN
     activo, 
     cedula, 
     telefono, 
-    direccion
+    direccion,
+    fecha_ingreso
   )
   VALUES (
     NEW.id,
@@ -69,13 +70,15 @@ BEGIN
     true,
     CASE WHEN v_solicitud.cedula IS NOT NULL THEN v_solicitud.cedula ELSE null END,
     CASE WHEN v_solicitud.telefono IS NOT NULL THEN v_solicitud.telefono ELSE null END,
-    CASE WHEN v_solicitud.direccion IS NOT NULL THEN v_solicitud.direccion ELSE null END
+    CASE WHEN v_solicitud.direccion IS NOT NULL THEN v_solicitud.direccion ELSE null END,
+    CASE WHEN v_solicitud.id IS NOT NULL THEN COALESCE(v_solicitud.fecha_activacion, CURRENT_DATE) ELSE null END
   )
   ON CONFLICT (id) DO UPDATE
     SET
       cedula = COALESCE(NULLIF(TRIM(usuarios.cedula), ''), EXCLUDED.cedula),
       telefono = COALESCE(NULLIF(TRIM(usuarios.telefono), ''), EXCLUDED.telefono),
-      direccion = COALESCE(NULLIF(TRIM(usuarios.direccion), ''), EXCLUDED.direccion);
+      direccion = COALESCE(NULLIF(TRIM(usuarios.direccion), ''), EXCLUDED.direccion),
+      fecha_ingreso = COALESCE(usuarios.fecha_ingreso, EXCLUDED.fecha_ingreso);
 
   -- Si fue registrado como asociado, vincular solicitud y crear cuenta de ahorro permanentemente
   IF v_rol_nombre = 'asociado' AND v_solicitud.id IS NOT NULL THEN
@@ -108,15 +111,16 @@ BEGIN
 END;
 $$;
 
--- 2. Reparar registros existentes que quedaron en public.usuarios sin identificación (cédula)
+-- 2. Reparar registros existentes que quedaron en public.usuarios sin identificación (cédula) o fecha de ingreso
 UPDATE public.usuarios u
 SET 
   cedula = COALESCE(NULLIF(TRIM(u.cedula), ''), s.cedula),
   telefono = COALESCE(NULLIF(TRIM(u.telefono), ''), s.telefono),
-  direccion = COALESCE(NULLIF(TRIM(u.direccion), ''), s.direccion)
+  direccion = COALESCE(NULLIF(TRIM(u.direccion), ''), s.direccion),
+  fecha_ingreso = COALESCE(u.fecha_ingreso, s.fecha_activacion, s.fecha_resolucion::date, s.created_at::date)
 FROM public.solicitudes_asociados s
 WHERE LOWER(u.email) = LOWER(s.email)
-  AND (u.cedula IS NULL OR u.cedula = '');
+  AND (u.cedula IS NULL OR u.cedula = '' OR u.fecha_ingreso IS NULL);
 
 -- 3. Vincular solicitudes_asociados a usuarios existentes
 UPDATE public.solicitudes_asociados s
