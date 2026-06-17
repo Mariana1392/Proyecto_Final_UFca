@@ -159,7 +159,7 @@ export default function Creditos({ userData }: CreditosProps) {
   const exportarCarteraCSV = () => {
     const headers = [
       'N° Crédito', 'Asociado', 'Cédula', 'Tipo', 'Monto', 'Saldo',
-      'Tasa EA (%)', 'Plazo (meses)', 'Cuota Mensual', 'Estado', 'Fecha Desembolso',
+      'Tasa (%)', 'Plazo (meses)', 'Cuota Mensual', 'Estado', 'Fecha Desembolso',
     ];
     const rows = filteredCreditos.map(c => [
       `CRE-${String(c.id).substring(0, 8).toUpperCase()}`,
@@ -606,7 +606,7 @@ export default function Creditos({ userData }: CreditosProps) {
                                   />
                                 </div>
                                 <div className="space-y-1">
-                                  <span className="text-[11px] text-slate-500 font-medium block">Tasa de interés (% EA)</span>
+                                  <span className="text-[11px] text-slate-500 font-medium block">Tasa de interés (%)</span>
                                   <Input
                                     type="number"
                                     step="0.01"
@@ -662,7 +662,7 @@ export default function Creditos({ userData }: CreditosProps) {
                                 { l: 'Tipo',          v: sol.tipoCreditoLabel,       c: 'text-slate-700' },
                                 { l: 'Monto',         v: formatCurrency(montoNum),  c: 'text-indigo-700 font-bold' },
                                 { l: 'Plazo',         v: `${plazoNum} meses`,  c: 'text-slate-700' },
-                                { l: tasaNum > 0 ? 'Tasa EA' : 'Tasa', v: tasaNum > 0 ? `${tasaNum}%` : 'Sin tasa', c: 'text-orange-600' },
+                                { l: 'Tasa',          v: tasaNum > 0 ? `${tasaNum}%` : 'Sin tasa', c: 'text-orange-600' },
                                 { l: 'Cuota mensual', v: formatCurrency(cuotaEst),   c: 'text-emerald-700 font-bold' },
                               ].map(k => (
                                 <div key={k.l} className="bg-white rounded-lg border border-slate-100 px-3 py-2 text-center">
@@ -757,7 +757,7 @@ export default function Creditos({ userData }: CreditosProps) {
                         </div>
                         <div className="hidden sm:flex flex-col items-end text-right">
                           <p className="font-bold text-purple-700 text-sm">{formatCurrency(sim.monto)}</p>
-                          <p className="text-xs text-slate-500">{sim.plazo} meses · {sim.tasaInteres}% {(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'N.A.' : 'EA'}</p>
+                          <p className="text-xs text-slate-500">{sim.plazo} meses · {sim.tasaInteres}%</p>
                         </div>
                         <div className="hidden md:block text-right">
                           <p className="font-semibold text-slate-700 text-sm">{formatCurrency(sim.cuotaMensual)}</p>
@@ -805,7 +805,7 @@ export default function Creditos({ userData }: CreditosProps) {
                         <h2 className="text-white font-black text-lg leading-tight">
                           {(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'Tabla de Pagos — Interés Simple' : 'Tabla de Amortización Francesa'}
                         </h2>
-                        <p className="text-purple-200 text-sm">{tipoLabel} · {sim.plazo} meses · {sim.tasaInteres}% {(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'N.A.' : 'EA'}</p>
+                        <p className="text-purple-200 text-sm">{tipoLabel} · {sim.plazo} meses · {sim.tasaInteres}%</p>
                       </div>
                     </div>
                     <button onClick={() => setIsSimDetalleOpen(false)} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
@@ -1108,7 +1108,7 @@ export default function Creditos({ userData }: CreditosProps) {
                         color: 'text-blue-700', bg: 'bg-blue-50 border-blue-100',
                       },
                       {
-                        label: 'Tasa de interés promedio EA',
+                        label: 'Tasa de interés promedio',
                         value: tasaPromedio > 0 ? `${tasaPromedio.toFixed(2)}%` : 'Sin tasa',
                         sub:   `Sobre ${carteraActivos.filter(c => (c.tasaInteres ?? 0) > 0).length} créditos con tasa`,
                         color: 'text-orange-700', bg: 'bg-orange-50 border-orange-100',

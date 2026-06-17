@@ -246,7 +246,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                     </div>
 
                     <div className="flex flex-wrap gap-4 px-5 py-3 bg-slate-50 border-t border-purple-100 text-xs text-slate-600">
-                      <span><strong>{(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'Tasa N.A.:' : 'Tasa EA:'}</strong> {sim.tasaInteres}%</span>
+                      <span><strong>Tasa:</strong> {sim.tasaInteres}%</span>
                       <span>·</span>
                       <span><strong>Total a pagar:</strong> {formatCurrency(totalPagado)}</span>
                       <span>·</span>
@@ -499,7 +499,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                       {c.tasaInteres > 0 && (
                         <span className="flex items-center gap-1">
                           <Percent className="size-3 text-orange-400" />
-                          <span>{c.tasaInteres}% {(c.tipoInteres ?? 'compuesto') === 'simple' ? 'N.A.' : 'EA'}</span>
+                          <span>{c.tasaInteres}%</span>
                         </span>
                       )}
                       {c.fechaDesembolso && (
@@ -686,7 +686,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                     <h2 className="text-white font-black text-lg leading-tight">
                       {(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'Tabla de Pagos Definitiva — Interés Simple' : 'Tabla de Amortización Definitiva — Francesa'}
                     </h2>
-                    <p className="text-purple-200 text-sm">{tipoLabel} · {sim.plazo} meses · {sim.tasaInteres}% {(sim.tipoInteres ?? 'compuesto') === 'simple' ? 'N.A.' : 'EA'}</p>
+                    <p className="text-purple-200 text-sm">{tipoLabel} · {sim.plazo} meses · {sim.tasaInteres}%</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -860,7 +860,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                 <Percent className="size-3.5 text-blue-500 shrink-0" />
                 <p className="text-xs text-blue-700">
                   Tasa aplicada para este tipo de crédito:{' '}
-                  <strong>{solTasa}% EA</strong> — definida por el fondo
+                  <strong>{solTasa}%</strong> — definida por el fondo
                 </p>
               </div>
             )}
@@ -1496,7 +1496,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                   <div><span className="text-slate-400">Cuota mensual</span><p className="font-bold text-indigo-700">{formatCurrency(cuota)}</p></div>
                   <div>
                     <span className="text-slate-400">Tasa de interés</span>
-                    <p className="font-bold text-orange-700">{tasaAnual > 0 ? `${tasaAnual}% ${tipoInteres === 'simple' ? 'N.A.' : 'EA'}` : 'Sin interés'}</p>
+                    <p className="font-bold text-orange-700">{tasaAnual > 0 ? `${tasaAnual}%` : 'Sin interés'}</p>
                   </div>
                   <div><span className="text-slate-400">Plazo total</span><p className="font-bold text-slate-800">{plazo} meses</p></div>
                   <div>
