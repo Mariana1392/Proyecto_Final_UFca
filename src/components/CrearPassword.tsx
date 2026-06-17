@@ -11,23 +11,8 @@ import { validateEmail } from '../lib/validation';
 
 // ── Fondo decorativo reutilizable ────────────────────────────────────────
 const Fondo = ({ children }: { children: React.ReactNode }) => (
-  <div className="relative min-h-screen overflow-hidden flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #064e3b 0%, #065f46 40%, #047857 70%, #059669 100%)' }}>
-    {/* Círculos decorativos */}
-    <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full opacity-20" style={{ background: '#34d399' }} />
-    <div className="absolute top-10 right-16 w-48 h-48 rounded-full opacity-15" style={{ background: '#6ee7b7' }} />
-    <div className="absolute top-1/3 -left-16 w-64 h-64 rounded-full opacity-10" style={{ background: '#a7f3d0' }} />
-    <div className="absolute -bottom-20 right-0 w-96 h-96 rounded-full opacity-20" style={{ background: '#10b981' }} />
-    <div className="absolute bottom-16 left-1/4 w-40 h-40 rounded-full opacity-15" style={{ background: '#34d399' }} />
-    <div className="absolute top-1/2 right-1/4 w-24 h-24 rounded-full opacity-10" style={{ background: '#d1fae5' }} />
-    <div className="absolute top-3/4 -right-10 w-56 h-56 rounded-full opacity-15" style={{ background: '#059669' }} />
-    {/* Marranitos flotantes */}
-    <span className="absolute top-8 left-12 text-4xl opacity-30 select-none" style={{ transform: 'rotate(-15deg)' }}>🐷</span>
-    <span className="absolute top-1/4 right-10 text-3xl opacity-25 select-none" style={{ transform: 'rotate(10deg)' }}>🐽</span>
-    <span className="absolute bottom-1/3 left-8 text-5xl opacity-20 select-none" style={{ transform: 'rotate(-8deg)' }}>🐷</span>
-    <span className="absolute bottom-10 right-20 text-3xl opacity-30 select-none" style={{ transform: 'rotate(20deg)' }}>🐽</span>
-    <span className="absolute top-2/3 left-1/3 text-2xl opacity-20 select-none" style={{ transform: 'rotate(-5deg)' }}>🐷</span>
-    <span className="absolute top-16 right-1/3 text-xl opacity-25 select-none" style={{ transform: 'rotate(12deg)' }}>🐽</span>
-    <div className="relative z-10 w-full flex items-center justify-center px-4 py-8">
+  <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 sm:p-8 bg-slate-50 dark:bg-slate-900">
+    <div className="w-full flex items-center justify-center">
       {children}
     </div>
   </div>
@@ -42,15 +27,6 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  
-  const newPasswordRef = useRef<HTMLInputElement>(null);
-
-  // Enfocar el campo nueva contraseña una sola vez cuando la sesión esté lista
-  useEffect(() => {
-    if (sessionStatus === 'ready') {
-      newPasswordRef.current?.focus();
-    }
-  }, [sessionStatus]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -62,6 +38,15 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
 
   // Estado de la sesión: 'checking' → 'ready' | 'error'
   const [sessionStatus, setSessionStatus] = useState<'checking' | 'ready' | 'error'>('checking');
+  
+  const newPasswordRef = useRef<HTMLInputElement>(null);
+
+  // Enfocar el campo nueva contraseña una sola vez cuando la sesión esté lista
+  useEffect(() => {
+    if (sessionStatus === 'ready') {
+      newPasswordRef.current?.focus();
+    }
+  }, [sessionStatus]);
 
   // Verificar que Supabase procesó el token del link de invitación
   useEffect(() => {
@@ -194,12 +179,12 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
     return (
       <Fondo>
         <div className="w-full max-w-sm text-center space-y-6">
-          <div className="inline-flex items-center justify-center size-20 rounded-3xl shadow-lg" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
-            <Loader2 className="size-10 text-white animate-spin" />
+          <div className="inline-flex items-center justify-center size-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/30 shadow-md">
+            <Loader2 className="size-8 text-[#054030] dark:text-emerald-400 animate-spin" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-white mb-2">Verificando tu invitación…</h2>
-            <p className="text-emerald-200 text-sm">Estamos validando tu acceso. Esto solo toma un momento.</p>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Verificando tu invitación…</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Estamos validando tu acceso. Esto solo toma un momento.</p>
           </div>
         </div>
       </Fondo>
@@ -212,18 +197,19 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
       <Fondo>
         <div className="w-full max-w-sm">
           <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center size-20 rounded-3xl mb-4 shadow-lg" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
-              <AlertCircle className="size-10 text-white" />
+            <div className="inline-flex items-center justify-center size-16 rounded-2xl mb-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/30 shadow-md">
+              <AlertCircle className="size-8 text-rose-600 dark:text-rose-400" />
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Enlace inválido o expirado</h1>
-            <p className="text-emerald-200 text-sm leading-relaxed">
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-1">Enlace inválido o expirado</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
               Este enlace de invitación ya fue usado o expiró. Ingresa tu correo para recibir un nuevo enlace.
             </p>
           </div>
-          <div className="rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(16px)' }}>
+          <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
+            <div className="h-1 bg-rose-500"/>
             <div className="p-6 space-y-4">
               {recoverySent ? (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-800 text-center space-y-2">
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 rounded-xl text-sm text-emerald-800 dark:text-emerald-300 text-center space-y-2">
                   <CheckCircle className="size-8 text-emerald-500 mx-auto" />
                   <p className="font-semibold">¡Correo enviado!</p>
                   <p className="text-xs">Revisa tu bandeja de entrada y haz clic en el nuevo enlace.</p>
@@ -231,11 +217,12 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
               ) : (
                 <form onSubmit={handleRecovery} className="space-y-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor="cp-recoveryEmail">Tu correo electrónico</Label>
+                    <Label htmlFor="cp-recoveryEmail" className="text-slate-700 dark:text-slate-300 font-semibold text-sm">Tu correo electrónico</Label>
                     <Input
                       id="cp-recoveryEmail"
                       type="email"
                       placeholder="ejemplo@correo.com"
+                      className="h-11 rounded-xl bg-slate-50 dark:bg-slate-900 focus:border-[#054030] focus:ring-[#054030]/20 border-slate-200 dark:border-slate-700"
                       value={recoveryEmail}
                       onChange={e => setRecoveryEmail(e.target.value)}
                       required
@@ -244,15 +231,14 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
                   </div>
                   <Button
                     type="submit"
-                    className="w-full text-white font-semibold"
-                    style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                    className="w-full h-11 rounded-xl bg-gradient-to-r from-[#059669] to-[#047857] hover:from-[#047857] hover:to-[#059669] text-white font-bold"
                     disabled={recoveryLoading || !recoveryEmail.trim()}
                   >
                     {recoveryLoading ? 'Enviando…' : 'Enviarme un nuevo enlace'}
                   </Button>
                 </form>
               )}
-              <Button variant="outline" className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 bg-white" onClick={onSuccess}>
+              <Button variant="outline" className="w-full border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 bg-white dark:bg-slate-800 h-11 rounded-xl" onClick={onSuccess}>
                 Ir al inicio de sesión
               </Button>
             </div>
@@ -267,15 +253,15 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
     return (
       <Fondo>
         <div className="w-full max-w-sm text-center space-y-6">
-          <div className="inline-flex items-center justify-center size-24 rounded-full shadow-xl animate-pulse" style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)' }}>
-            <CheckCircle className="size-12 text-white" />
+          <div className="inline-flex items-center justify-center size-20 rounded-full bg-emerald-100 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 shadow-md">
+            <CheckCircle className="size-10" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-white mb-3">¡Bienvenido/a a UFCA!</h1>
-            <p className="text-emerald-200">Tu contraseña fue creada correctamente. Estás ingresando a tu cuenta…</p>
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2">¡Bienvenido/a a UFCA!</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Tu contraseña fue creada correctamente. Estás ingresando a tu cuenta…</p>
           </div>
           <div className="flex justify-center">
-            <div className="size-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
+            <div className="size-8 border-4 border-[#054030] dark:border-emerald-400 border-t-transparent rounded-full animate-spin" />
           </div>
         </div>
       </Fondo>
@@ -287,42 +273,46 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
     <Fondo>
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center size-20 rounded-3xl mb-4 shadow-xl" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
-            <Sparkles className="size-10 text-white" />
+          <div className="inline-flex items-center justify-center size-16 rounded-2xl mb-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/30 shadow-md">
+            <Sparkles className="size-8 text-[#054030] dark:text-emerald-400" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">¡Bienvenido/a a UFCA!</h1>
-          <p className="text-emerald-200 text-sm leading-relaxed">
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-1">¡Bienvenido/a a UFCA!</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">
             Tu cuenta ha sido aprobada. Crea una contraseña segura para acceder al sistema.
           </p>
         </div>
 
-        <div className="rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(16px)' }}>
-          <div className="px-6 pt-5 pb-2 border-b border-emerald-100">
-            <h2 className="flex items-center gap-2 text-base font-semibold text-slate-800">
-              <Lock className="size-4 text-emerald-600" />
-              Crear mi contraseña
-            </h2>
-          </div>
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-[#054030] via-[#f0c040] to-[#054030]"/>
+          <div className="p-7">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+                <Lock className="size-5 text-[#054030] dark:text-emerald-400"/>
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">Crear mi contraseña</h3>
+                <p className="text-slate-400 dark:text-slate-500 text-sm">Elige una clave que sea fácil de recordar pero difícil de adivinar</p>
+              </div>
+            </div>
 
-          <div className="px-6 py-5">
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <Alert variant="destructive" className="py-3">
+                <Alert variant="destructive" className="py-3 rounded-xl">
                   <AlertCircle className="size-4" />
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="newPassword">Nueva contraseña</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
                     ref={newPasswordRef}
                     id="newPassword"
                     type={showNew ? 'text' : 'password'}
                     placeholder="••••••••"
-                    className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
+                    className="pl-10 pr-11 h-11 rounded-xl bg-slate-50 dark:bg-slate-900 focus:border-[#054030] focus:ring-[#054030]/20 border-slate-200 dark:border-slate-700"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
@@ -331,7 +321,7 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
                   <button
                     type="button"
                     onClick={() => setShowNew(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                     tabIndex={-1}
                   >
                     {showNew ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -339,18 +329,18 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
                     id="confirmPassword"
                     type={showConfirm ? 'text' : 'password'}
                     placeholder="••••••••"
-                    className={`pl-10 pr-10 ${
+                    className={`pl-10 pr-11 h-11 rounded-xl bg-slate-50 dark:bg-slate-900 ${
                       passwordsNoCoinciden
                         ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500 bg-rose-50/30'
-                        : 'border-slate-200 focus:border-emerald-500 focus:ring-emerald-500'
+                        : 'border-slate-200 dark:border-slate-700 focus:border-[#054030] focus:ring-[#054030]/20'
                     }`}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -360,7 +350,7 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
                   <button
                     type="button"
                     onClick={() => setShowConfirm(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                     tabIndex={-1}
                   >
                     {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -375,8 +365,8 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
               </div>
 
               {/* Checklist */}
-              <div className="p-3 rounded-xl border border-emerald-100" style={{ background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)' }}>
-                <p className="text-xs font-semibold text-emerald-800 mb-2">La contraseña debe tener:</p>
+              <div className="p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/50 dark:bg-emerald-950/10">
+                <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-400 mb-2">La contraseña debe tener:</p>
                 <ul className="space-y-1">
                   {[
                     { ok: validaciones.longitud,  texto: 'Mínimo 8 caracteres' },
@@ -386,8 +376,8 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
                     { ok: validaciones.coinciden, texto: 'Las contraseñas coinciden' },
                   ].map(({ ok, texto }) => (
                     <li key={texto} className="flex items-center gap-2 text-xs">
-                      <CheckCircle className={`size-3.5 flex-shrink-0 transition-colors ${ok ? 'text-emerald-500' : 'text-slate-300'}`} />
-                      <span className={ok ? 'text-emerald-800' : 'text-slate-400'}>{texto}</span>
+                      <CheckCircle className={`size-3.5 flex-shrink-0 transition-colors ${ok ? 'text-emerald-500' : 'text-slate-300 dark:text-slate-600'}`} />
+                      <span className={ok ? 'text-emerald-800 dark:text-emerald-300 font-medium' : 'text-slate-400 dark:text-slate-500'}>{texto}</span>
                     </li>
                   ))}
                 </ul>
@@ -395,8 +385,7 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
 
               <Button
                 type="submit"
-                className="w-full text-white font-semibold h-11 text-sm"
-                style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                className="w-full h-12 rounded-xl bg-gradient-to-r from-[#054030] to-[#0a7050] hover:from-[#032a1e] hover:to-[#054030] text-white font-bold text-base shadow-lg shadow-emerald-900/20"
                 disabled={isLoading || !todasOk}
               >
                 {isLoading ? 'Creando...' : 'Crear contraseña e ingresar'}

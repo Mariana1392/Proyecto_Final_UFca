@@ -97,6 +97,7 @@ function AppContent() {
     loading,
     userRole, userData, can,
     logout,
+    recargarPerfil,
   } = useAuth();
 
   // Helper: un usuario tiene acceso si posee AL MENOS UNO de los permisos (OR)
@@ -219,9 +220,17 @@ function AppContent() {
       case 'restablecer-password':
         return (
           <RestablecerPassword
-            onSuccess={() => {
-              if (isAuthenticated) {
-                if (userData?.rol_nombre === 'usuario') {
+            onSuccess={async () => {
+              await recargarPerfil();
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session) {
+                const { data: perfil } = await supabase
+                  .from('usuarios')
+                  .select('roles(nombre)')
+                  .eq('id', session.user.id)
+                  .single();
+                const rol = (perfil as any)?.roles?.nombre;
+                if (rol === 'usuario') {
                   setCurrentView('mi-perfil');
                 } else {
                   setCurrentView('dashboard');
@@ -235,17 +244,22 @@ function AppContent() {
       case 'crear-password':
         return (
           <CrearPassword
-            onSuccess={() => {
-              // Supabase ya tiene sesión activa tras el invite; redirigir al dashboard.
-              // El useEffect de isAuthenticated se encargará del resto si el rol está listo.
-              if (isAuthenticated) {
-                if (userData?.rol_nombre === 'usuario') {
+            onSuccess={async () => {
+              await recargarPerfil();
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session) {
+                const { data: perfil } = await supabase
+                  .from('usuarios')
+                  .select('roles(nombre)')
+                  .eq('id', session.user.id)
+                  .single();
+                const rol = (perfil as any)?.roles?.nombre;
+                if (rol === 'usuario') {
                   setCurrentView('mi-perfil');
                 } else {
                   setCurrentView('dashboard');
                 }
               } else {
-                // Sesión aún no resuelta → ir a login para que el usuario ingrese normalmente
                 setCurrentView('login');
               }
             }}

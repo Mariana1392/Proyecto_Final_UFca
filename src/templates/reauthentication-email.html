@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Código de Verificación - UFCA</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f8fafc;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="table-layout: fixed; background-color: #f8fafc; padding: 40px 10px;">
+    <tr>
+      <td align="center">
+        <!-- Tarjeta Principal de Correo -->
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 550px; background-color: #ffffff; border-radius: 24px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+          
+          <!-- Encabezado con Fondo Verde Institucional y Logo -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #04462c 0%, #022b1a 100%); padding: 35px 40px; text-align: center;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center" style="padding-bottom: 15px;">
+                    <!-- Logo UFCA cargado desde la URL de producción -->
+                    <img src="https://proyecto-final-u-fca.vercel.app/logo.svg" alt="UFCA Logo" width="80" height="80" style="display: block; width: 80px; height: 80px; border-radius: 50%; border: 2px solid #d4a010; background-color: #04462c;" />
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center">
+                    <span style="font-family: Georgia, 'Times New Roman', serif; font-size: 28px; font-weight: bold; color: #ffffff; letter-spacing: 2px;">UFCA</span>
+                    <div style="font-size: 11px; font-weight: bold; color: #d4a010; letter-spacing: 3px; margin-top: 4px; text-transform: uppercase;">Créditos y Ahorros</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Cuerpo del Mensaje -->
+          <tr>
+            <td style="padding: 40px 40px 30px 40px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td>
+                    <h2 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 16px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Confirmar Reautenticación</h2>
+                    <p style="font-size: 15px; line-height: 24px; color: #475569; margin: 0 0 24px 0;">
+                      Se solicitó una verificación de identidad para realizar una acción de alta seguridad en tu cuenta de asociado de <strong>UFCA</strong>. Introduce el siguiente código de seguridad en la aplicación para confirmar la operación:
+                    </p>
+                  </td>
+                </tr>
+                
+                <!-- Caja con el Código OTP -->
+                <tr>
+                  <td align="center" style="padding: 10px 0 30px 0;">
+                    <table border="0" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center" style="background-color: #f1f5f9; border: 2px dashed #cbd5e1; border-radius: 16px; padding: 16px 40px;">
+                          <span style="font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: bold; color: #0f172a; letter-spacing: 8px; display: inline-block;">{{ .Token }}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Nota de Seguridad de color rojo/advertencia -->
+                <tr>
+                  <td>
+                    <div style="background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 16px; padding: 16px; margin-bottom: 24px;">
+                      <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                        <tr>
+                          <td style="vertical-align: top; padding-right: 10px; font-size: 16px;">
+                            ⚠️
+                          </td>
+                          <td style="font-size: 13px; line-height: 18px; color: #991b1b; font-weight: 500;">
+                            <strong>Importante:</strong> Este código es personal, de un solo uso y vencerá pronto. <strong>Nunca compartas este código con nadie.</strong> Si tú no solicitaste esta reautenticación, puedes ignorar este correo.
+                          </td>
+                        </tr>
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+
+          <!-- Pie de página institucional -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 30px 40px; border-top: 1px solid #f1f5f9; text-align: center;">
+              <p style="font-size: 12px; color: #64748b; margin: 0 0 8px 0; font-weight: 600;">
+                Unidad Familiar y Cooperativa de Ahorro (UFCA)
+              </p>
+              <p style="font-size: 11px; color: #94a3b8; margin: 0;">
+                Este es un mensaje automático, por favor no respondas a este correo.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

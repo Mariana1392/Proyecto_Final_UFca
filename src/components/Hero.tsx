@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
-import { validateEmail } from '../lib/validation';
+import { validateEmail, validateEmailDomain } from '../lib/validation';
 
 const db = supabase; // Standard supabase client (no RLS bypass)
 import { CheckCircle, Sparkles, Target, Trophy, UserPlus, Users, X, Shield, UserCircle2, Award, Calendar, MapPin, Clock, PiggyBank, CreditCard, TrendingUp, Upload, FileText, Briefcase, Trash2, AlertCircle, Mail, Smartphone, Download } from 'lucide-react';
@@ -195,6 +195,17 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
       if (data && data.tipo !== 'disponible') {
         setInfo(data);
       } else {
+        if (tipo === 'email') {
+          const isDomainValid = await validateEmailDomain(valor);
+          if (!isDomainValid) {
+            setInfo({
+              tipo: 'asociado',
+              mensaje: 'El dominio de este correo electrónico no es válido o no existe.',
+              bloquea: true
+            });
+            return;
+          }
+        }
         setInfo(null);
       }
     } catch { setInfo(null); } finally { setCheck(false); }
@@ -331,6 +342,16 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
     setUploadingDocs(true);
 
     try {
+      // ── 0. Verificar dominio de correo antes de continuar ──────────────────
+      const isDomainValid = await validateEmailDomain(formData.email);
+      if (!isDomainValid) {
+        setFormErrors(prev => ({ ...prev, email: 'El dominio del correo electrónico no existe o no es válido.' }));
+        toast.error('El dominio del correo electrónico no es válido o no existe.');
+        setSubmitting(false);
+        setUploadingDocs(false);
+        return;
+      }
+
       // ── 0. Verificar cédula/email duplicados ANTES de subir documentos ─────
       const cedula = formData.cedula.trim();
       const email  = formData.email.trim();
