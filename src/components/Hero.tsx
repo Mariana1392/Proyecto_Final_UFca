@@ -770,19 +770,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       type="email"
                       value={formData.email}
                       onChange={e => {
-                        let val = e.target.value;
-                        const tlds = ['com.co', 'com', 'co', 'net', 'org', 'edu', 'gov', 'es', 'lat'];
-                        for (const tld of tlds) {
-                          const regex = new RegExp(`(@[a-zA-Z0-9.-]+\\.${tld})(.+)$`, 'i');
-                          const match = val.match(regex);
-                          if (match) {
-                            if (tld === 'com' && match[2].toLowerCase().startsWith('.c')) {
-                              continue;
-                            }
-                            val = val.substring(0, val.length - match[2].length);
-                            break;
-                          }
-                        }
+                        const val = e.target.value;
                         setFormData(prev => ({ ...prev, email: val }));
                         if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
 
@@ -802,6 +790,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       }}
                       onBlur={e => validarCampo('email', e.target.value)}
                       placeholder="correo@ejemplo.com"
+                      maxLength={254}
                       required
                       className={formErrors.email ? 'border-red-400 focus:border-red-500' : ''}
                     />

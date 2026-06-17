@@ -198,6 +198,7 @@ export function useAhorroPermanenteAportes({
             periodo_id:    formAportePeriodoId || null,
             fecha_pago:    formAporteFecha,
             monto:         montoMoraNum,
+            monto_mora:    montoMoraNum,
             saldo_antes:   saldoNuevo,
             saldo_despues: saldoNuevo,
             anulado:       false,

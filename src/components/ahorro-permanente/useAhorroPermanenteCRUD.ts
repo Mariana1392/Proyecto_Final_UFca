@@ -99,7 +99,7 @@ export function useAhorroPermanenteCRUD({
           .from('transacciones')
           .select('id', { count: 'exact', head: true })
           .eq('ahorro_id', item.id)
-          .eq('tipo', 'aporte_permanente');
+          .in('tipo', ['aporte_permanente', 'mora_permanente']);
         setEditHasMovimientos((count ?? 0) > 0);
       } catch {
         setEditHasMovimientos(true);

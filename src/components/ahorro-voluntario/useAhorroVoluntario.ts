@@ -227,14 +227,19 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
           let desc = r.datos_despues?.descripcion || '';
           if (!desc) {
             const cambios: string[] = [];
-            if (oldSaldo !== undefined && newSaldo !== undefined && oldSaldo !== newSaldo) {
-              cambios.push(`Saldo: ${formatCurrency(Number(oldSaldo))} ➔ ${formatCurrency(Number(newSaldo))}`);
-            }
-            if (oldEstado !== undefined && newEstado !== undefined && oldEstado !== newEstado) {
-              cambios.push(`Estado: ${oldEstado} ➔ ${newEstado}`);
-            }
-            if (oldAnulado !== undefined && newAnulado !== undefined && oldAnulado !== newAnulado) {
-              cambios.push(newAnulado ? 'Cuenta anulada' : 'Cuenta reactivada');
+            if (!r.datos_antes) {
+              cambios.push(`Creación de cuenta con saldo inicial: ${formatCurrency(Number(newSaldo || 0))}`);
+              if (newEstado) cambios.push(`Estado inicial: ${newEstado}`);
+            } else {
+              if (oldSaldo !== undefined && newSaldo !== undefined && oldSaldo !== newSaldo) {
+                cambios.push(`Saldo: ${formatCurrency(Number(oldSaldo))} ➔ ${formatCurrency(Number(newSaldo))}`);
+              }
+              if (oldEstado !== undefined && newEstado !== undefined && oldEstado !== newEstado) {
+                cambios.push(`Estado: ${oldEstado} ➔ ${newEstado}`);
+              }
+              if (oldAnulado !== undefined && newAnulado !== undefined && oldAnulado !== newAnulado) {
+                cambios.push(newAnulado ? 'Cuenta anulada' : 'Cuenta reactivada');
+              }
             }
             desc = cambios.length > 0 ? cambios.join(' · ') : `Modificación (${r.operacion || r.accion})`;
           }

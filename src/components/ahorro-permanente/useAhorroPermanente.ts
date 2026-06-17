@@ -233,17 +233,23 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
           let desc = r.datos_despues?.descripcion || '';
           if (!desc) {
             const cambios: string[] = [];
-            if (oldCuota !== undefined && newCuota !== undefined && oldCuota !== newCuota) {
-              cambios.push(`Cuota: ${formatCurrency(Number(oldCuota))} ➔ ${formatCurrency(Number(newCuota))}`);
-            }
-            if (oldSaldo !== undefined && newSaldo !== undefined && oldSaldo !== newSaldo) {
-              cambios.push(`Saldo: ${formatCurrency(Number(oldSaldo))} ➔ ${formatCurrency(Number(newSaldo))}`);
-            }
-            if (oldEstado !== undefined && newEstado !== undefined && oldEstado !== newEstado) {
-              cambios.push(`Estado: ${oldEstado} ➔ ${newEstado}`);
-            }
-            if (oldAnulado !== undefined && newAnulado !== undefined && oldAnulado !== newAnulado) {
-              cambios.push(newAnulado ? 'Cuenta anulada' : 'Cuenta reactivada');
+            if (!r.datos_antes) {
+              cambios.push(`Creación de cuenta con saldo inicial: ${formatCurrency(Number(newSaldo || 0))}`);
+              if (newCuota) cambios.push(`Cuota inicial: ${formatCurrency(Number(newCuota))}`);
+              if (newEstado) cambios.push(`Estado inicial: ${newEstado}`);
+            } else {
+              if (oldCuota !== undefined && newCuota !== undefined && oldCuota !== newCuota) {
+                cambios.push(`Cuota: ${formatCurrency(Number(oldCuota))} ➔ ${formatCurrency(Number(newCuota))}`);
+              }
+              if (oldSaldo !== undefined && newSaldo !== undefined && oldSaldo !== newSaldo) {
+                cambios.push(`Saldo: ${formatCurrency(Number(oldSaldo))} ➔ ${formatCurrency(Number(newSaldo))}`);
+              }
+              if (oldEstado !== undefined && newEstado !== undefined && oldEstado !== newEstado) {
+                cambios.push(`Estado: ${oldEstado} ➔ ${newEstado}`);
+              }
+              if (oldAnulado !== undefined && newAnulado !== undefined && oldAnulado !== newAnulado) {
+                cambios.push(newAnulado ? 'Cuenta anulada' : 'Cuenta reactivada');
+              }
             }
             desc = cambios.length > 0 ? cambios.join(' · ') : `Modificación (${r.operacion || r.accion})`;
           }
@@ -334,7 +340,7 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
           .from('transacciones')
           .select('*, periodos(nombre)')
           .eq('ahorro_id', ahorro.id)
-          .eq('tipo', 'aporte_permanente')
+          .in('tipo', ['aporte_permanente', 'mora_permanente'])
           .order('fecha_pago', { ascending: false }),
         db
           .from('cuentas_ahorro')
@@ -386,17 +392,23 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
           let desc = r.datos_despues?.descripcion || '';
           if (!desc) {
             const cambios: string[] = [];
-            if (oldCuota !== undefined && newCuota !== undefined && oldCuota !== newCuota) {
-              cambios.push(`Cuota: ${formatCurrency(Number(oldCuota))} ➔ ${formatCurrency(Number(newCuota))}`);
-            }
-            if (oldSaldo !== undefined && newSaldo !== undefined && oldSaldo !== newSaldo) {
-              cambios.push(`Saldo: ${formatCurrency(Number(oldSaldo))} ➔ ${formatCurrency(Number(newSaldo))}`);
-            }
-            if (oldEstado !== undefined && newEstado !== undefined && oldEstado !== newEstado) {
-              cambios.push(`Estado: ${oldEstado} ➔ ${newEstado}`);
-            }
-            if (oldAnulado !== undefined && newAnulado !== undefined && oldAnulado !== newAnulado) {
-              cambios.push(newAnulado ? 'Cuenta anulada' : 'Cuenta reactivada');
+            if (!r.datos_antes) {
+              cambios.push(`Creación de cuenta con saldo inicial: ${formatCurrency(Number(newSaldo || 0))}`);
+              if (newCuota) cambios.push(`Cuota inicial: ${formatCurrency(Number(newCuota))}`);
+              if (newEstado) cambios.push(`Estado inicial: ${newEstado}`);
+            } else {
+              if (oldCuota !== undefined && newCuota !== undefined && oldCuota !== newCuota) {
+                cambios.push(`Cuota: ${formatCurrency(Number(oldCuota))} ➔ ${formatCurrency(Number(newCuota))}`);
+              }
+              if (oldSaldo !== undefined && newSaldo !== undefined && oldSaldo !== newSaldo) {
+                cambios.push(`Saldo: ${formatCurrency(Number(oldSaldo))} ➔ ${formatCurrency(Number(newSaldo))}`);
+              }
+              if (oldEstado !== undefined && newEstado !== undefined && oldEstado !== newEstado) {
+                cambios.push(`Estado: ${oldEstado} ➔ ${newEstado}`);
+              }
+              if (oldAnulado !== undefined && newAnulado !== undefined && oldAnulado !== newAnulado) {
+                cambios.push(newAnulado ? 'Cuenta anulada' : 'Cuenta reactivada');
+              }
             }
             desc = cambios.length > 0 ? cambios.join(' · ') : `Modificación (${r.operacion || r.accion})`;
           }
@@ -433,7 +445,7 @@ export function useAhorroPermanente(userRole?: UserRole | null, userData?: any) 
       .from('transacciones')
       .select('*')
       .eq('ahorro_id', ahorroId)
-      .eq('tipo', 'aporte_permanente')
+      .in('tipo', ['aporte_permanente', 'mora_permanente'])
       .order('created_at', { ascending: false });
     setAuditoriaPorAhorro(prev => ({ ...prev, [ahorroId]: data ?? [] }));
     setExpandedAhorroId(ahorroId);

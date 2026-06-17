@@ -653,7 +653,7 @@ export const dashboardApi = {
     const historial = rows.map((r: any) => {
       if (['pago_credito', 'abono_capital', 'cancelacion_total'].includes(r.tipo)) {
         utilidadCreditos += r.monto_mora || 0;
-      } else if (['aporte_permanente', 'aporte_voluntario'].includes(r.tipo)) {
+      } else if (['aporte_permanente', 'aporte_voluntario', 'mora_permanente'].includes(r.tipo)) {
         utilidadAhorros += r.monto_mora || 0;
       }
       return {

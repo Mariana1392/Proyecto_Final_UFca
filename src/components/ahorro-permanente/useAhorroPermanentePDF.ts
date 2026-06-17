@@ -41,7 +41,7 @@ export function useAhorroPermanentePDF({
         .from('transacciones')
         .select('*')
         .eq('ahorro_id', ahorro.id)
-        .eq('tipo', 'aporte_permanente')
+        .in('tipo', ['aporte_permanente', 'mora_permanente'])
         .order('fecha_pago', { ascending: true });
       if (!error) setMovimientosDetalle(data || []);
     } catch { /* ignorar */ }

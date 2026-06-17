@@ -117,7 +117,7 @@ export function useLiquidacionStepper({ userData, setLiquidaciones, setIsCreateO
       let utilidadesAsociado = parseCOP(formUtilidades) || 0;
       if (aplicaUtilidades && !formUtilidades) {
         const [moraRes, interesRes, asocCountRes] = await Promise.all([
-          supabase.from('transacciones').select('monto_mora').eq('tipo','aporte_permanente').gt('monto_mora', 0),
+          supabase.from('transacciones').select('monto_mora').in('tipo',['aporte_permanente', 'mora_permanente']).gt('monto_mora', 0),
           supabase.from('transacciones').select('interes').in('tipo',['pago_credito','abono_capital']).gt('interes', 0),
           supabase.from('usuarios').select('id', { count: 'exact', head: true }).eq('activo', true),
         ]);
