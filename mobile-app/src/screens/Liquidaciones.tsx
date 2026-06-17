@@ -9,13 +9,15 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '../components/ui/dialog';
 import {
-  ReceiptText, CheckCircle2, Clock, DollarSign, Plus,
+  ReceiptText, CheckCircle2, Clock, DollarSign, Plus, Download,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency } from '../lib/formatters';
 import { TIPOS_LIQUIDACION } from '../lib/constants';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface Liq {
   id: string;
@@ -61,6 +63,116 @@ function parseLiq(row: any): Liq {
     conceptos,
     observaciones: row.observaciones ?? det.observaciones ?? '',
   };
+}
+
+function generateMobileLiquidacionPDF(liq: Liq) {
+  try {
+    const doc = new jsPDF();
+    const pageW = doc.internal.pageSize.getWidth();
+    const tipoLabel = TIPOS_LIQUIDACION.find(t => t.value === liq.tipo)?.label ?? liq.tipo;
+    const nLiq = `LIQ-${liq.id.substring(0, 8).toUpperCase()}`;
+
+    // Header
+    doc.setFillColor(16, 185, 129);
+    doc.rect(0, 0, 210, 42, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22); doc.setFont('helvetica', 'bold');
+    doc.text('UFCA', 14, 18);
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    doc.text('Unión Familiar de Crédito y Ahorro', 14, 26);
+    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+    doc.text('DOCUMENTO OFICIAL DE LIQUIDACIÓN', 14, 36);
+    const fechaGen = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    doc.text(`Generado: ${fechaGen}`, pageW - 14, 36, { align: 'right' });
+
+    let y = 52;
+    doc.setTextColor(0, 0, 0);
+
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+    doc.text(`N° Liquidación: ${nLiq}`, 14, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Tipo: ${tipoLabel}`, 110, y); y += 7;
+    doc.text(`Fecha de corte: ${liq.fechaCorte ?? '—'}`, 14, y);
+    doc.text(`Fecha liquidación: ${liq.createdAt ? liq.createdAt.split('T')[0] : '—'}`, 110, y); y += 7;
+    const estadoText = liq.anulado ? 'INVÁLIDA' : (liq.estado ?? '—');
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Estado: ${estadoText}`, 14, y); doc.setFont('helvetica', 'normal'); y += 4;
+    doc.setDrawColor(200, 200, 200); doc.line(14, y, pageW - 14, y); y += 8;
+
+    // Asociado
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(16, 185, 129);
+    doc.text('DATOS DEL ASOCIADO', 14, y); y += 6;
+    doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal');
+    doc.text(`Nombre: ${liq.asociado}`, 14, y);
+    doc.text(`Cédula: ${liq.cedula}`, 110, y); y += 6;
+    if (liq.motivo) { doc.text(`Motivo: ${liq.motivo}`, 14, y); y += 6; }
+    doc.setDrawColor(200, 200, 200); doc.line(14, y, pageW - 14, y); y += 8;
+
+    // Conceptos
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(16, 185, 129);
+    doc.text('DESGLOSE DE CONCEPTOS', 14, y); y += 4;
+    doc.setTextColor(0, 0, 0);
+
+    const tableRows = (liq.conceptos || []).map((c: any) => {
+      const m = typeof c.monto === 'number' ? c.monto : (parseFloat(String(c.monto).replace(/[^\d.-]/g, '')) || 0);
+      const absM = Math.abs(m);
+      const fmtAbsM = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(absM);
+      return [c.nombre, c.tipo === 'credito' ? 'Crédito (+)' : 'Débito (−)', c.tipo === 'credito' ? fmtAbsM : `(${fmtAbsM})`];
+    });
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Concepto', 'Tipo', 'Monto']],
+      body: tableRows.length > 0 ? tableRows : [['Sin conceptos registrados', '', '—']],
+      headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      columnStyles: { 0: { cellWidth: 105 }, 1: { cellWidth: 35 }, 2: { cellWidth: 42, halign: 'right' } },
+      margin: { left: 14, right: 14 },
+    });
+
+    y = ((doc as any).lastAutoTable?.finalY ?? y + 40) + 6;
+
+    // Total
+    doc.setFillColor(235, 255, 245); doc.setDrawColor(16, 185, 129); doc.setLineWidth(0.5);
+    doc.rect(14, y - 4, pageW - 28, 14, 'FD');
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 100, 60);
+    doc.text('MONTO TOTAL DE LIQUIDACIÓN:', 18, y + 5);
+    const fmtTotal = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(liq.montoFinal);
+    doc.text(fmtTotal, pageW - 18, y + 5, { align: 'right' });
+    y += 22;
+
+    if (liq.observaciones) {
+      doc.setTextColor(0, 0, 0); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+      doc.text('Observaciones:', 14, y); y += 5;
+      const obsLines = doc.splitTextToSize(liq.observaciones, pageW - 28);
+      doc.text(obsLines, 14, y); y += obsLines.length * 5 + 6;
+    }
+
+    const selloY = Math.max(y + 8, 228);
+    doc.setFillColor(230, 248, 255); doc.setDrawColor(16, 185, 129); doc.setLineWidth(0.6);
+    doc.rect(14, selloY, pageW - 28, 44, 'FD');
+    doc.setFillColor(16, 185, 129); doc.circle(30, selloY + 22, 13, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+    doc.text('UFCA', 30, selloY + 19, { align: 'center' });
+    doc.text('VÁLIDO', 30, selloY + 25, { align: 'center' });
+    doc.setTextColor(0, 60, 100); doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+    doc.text('DOCUMENTO OFICIALMENTE VALIDADO', 50, selloY + 11);
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 50, 50);
+    doc.text('Este documento constituye constancia oficial de liquidación emitida por UFCA.', 50, selloY + 18);
+    doc.text('Válido como soporte para trámites ante entidades financieras y estatales.', 50, selloY + 24);
+    doc.setDrawColor(80, 80, 80); doc.line(50, selloY + 39, 150, selloY + 39);
+    doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(80, 80, 80);
+    doc.text('Firma y sello del Administrador UFCA', 100, selloY + 43, { align: 'center' });
+    doc.setFontSize(7); doc.setTextColor(130, 130, 130);
+    doc.text(nLiq, pageW - 16, selloY + 43, { align: 'right' });
+
+    doc.save(`Liquidacion_${nLiq}_${(liq.asociado ?? 'asociado').replace(/\s+/g, '_')}.pdf`);
+    toast.success('PDF generado correctamente');
+  } catch (err: any) {
+    console.error('Error al generar PDF:', err);
+    toast.error('Error al generar PDF: ' + err.message);
+  }
 }
 
 function LiqCard({ liq, isAdmin, onCambiarEstado }: { liq: Liq; isAdmin: boolean; onCambiarEstado?: (id: string, nuevo: string) => void }) {
@@ -133,7 +245,7 @@ function LiqCard({ liq, isAdmin, onCambiarEstado }: { liq: Liq; isAdmin: boolean
               </div>
             )}
           </div>
-          <DialogFooter className="flex items-center justify-between w-full">
+          <DialogFooter className="flex items-center justify-between w-full gap-2">
             {isAdmin && !liq.anulado && onCambiarEstado && (
               <select
                 value={liq.estado}
@@ -144,7 +256,15 @@ function LiqCard({ liq, isAdmin, onCambiarEstado }: { liq: Liq; isAdmin: boolean
                 <option value="Pagada">Pagada</option>
               </select>
             )}
-            <Button variant="outline" className={!(isAdmin && !liq.anulado) ? 'ml-auto' : ''} onClick={() => setOpen(false)}>Cerrar</Button>
+            <div className="flex items-center gap-2 ml-auto">
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                onClick={() => generateMobileLiquidacionPDF(liq)}
+              >
+                <Download className="size-4" /> PDF
+              </Button>
+              <Button variant="outline" onClick={() => setOpen(false)}>Cerrar</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -255,6 +375,7 @@ export default function LiquidacionesScreen() {
   const [usuarios, setUsuarios]   = useState<any[]>([]);
   const [search, setSearch]       = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
+  const [filtroAnio, setFiltroAnio]     = useState('');
   const [crearOpen, setCrearOpen] = useState(false);
 
   useEffect(() => { cargar(); }, [userData?.id]);
@@ -305,9 +426,31 @@ export default function LiquidacionesScreen() {
     }
   };
 
+  const anosDisponibles = (() => {
+    const yearsSet = new Set<string>();
+    const startYear = 2026;
+    const currentYear = new Date().getFullYear();
+    const endYear = Math.max(2028, currentYear + 2);
+    for (let yr = startYear; yr <= endYear; yr++) {
+      yearsSet.add(String(yr));
+    }
+    liquidaciones.forEach(l => {
+      const dateStr = l.fechaCorte || l.createdAt || '';
+      const match = dateStr.match(/^(\d{4})/);
+      if (match && parseInt(match[1], 10) >= 2026) yearsSet.add(match[1]);
+    });
+    return Array.from(yearsSet).sort((a, b) => a.localeCompare(b));
+  })();
+
   const visibles = liquidaciones.filter(l => {
     if (filtroEstado && !l.anulado && l.estado !== filtroEstado) return false;
     if (filtroEstado === 'Anulada' && !l.anulado) return false;
+    if (filtroAnio) {
+      const dateStr = l.fechaCorte || l.createdAt || '';
+      const match = dateStr.match(/^(\d{4})/);
+      const yr = match ? match[1] : null;
+      if (yr !== filtroAnio) return false;
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       return l.asociado.toLowerCase().includes(q) || l.cedula.includes(search);
@@ -365,27 +508,39 @@ export default function LiquidacionesScreen() {
       </div>
 
       {/* Filtros */}
-      {isAdmin && (
+      <div className="flex flex-col gap-2">
         <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Buscar por nombre o cédula..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="flex-1 h-9 px-3 text-sm rounded-md border border-input bg-background"
-          />
+          {isAdmin && (
+            <input
+              type="text"
+              placeholder="Buscar por nombre o cédula..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="flex-1 h-9 px-3 text-sm rounded-md border border-input bg-background"
+            />
+          )}
           <select
             value={filtroEstado}
             onChange={e => setFiltroEstado(e.target.value)}
-            className="h-9 px-2 text-xs rounded-md border border-input bg-background"
+            className={`h-9 px-2 text-xs rounded-md border border-input bg-background ${!isAdmin ? 'flex-1' : 'w-1/3'}`}
           >
-            <option value="">Todos</option>
+            <option value="">Todos los estados</option>
             <option value="En proceso">En proceso</option>
             <option value="Pagada">Pagada</option>
             <option value="Anulada">Anulada</option>
           </select>
+          <select
+            value={filtroAnio}
+            onChange={e => setFiltroAnio(e.target.value)}
+            className={`h-9 px-2 text-xs rounded-md border border-input bg-background ${!isAdmin ? 'flex-1' : 'w-1/3'}`}
+          >
+            <option value="">Todos los años</option>
+            {anosDisponibles.map(yr => (
+              <option key={yr} value={yr}>{yr}</option>
+            ))}
+          </select>
         </div>
-      )}
+      </div>
 
       {/* Lista activas */}
       {activas.length === 0 && anuladas.length === 0 ? (
