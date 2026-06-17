@@ -27,7 +27,6 @@ interface Parametros {
   tasa_vivienda:        string;
   tasa_calamidad:       string;
   tasa_mora_creditos:   string;
-  tasa_interes_ahorros: string;
   // Operativos
   aporte_minimo:                    string;
   cuotas_maximas_incumplidas:       string;
@@ -42,7 +41,6 @@ const DEFAULTS: Parametros = {
   tasa_vivienda:        '12',
   tasa_calamidad:       '10',
   tasa_mora_creditos:   '27',
-  tasa_interes_ahorros: '4',
   aporte_minimo:                      '100000',
   cuotas_maximas_incumplidas:         '3',
   dias_mora_maximo:                   '90',
@@ -100,7 +98,7 @@ export default function Configuracion({ userData }: ConfiguracionProps) {
     // Validaciones rápidas
     const tasaKeys: (keyof Parametros)[] = [
       'tasa_libre_inversion', 'tasa_educacion', 'tasa_vivienda',
-      'tasa_calamidad', 'tasa_mora_creditos', 'tasa_interes_ahorros',
+      'tasa_calamidad', 'tasa_mora_creditos',
     ];
     for (const k of tasaKeys) {
       const v = parseFloat(params[k]);
@@ -331,29 +329,7 @@ export default function Configuracion({ userData }: ConfiguracionProps) {
         </CardContent>
       </Card>
 
-      {/* ── SECCIÓN: Tasa de ahorros ────────────────────────────────────────── */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <CheckCircle className="size-4 text-emerald-500" />
-            Rendimiento — Ahorros voluntarios
-          </CardTitle>
-          <p className="text-xs text-slate-500 mt-1">
-            Tasa EA que UFCA paga a los asociados sobre sus saldos de ahorro voluntario.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="max-w-xs">
-            <TasaInput
-              clave="tasa_interes_ahorros"
-              label="Tasa de interés sobre ahorros (EA)"
-              desc="Rendimiento que la cooperativa abona periódicamente sobre ahorros voluntarios"
-              icon={<Percent className="size-3.5 text-emerald-500" />}
-              color="text-emerald-600"
-            />
-          </div>
-        </CardContent>
-      </Card>
+
 
       {/* ── SECCIÓN: Parámetros operativos ─────────────────────────────────── */}
       <Card className="border-0 shadow-sm">
