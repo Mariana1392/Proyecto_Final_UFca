@@ -12,7 +12,7 @@ import { AsociadoDialogRetiro }   from './AsociadoDialogRetiro';
 import { AsociadoDialogDetalle }  from './AsociadoDialogDetalle';
 import { formatCurrency, formatDate, getEstadoBadgeColor } from './asociadosUtils';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { validateEmail } from '../../lib/validation';
+import { validateEmail, validateEmailDomain } from '../../lib/validation';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Switch } from '../ui/switch';
@@ -241,6 +241,12 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
       return;
     }
 
+    const isDomainValid = await validateEmailDomain(formData.email);
+    if (!isDomainValid) {
+      toast.error('Error: El dominio del correo electrónico no es válido o no existe.');
+      return;
+    }
+
     const cedulaDuplicada = asociados.some(a => a.cedula === formData.cedula.trim());
     if (cedulaDuplicada) {
       toast.error('Error: Identificación duplicada', {
@@ -341,6 +347,12 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
 
     if (!validateEmail(formData.email)) {
       toast.error('❌ Error: El formato del email no es válido.');
+      return;
+    }
+
+    const isDomainValid = await validateEmailDomain(formData.email);
+    if (!isDomainValid) {
+      toast.error('❌ Error: El dominio del correo electrónico no es válido o no existe.');
       return;
     }
     const emailDuplicado = asociados.some(a =>

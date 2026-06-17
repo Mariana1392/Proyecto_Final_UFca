@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { User, Mail, AtSign, Shield, Edit, Save, X, Users, UserCheck, Clock, Phone, Lock, SendHorizonal, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
-import { validateEmail } from '../lib/validation';
+import { validateEmail, validateEmailDomain } from '../lib/validation';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function PerfilAdmin() {
@@ -134,12 +134,20 @@ export default function PerfilAdmin() {
       toast.error('El formato del correo no es válido');
       return;
     }
-    if (emailTrimmed === user?.email?.toLowerCase()) {
-      toast.error('El nuevo correo debe ser diferente al actual');
+    
+    setSendingEmail(true);
+    const isDomainValid = await validateEmailDomain(emailTrimmed);
+    if (!isDomainValid) {
+      toast.error('El dominio del correo electrónico no es válido o no existe.');
+      setSendingEmail(false);
       return;
     }
 
-    setSendingEmail(true);
+    if (emailTrimmed === user?.email?.toLowerCase()) {
+      toast.error('El nuevo correo debe ser diferente al actual');
+      setSendingEmail(false);
+      return;
+    }
     try {
       const { data, error } = await supabase.auth.updateUser(
         { email: emailTrimmed },

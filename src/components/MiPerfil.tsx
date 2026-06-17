@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
-import { validateEmail } from '../lib/validation';
+import { validateEmail, validateEmailDomain } from '../lib/validation';
 
 interface MiPerfilProps {
   userData: any;
@@ -157,6 +157,14 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
   const handleSave = async () => {
     if (!formData.email.trim()) { toast.error('El correo electrónico es obligatorio'); return; }
     if (!validateEmail(formData.email)) { toast.error('El correo no tiene formato válido'); return; }
+    
+    // Validar dominio del correo
+    const isDomainValid = await validateEmailDomain(formData.email);
+    if (!isDomainValid) {
+      toast.error('El dominio del correo electrónico no es válido o no existe.');
+      return;
+    }
+
     if (!formData.telefono.trim()) { toast.error('El teléfono es obligatorio'); return; }
 
     setSaving(true);
