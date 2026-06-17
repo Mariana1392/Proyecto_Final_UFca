@@ -195,24 +195,37 @@ export default function AhorroVoluntarioDialogDetalle({
                 </div>
               ) : (
                 <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                  {movimientosDetalle.map((mov) => (
-                    <div key={mov.id}
-                      className="flex items-center justify-between p-3 rounded-lg border bg-white border-emerald-100">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-full bg-emerald-100">
-                          <ArrowDownCircle className="size-3 text-emerald-600" />
+                  {movimientosDetalle.map((mov) => {
+                    const esRetiro = (mov.saldo_despues ?? 0) < (mov.saldo_antes ?? 0);
+                    return (
+                      <div key={mov.id}
+                        className={`flex items-center justify-between p-3 rounded-lg border bg-white ${
+                          esRetiro ? 'border-red-100' : 'border-emerald-100'
+                        }`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-full ${esRetiro ? 'bg-red-100' : 'bg-emerald-100'}`}>
+                            {esRetiro ? (
+                              <ArrowUpCircle className="size-3 text-red-600" />
+                            ) : (
+                              <ArrowDownCircle className="size-3 text-emerald-600" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-slate-700">
+                              {esRetiro ? 'Retiro' : 'Depósito'}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              <Calendar className="size-3 inline mr-1" />
+                              {mov.fecha_pago}{mov.observacion ? ` · ${mov.observacion}` : ''}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-700">Depósito</p>
-                          <p className="text-xs text-slate-400">
-                            <Calendar className="size-3 inline mr-1" />
-                            {mov.fecha_pago}{mov.observacion ? ` · ${mov.observacion}` : ''}
-                          </p>
-                        </div>
+                        <p className={`text-sm font-semibold ${esRetiro ? 'text-red-600' : 'text-emerald-600'}`}>
+                          {esRetiro ? '-' : '+'}{formatCurrency(mov.monto)}
+                        </p>
                       </div>
-                      <p className="text-sm font-semibold text-emerald-600">+{formatCurrency(mov.monto)}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

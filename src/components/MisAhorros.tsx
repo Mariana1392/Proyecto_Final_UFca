@@ -741,17 +741,26 @@ function PlanVoluntarioCard({
         </div>
         {movsVol.length > 0 ? (
           <div className="space-y-1.5 max-h-40 overflow-y-auto">
-            {movsVol.map(m => (
-              <div key={m.id} className="flex items-center justify-between py-1.5 px-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800 text-xs">
-                <div className="flex items-center gap-2">
-                  <ArrowUpCircle className="size-3.5 text-blue-400 shrink-0" />
-                  <span className="text-slate-600 dark:text-slate-400">Depósito · {m.fecha_pago}</span>
+            {movsVol.map(m => {
+              const esRetiro = (m.saldo_despues ?? 0) < (m.saldo_antes ?? 0);
+              return (
+                <div key={m.id} className="flex items-center justify-between py-1.5 px-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800 text-xs">
+                  <div className="flex items-center gap-2">
+                    {esRetiro ? (
+                      <ArrowDownCircle className="size-3.5 text-red-500 shrink-0" />
+                    ) : (
+                      <ArrowUpCircle className="size-3.5 text-blue-400 shrink-0" />
+                    )}
+                    <span className="text-slate-600 dark:text-slate-400">
+                      {esRetiro ? 'Retiro' : 'Depósito'} · {m.fecha_pago}
+                    </span>
+                  </div>
+                  <span className={`font-semibold ${esRetiro ? 'text-red-600' : 'text-blue-600'}`}>
+                    {esRetiro ? '-' : '+'}{formatCurrency(m.monto ?? 0)}
+                  </span>
                 </div>
-                <span className="font-semibold text-blue-600">
-                  +{formatCurrency(m.monto ?? 0)}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="text-xs text-slate-400 text-center py-1">Sin pagos registrados aún</p>

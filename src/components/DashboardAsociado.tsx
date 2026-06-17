@@ -83,7 +83,7 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
 
         // Últimos aportes ahorro voluntario
         supabase.from('transacciones')
-          .select('id, fecha_pago, monto, created_at')
+          .select('id, fecha_pago, monto, created_at, saldo_antes, saldo_despues')
           .eq('tipo', 'aporte_voluntario')
           .eq('asociado_id', asociadoId)
           .order('created_at', { ascending: false })
@@ -126,14 +126,17 @@ export default function DashboardAsociado({ userData, onNavigate }: Props) {
           created_at:     m.created_at,
           fecha_pago:     m.fecha_pago,
         })),
-        ...(pagosVolRes.data || []).map((m: any) => ({
-          id:             m.id,
-          tipo_movimiento: 'Depósito',
-          fuente:         'Ahorro Voluntario',
-          monto:          m.monto,
-          created_at:     m.created_at,
-          fecha_pago:     m.fecha_pago,
-        })),
+        ...(pagosVolRes.data || []).map((m: any) => {
+          const esRetiro = (m.saldo_despues ?? 0) < (m.saldo_antes ?? 0);
+          return {
+            id:             m.id,
+            tipo_movimiento: esRetiro ? 'Retiro' : 'Depósito',
+            fuente:         'Ahorro Voluntario',
+            monto:          m.monto,
+            created_at:     m.created_at,
+            fecha_pago:     m.fecha_pago,
+          };
+        }),
       ]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 5);

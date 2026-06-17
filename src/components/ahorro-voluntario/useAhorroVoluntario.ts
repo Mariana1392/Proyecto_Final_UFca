@@ -332,7 +332,10 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
     .slice(0, 8);
 
   // Resumen para el tab de transacciones
-  const totalDepositado = movimientosDetalle.reduce((s, m) => s + (m.monto ?? 0), 0);
+  const totalDepositado = movimientosDetalle.reduce((s, m) => {
+    const esRetiro = (m.saldo_despues ?? 0) < (m.saldo_antes ?? 0);
+    return s + (esRetiro ? 0 : (m.monto ?? 0));
+  }, 0);
   const saldoRealMov    = selectedItem?.montoAhorrado ?? 0;
 
   // ── Handlers de formulario ────────────────────────────────────────────────
