@@ -1,0 +1,3589 @@
+DETAILED SCHEMA AUDIT REPORT
+============================
+
+TABLE: roles
+------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: nombre
+    Frontend Occurrences: 640
+    Backend SQL Logic Occurrences: 155
+    Type Definition Occurrences: 5
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (14 occ)
+      - mobile-app/src/lib/permissions.ts (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/diagnostico_bd.sql (1 occ)
+      - PostgrelSQL/limpiar_datos_prueba.sql (2 occ)
+      - PostgrelSQL/limpiar_datos_prueba_v2.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: descripcion
+    Frontend Occurrences: 113
+    Backend SQL Logic Occurrences: 37
+    Type Definition Occurrences: 4
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (2 occ)
+      - src/components/ahorro-permanente/AhorroDialogDetalle.tsx (2 occ)
+      - src/components/ahorro-permanente/AhorroTabla.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (4 occ)
+      - PostgrelSQL/supabase_configuracion_referido.sql (2 occ)
+      - PostgrelSQL/supabase_crear_evento.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: activo
+    Frontend Occurrences: 351
+    Backend SQL Logic Occurrences: 201
+    Type Definition Occurrences: 7
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (14 occ)
+      - mobile-app/src/lib/permissions.ts (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (9 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (9 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (3 occ)
+      - PostgrelSQL/supabase_asociados_upgrade.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: es_sistema
+    Frontend Occurrences: 6
+    Backend SQL Logic Occurrences: 6
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (2 occ)
+      - src/components/GestionUsuarios.tsx (2 occ)
+      - src/components/Roles.tsx (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (4 occ)
+      - PostgrelSQL/supabase_roles_rls_fix.sql (1 occ)
+      - PostgrelSQL/supabase_seed_permisos.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: label
+    Frontend Occurrences: 570
+    Backend SQL Logic Occurrences: 17
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - mobile-app/src/components/MobileLayout.tsx (8 occ)
+      - mobile-app/src/components/ui/breadcrumb.tsx (1 occ)
+      - mobile-app/src/components/ui/chart.tsx (10 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (11 occ)
+      - PostgrelSQL/supabase_rol_usuario.sql (1 occ)
+      - PostgrelSQL/supabase_seed_permisos.sql (5 occ)
+    STATUS: ACTIVE
+
+TABLE: usuarios
+---------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: rol_id
+    Frontend Occurrences: 50
+    Backend SQL Logic Occurrences: 70
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 8
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (7 occ)
+      - mobile-app/src/screens/Reportes.tsx (1 occ)
+      - mobile-app/src/screens/Usuarios.tsx (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/limpiar_datos_prueba.sql (2 occ)
+      - PostgrelSQL/limpiar_datos_prueba_v2.sql (3 occ)
+      - PostgrelSQL/supabase_borrar_asociados_no_admin.sql (4 occ)
+    STATUS: ACTIVE
+
+  COLUMN: nombre
+    Frontend Occurrences: 640
+    Backend SQL Logic Occurrences: 155
+    Type Definition Occurrences: 5
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (14 occ)
+      - mobile-app/src/lib/permissions.ts (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/diagnostico_bd.sql (1 occ)
+      - PostgrelSQL/limpiar_datos_prueba.sql (2 occ)
+      - PostgrelSQL/limpiar_datos_prueba_v2.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: email
+    Frontend Occurrences: 425
+    Backend SQL Logic Occurrences: 95
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (12 occ)
+      - mobile-app/src/screens/Login.tsx (6 occ)
+      - mobile-app/src/screens/Perfil.tsx (22 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_borrar_asociados_no_admin.sql (2 occ)
+      - PostgrelSQL/supabase_creditos_upgrade.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: activo
+    Frontend Occurrences: 351
+    Backend SQL Logic Occurrences: 201
+    Type Definition Occurrences: 7
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (14 occ)
+      - mobile-app/src/lib/permissions.ts (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (9 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (9 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (3 occ)
+      - PostgrelSQL/supabase_asociados_upgrade.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: username
+    Frontend Occurrences: 81
+    Backend SQL Logic Occurrences: 7
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (9 occ)
+      - mobile-app/src/screens/Usuarios.tsx (2 occ)
+      - src/components/GestionUsuarios.tsx (48 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+      - PostgrelSQL/supabase_usuarios_upgrade.sql (6 occ)
+    STATUS: ACTIVE
+
+  COLUMN: ultimo_acceso
+    Frontend Occurrences: 6
+    Backend SQL Logic Occurrences: 4
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - src/components/GestionUsuarios.tsx (2 occ)
+      - src/components/Login.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+      - PostgrelSQL/supabase_usuarios_upgrade.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: telefono
+    Frontend Occurrences: 225
+    Backend SQL Logic Occurrences: 34
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (11 occ)
+      - mobile-app/src/screens/Perfil.tsx (18 occ)
+      - src/components/AsociadoDetalle.tsx (8 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_add_telefono_direccion_usuarios.sql (3 occ)
+      - PostgrelSQL/supabase_create_tabla_referidos.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: direccion
+    Frontend Occurrences: 124
+    Backend SQL Logic Occurrences: 32
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Perfil.tsx (9 occ)
+      - src/components/AsociadoDetalle.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_add_telefono_direccion_usuarios.sql (3 occ)
+      - PostgrelSQL/supabase_fixes.sql (2 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: cedula
+    Frontend Occurrences: 525
+    Backend SQL Logic Occurrences: 60
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (11 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (6 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_asociados_upgrade.sql (1 occ)
+      - PostgrelSQL/supabase_borrar_asociados_no_admin.sql (5 occ)
+      - PostgrelSQL/supabase_create_tabla_referidos.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_ingreso
+    Frontend Occurrences: 24
+    Backend SQL Logic Occurrences: 13
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/screens/Perfil.tsx (2 occ)
+      - src/components/AsociadoDetalle.tsx (5 occ)
+      - src/components/asociados/Asociados.tsx (3 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (1 occ)
+      - PostgrelSQL/supabase_fix_fecha_ingreso.sql (5 occ)
+    STATUS: ACTIVE
+
+  COLUMN: referido_por_id
+    Frontend Occurrences: 11
+    Backend SQL Logic Occurrences: 12
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/AsociadoDetalle.tsx (3 occ)
+      - src/components/DashboardAsociado.tsx (1 occ)
+      - src/components/MiPerfil.tsx (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_fk_definitivo_real.sql (1 occ)
+      - PostgrelSQL/supabase_borrar_asociados_no_admin.sql (3 occ)
+      - PostgrelSQL/supabase_indices_y_constraints.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: estado_cuenta
+    Frontend Occurrences: 31
+    Backend SQL Logic Occurrences: 15
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 6
+    Sample Frontend Files:
+      - mobile-app/src/screens/Dashboard.tsx (1 occ)
+      - mobile-app/src/screens/Perfil.tsx (1 occ)
+      - mobile-app/src/screens/Usuarios.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (1 occ)
+      - PostgrelSQL/supabase_fix_fecha_ingreso.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_suspension
+    Frontend Occurrences: 10
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/ComiteEvaluador.tsx (4 occ)
+      - src/components/gestion-usuarios/useExpulsion.ts (1 occ)
+      - src/services/businessRules.ts (5 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_suspension.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: motivo_suspension
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/gestion-usuarios/useExpulsion.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_suspension.sql (1 occ)
+    STATUS: ACTIVE
+
+TABLE: permisos
+---------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: clave
+    Frontend Occurrences: 185
+    Backend SQL Logic Occurrences: 48
+    Type Definition Occurrences: 4
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (3 occ)
+      - mobile-app/src/screens/Roles.tsx (28 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/diagnostico_fk.sql (1 occ)
+      - PostgrelSQL/supabase_configuracion_referido.sql (5 occ)
+      - PostgrelSQL/supabase_fixes.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: label
+    Frontend Occurrences: 570
+    Backend SQL Logic Occurrences: 17
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - mobile-app/src/components/MobileLayout.tsx (8 occ)
+      - mobile-app/src/components/ui/breadcrumb.tsx (1 occ)
+      - mobile-app/src/components/ui/chart.tsx (10 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (11 occ)
+      - PostgrelSQL/supabase_rol_usuario.sql (1 occ)
+      - PostgrelSQL/supabase_seed_permisos.sql (5 occ)
+    STATUS: ACTIVE
+
+  COLUMN: descripcion
+    Frontend Occurrences: 113
+    Backend SQL Logic Occurrences: 37
+    Type Definition Occurrences: 4
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (2 occ)
+      - src/components/ahorro-permanente/AhorroDialogDetalle.tsx (2 occ)
+      - src/components/ahorro-permanente/AhorroTabla.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (4 occ)
+      - PostgrelSQL/supabase_configuracion_referido.sql (2 occ)
+      - PostgrelSQL/supabase_crear_evento.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: grupo
+    Frontend Occurrences: 22
+    Backend SQL Logic Occurrences: 8
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/Layout.tsx (3 occ)
+      - src/components/Roles.tsx (19 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (6 occ)
+      - PostgrelSQL/supabase_seed_permisos.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: activo
+    Frontend Occurrences: 351
+    Backend SQL Logic Occurrences: 201
+    Type Definition Occurrences: 7
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (14 occ)
+      - mobile-app/src/lib/permissions.ts (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (9 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (9 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (3 occ)
+      - PostgrelSQL/supabase_asociados_upgrade.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+TABLE: rol_permisos
+-------------------
+  COLUMN: rol_id
+    Frontend Occurrences: 50
+    Backend SQL Logic Occurrences: 70
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 8
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (7 occ)
+      - mobile-app/src/screens/Reportes.tsx (1 occ)
+      - mobile-app/src/screens/Usuarios.tsx (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/limpiar_datos_prueba.sql (2 occ)
+      - PostgrelSQL/limpiar_datos_prueba_v2.sql (3 occ)
+      - PostgrelSQL/supabase_borrar_asociados_no_admin.sql (4 occ)
+    STATUS: ACTIVE
+
+  COLUMN: permiso_clave
+    Frontend Occurrences: 18
+    Backend SQL Logic Occurrences: 21
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (4 occ)
+      - src/components/Login.tsx (2 occ)
+      - src/components/Roles.tsx (8 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (3 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (4 occ)
+      - PostgrelSQL/supabase_security_admin_permisos.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: asignado_en
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 0
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    STATUS: POTENTIALLY UNUSED (Only in schema/types)
+
+  COLUMN: activo
+    Frontend Occurrences: 351
+    Backend SQL Logic Occurrences: 201
+    Type Definition Occurrences: 7
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (14 occ)
+      - mobile-app/src/lib/permissions.ts (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (9 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (9 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (3 occ)
+      - PostgrelSQL/supabase_asociados_upgrade.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+TABLE: configuracion
+--------------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: clave
+    Frontend Occurrences: 185
+    Backend SQL Logic Occurrences: 48
+    Type Definition Occurrences: 4
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (3 occ)
+      - mobile-app/src/screens/Roles.tsx (28 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/diagnostico_fk.sql (1 occ)
+      - PostgrelSQL/supabase_configuracion_referido.sql (5 occ)
+      - PostgrelSQL/supabase_fixes.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: valor
+    Frontend Occurrences: 79
+    Backend SQL Logic Occurrences: 40
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (2 occ)
+      - mobile-app/src/screens/Roles.tsx (6 occ)
+      - src/components/ahorro-permanente/AhorroDialogAporte.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (2 occ)
+      - PostgrelSQL/supabase_configuracion_referido.sql (2 occ)
+      - PostgrelSQL/supabase_fixes.sql (6 occ)
+    STATUS: ACTIVE
+
+  COLUMN: descripcion
+    Frontend Occurrences: 113
+    Backend SQL Logic Occurrences: 37
+    Type Definition Occurrences: 4
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (2 occ)
+      - src/components/ahorro-permanente/AhorroDialogDetalle.tsx (2 occ)
+      - src/components/ahorro-permanente/AhorroTabla.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (4 occ)
+      - PostgrelSQL/supabase_configuracion_referido.sql (2 occ)
+      - PostgrelSQL/supabase_crear_evento.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+TABLE: periodos
+---------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_inicio
+    Frontend Occurrences: 10
+    Backend SQL Logic Occurrences: 36
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/ahorroPermanenteUtils.ts (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-voluntario/useAhorroVoluntario.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (8 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_fin
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 11
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+      - PostgrelSQL/supabase_FIX_FINAL_COMPLETO.sql (1 occ)
+      - PostgrelSQL/supabase_fix_insertar_liquidacion.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: estado
+    Frontend Occurrences: 841
+    Backend SQL Logic Occurrences: 251
+    Type Definition Occurrences: 5
+    Schema Definition Occurrences: 18
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (10 occ)
+      - mobile-app/src/screens/Ahorros.tsx (14 occ)
+      - mobile-app/src/screens/Creditos.tsx (14 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (11 occ)
+      - PostgrelSQL/supabase_asociados_upgrade.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_cierre
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 8
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/lib/api.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (1 occ)
+      - PostgrelSQL/supabase_mejoras_v1.sql (3 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: cerrado_por
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 8
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 2
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_mejoras_v2.sql (5 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: utilidad_total
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: utilidad_por_asociado
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: num_asociados_activos
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: nombre
+    Frontend Occurrences: 640
+    Backend SQL Logic Occurrences: 155
+    Type Definition Occurrences: 5
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (14 occ)
+      - mobile-app/src/lib/permissions.ts (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/diagnostico_bd.sql (1 occ)
+      - PostgrelSQL/limpiar_datos_prueba.sql (2 occ)
+      - PostgrelSQL/limpiar_datos_prueba_v2.sql (3 occ)
+    STATUS: ACTIVE
+
+TABLE: solicitudes_asociados
+----------------------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: nombres
+    Frontend Occurrences: 61
+    Backend SQL Logic Occurrences: 18
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/asociados/AsociadoDialogPago.tsx (1 occ)
+      - src/components/asociados/Asociados.tsx (1 occ)
+      - src/components/asociados/usePagos.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_fk_usuarios_auto.sql (1 occ)
+      - PostgrelSQL/supabase_drop_all.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: apellidos
+    Frontend Occurrences: 53
+    Backend SQL Logic Occurrences: 10
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/asociados/AsociadoDialogPago.tsx (1 occ)
+      - src/components/asociados/Asociados.tsx (1 occ)
+      - src/components/asociados/usePagos.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (1 occ)
+      - PostgrelSQL/supabase_FIX_FINAL_COMPLETO.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: cedula
+    Frontend Occurrences: 525
+    Backend SQL Logic Occurrences: 60
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (11 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (6 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_asociados_upgrade.sql (1 occ)
+      - PostgrelSQL/supabase_borrar_asociados_no_admin.sql (5 occ)
+      - PostgrelSQL/supabase_create_tabla_referidos.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: tipo_identificacion
+    Frontend Occurrences: 10
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/ComiteEvaluador.tsx (3 occ)
+      - src/components/MiSolicitud.tsx (7 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: telefono
+    Frontend Occurrences: 225
+    Backend SQL Logic Occurrences: 34
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (11 occ)
+      - mobile-app/src/screens/Perfil.tsx (18 occ)
+      - src/components/AsociadoDetalle.tsx (8 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_add_telefono_direccion_usuarios.sql (3 occ)
+      - PostgrelSQL/supabase_create_tabla_referidos.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: email
+    Frontend Occurrences: 425
+    Backend SQL Logic Occurrences: 95
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (12 occ)
+      - mobile-app/src/screens/Login.tsx (6 occ)
+      - mobile-app/src/screens/Perfil.tsx (22 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_borrar_asociados_no_admin.sql (2 occ)
+      - PostgrelSQL/supabase_creditos_upgrade.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: direccion
+    Frontend Occurrences: 124
+    Backend SQL Logic Occurrences: 32
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Perfil.tsx (9 occ)
+      - src/components/AsociadoDetalle.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_add_telefono_direccion_usuarios.sql (3 occ)
+      - PostgrelSQL/supabase_fixes.sql (2 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: ocupacion
+    Frontend Occurrences: 34
+    Backend SQL Logic Occurrences: 15
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/ComiteEvaluador.tsx (14 occ)
+      - src/components/Hero.tsx (8 occ)
+      - src/components/MiSolicitud.tsx (11 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (2 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (2 occ)
+      - PostgrelSQL/supabase_FIX_FINAL_COMPLETO.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: ingreso_mensual
+    Frontend Occurrences: 20
+    Backend SQL Logic Occurrences: 25
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/ComiteEvaluador.tsx (6 occ)
+      - src/components/creditos/useCreditosCRUD.ts (3 occ)
+      - src/components/creditos/useCreditosSolicitudes.ts (3 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (3 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (5 occ)
+      - PostgrelSQL/supabase_FIX_FINAL_COMPLETO.sql (4 occ)
+    STATUS: ACTIVE
+
+  COLUMN: motivacion
+    Frontend Occurrences: 34
+    Backend SQL Logic Occurrences: 2
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/ComiteEvaluador.tsx (11 occ)
+      - src/components/Hero.tsx (8 occ)
+      - src/components/MiSolicitud.tsx (15 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+      - PostgrelSQL/supabase_rol_usuario.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: estado
+    Frontend Occurrences: 841
+    Backend SQL Logic Occurrences: 251
+    Type Definition Occurrences: 5
+    Schema Definition Occurrences: 18
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (10 occ)
+      - mobile-app/src/screens/Ahorros.tsx (14 occ)
+      - mobile-app/src/screens/Creditos.tsx (14 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (11 occ)
+      - PostgrelSQL/supabase_asociados_upgrade.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: documentos
+    Frontend Occurrences: 85
+    Backend SQL Logic Occurrences: 45
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanenteAportes.ts (2 occ)
+      - src/components/asociados/usePagos.ts (2 occ)
+      - src/components/ComiteEvaluador.tsx (22 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (1 occ)
+      - PostgrelSQL/supabase_crear_liquidacion_documentos.sql (5 occ)
+      - PostgrelSQL/supabase_creditos_upgrade.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: observaciones
+    Frontend Occurrences: 99
+    Backend SQL Logic Occurrences: 18
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (9 occ)
+      - mobile-app/src/screens/Liquidaciones.tsx (10 occ)
+      - src/components/ahorro-permanente/AhorroDialogCrear.tsx (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_create_tabla_referidos.sql (1 occ)
+      - PostgrelSQL/supabase_credito_solicitudes.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_solicitud
+    Frontend Occurrences: 12
+    Backend SQL Logic Occurrences: 2
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/asociados/Asociados.tsx (1 occ)
+      - src/components/asociados/usePagos.ts (2 occ)
+      - src/components/ComiteEvaluador.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+      - PostgrelSQL/supabase_rol_usuario.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_resolucion
+    Frontend Occurrences: 5
+    Backend SQL Logic Occurrences: 15
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/ComiteEvaluador.tsx (2 occ)
+      - supabase/functions/recordatorio-activacion/index.ts (3 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (2 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (1 occ)
+      - PostgrelSQL/supabase_fix_aprobar_usuarios.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_activacion
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 14
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 2
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: usuario_id
+    Frontend Occurrences: 90
+    Backend SQL Logic Occurrences: 86
+    Type Definition Occurrences: 4
+    Schema Definition Occurrences: 10
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/ahorroPermanenteUtils.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (2 occ)
+      - PostgrelSQL/fix_todas_fk_usuarios.sql (2 occ)
+      - PostgrelSQL/limpiar_datos_prueba_v2.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: resuelto_por
+    Frontend Occurrences: 9
+    Backend SQL Logic Occurrences: 11
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - src/components/ExcepcionesManager.tsx (5 occ)
+      - src/lib/api.ts (2 occ)
+      - src/services/businessRules.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_todas_fk_usuarios.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (4 occ)
+      - PostgrelSQL/supabase_fix_fk_eliminacion_DEFINITIVO.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: monto_ahorro_propuesto
+    Frontend Occurrences: 15
+    Backend SQL Logic Occurrences: 19
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/asociados/AsociadoDialogPago.tsx (2 occ)
+      - src/components/asociados/usePagos.ts (1 occ)
+      - src/components/ComiteEvaluador.tsx (5 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_add_monto_ahorro_propuesto.sql (3 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (4 occ)
+      - PostgrelSQL/supabase_fix_aprobar_usuarios.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: aprobado_por
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 29
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 2
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_fk_definitivo_real.sql (1 occ)
+      - PostgrelSQL/fix_todas_fk_usuarios.sql (2 occ)
+      - PostgrelSQL/supabase_drop_creditos_columnas_unused.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: recordatorio_enviado_at
+    Frontend Occurrences: 5
+    Backend SQL Logic Occurrences: 0
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - supabase/functions/recordatorio-activacion/index.ts (5 occ)
+    STATUS: ACTIVE
+
+  COLUMN: ultima_invitacion
+    Frontend Occurrences: 6
+    Backend SQL Logic Occurrences: 0
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/ComiteEvaluador.tsx (6 occ)
+    STATUS: ACTIVE
+
+TABLE: comite_evaluador
+-----------------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: solicitud_asociado_id
+    Frontend Occurrences: 3
+    Backend SQL Logic Occurrences: 12
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/ComiteEvaluador.tsx (3 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_borrar_asociados_no_admin.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (2 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: evaluador_id
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 6
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/ComiteEvaluador.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_todas_fk_usuarios.sql (1 occ)
+      - PostgrelSQL/supabase_mejoras_v2.sql (3 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: verificaciones
+    Frontend Occurrences: 15
+    Backend SQL Logic Occurrences: 7
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/ComiteEvaluador.tsx (15 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fix_schema_constraints.sql (6 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: score_credito
+    Frontend Occurrences: 3
+    Backend SQL Logic Occurrences: 2
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - src/components/ComiteEvaluador.tsx (3 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: comentarios
+    Frontend Occurrences: 4
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/ComiteEvaluador.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: decision
+    Frontend Occurrences: 6
+    Backend SQL Logic Occurrences: 22
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/ComiteEvaluador.tsx (2 occ)
+      - src/components/ExcepcionesManager.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (4 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (2 occ)
+      - PostgrelSQL/supabase_fix_aprobar_usuarios.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: observacion
+    Frontend Occurrences: 27
+    Backend SQL Logic Occurrences: 11
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanenteAportes.ts (3 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (1 occ)
+      - src/components/ahorro-voluntario/AhorroVoluntarioDialogDetalle.tsx (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+      - PostgrelSQL/supabase_fix_definitivo.sql (1 occ)
+      - PostgrelSQL/supabase_FIX_FINAL_COMPLETO.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha
+    Frontend Occurrences: 159
+    Backend SQL Logic Occurrences: 71
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - mobile-app/src/screens/Liquidaciones.tsx (2 occ)
+      - mobile-app/src/screens/Reportes.tsx (1 occ)
+      - src/components/ahorro-permanente/AhorroDialogAporte.tsx (3 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (2 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_crear_evento.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+TABLE: creditos
+---------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: asociado_id
+    Frontend Occurrences: 283
+    Backend SQL Logic Occurrences: 359
+    Type Definition Occurrences: 7
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (8 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (3 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (10 occ)
+    STATUS: ACTIVE
+
+  COLUMN: periodo_id
+    Frontend Occurrences: 10
+    Backend SQL Logic Occurrences: 61
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 8
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanenteAportes.ts (3 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (2 occ)
+      - src/components/ahorro-voluntario/useAhorroVoluntario.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (3 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (2 occ)
+      - PostgrelSQL/supabase_fix_aprobar_usuarios.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: tipo
+    Frontend Occurrences: 452
+    Backend SQL Logic Occurrences: 166
+    Type Definition Occurrences: 13
+    Schema Definition Occurrences: 18
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (15 occ)
+      - mobile-app/src/screens/Creditos.tsx (25 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/diagnostico_bd.sql (1 occ)
+      - PostgrelSQL/diagnostico_fk.sql (1 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (7 occ)
+    STATUS: ACTIVE
+
+  COLUMN: monto
+    Frontend Occurrences: 487
+    Backend SQL Logic Occurrences: 86
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 6
+    Sample Frontend Files:
+      - mobile-app/src/screens/Ahorros.tsx (5 occ)
+      - mobile-app/src/screens/Creditos.tsx (45 occ)
+      - mobile-app/src/screens/Liquidaciones.tsx (7 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (2 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (5 occ)
+      - PostgrelSQL/supabase_confirmar_simulacion.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: plazo_meses
+    Frontend Occurrences: 35
+    Backend SQL Logic Occurrences: 26
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (6 occ)
+      - mobile-app/src/screens/Perfil.tsx (2 occ)
+      - mobile-app/src/screens/Reportes.tsx (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_credito_solicitudes.sql (2 occ)
+      - PostgrelSQL/supabase_fixes.sql (6 occ)
+      - PostgrelSQL/supabase_fix_creditos_plazo_constraint.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: tasa_interes
+    Frontend Occurrences: 29
+    Backend SQL Logic Occurrences: 5
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (6 occ)
+      - mobile-app/src/screens/Perfil.tsx (2 occ)
+      - mobile-app/src/screens/Reportes.tsx (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_creditos_upgrade.sql (3 occ)
+      - PostgrelSQL/supabase_credito_solicitudes.sql (1 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: tasa_mora
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - src/components/gestion-usuarios/useExpulsion.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: cuota_mensual
+    Frontend Occurrences: 64
+    Backend SQL Logic Occurrences: 27
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (6 occ)
+      - mobile-app/src/screens/Perfil.tsx (5 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (1 occ)
+      - PostgrelSQL/supabase_fix_aprobar_usuarios.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: saldo
+    Frontend Occurrences: 317
+    Backend SQL Logic Occurrences: 31
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (24 occ)
+      - mobile-app/src/screens/Dashboard.tsx (2 occ)
+      - mobile-app/src/screens/Perfil.tsx (7 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (3 occ)
+      - PostgrelSQL/supabase_confirmar_simulacion.sql (1 occ)
+      - PostgrelSQL/supabase_fix_confirmar_simulacion.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: estado
+    Frontend Occurrences: 841
+    Backend SQL Logic Occurrences: 251
+    Type Definition Occurrences: 5
+    Schema Definition Occurrences: 18
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (10 occ)
+      - mobile-app/src/screens/Ahorros.tsx (14 occ)
+      - mobile-app/src/screens/Creditos.tsx (14 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (11 occ)
+      - PostgrelSQL/supabase_asociados_upgrade.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_desembolso
+    Frontend Occurrences: 32
+    Backend SQL Logic Occurrences: 7
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (5 occ)
+      - mobile-app/src/screens/Perfil.tsx (2 occ)
+      - src/components/AsociadoDetalle.tsx (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_confirmar_simulacion.sql (1 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+      - PostgrelSQL/supabase_pg_cron_mora_automatica.sql (5 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_primera_cuota
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_ultima_cuota
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_estado_cambio
+    Frontend Occurrences: 12
+    Backend SQL Logic Occurrences: 16
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/creditos/useCreditos.ts (2 occ)
+      - src/components/creditos/useCreditosCRUD.ts (1 occ)
+      - src/components/creditos/useCreditosDesembolso.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (2 occ)
+      - PostgrelSQL/supabase_confirmar_simulacion.sql (1 occ)
+      - PostgrelSQL/supabase_creditos_upgrade.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: motivo_estado_cambio
+    Frontend Occurrences: 15
+    Backend SQL Logic Occurrences: 14
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+      - src/components/creditos/CreditoVistaAsociado.tsx (1 occ)
+      - src/components/creditos/useCreditos.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_confirmar_simulacion.sql (1 occ)
+      - PostgrelSQL/supabase_creditos_upgrade.sql (3 occ)
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: url_comprobante_solicitud
+    Frontend Occurrences: 5
+    Backend SQL Logic Occurrences: 4
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/creditos/useCreditos.ts (1 occ)
+      - src/components/creditos/useCreditosCRUD.ts (2 occ)
+      - src/components/creditos/useCreditosSolicitudes.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fix_creditos_columnas_faltantes.sql (3 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: anulado
+    Frontend Occurrences: 320
+    Backend SQL Logic Occurrences: 108
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 6
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (21 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (4 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: motivo_anulacion
+    Frontend Occurrences: 12
+    Backend SQL Logic Occurrences: 13
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (1 occ)
+      - src/components/ahorro-voluntario/useAhorroVoluntario.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_creditos_upgrade.sql (3 occ)
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (4 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: observaciones
+    Frontend Occurrences: 99
+    Backend SQL Logic Occurrences: 18
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (9 occ)
+      - mobile-app/src/screens/Liquidaciones.tsx (10 occ)
+      - src/components/ahorro-permanente/AhorroDialogCrear.tsx (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_create_tabla_referidos.sql (1 occ)
+      - PostgrelSQL/supabase_credito_solicitudes.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: tipo_interes
+    Frontend Occurrences: 12
+    Backend SQL Logic Occurrences: 3
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (5 occ)
+      - src/components/creditos/useCreditos.ts (1 occ)
+      - src/components/creditos/useCreditosCRUD.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_pg_cron_mora_automatica.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: anulado_por
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 11
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 7
+    Sample Frontend Files:
+      - src/components/liquidaciones/useLiquidacionesCRUD.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_fk_definitivo_real.sql (3 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (2 occ)
+      - PostgrelSQL/supabase_migrar_liquidaciones_columnas.sql (6 occ)
+    STATUS: ACTIVE
+
+  COLUMN: anulado_en
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 8
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - src/components/liquidaciones/useLiquidacionesCRUD.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (2 occ)
+      - PostgrelSQL/supabase_migrar_liquidaciones_columnas.sql (6 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: estado_anterior_mora
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 4
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_pg_cron_mora_automatica.sql (4 occ)
+    STATUS: ACTIVE
+
+  COLUMN: referido_nombre
+    Frontend Occurrences: 4
+    Backend SQL Logic Occurrences: 10
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/creditos/useCreditos.ts (1 occ)
+      - src/components/creditos/useCreditosCRUD.ts (2 occ)
+      - src/components/creditos/useCreditosSolicitudes.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_add_referido_nombre_creditos.sql (4 occ)
+      - PostgrelSQL/supabase_drop_creditos_columnas_unused.sql (1 occ)
+      - PostgrelSQL/supabase_fix_idx_credito_activo_referidos.sql (3 occ)
+    STATUS: ACTIVE
+
+TABLE: cuotas_credito
+---------------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: credito_id
+    Frontend Occurrences: 10
+    Backend SQL Logic Occurrences: 30
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 6
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (1 occ)
+      - src/components/creditos/useCreditosPagos.ts (1 occ)
+      - src/components/creditos/useCreditosSimulacion.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_borrar_asociados_no_admin.sql (1 occ)
+      - PostgrelSQL/supabase_creditos_simulacion.sql (2 occ)
+      - PostgrelSQL/supabase_fixes.sql (5 occ)
+    STATUS: ACTIVE
+
+  COLUMN: num_cuota
+    Frontend Occurrences: 15
+    Backend SQL Logic Occurrences: 8
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/creditos/CreditoDialogDetalle.tsx (3 occ)
+      - src/components/creditos/CreditoDialogPago.tsx (2 occ)
+      - src/components/creditos/CreditoVistaAsociado.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fix_definitivo.sql (1 occ)
+      - PostgrelSQL/supabase_fix_pagos_credito.sql (1 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_vencimiento
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 4
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (2 occ)
+      - PostgrelSQL/supabase_pg_cron_mora_automatica.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: capital
+    Frontend Occurrences: 73
+    Backend SQL Logic Occurrences: 9
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+      - src/components/ComiteEvaluador.tsx (1 occ)
+      - src/components/creditos/CreditoDialogDetalle.tsx (10 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fix_definitivo.sql (1 occ)
+      - PostgrelSQL/supabase_fix_pagos_credito.sql (1 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: interes
+    Frontend Occurrences: 56
+    Backend SQL Logic Occurrences: 12
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+      - mobile-app/src/screens/Dashboard.tsx (2 occ)
+      - src/components/ComiteEvaluador.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fix_definitivo.sql (1 occ)
+      - PostgrelSQL/supabase_fix_pagos_credito.sql (1 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: cuota_total
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: saldo_inicial
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: saldo_final
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: estado
+    Frontend Occurrences: 841
+    Backend SQL Logic Occurrences: 251
+    Type Definition Occurrences: 5
+    Schema Definition Occurrences: 18
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (10 occ)
+      - mobile-app/src/screens/Ahorros.tsx (14 occ)
+      - mobile-app/src/screens/Creditos.tsx (14 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (11 occ)
+      - PostgrelSQL/supabase_asociados_upgrade.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+TABLE: liquidaciones
+--------------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: asociado_id
+    Frontend Occurrences: 283
+    Backend SQL Logic Occurrences: 359
+    Type Definition Occurrences: 7
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (8 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (3 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (10 occ)
+    STATUS: ACTIVE
+
+  COLUMN: periodo_id
+    Frontend Occurrences: 10
+    Backend SQL Logic Occurrences: 61
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 8
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanenteAportes.ts (3 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (2 occ)
+      - src/components/ahorro-voluntario/useAhorroVoluntario.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (3 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (2 occ)
+      - PostgrelSQL/supabase_fix_aprobar_usuarios.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: usuario_id
+    Frontend Occurrences: 90
+    Backend SQL Logic Occurrences: 86
+    Type Definition Occurrences: 4
+    Schema Definition Occurrences: 10
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/ahorroPermanenteUtils.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (2 occ)
+      - PostgrelSQL/fix_todas_fk_usuarios.sql (2 occ)
+      - PostgrelSQL/limpiar_datos_prueba_v2.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: tipo
+    Frontend Occurrences: 452
+    Backend SQL Logic Occurrences: 166
+    Type Definition Occurrences: 13
+    Schema Definition Occurrences: 18
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (15 occ)
+      - mobile-app/src/screens/Creditos.tsx (25 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/diagnostico_bd.sql (1 occ)
+      - PostgrelSQL/diagnostico_fk.sql (1 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (7 occ)
+    STATUS: ACTIVE
+
+  COLUMN: total_ahorro_permanente
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: total_ahorro_voluntario
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: total_deudas_credito
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: utilidades
+    Frontend Occurrences: 12
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/creditos/CreditoDialogsConfirmacion.tsx (1 occ)
+      - src/components/Dashboard.tsx (2 occ)
+      - src/components/liquidaciones/useLiquidacionStepper.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: monto_neto
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/lib/email.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: detalle
+    Frontend Occurrences: 80
+    Backend SQL Logic Occurrences: 102
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/lib/permissions.ts (1 occ)
+      - mobile-app/src/screens/Creditos.tsx (1 occ)
+      - mobile-app/src/screens/Liquidaciones.tsx (3 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/diagnostico_bd.sql (1 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (4 occ)
+      - PostgrelSQL/supabase_auditoria.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: observaciones
+    Frontend Occurrences: 99
+    Backend SQL Logic Occurrences: 18
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (9 occ)
+      - mobile-app/src/screens/Liquidaciones.tsx (10 occ)
+      - src/components/ahorro-permanente/AhorroDialogCrear.tsx (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_create_tabla_referidos.sql (1 occ)
+      - PostgrelSQL/supabase_credito_solicitudes.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha
+    Frontend Occurrences: 159
+    Backend SQL Logic Occurrences: 71
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - mobile-app/src/screens/Liquidaciones.tsx (2 occ)
+      - mobile-app/src/screens/Reportes.tsx (1 occ)
+      - src/components/ahorro-permanente/AhorroDialogAporte.tsx (3 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (2 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_crear_evento.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: estado
+    Frontend Occurrences: 841
+    Backend SQL Logic Occurrences: 251
+    Type Definition Occurrences: 5
+    Schema Definition Occurrences: 18
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (10 occ)
+      - mobile-app/src/screens/Ahorros.tsx (14 occ)
+      - mobile-app/src/screens/Creditos.tsx (14 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (11 occ)
+      - PostgrelSQL/supabase_asociados_upgrade.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_corte
+    Frontend Occurrences: 5
+    Backend SQL Logic Occurrences: 5
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/screens/Liquidaciones.tsx (2 occ)
+      - src/components/liquidaciones/useLiquidacionesCRUD.ts (1 occ)
+      - src/components/liquidaciones/useLiquidacionStepper.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migrar_liquidaciones_columnas.sql (5 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_liquidacion
+    Frontend Occurrences: 2
+    Backend SQL Logic Occurrences: 3
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/liquidaciones/useLiquidacionesCRUD.ts (1 occ)
+      - src/components/liquidaciones/useLiquidacionStepper.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migrar_liquidaciones_columnas.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: anulado
+    Frontend Occurrences: 320
+    Backend SQL Logic Occurrences: 108
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 6
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (21 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (4 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: justificacion_anulacion
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 8
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/liquidaciones/useLiquidacionesCRUD.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (2 occ)
+      - PostgrelSQL/supabase_migrar_liquidaciones_columnas.sql (6 occ)
+    STATUS: ACTIVE
+
+  COLUMN: anulado_por
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 11
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 7
+    Sample Frontend Files:
+      - src/components/liquidaciones/useLiquidacionesCRUD.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_fk_definitivo_real.sql (3 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (2 occ)
+      - PostgrelSQL/supabase_migrar_liquidaciones_columnas.sql (6 occ)
+    STATUS: ACTIVE
+
+  COLUMN: anulado_en
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 8
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - src/components/liquidaciones/useLiquidacionesCRUD.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (2 occ)
+      - PostgrelSQL/supabase_migrar_liquidaciones_columnas.sql (6 occ)
+    STATUS: ACTIVE
+
+  COLUMN: monto_total
+    Frontend Occurrences: 9
+    Backend SQL Logic Occurrences: 33
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/screens/Liquidaciones.tsx (3 occ)
+      - src/components/liquidaciones/useLiquidacionesCRUD.ts (1 occ)
+      - src/components/liquidaciones/useLiquidacionStepper.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_FIX_FINAL_COMPLETO.sql (9 occ)
+      - PostgrelSQL/supabase_fix_insertar_liquidacion.sql (2 occ)
+      - PostgrelSQL/supabase_fix_liquidaciones_monto_total.sql (11 occ)
+    STATUS: ACTIVE
+
+TABLE: distribuciones_utilidades
+--------------------------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: periodo_id
+    Frontend Occurrences: 10
+    Backend SQL Logic Occurrences: 61
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 8
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanenteAportes.ts (3 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (2 occ)
+      - src/components/ahorro-voluntario/useAhorroVoluntario.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (3 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (2 occ)
+      - PostgrelSQL/supabase_fix_aprobar_usuarios.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: asociado_id
+    Frontend Occurrences: 283
+    Backend SQL Logic Occurrences: 359
+    Type Definition Occurrences: 7
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (8 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (3 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (10 occ)
+    STATUS: ACTIVE
+
+  COLUMN: utilidad_total_periodo
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 0
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: num_asociados
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 0
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: valor_por_asociado
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 0
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+TABLE: excepciones
+------------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: asociado_id
+    Frontend Occurrences: 283
+    Backend SQL Logic Occurrences: 359
+    Type Definition Occurrences: 7
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (8 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (3 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (10 occ)
+    STATUS: ACTIVE
+
+  COLUMN: credito_id
+    Frontend Occurrences: 10
+    Backend SQL Logic Occurrences: 30
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 6
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (1 occ)
+      - src/components/creditos/useCreditosPagos.ts (1 occ)
+      - src/components/creditos/useCreditosSimulacion.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_borrar_asociados_no_admin.sql (1 occ)
+      - PostgrelSQL/supabase_creditos_simulacion.sql (2 occ)
+      - PostgrelSQL/supabase_fixes.sql (5 occ)
+    STATUS: ACTIVE
+
+  COLUMN: tipo
+    Frontend Occurrences: 452
+    Backend SQL Logic Occurrences: 166
+    Type Definition Occurrences: 13
+    Schema Definition Occurrences: 18
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (15 occ)
+      - mobile-app/src/screens/Creditos.tsx (25 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/diagnostico_bd.sql (1 occ)
+      - PostgrelSQL/diagnostico_fk.sql (1 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (7 occ)
+    STATUS: ACTIVE
+
+  COLUMN: descripcion
+    Frontend Occurrences: 113
+    Backend SQL Logic Occurrences: 37
+    Type Definition Occurrences: 4
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (2 occ)
+      - src/components/ahorro-permanente/AhorroDialogDetalle.tsx (2 occ)
+      - src/components/ahorro-permanente/AhorroTabla.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (4 occ)
+      - PostgrelSQL/supabase_configuracion_referido.sql (2 occ)
+      - PostgrelSQL/supabase_crear_evento.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: estado
+    Frontend Occurrences: 841
+    Backend SQL Logic Occurrences: 251
+    Type Definition Occurrences: 5
+    Schema Definition Occurrences: 18
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (10 occ)
+      - mobile-app/src/screens/Ahorros.tsx (14 occ)
+      - mobile-app/src/screens/Creditos.tsx (14 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (11 occ)
+      - PostgrelSQL/supabase_asociados_upgrade.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: resuelto_por
+    Frontend Occurrences: 9
+    Backend SQL Logic Occurrences: 11
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - src/components/ExcepcionesManager.tsx (5 occ)
+      - src/lib/api.ts (2 occ)
+      - src/services/businessRules.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_todas_fk_usuarios.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (4 occ)
+      - PostgrelSQL/supabase_fix_fk_eliminacion_DEFINITIVO.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_resolucion
+    Frontend Occurrences: 5
+    Backend SQL Logic Occurrences: 15
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/ComiteEvaluador.tsx (2 occ)
+      - supabase/functions/recordatorio-activacion/index.ts (3 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (2 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (1 occ)
+      - PostgrelSQL/supabase_fix_aprobar_usuarios.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+TABLE: notificaciones
+---------------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: usuario_id
+    Frontend Occurrences: 90
+    Backend SQL Logic Occurrences: 86
+    Type Definition Occurrences: 4
+    Schema Definition Occurrences: 10
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/ahorroPermanenteUtils.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (2 occ)
+      - PostgrelSQL/fix_todas_fk_usuarios.sql (2 occ)
+      - PostgrelSQL/limpiar_datos_prueba_v2.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: asociado_id
+    Frontend Occurrences: 283
+    Backend SQL Logic Occurrences: 359
+    Type Definition Occurrences: 7
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (8 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (3 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (10 occ)
+    STATUS: ACTIVE
+
+  COLUMN: tipo
+    Frontend Occurrences: 452
+    Backend SQL Logic Occurrences: 166
+    Type Definition Occurrences: 13
+    Schema Definition Occurrences: 18
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (15 occ)
+      - mobile-app/src/screens/Creditos.tsx (25 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/diagnostico_bd.sql (1 occ)
+      - PostgrelSQL/diagnostico_fk.sql (1 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (7 occ)
+    STATUS: ACTIVE
+
+  COLUMN: titulo
+    Frontend Occurrences: 39
+    Backend SQL Logic Occurrences: 11
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/ahorroPermanenteUtils.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteAportes.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteSolicitudes.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (1 occ)
+      - PostgrelSQL/supabase_crear_evento.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: mensaje
+    Frontend Occurrences: 91
+    Backend SQL Logic Occurrences: 35
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/ahorroPermanenteUtils.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteAportes.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteSolicitudes.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (6 occ)
+    STATUS: ACTIVE
+
+  COLUMN: leida
+    Frontend Occurrences: 41
+    Backend SQL Logic Occurrences: 12
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/ahorroPermanenteUtils.ts (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteAportes.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteSolicitudes.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (2 occ)
+      - PostgrelSQL/supabase_fixes.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: para_admin
+    Frontend Occurrences: 9
+    Backend SQL Logic Occurrences: 15
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - src/components/AlertasWidget.tsx (2 occ)
+      - src/components/creditos/useCreditosDesembolso.ts (1 occ)
+      - src/components/creditos/useCreditosSimulacion.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (3 occ)
+      - PostgrelSQL/supabase_fix_rls_notificaciones.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+TABLE: auditoria
+----------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: usuario_id
+    Frontend Occurrences: 90
+    Backend SQL Logic Occurrences: 86
+    Type Definition Occurrences: 4
+    Schema Definition Occurrences: 10
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/ahorroPermanenteUtils.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (2 occ)
+      - PostgrelSQL/fix_todas_fk_usuarios.sql (2 occ)
+      - PostgrelSQL/limpiar_datos_prueba_v2.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: asociado_id
+    Frontend Occurrences: 283
+    Backend SQL Logic Occurrences: 359
+    Type Definition Occurrences: 7
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (8 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (3 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (10 occ)
+    STATUS: ACTIVE
+
+  COLUMN: tabla
+    Frontend Occurrences: 114
+    Backend SQL Logic Occurrences: 135
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 5
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/lib/permissions.ts (5 occ)
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/diagnostico_bd.sql (6 occ)
+      - PostgrelSQL/diagnostico_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: registro_id
+    Frontend Occurrences: 32
+    Backend SQL Logic Occurrences: 23
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (5 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (5 occ)
+      - src/components/ahorro-voluntario/useAhorroVoluntario.ts (6 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_auditoria.sql (1 occ)
+      - PostgrelSQL/supabase_auditoria_create.sql (1 occ)
+      - PostgrelSQL/supabase_auditoria_fix.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: operacion
+    Frontend Occurrences: 16
+    Backend SQL Logic Occurrences: 6
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (6 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (5 occ)
+      - src/components/ahorro-voluntario/useAhorroVoluntario.ts (3 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_auditoria_triggers.sql (1 occ)
+      - PostgrelSQL/supabase_fix_auditoria_columnas.sql (5 occ)
+    STATUS: ACTIVE
+
+  COLUMN: datos_antes
+    Frontend Occurrences: 22
+    Backend SQL Logic Occurrences: 4
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (10 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (5 occ)
+      - src/components/ahorro-voluntario/useAhorroVoluntario.ts (7 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_auditoria_triggers.sql (1 occ)
+      - PostgrelSQL/supabase_fix_auditoria_columnas.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: datos_despues
+    Frontend Occurrences: 41
+    Backend SQL Logic Occurrences: 12
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (12 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (5 occ)
+      - src/components/ahorro-voluntario/useAhorroVoluntario.ts (8 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_auditoria_triggers.sql (1 occ)
+      - PostgrelSQL/supabase_fix_auditoria_columnas.sql (3 occ)
+      - PostgrelSQL/supabase_FIX_FINAL_COMPLETO.sql (7 occ)
+    STATUS: ACTIVE
+
+  COLUMN: accion
+    Frontend Occurrences: 126
+    Backend SQL Logic Occurrences: 25
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/AhorroDialogDetalle.tsx (1 occ)
+      - src/components/ahorro-permanente/AhorroPermanente.tsx (13 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_auditoria.sql (1 occ)
+      - PostgrelSQL/supabase_auditoria_create.sql (1 occ)
+      - PostgrelSQL/supabase_auditoria_fix.sql (1 occ)
+    STATUS: ACTIVE
+
+TABLE: referidos
+----------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: asociado_id
+    Frontend Occurrences: 283
+    Backend SQL Logic Occurrences: 359
+    Type Definition Occurrences: 7
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (8 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (3 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (10 occ)
+    STATUS: ACTIVE
+
+  COLUMN: nombre
+    Frontend Occurrences: 640
+    Backend SQL Logic Occurrences: 155
+    Type Definition Occurrences: 5
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (14 occ)
+      - mobile-app/src/lib/permissions.ts (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/diagnostico_bd.sql (1 occ)
+      - PostgrelSQL/limpiar_datos_prueba.sql (2 occ)
+      - PostgrelSQL/limpiar_datos_prueba_v2.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: cedula
+    Frontend Occurrences: 525
+    Backend SQL Logic Occurrences: 60
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (11 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (6 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_asociados_upgrade.sql (1 occ)
+      - PostgrelSQL/supabase_borrar_asociados_no_admin.sql (5 occ)
+      - PostgrelSQL/supabase_create_tabla_referidos.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: telefono
+    Frontend Occurrences: 225
+    Backend SQL Logic Occurrences: 34
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (11 occ)
+      - mobile-app/src/screens/Perfil.tsx (18 occ)
+      - src/components/AsociadoDetalle.tsx (8 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_add_telefono_direccion_usuarios.sql (3 occ)
+      - PostgrelSQL/supabase_create_tabla_referidos.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: estado
+    Frontend Occurrences: 841
+    Backend SQL Logic Occurrences: 251
+    Type Definition Occurrences: 5
+    Schema Definition Occurrences: 18
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (10 occ)
+      - mobile-app/src/screens/Ahorros.tsx (14 occ)
+      - mobile-app/src/screens/Creditos.tsx (14 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (11 occ)
+      - PostgrelSQL/supabase_asociados_upgrade.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: observaciones
+    Frontend Occurrences: 99
+    Backend SQL Logic Occurrences: 18
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (9 occ)
+      - mobile-app/src/screens/Liquidaciones.tsx (10 occ)
+      - src/components/ahorro-permanente/AhorroDialogCrear.tsx (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_create_tabla_referidos.sql (1 occ)
+      - PostgrelSQL/supabase_credito_solicitudes.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: asociado_convertido_id
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 0
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 0
+    STATUS: POTENTIALLY UNUSED (Only in schema/types)
+
+  COLUMN: fecha_conversion
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 0
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 0
+    STATUS: POTENTIALLY UNUSED (Only in schema/types)
+
+TABLE: credito_historial_estados
+--------------------------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: credito_id
+    Frontend Occurrences: 10
+    Backend SQL Logic Occurrences: 30
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 6
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (1 occ)
+      - src/components/creditos/useCreditosPagos.ts (1 occ)
+      - src/components/creditos/useCreditosSimulacion.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_borrar_asociados_no_admin.sql (1 occ)
+      - PostgrelSQL/supabase_creditos_simulacion.sql (2 occ)
+      - PostgrelSQL/supabase_fixes.sql (5 occ)
+    STATUS: ACTIVE
+
+  COLUMN: estado_anterior
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 0
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 0
+    STATUS: POTENTIALLY UNUSED (Only in schema/types)
+
+  COLUMN: estado_nuevo
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 0
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_rpc_simulacion.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: motivo
+    Frontend Occurrences: 88
+    Backend SQL Logic Occurrences: 10
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 0
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (1 occ)
+      - mobile-app/src/screens/Liquidaciones.tsx (7 occ)
+      - src/components/ahorro-permanente/AhorroDialogsConfirmacion.tsx (6 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+      - PostgrelSQL/supabase_FIX_FINAL_COMPLETO.sql (1 occ)
+      - PostgrelSQL/supabase_migrar_liquidaciones_columnas.sql (5 occ)
+    STATUS: ACTIVE
+
+  COLUMN: cambiado_por
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 0
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 0
+    STATUS: POTENTIALLY UNUSED (Only in schema/types)
+
+  COLUMN: cambiado_en
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 0
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 0
+    STATUS: POTENTIALLY UNUSED (Only in schema/types)
+
+TABLE: cuentas_ahorro
+---------------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: tipo
+    Frontend Occurrences: 452
+    Backend SQL Logic Occurrences: 166
+    Type Definition Occurrences: 13
+    Schema Definition Occurrences: 18
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (15 occ)
+      - mobile-app/src/screens/Creditos.tsx (25 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/diagnostico_bd.sql (1 occ)
+      - PostgrelSQL/diagnostico_fk.sql (1 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (7 occ)
+    STATUS: ACTIVE
+
+  COLUMN: asociado_id
+    Frontend Occurrences: 283
+    Backend SQL Logic Occurrences: 359
+    Type Definition Occurrences: 7
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (8 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (3 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (10 occ)
+    STATUS: ACTIVE
+
+  COLUMN: periodo_id
+    Frontend Occurrences: 10
+    Backend SQL Logic Occurrences: 61
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 8
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanenteAportes.ts (3 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (2 occ)
+      - src/components/ahorro-voluntario/useAhorroVoluntario.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (3 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (2 occ)
+      - PostgrelSQL/supabase_fix_aprobar_usuarios.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: monto_ahorrado
+    Frontend Occurrences: 122
+    Backend SQL Logic Occurrences: 46
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/screens/Ahorros.tsx (10 occ)
+      - mobile-app/src/screens/Dashboard.tsx (7 occ)
+      - mobile-app/src/screens/Perfil.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (2 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (4 occ)
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: cuota_mensual
+    Frontend Occurrences: 64
+    Backend SQL Logic Occurrences: 27
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (6 occ)
+      - mobile-app/src/screens/Perfil.tsx (5 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (1 occ)
+      - PostgrelSQL/supabase_fix_aprobar_usuarios.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_retiro
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/lib/api.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: monto_al_cierre
+    Frontend Occurrences: 5
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/screens/Ahorros.tsx (2 occ)
+      - src/components/MisAhorros.tsx (2 occ)
+      - src/lib/api.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: estado
+    Frontend Occurrences: 841
+    Backend SQL Logic Occurrences: 251
+    Type Definition Occurrences: 5
+    Schema Definition Occurrences: 18
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (10 occ)
+      - mobile-app/src/screens/Ahorros.tsx (14 occ)
+      - mobile-app/src/screens/Creditos.tsx (14 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (11 occ)
+      - PostgrelSQL/supabase_asociados_upgrade.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_cierre
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 8
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/lib/api.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (1 occ)
+      - PostgrelSQL/supabase_mejoras_v1.sql (3 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: anulado
+    Frontend Occurrences: 320
+    Backend SQL Logic Occurrences: 108
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 6
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (21 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (4 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: anulado_por
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 11
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 7
+    Sample Frontend Files:
+      - src/components/liquidaciones/useLiquidacionesCRUD.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_fk_definitivo_real.sql (3 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (2 occ)
+      - PostgrelSQL/supabase_migrar_liquidaciones_columnas.sql (6 occ)
+    STATUS: ACTIVE
+
+  COLUMN: anulado_en
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 8
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - src/components/liquidaciones/useLiquidacionesCRUD.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (2 occ)
+      - PostgrelSQL/supabase_migrar_liquidaciones_columnas.sql (6 occ)
+    STATUS: ACTIVE
+
+  COLUMN: motivo_anulacion
+    Frontend Occurrences: 12
+    Backend SQL Logic Occurrences: 13
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (1 occ)
+      - src/components/ahorro-voluntario/useAhorroVoluntario.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_creditos_upgrade.sql (3 occ)
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (4 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: observaciones
+    Frontend Occurrences: 99
+    Backend SQL Logic Occurrences: 18
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (9 occ)
+      - mobile-app/src/screens/Liquidaciones.tsx (10 occ)
+      - src/components/ahorro-permanente/AhorroDialogCrear.tsx (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_create_tabla_referidos.sql (1 occ)
+      - PostgrelSQL/supabase_credito_solicitudes.sql (1 occ)
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: cedula
+    Frontend Occurrences: 525
+    Backend SQL Logic Occurrences: 60
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (11 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (6 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_asociados_upgrade.sql (1 occ)
+      - PostgrelSQL/supabase_borrar_asociados_no_admin.sql (5 occ)
+      - PostgrelSQL/supabase_create_tabla_referidos.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: multa_mora_vigente
+    Frontend Occurrences: 14
+    Backend SQL Logic Occurrences: 1
+    Type Definition Occurrences: 0
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/Dashboard.tsx (8 occ)
+      - src/components/gestion-usuarios/useExpulsion.ts (2 occ)
+      - src/components/Reportes.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_suspension.sql (1 occ)
+    STATUS: ACTIVE
+
+TABLE: transacciones
+--------------------
+  COLUMN: id
+    Frontend Occurrences: 1413
+    Backend SQL Logic Occurrences: 512
+    Type Definition Occurrences: 38
+    Schema Definition Occurrences: 72
+    Sample Frontend Files:
+      - mobile-app/src/components/ui/chart.tsx (6 occ)
+      - mobile-app/src/components/ui/form.tsx (11 occ)
+      - mobile-app/src/contexts/AuthContext.tsx (20 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (2 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (12 occ)
+    STATUS: ACTIVE
+
+  COLUMN: tipo
+    Frontend Occurrences: 452
+    Backend SQL Logic Occurrences: 166
+    Type Definition Occurrences: 13
+    Schema Definition Occurrences: 18
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (15 occ)
+      - mobile-app/src/screens/Creditos.tsx (25 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/diagnostico_bd.sql (1 occ)
+      - PostgrelSQL/diagnostico_fk.sql (1 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (7 occ)
+    STATUS: ACTIVE
+
+  COLUMN: asociado_id
+    Frontend Occurrences: 283
+    Backend SQL Logic Occurrences: 359
+    Type Definition Occurrences: 7
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (8 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_cuentas_ahorro_fk.sql (3 occ)
+      - PostgrelSQL/fix_db_triggers_final.sql (6 occ)
+      - PostgrelSQL/fix_fk_definitivo_real.sql (10 occ)
+    STATUS: ACTIVE
+
+  COLUMN: registrado_por
+    Frontend Occurrences: 13
+    Backend SQL Logic Occurrences: 34
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - mobile-app/src/screens/Ahorros.tsx (1 occ)
+      - src/components/ComiteEvaluador.tsx (1 occ)
+      - src/components/creditos/useCreditos.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_fk_definitivo_real.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_fix_definitivo.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: ahorro_id
+    Frontend Occurrences: 45
+    Backend SQL Logic Occurrences: 31
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - mobile-app/src/screens/Ahorros.tsx (3 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (4 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteAportes.ts (8 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (3 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (4 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: credito_id
+    Frontend Occurrences: 10
+    Backend SQL Logic Occurrences: 30
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 6
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (1 occ)
+      - src/components/creditos/useCreditosPagos.ts (1 occ)
+      - src/components/creditos/useCreditosSimulacion.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_borrar_asociados_no_admin.sql (1 occ)
+      - PostgrelSQL/supabase_creditos_simulacion.sql (2 occ)
+      - PostgrelSQL/supabase_fixes.sql (5 occ)
+    STATUS: ACTIVE
+
+  COLUMN: cuota_id
+    Frontend Occurrences: 0
+    Backend SQL Logic Occurrences: 2
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 2
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_mejoras_v2.sql (1 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: periodo_id
+    Frontend Occurrences: 10
+    Backend SQL Logic Occurrences: 61
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 8
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanenteAportes.ts (3 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (2 occ)
+      - src/components/ahorro-voluntario/useAhorroVoluntario.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (3 occ)
+      - PostgrelSQL/supabase_fix_aprobar_afiliacion.sql (2 occ)
+      - PostgrelSQL/supabase_fix_aprobar_usuarios.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: monto
+    Frontend Occurrences: 487
+    Backend SQL Logic Occurrences: 86
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 6
+    Sample Frontend Files:
+      - mobile-app/src/screens/Ahorros.tsx (5 occ)
+      - mobile-app/src/screens/Creditos.tsx (45 occ)
+      - mobile-app/src/screens/Liquidaciones.tsx (7 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (2 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (5 occ)
+      - PostgrelSQL/supabase_confirmar_simulacion.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: capital
+    Frontend Occurrences: 73
+    Backend SQL Logic Occurrences: 9
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+      - src/components/ComiteEvaluador.tsx (1 occ)
+      - src/components/creditos/CreditoDialogDetalle.tsx (10 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fix_definitivo.sql (1 occ)
+      - PostgrelSQL/supabase_fix_pagos_credito.sql (1 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: interes
+    Frontend Occurrences: 56
+    Backend SQL Logic Occurrences: 12
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+      - mobile-app/src/screens/Dashboard.tsx (2 occ)
+      - src/components/ComiteEvaluador.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fix_definitivo.sql (1 occ)
+      - PostgrelSQL/supabase_fix_pagos_credito.sql (1 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: monto_mora
+    Frontend Occurrences: 11
+    Backend SQL Logic Occurrences: 2
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/ComiteEvaluador.tsx (1 occ)
+      - src/components/liquidaciones/useLiquidacionStepper.ts (3 occ)
+      - src/components/MisAhorros.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: dias_mora
+    Frontend Occurrences: 3
+    Backend SQL Logic Occurrences: 2
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (2 occ)
+      - src/components/ComiteEvaluador.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: saldo_antes
+    Frontend Occurrences: 21
+    Backend SQL Logic Occurrences: 6
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanenteAportes.ts (3 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (1 occ)
+      - src/components/ahorro-voluntario/AhorroVoluntarioDialogDetalle.tsx (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fix_definitivo.sql (1 occ)
+      - PostgrelSQL/supabase_fix_pagos_credito.sql (1 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: saldo_despues
+    Frontend Occurrences: 31
+    Backend SQL Logic Occurrences: 6
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/AhorroDialogAporte.tsx (1 occ)
+      - src/components/ahorro-permanente/AhorroDialogDetalle.tsx (3 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fix_definitivo.sql (1 occ)
+      - PostgrelSQL/supabase_fix_pagos_credito.sql (1 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: mes_correspondiente
+    Frontend Occurrences: 4
+    Backend SQL Logic Occurrences: 2
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanenteAportes.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (1 occ)
+      - src/components/ComiteEvaluador.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: fecha_pago
+    Frontend Occurrences: 109
+    Backend SQL Logic Occurrences: 18
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/screens/Ahorros.tsx (5 occ)
+      - mobile-app/src/screens/Creditos.tsx (2 occ)
+      - mobile-app/src/screens/Dashboard.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fix_definitivo.sql (2 occ)
+      - PostgrelSQL/supabase_fix_pagos_ahorro_permanente_cols.sql (5 occ)
+      - PostgrelSQL/supabase_fix_pagos_credito.sql (2 occ)
+    STATUS: ACTIVE
+
+  COLUMN: metodo_pago
+    Frontend Occurrences: 18
+    Backend SQL Logic Occurrences: 11
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - mobile-app/src/screens/Ahorros.tsx (1 occ)
+      - src/components/creditos/CreditoDialogDetalle.tsx (1 occ)
+      - src/components/creditos/CreditoDialogPago.tsx (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fix_definitivo.sql (1 occ)
+      - PostgrelSQL/supabase_fix_pagos_credito.sql (1 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: url_comprobante
+    Frontend Occurrences: 8
+    Backend SQL Logic Occurrences: 4
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 1
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanenteAportes.ts (1 occ)
+      - src/components/ComiteEvaluador.tsx (1 occ)
+      - src/components/creditos/useCreditosPagos.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (3 occ)
+      - PostgrelSQL/supabase_pago_credito.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: observacion
+    Frontend Occurrences: 27
+    Backend SQL Logic Occurrences: 11
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 2
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanenteAportes.ts (3 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (1 occ)
+      - src/components/ahorro-voluntario/AhorroVoluntarioDialogDetalle.tsx (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+      - PostgrelSQL/supabase_fix_definitivo.sql (1 occ)
+      - PostgrelSQL/supabase_FIX_FINAL_COMPLETO.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: anulado
+    Frontend Occurrences: 320
+    Backend SQL Logic Occurrences: 108
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 6
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (1 occ)
+      - mobile-app/src/screens/Ahorros.tsx (4 occ)
+      - mobile-app/src/screens/Creditos.tsx (21 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (4 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+
+  COLUMN: anulado_por
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 11
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 7
+    Sample Frontend Files:
+      - src/components/liquidaciones/useLiquidacionesCRUD.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_fk_definitivo_real.sql (3 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (2 occ)
+      - PostgrelSQL/supabase_migrar_liquidaciones_columnas.sql (6 occ)
+    STATUS: ACTIVE
+
+  COLUMN: anulado_en
+    Frontend Occurrences: 1
+    Backend SQL Logic Occurrences: 8
+    Type Definition Occurrences: 3
+    Schema Definition Occurrences: 4
+    Sample Frontend Files:
+      - src/components/liquidaciones/useLiquidacionesCRUD.ts (1 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (2 occ)
+      - PostgrelSQL/supabase_migrar_liquidaciones_columnas.sql (6 occ)
+    STATUS: ACTIVE
+
+  COLUMN: motivo_anulacion
+    Frontend Occurrences: 12
+    Backend SQL Logic Occurrences: 13
+    Type Definition Occurrences: 2
+    Schema Definition Occurrences: 3
+    Sample Frontend Files:
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (1 occ)
+      - src/components/ahorro-voluntario/useAhorroVoluntario.ts (2 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/supabase_creditos_upgrade.sql (3 occ)
+      - PostgrelSQL/supabase_fixes.sql (1 occ)
+      - PostgrelSQL/supabase_migration_completa_ufca.sql (4 occ)
+    STATUS: ACTIVE
+
+  COLUMN: created_at
+    Frontend Occurrences: 141
+    Backend SQL Logic Occurrences: 114
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 19
+    Sample Frontend Files:
+      - mobile-app/src/contexts/AuthContext.tsx (2 occ)
+      - mobile-app/src/screens/Ahorros.tsx (6 occ)
+      - mobile-app/src/screens/Creditos.tsx (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+      - PostgrelSQL/supabase_ahorro_voluntario_historial_notif.sql (3 occ)
+    STATUS: ACTIVE
+
+  COLUMN: updated_at
+    Frontend Occurrences: 19
+    Backend SQL Logic Occurrences: 89
+    Type Definition Occurrences: 1
+    Schema Definition Occurrences: 20
+    Sample Frontend Files:
+      - mobile-app/src/screens/Roles.tsx (1 occ)
+      - src/components/ahorro-permanente/useAhorroPermanente.ts (2 occ)
+      - src/components/ahorro-permanente/useAhorroPermanenteCRUD.ts (4 occ)
+    Sample Backend SQL Logic Files:
+      - PostgrelSQL/fix_db_triggers_final.sql (5 occ)
+      - PostgrelSQL/supabase_actualizar_liquidacion_columnas_fix.sql (6 occ)
+      - PostgrelSQL/supabase_ahorro_permanente_setup.sql (1 occ)
+    STATUS: ACTIVE
+

@@ -9,12 +9,9 @@
 -- ──────────────────────────────────────────────────────────
 DROP TABLE IF EXISTS public.transacciones              CASCADE;
 DROP TABLE IF EXISTS public.cuentas_ahorro             CASCADE;
-DROP TABLE IF EXISTS public.credito_historial_estados  CASCADE;
-DROP TABLE IF EXISTS public.referidos                  CASCADE;
 DROP TABLE IF EXISTS public.auditoria                  CASCADE;
 DROP TABLE IF EXISTS public.notificaciones             CASCADE;
 DROP TABLE IF EXISTS public.excepciones                CASCADE;
-DROP TABLE IF EXISTS public.distribuciones_utilidades  CASCADE;
 DROP TABLE IF EXISTS public.liquidaciones              CASCADE;
 DROP TABLE IF EXISTS public.cuotas_credito             CASCADE;
 DROP TABLE IF EXISTS public.creditos                   CASCADE;
@@ -329,25 +326,6 @@ CREATE OR REPLACE TRIGGER trg_updated_at_liquidaciones
   BEFORE UPDATE ON public.liquidaciones
   FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
 
--- ── DISTRIBUCIONES UTILIDADES ──────────────────────────────
-CREATE TABLE public.distribuciones_utilidades (
-  id                     UUID NOT NULL DEFAULT gen_random_uuid(),
-  periodo_id             UUID NOT NULL,
-  asociado_id            UUID,
-  utilidad_total_periodo NUMERIC NOT NULL,
-  num_asociados          INTEGER NOT NULL,
-  valor_por_asociado     NUMERIC NOT NULL,
-  created_at             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  updated_at             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  CONSTRAINT distribuciones_utilidades_pkey PRIMARY KEY (id),
-  CONSTRAINT distribuciones_utilidades_periodo_id_fkey FOREIGN KEY (periodo_id) REFERENCES public.periodos(id) ON DELETE CASCADE,
-  CONSTRAINT distribuciones_utilidades_asociado_id_fkey FOREIGN KEY (asociado_id) REFERENCES public.usuarios(id) ON DELETE SET NULL
-);
-
-CREATE OR REPLACE TRIGGER trg_updated_at_distribuciones_utilidades
-  BEFORE UPDATE ON public.distribuciones_utilidades
-  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
-
 -- ── EXCEPCIONES ────────────────────────────────────────────
 CREATE TABLE public.excepciones (
   id               UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -404,40 +382,6 @@ CREATE TABLE public.auditoria (
   datos_despues JSONB,
   accion        CHARACTER VARYING,
   CONSTRAINT auditoria_pkey PRIMARY KEY (id)
-);
-
--- ── REFERIDOS ──────────────────────────────────────────────
-CREATE TABLE public.referidos (
-  id                     UUID NOT NULL DEFAULT gen_random_uuid(),
-  asociado_id            UUID,
-  nombre                 TEXT NOT NULL,
-  cedula                 TEXT NOT NULL,
-  telefono               TEXT,
-  estado                 CHARACTER VARYING NOT NULL DEFAULT 'activo'::character varying CHECK (estado::text = ANY (ARRAY['activo'::character varying, 'inactivo'::character varying]::text[])),
-  observaciones          TEXT,
-  created_at             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  asociado_convertido_id UUID,
-  fecha_conversion       DATE,
-  CONSTRAINT referidos_pkey PRIMARY KEY (id),
-  CONSTRAINT referidos_asociado_id_fkey FOREIGN KEY (asociado_id) REFERENCES public.usuarios(id) ON DELETE SET NULL,
-  CONSTRAINT referidos_asociado_convertido_id_fkey FOREIGN KEY (asociado_convertido_id) REFERENCES public.usuarios(id) ON DELETE SET NULL
-);
-
-CREATE OR REPLACE TRIGGER trg_updated_at_referidos
-  BEFORE UPDATE ON public.referidos
-  FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
-
--- ── HISTORIAL ESTADOS CRÉDITO ──────────────────────────────
-CREATE TABLE public.credito_historial_estados (
-  id              UUID NOT NULL DEFAULT gen_random_uuid(),
-  credito_id      UUID,
-  estado_anterior TEXT,
-  estado_nuevo    TEXT,
-  motivo          TEXT,
-  cambiado_por    UUID,
-  cambiado_en     TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  CONSTRAINT credito_historial_estados_pkey PRIMARY KEY (id),
-  CONSTRAINT credito_historial_estados_credito_id_fkey FOREIGN KEY (credito_id) REFERENCES public.creditos(id) ON DELETE CASCADE
 );
 
 -- ── CUENTAS AHORRO ─────────────────────────────────────────
@@ -811,12 +755,9 @@ ALTER TABLE public.comite_evaluador   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.creditos           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cuotas_credito      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.liquidaciones      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.distribuciones_utilidades ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.excepciones        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notificaciones     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.auditoria          ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.referidos          ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.credito_historial_estados ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cuentas_ahorro     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transacciones      ENABLE ROW LEVEL SECURITY;
 

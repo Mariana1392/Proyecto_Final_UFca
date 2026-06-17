@@ -86,6 +86,13 @@ const RestablecerPassword = ({ onSuccess, onBack }: RestablecerPasswordProps) =>
     return () => clearTimeout(timeout);
   }, []);
 
+  // Enfocar el campo nueva contraseña una sola vez cuando la sesión esté lista
+  useEffect(() => {
+    if (sessionStatus === 'ready') {
+      newPasswordRef.current?.focus();
+    }
+  }, [sessionStatus]);
+
   const validaciones = {
     longitud: newPassword.length >= 8,
     mayuscula: /[A-Z]/.test(newPassword),
@@ -228,7 +235,6 @@ const RestablecerPassword = ({ onSuccess, onBack }: RestablecerPasswordProps) =>
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     disabled={isLoading}
-                    autoFocus
                   />
                   <button
                     type="button"

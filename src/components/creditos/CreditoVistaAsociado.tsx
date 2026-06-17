@@ -31,7 +31,6 @@ import { generateCreditoPDF } from '../utils/pdfGenerator';
 import { pagosCreditoApi } from '../../lib/api';
 import { toast } from 'sonner';
 import type { CreditosHook } from './useCreditos';
-import CreditoDialogPago from './CreditoDialogPago';
 
 interface CreditoVistaAsociadoProps {
   hook: CreditosHook;
@@ -77,7 +76,6 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
     setIsDetailDialogOpen,
     setLoadingHistorialDetalle,
     setHistorialDetalle,
-    handleOpenPago,
     misSolicitudes,
     // Solicitud dialog
     isSolicitudDialogOpen, setIsSolicitudDialogOpen,
@@ -564,15 +562,6 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                         <Eye className="size-3" /> Ver detalle
                       </Button>
                       <div className="flex gap-1.5">
-                        {!c.anulado && c.saldo > 0 && ['activo', 'desembolsado', 'en_mora'].includes(c.estadoAprobacion) && (
-                          <Button
-                            size="sm"
-                            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white h-7 text-xs"
-                            onClick={() => handleOpenPago(c)}
-                          >
-                            <Banknote className="size-3" /> Pagar cuota
-                          </Button>
-                        )}
                         <Button
                           variant="outline" size="sm"
                           className="gap-1.5 h-7 text-xs hover:bg-emerald-50 border-emerald-200 text-emerald-700"
@@ -1660,9 +1649,6 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
         </DialogFooter>
       </DialogContent>
     </Dialog>
-
-    {/* ── Dialog de pago de cuota (asociado) ── */}
-    <CreditoDialogPago hook={hook} isAsociado />
     </>
   );
 }
