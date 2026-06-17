@@ -439,7 +439,7 @@ export const generateCreditoPDF = (credito: any) => {
 
     const condiciones: [string, string, string, string][] = [
       ['Monto aprobado',    formatCurrency(monto),           'Cuota mensual',        formatCurrency(cuota)],
-      ['Tasa de interés EA', tasaAnual > 0 ? `${tasaAnual}%` : 'Sin interés',
+      ['Tasa de interés',   tasaAnual > 0 ? `${tasaAnual}%` : 'Sin interés',
                                                               'Tasa mensual',         tasaAnual > 0 ? `${(tasaAnual/12).toFixed(4)}%` : '—'],
       ['Plazo total',        `${plazo} meses`,               'Total a pagar',         formatCurrency(totalAPagar)],
       ['Total intereses',    formatCurrency(totalIntereses),  'Saldo pendiente',       formatCurrency(saldo)],
@@ -579,7 +579,7 @@ export const generateCreditoPDF = (credito: any) => {
     const refInfo: [string, string][] = [
       ['Monto',   formatCurrency(monto)],
       ['Cuota',   formatCurrency(cuota)],
-      ['Tasa EA', tasaAnual > 0 ? `${tasaAnual}%` : 'Sin interés'],
+      ['Tasa',    tasaAnual > 0 ? `${tasaAnual}%` : 'Sin interés'],
       ['Plazo',   `${plazo} meses`],
     ];
     refInfo.forEach(([l, v], idx) => {
@@ -720,7 +720,7 @@ export const generateComprobantePagoPDF = (pago: any, credito: any) => {
       ['Asociado:',        credito.asociado  || 'N/A'],
       ['Cédula:',          credito.cedula    || 'N/A'],
       ['Monto otorgado:',  formatCurrency(credito.monto || 0)],
-      ['Tasa EA:',         credito.tasaInteres > 0 ? `${credito.tasaInteres}%` : 'Sin interés'],
+      ['Tasa:',            credito.tasaInteres > 0 ? `${credito.tasaInteres}%` : 'Sin interés'],
       ['Plazo:',           `${credito.plazo || 0} meses`],
     ];
 
@@ -866,7 +866,7 @@ export const generateHistorialCreditoPDF = (credito: any, historial: any[]) => {
         const tl: Record<string,string> = { libre_inversion:'Libre inversi\u00f3n', educacion:'Educaci\u00f3n', vivienda:'Vivienda', calamidad:'Calamidad' };
         return tl[credito.tipo] ?? credito.tipo ?? 'Libre inversi\u00f3n';
       })()],
-      ['Tasa EA:',    credito.tasaInteres > 0 ? `${credito.tasaInteres}%` : 'Sin inter\u00e9s'],
+      ['Tasa:',       credito.tasaInteres > 0 ? `${credito.tasaInteres}%` : 'Sin inter\u00e9s'],
       ['Plazo:',      `${credito.plazo || 0} meses`],
       ['Estado:',     credito.estadoAprobacion ?? 'N/A'],
     ];
@@ -1089,7 +1089,7 @@ export const generateCreditosPDF = (datos: {
       ['Recaudo mensual total (suma cuotas)', formatCurrency(totalCuotaMensual)],
       ['Cuota mensual promedio',              formatCurrency(promedioCuota)],
       ['% Recuperación mensual', `${pctRecuperacion}%`],
-      ['Tasa de interés promedio EA',
+      ['Tasa de interés promedio',
         tasaPromedio > 0 ? `${tasaPromedio.toFixed(2)}%` : 'Sin tasa registrada'],
       ['Plazo promedio',
         plazoPromedio > 0 ? `${plazoPromedio} meses` : 'N/A'],
@@ -1215,7 +1215,7 @@ export const generateCreditosPDF = (datos: {
 
     autoTable(doc, {
       startY: yPos,
-      head: [['Asociado', 'Cédula', 'Monto de crédito', 'Cuota mensual', 'Tasa EA', 'Plazo', 'Estado']],
+      head: [['Asociado', 'Cédula', 'Monto de crédito', 'Cuota mensual', 'Tasa', 'Plazo', 'Estado']],
       body: listaData,
       theme: 'striped',
       headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },

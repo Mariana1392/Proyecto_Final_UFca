@@ -208,7 +208,8 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
   const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(n);
   const fmtDate = (d: string) => {
     if (!d || d === '-') return '—';
-    return new Date(d).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+    const dateObj = d.includes('T') ? new Date(d) : new Date(d + 'T12:00:00');
+    return dateObj.toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
   const perfilIncompleto = !isEditing && (!formData.telefono.trim() || !formData.direccion.trim());
@@ -448,7 +449,12 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
                     <Label className="text-xs text-slate-500">Fecha de ingreso</Label>
                     <div className="relative">
                       <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-                      <Input type="date" value={formData.fechaIngreso} disabled className="pl-10 bg-slate-50" />
+                      <Input 
+                        type="text" 
+                        value={formData.fechaIngreso ? fmtDate(formData.fechaIngreso) : '—'} 
+                        disabled 
+                        className="pl-10 bg-slate-50 text-slate-600 cursor-not-allowed" 
+                      />
                     </div>
                     <p className="text-xs text-slate-400">La fecha de ingreso no se puede modificar</p>
                   </div>

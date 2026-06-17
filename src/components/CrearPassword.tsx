@@ -119,6 +119,7 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
   };
 
   const todasOk = Object.values(validaciones).every(Boolean);
+  const passwordsNoCoinciden = confirmPassword.length > 0 && newPassword !== confirmPassword;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -337,7 +338,11 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
                     id="confirmPassword"
                     type={showConfirm ? 'text' : 'password'}
                     placeholder="••••••••"
-                    className="pl-10 pr-10 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
+                    className={`pl-10 pr-10 ${
+                      passwordsNoCoinciden
+                        ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500 bg-rose-50/30'
+                        : 'border-slate-200 focus:border-emerald-500 focus:ring-emerald-500'
+                    }`}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
@@ -352,6 +357,12 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
                     {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </button>
                 </div>
+                {passwordsNoCoinciden && (
+                  <p className="text-xs text-rose-600 flex items-center gap-1 mt-1 font-medium animate-fadeIn">
+                    <AlertCircle className="size-3.5 flex-shrink-0" />
+                    Las contraseñas no coinciden
+                  </p>
+                )}
               </div>
 
               {/* Checklist */}

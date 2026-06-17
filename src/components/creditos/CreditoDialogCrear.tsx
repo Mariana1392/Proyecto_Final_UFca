@@ -457,7 +457,7 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
                   </div>
                   <div className="ml-auto text-right text-xs text-blue-500">
                     <p>{formTipoInteres === 'simple' ? 'Interés simple' : 'Amortización francesa'}</p>
-                    <p>{formTasa ? `${formTasa}% ${formTipoInteres === 'simple' ? 'N.A.' : 'EA'}` : 'Sin interés'}</p>
+                    <p>{formTasa ? `${formTasa}%` : 'Sin interés'}</p>
                   </div>
                 </div>
               )}

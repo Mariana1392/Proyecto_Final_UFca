@@ -76,7 +76,7 @@ export default function CreditoDialogSimulacion({ hook }: CreditoDialogSimulacio
               <div className="flex flex-wrap gap-3 text-xs text-slate-500 bg-slate-50 rounded-xl px-4 py-2.5">
                 <span><strong>Asociado:</strong> {asociado?.nombre ?? '—'}</span>
                 <span>·</span>
-                <span><strong>{formTipoInteres === 'simple' ? 'Tasa N.A.:' : 'Tasa EA:'}</strong> {tasa}%</span>
+                <span><strong>Tasa:</strong> {tasa}%</span>
                 <span>·</span>
                 <span><strong>Plazo:</strong> {plazo} meses</span>
                 <span>·</span>

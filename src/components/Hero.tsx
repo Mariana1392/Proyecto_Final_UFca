@@ -238,6 +238,11 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
         else if (!validateEmail(value))
           error = 'Formato de correo no válido. Ej: nombre@correo.com';
         break;
+      case 'ingresoMensual':
+        if (!value.trim() || value === '0') error = 'El ingreso mensual es obligatorio y debe ser mayor a 0.';
+        else if (value.replace(/\D/g, '').length > 12)
+          error = 'El ingreso no puede superar los 12 dígitos.';
+        break;
     }
     setFormErrors(prev => ({ ...prev, [name]: error }));
     return error;
@@ -270,6 +275,11 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
     if (!formData.ingresoMensual || formData.ingresoMensual.trim() === '' || formData.ingresoMensual === '0') {
       setFormErrors(prev => ({ ...prev, ingresoMensual: 'El ingreso mensual es obligatorio' }));
       toast.error('El ingreso mensual aproximado es obligatorio.');
+      return;
+    }
+    if (formData.ingresoMensual.replace(/\D/g, '').length > 12) {
+      setFormErrors(prev => ({ ...prev, ingresoMensual: 'El ingreso no puede superar los 12 dígitos.' }));
+      toast.error('El ingreso mensual no puede superar los 12 dígitos.');
       return;
     }
 
@@ -806,6 +816,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                       id="ocupacion"
                       name="ocupacion"
                       value={formData.ocupacion}
+                      maxLength={100}
                       onChange={handleInputChange}
                       placeholder="Ingeniero, Profesor, etc."
                     />
@@ -821,10 +832,11 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                         ? Number(formData.ingresoMensual).toLocaleString('es-CO')
                         : ''}
                       onChange={e => {
-                        const soloDigitos = e.target.value.replace(/\D/g, '');
+                        const soloDigitos = e.target.value.replace(/\D/g, '').slice(0, 12);
                         setFormData(prev => ({ ...prev, ingresoMensual: soloDigitos }));
                         if (formErrors['ingresoMensual']) setFormErrors(prev => ({ ...prev, ingresoMensual: '' }));
                       }}
+                      onBlur={e => validarCampo('ingresoMensual', formData.ingresoMensual)}
                       placeholder="Ej: 2.000.000"
                       className={formErrors['ingresoMensual'] ? 'border-red-400 focus-visible:ring-red-400/20' : ''}
                     />
@@ -870,7 +882,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                           ? Number(formData.cuotaAhorroMensual).toLocaleString('es-CO')
                           : ''}
                         onChange={e => {
-                          const soloDigitos = e.target.value.replace(/\D/g, '');
+                          const soloDigitos = e.target.value.replace(/\D/g, '').slice(0, 12);
                           setFormData(prev => ({ ...prev, cuotaAhorroMensual: soloDigitos }));
                         }}
                         placeholder="150.000"
@@ -895,6 +907,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                     id="motivacion"
                     name="motivacion"
                     value={formData.motivacion}
+                    maxLength={1000}
                     onChange={handleInputChange}
                     placeholder="Cuéntanos por qué quieres unirte a nuestra asociación..."
                     className="min-h-24"
