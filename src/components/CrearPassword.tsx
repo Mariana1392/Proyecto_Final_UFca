@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -42,6 +42,15 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  
+  const newPasswordRef = useRef<HTMLInputElement>(null);
+
+  // Enfocar el campo nueva contraseña una sola vez cuando la sesión esté lista
+  useEffect(() => {
+    if (sessionStatus === 'ready') {
+      newPasswordRef.current?.focus();
+    }
+  }, [sessionStatus]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -309,6 +318,7 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                   <Input
+                    ref={newPasswordRef}
                     id="newPassword"
                     type={showNew ? 'text' : 'password'}
                     placeholder="••••••••"
@@ -317,7 +327,6 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     disabled={isLoading}
-                    autoFocus
                   />
                   <button
                     type="button"

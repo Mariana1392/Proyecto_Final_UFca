@@ -20,12 +20,8 @@ DELETE FROM transacciones;
 DELETE FROM excepciones;
 
 -- ── PASO 4: Créditos y sus hijos ────────────────────────────
-DELETE FROM credito_historial_estados;
 DELETE FROM cuotas_credito;
 DELETE FROM creditos;
-
--- ── PASO 5: Distribuciones de utilidades ────────────────────
-DELETE FROM distribuciones_utilidades;
 
 -- ── PASO 6: Liquidaciones ────────────────────────────────────
 DELETE FROM liquidaciones;
@@ -36,9 +32,6 @@ DELETE FROM cuentas_ahorro;
 -- ── PASO 8: Comité evaluador y solicitudes ───────────────────
 DELETE FROM comite_evaluador;
 DELETE FROM solicitudes_asociados;
-
--- ── PASO 9: Referidos ────────────────────────────────────────
-DELETE FROM referidos;
 
 -- ── PASO 10: Notificaciones de usuarios no-admin ─────────────
 DELETE FROM notificaciones
@@ -63,12 +56,9 @@ SELECT 'usuarios no-admin'          AS tabla, COUNT(*) FROM usuarios WHERE rol_i
 UNION ALL SELECT 'cuentas_ahorro',             COUNT(*) FROM cuentas_ahorro
 UNION ALL SELECT 'creditos',                   COUNT(*) FROM creditos
 UNION ALL SELECT 'cuotas_credito',             COUNT(*) FROM cuotas_credito
-UNION ALL SELECT 'credito_historial_estados',  COUNT(*) FROM credito_historial_estados
 UNION ALL SELECT 'liquidaciones',              COUNT(*) FROM liquidaciones
-UNION ALL SELECT 'distribuciones_utilidades',  COUNT(*) FROM distribuciones_utilidades
 UNION ALL SELECT 'solicitudes_asociados',      COUNT(*) FROM solicitudes_asociados
 UNION ALL SELECT 'comite_evaluador',           COUNT(*) FROM comite_evaluador
 UNION ALL SELECT 'transacciones',              COUNT(*) FROM transacciones
-UNION ALL SELECT 'excepciones',               COUNT(*) FROM excepciones
-UNION ALL SELECT 'referidos',                  COUNT(*) FROM referidos;
+UNION ALL SELECT 'excepciones',               COUNT(*) FROM excepciones;
 */
