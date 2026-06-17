@@ -136,11 +136,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('[AuthContext] calling cargarPerfil...');
         setTimeout(() => cargarPerfil(session.user.id), 0);
       } else {
-        console.log('[AuthContext] No session, setting loading false');
+        console.log('[AuthContext] No session, clearing cache and setting loading false');
+        setU(null);
         setLoading(false);
       }
     }).catch(err => {
       console.error('[AuthContext] getSession crash:', err);
+      setU(null);
       setLoading(false);
     });
 
