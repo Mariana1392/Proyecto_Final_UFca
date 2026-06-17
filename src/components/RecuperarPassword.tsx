@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Mail, Lock, ArrowLeft, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 
 import { supabase } from '../lib/supabase';
+import { validateEmail } from '../lib/validation';
 
 const LS_KEY = 'ufca_recuperar_cooldown_until';
 
@@ -56,8 +57,7 @@ export default function RecuperarPassword({ onBack }: RecuperarPasswordProps) {
     setError('');
     if (enCooldown) return;
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!validateEmail(email)) {
       setError('Formato de correo electrónico inválido');
       return;
     }

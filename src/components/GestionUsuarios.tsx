@@ -18,6 +18,7 @@ import { useAuth } from '../contexts/AuthContext';
 import type { UserRole } from '../contexts/AuthContext';
 import { rolLabel } from '../lib/permissions';
 import { useExpulsion } from './gestion-usuarios/useExpulsion';
+import { validateEmail } from '../lib/validation';
 import { ExpulsionDialog } from './gestion-usuarios/ExpulsionDialog';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -132,7 +133,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         break;
       case 'email':
         if (!v) error = 'El correo es obligatorio';
-        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) error = 'Formato de correo no válido';
+        else if (!validateEmail(v)) error = 'Formato de correo no válido';
         else if (usuarios.some(u => u.email?.toLowerCase() === v.toLowerCase() && u.id !== excludeId)) error = '⚠ Este correo ya está registrado';
         break;
       case 'telefono':
@@ -497,8 +498,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       if (!formData.fechaIngreso.trim()) { toast.error('La fecha de ingreso es obligatoria para asociados'); return; }
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email.trim())) { toast.error('El formato del email no es válido'); return; }
+    if (!validateEmail(formData.email)) { toast.error('El formato del email no es válido'); return; }
 
     if (usuarios.some(u => u.cedula === formData.cedula.trim()))
       { toast.error(`Ya existe un usuario con la identificación "${formData.cedula}"`); return; }
@@ -611,8 +611,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     if (formData.telefono.trim().length > 15) { toast.error('El teléfono no puede superar 15 caracteres'); return; }
     if (!formData.rolId)                  { toast.error('El rol es obligatorio'); return; }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email.trim())) { toast.error('El formato del email no es válido'); return; }
+    if (!validateEmail(formData.email)) { toast.error('El formato del email no es válido'); return; }
 
     // Solo comparar contra usuarios reales (no registros soloLectura de asociados sin cuenta)
     const usuariosReales = usuarios.filter(u => !u.soloLectura);

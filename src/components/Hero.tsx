@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
+import { validateEmail } from '../lib/validation';
 
 const db = supabase; // Standard supabase client (no RLS bypass)
 import { CheckCircle, Sparkles, Target, Trophy, UserPlus, Users, X, Shield, UserCircle2, Award, Calendar, MapPin, Clock, PiggyBank, CreditCard, TrendingUp, Upload, FileText, Briefcase, Trash2, AlertCircle, Mail, Smartphone, Download } from 'lucide-react';
@@ -234,7 +235,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
         break;
       case 'email':
         if (!value.trim()) error = 'El correo electrónico es obligatorio.';
-        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()))
+        else if (!validateEmail(value))
           error = 'Formato de correo no válido. Ej: nombre@correo.com';
         break;
     }
@@ -741,7 +742,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                         handleInputChange(e);
                         const val = e.target.value;
                         if (val.trim() !== '') {
-                           if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+                           if (!validateEmail(val)) {
                              setFormErrors(prev => ({ ...prev, email: 'Formato de correo no válido.' }));
                            } else {
                              setFormErrors(prev => ({ ...prev, email: '' }));
@@ -751,7 +752,7 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                         }
                         setExistenciaEmail(null);
                         if (debEmail.current) clearTimeout(debEmail.current);
-                        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val))
+                        if (validateEmail(val))
                           debEmail.current = setTimeout(() => verificarExistencia('email', val), 800);
                       }}
                       onBlur={e => validarCampo('email', e.target.value)}

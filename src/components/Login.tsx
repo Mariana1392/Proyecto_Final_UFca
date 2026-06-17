@@ -11,6 +11,7 @@ import logo from '../assets/logo.svg';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getPermisosEfectivos } from '../lib/permissions';
+import { validateEmail } from '../lib/validation';
 
 interface LoginProps {
   onLogin: (role: 'admin' | 'asociado' | 'usuario', userData: any) => void;
@@ -35,7 +36,7 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
     let error = '';
     if (name === 'email') {
       if (!value.trim()) error = 'El correo es obligatorio';
-      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) error = 'Formato de correo no válido';
+      else if (!validateEmail(value)) error = 'Formato de correo no válido';
     }
     if (name === 'password') {
       if (!value) error = 'La contraseña es obligatoria';
@@ -54,7 +55,7 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
       const emailToUse = loginEmail.trim();
 
       // Validar formato de correo antes de consultar
-      if (!emailToUse.includes('@') || !emailToUse.includes('.')) {
+      if (!validateEmail(emailToUse)) {
         setError('Ingresa un correo electrónico válido para iniciar sesión.');
         setIsLoading(false);
         return;

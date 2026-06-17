@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Lock, CheckCircle, AlertCircle, Eye, EyeOff, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
+import { validateEmail } from '../lib/validation';
 
 // ── Fondo decorativo reutilizable ────────────────────────────────────────
 const Fondo = ({ children }: { children: React.ReactNode }) => (
@@ -162,6 +163,10 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
   const handleRecovery = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!recoveryEmail.trim()) return;
+    if (!validateEmail(recoveryEmail)) {
+      toast.error('Formato de correo electrónico no válido');
+      return;
+    }
     setRecoveryLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail.trim(), {
       redirectTo: `${window.location.origin}/?bienvenido=1`,

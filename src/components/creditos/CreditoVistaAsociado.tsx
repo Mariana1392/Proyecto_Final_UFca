@@ -94,8 +94,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
     solTipoCuenta, setSolTipoCuenta,
     solNumeroCuenta, setSolNumeroCuenta,
     solTipoDesembolso, setSolTipoDesembolso,
-    solDocCartaLaboral, setSolDocCartaLaboral,
-    solDocCedula, setSolDocCedula,
+    solDocSoporte, setSolDocSoporte,
     tasasParametrizadas,
     handleSolTipoChange,
     parseMonto,
@@ -1065,20 +1064,18 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
             </h4>
             <p className="text-[11px] text-slate-400 -mt-1">Se guardarán de forma segura en el sistema para revisión del administrador.</p>
 
-            {/* Carta laboral */}
             <div className="space-y-1.5">
-              <Label className="text-xs text-slate-600">Carta laboral / comprobante de ingresos</Label>
-              <label className={`flex items-center gap-3 px-4 py-3 rounded-lg border-2 border-dashed cursor-pointer transition-colors group ${solDocCartaLaboral ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-emerald-300 hover:bg-slate-50'}`}>
-                <Upload className={`size-4 shrink-0 ${solDocCartaLaboral ? 'text-emerald-600' : 'text-slate-400 group-hover:text-emerald-500'}`} />
+              <label className={`flex items-center gap-3 px-4 py-3 rounded-lg border-2 border-dashed cursor-pointer transition-colors group ${solDocSoporte ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-emerald-300 hover:bg-slate-50'}`}>
+                <Upload className={`size-4 shrink-0 ${solDocSoporte ? 'text-emerald-600' : 'text-slate-400 group-hover:text-emerald-500'}`} />
                 <div className="flex-1 min-w-0">
-                  {solDocCartaLaboral ? (
-                    <span className="text-xs text-emerald-700 font-medium truncate block">{solDocCartaLaboral.name}</span>
+                  {solDocSoporte ? (
+                    <span className="text-xs text-emerald-700 font-medium truncate block">{solDocSoporte.name}</span>
                   ) : (
                     <span className="text-xs text-slate-500">Haz clic para subir PDF, JPG o PNG — máx. 5 MB</span>
                   )}
                 </div>
-                {solDocCartaLaboral && (
-                  <button type="button" className="text-slate-400 hover:text-red-500 transition-colors" onClick={e => { e.preventDefault(); setSolDocCartaLaboral(null); }}>
+                {solDocSoporte && (
+                  <button type="button" className="text-slate-400 hover:text-red-500 transition-colors" onClick={e => { e.preventDefault(); setSolDocSoporte(null); }}>
                     <X className="size-3.5" />
                   </button>
                 )}
@@ -1086,35 +1083,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                   onChange={e => {
                     const f = e.target.files?.[0];
                     if (f && f.size > 5 * 1024 * 1024) { toast.error('El archivo supera 5 MB'); return; }
-                    setSolDocCartaLaboral(f ?? null);
-                    e.target.value = '';
-                  }}
-                />
-              </label>
-            </div>
-
-            {/* Cédula */}
-            <div className="space-y-1.5">
-              <Label className="text-xs text-slate-600">Cédula de ciudadanía</Label>
-              <label className={`flex items-center gap-3 px-4 py-3 rounded-lg border-2 border-dashed cursor-pointer transition-colors group ${solDocCedula ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-emerald-300 hover:bg-slate-50'}`}>
-                <Upload className={`size-4 shrink-0 ${solDocCedula ? 'text-emerald-600' : 'text-slate-400 group-hover:text-emerald-500'}`} />
-                <div className="flex-1 min-w-0">
-                  {solDocCedula ? (
-                    <span className="text-xs text-emerald-700 font-medium truncate block">{solDocCedula.name}</span>
-                  ) : (
-                    <span className="text-xs text-slate-500">Haz clic para subir PDF, JPG o PNG — máx. 5 MB</span>
-                  )}
-                </div>
-                {solDocCedula && (
-                  <button type="button" className="text-slate-400 hover:text-red-500 transition-colors" onClick={e => { e.preventDefault(); setSolDocCedula(null); }}>
-                    <X className="size-3.5" />
-                  </button>
-                )}
-                <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={e => {
-                    const f = e.target.files?.[0];
-                    if (f && f.size > 5 * 1024 * 1024) { toast.error('El archivo supera 5 MB'); return; }
-                    setSolDocCedula(f ?? null);
+                    setSolDocSoporte(f ?? null);
                     e.target.value = '';
                   }}
                 />

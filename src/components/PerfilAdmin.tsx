@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { User, Mail, AtSign, Shield, Edit, Save, X, Users, UserCheck, Clock, Phone, Lock, SendHorizonal, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
+import { validateEmail } from '../lib/validation';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function PerfilAdmin() {
@@ -129,8 +130,7 @@ export default function PerfilAdmin() {
       toast.error('Ingresa el nuevo correo electrónico');
       return;
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(emailTrimmed)) {
+    if (!validateEmail(emailTrimmed)) {
       toast.error('El formato del correo no es válido');
       return;
     }

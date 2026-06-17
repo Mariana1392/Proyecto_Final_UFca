@@ -50,9 +50,7 @@ export function useCreditosSolicitudes({
   const [solNumeroCuenta, setSolNumeroCuenta] = useState('');
   const [solTipoDesembolso, setSolTipoDesembolso] = useState<'efectivo' | 'transferencia'>('transferencia');
   const [tasasParametrizadas, setTasasParametrizadas] = useState<Record<string, number>>({});
-  // Documentos adjuntos a la solicitud (Mejora F)
-  const [solDocCartaLaboral, setSolDocCartaLaboral] = useState<File | null>(null);
-  const [solDocCedula, setSolDocCedula]             = useState<File | null>(null);
+  const [solDocSoporte, setSolDocSoporte] = useState<File | null>(null);
   // Referido: el crédito puede ser para el asociado o para un referido (persona externa)
   const [solEsParaReferido, setSolEsParaReferido]   = useState(false);
   const [solReferidoNombre, setSolReferidoNombre]   = useState('');
@@ -239,7 +237,7 @@ export function useCreditosSolicitudes({
       if (error) throw error;
 
       // ── Subir documentos a Supabase Storage (Mejora F) ──────────────────
-      const uploadDoc = async (file: File, tipo: 'carta-laboral' | 'cedula') => {
+      const uploadDoc = async (file: File, tipo: string) => {
         const ext  = file.name.split('.').pop()?.toLowerCase() ?? 'pdf';
         const path = `${userData?.id}/${data.id}-${tipo}.${ext}`;
         const { error: upErr } = await supabase.storage
@@ -250,15 +248,22 @@ export function useCreditosSolicitudes({
         return { tipo, url: urlData.publicUrl, nombre: file.name };
       };
 
-      const docResultados = await Promise.all([
-        solDocCartaLaboral ? uploadDoc(solDocCartaLaboral, 'carta-laboral') : Promise.resolve(null),
-        solDocCedula        ? uploadDoc(solDocCedula,        'cedula')        : Promise.resolve(null),
-      ]);
-      const docsAdjuntos = docResultados.filter(Boolean);
+      let urlFinal = '';
+      let docsAdjuntos: any[] = [];
+      if (solDocSoporte) {
+        const uploaded = await uploadDoc(solDocSoporte, 'soporte');
+        if (uploaded) {
+          urlFinal = uploaded.url;
+          docsAdjuntos = [uploaded];
+        }
+      }
 
       if (docsAdjuntos.length > 0) {
         void supabase.from('creditos')
-          .update({ documentos_adjuntos: docsAdjuntos })
+          .update({ 
+            documentos_adjuntos: docsAdjuntos,
+            url_comprobante_solicitud: urlFinal
+          })
           .eq('id', data.id);
       }
 
@@ -276,7 +281,7 @@ export function useCreditosSolicitudes({
         fechaDesembolso:    null,
         estadoAprobacion:   'pendiente',
         descripcionSoporte: data.observaciones ?? '',
-        urlDocumento:       '',
+        urlDocumento:       urlFinal,
         estado:             'pendiente',
         anulado:            false,
         motivoAnulacion:    '',
@@ -301,7 +306,7 @@ export function useCreditosSolicitudes({
       setIsSolicitudDialogOpen(false);
       setSolMonto(''); setSolTipo('libre_inversion'); setSolPlazo('');
       setSolTasa(''); setSolDestino(''); setSolObs('');
-      setSolDocCartaLaboral(null); setSolDocCedula(null);
+      setSolDocSoporte(null);
       setSolEsParaReferido(false); setSolReferidoNombre('');
       setSolBanco(''); setSolBancoSeleccionado(''); setSolBancoSubSeleccionado(''); setSolTipoCuenta('ahorros'); setSolNumeroCuenta('');
       setSolTipoDesembolso('transferencia');
@@ -479,8 +484,7 @@ export function useCreditosSolicitudes({
     solNumeroCuenta, setSolNumeroCuenta,
     solTipoDesembolso, setSolTipoDesembolso,
     tasasParametrizadas,
-    solDocCartaLaboral, setSolDocCartaLaboral,
-    solDocCedula, setSolDocCedula,
+    solDocSoporte, setSolDocSoporte,
     solEsParaReferido, setSolEsParaReferido,
     solReferidoNombre, setSolReferidoNombre,
     asocIngresoMensual,

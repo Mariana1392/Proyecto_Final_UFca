@@ -12,6 +12,7 @@ import { AsociadoDialogRetiro }   from './AsociadoDialogRetiro';
 import { AsociadoDialogDetalle }  from './AsociadoDialogDetalle';
 import { formatCurrency, formatDate, getEstadoBadgeColor } from './asociadosUtils';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { validateEmail } from '../../lib/validation';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Switch } from '../ui/switch';
@@ -235,8 +236,7 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
     if (!formData.direccion.trim()) { toast.error('Error: La dirección es obligatoria'); return; }
     if (!formData.fechaIngreso) { toast.error('Error: La fecha de ingreso es obligatoria'); return; }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email.trim())) {
+    if (!validateEmail(formData.email)) {
       toast.error('Error: El formato del email no es válido. Debe contener @ y un dominio válido.');
       return;
     }
@@ -339,8 +339,7 @@ export default function Asociados({ onViewDetails, userRole, userData }: Asociad
     if (!formData.telefono.trim()) { toast.error('❌ Error: El teléfono es obligatorio'); return; }
     if (!formData.direccion.trim()) { toast.error('❌ Error: La dirección es obligatoria'); return; }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email.trim())) {
+    if (!validateEmail(formData.email)) {
       toast.error('❌ Error: El formato del email no es válido.');
       return;
     }

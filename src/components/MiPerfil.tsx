@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
+import { validateEmail } from '../lib/validation';
 
 interface MiPerfilProps {
   userData: any;
@@ -27,7 +28,7 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
     let error = '';
     if (name === 'email') {
       if (!value.trim()) error = 'El correo es obligatorio';
-      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) error = 'Formato de correo no válido';
+      else if (!validateEmail(value)) error = 'Formato de correo no válido';
     }
     if (name === 'telefono') {
       if (!value.trim()) error = 'El teléfono es obligatorio';
@@ -155,7 +156,7 @@ export default function MiPerfil({ userData }: MiPerfilProps) {
 
   const handleSave = async () => {
     if (!formData.email.trim()) { toast.error('El correo electrónico es obligatorio'); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) { toast.error('El correo no tiene formato válido'); return; }
+    if (!validateEmail(formData.email)) { toast.error('El correo no tiene formato válido'); return; }
     if (!formData.telefono.trim()) { toast.error('El teléfono es obligatorio'); return; }
 
     setSaving(true);
