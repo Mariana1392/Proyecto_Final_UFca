@@ -928,11 +928,15 @@ export default function Hero({ onNavigateToDashboard, onNavigateToLogin, autoOpe
                     id="motivacion"
                     name="motivacion"
                     value={formData.motivacion}
-                    maxLength={1000}
+                    maxLength={200}
                     onChange={handleInputChange}
                     placeholder="Cuéntanos por qué quieres unirte a nuestra asociación..."
                     className="min-h-24"
                   />
+                  <div className="flex justify-between items-center text-xs text-slate-400 mt-1">
+                    <span>Máximo 200 caracteres</span>
+                    <span>{(formData.motivacion || '').length}/200</span>
+                  </div>
                 </div>
               </div>
 
