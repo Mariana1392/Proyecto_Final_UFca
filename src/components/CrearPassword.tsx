@@ -27,15 +27,6 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  
-  const newPasswordRef = useRef<HTMLInputElement>(null);
-
-  // Enfocar el campo nueva contraseña una sola vez cuando la sesión esté lista
-  useEffect(() => {
-    if (sessionStatus === 'ready') {
-      newPasswordRef.current?.focus();
-    }
-  }, [sessionStatus]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -47,6 +38,15 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
 
   // Estado de la sesión: 'checking' → 'ready' | 'error'
   const [sessionStatus, setSessionStatus] = useState<'checking' | 'ready' | 'error'>('checking');
+  
+  const newPasswordRef = useRef<HTMLInputElement>(null);
+
+  // Enfocar el campo nueva contraseña una sola vez cuando la sesión esté lista
+  useEffect(() => {
+    if (sessionStatus === 'ready') {
+      newPasswordRef.current?.focus();
+    }
+  }, [sessionStatus]);
 
   // Verificar que Supabase procesó el token del link de invitación
   useEffect(() => {
