@@ -109,6 +109,7 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
     mayuscula: /[A-Z]/.test(newPassword),
     minuscula: /[a-z]/.test(newPassword),
     numero: /[0-9]/.test(newPassword),
+    especial: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(newPassword),
     coinciden: newPassword.length > 0 && newPassword === confirmPassword,
   };
 
@@ -373,6 +374,7 @@ const CrearPassword = ({ onSuccess }: CrearPasswordProps) => {
                     { ok: validaciones.mayuscula, texto: 'Al menos una letra mayúscula (A–Z)' },
                     { ok: validaciones.minuscula, texto: 'Al menos una letra minúscula (a–z)' },
                     { ok: validaciones.numero,    texto: 'Al menos un número (0–9)' },
+                    { ok: validaciones.especial,  texto: 'Al menos un carácter especial (ej. !, @, #, $, %)' },
                     { ok: validaciones.coinciden, texto: 'Las contraseñas coinciden' },
                   ].map(({ ok, texto }) => (
                     <li key={texto} className="flex items-center gap-2 text-xs">

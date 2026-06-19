@@ -140,10 +140,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         if (!v) error = 'El teléfono es obligatorio';
         else if (v.length > 15) error = 'Máximo 15 caracteres';
         break;
-      case 'password':
-        if (!v) error = 'La contraseña es obligatoria';
-        else if (v.length < 6) error = 'Mínimo 6 caracteres';
-        break;
+
       case 'direccion':
         if (!v) error = 'La dirección es obligatoria para asociados';
         break;
@@ -174,7 +171,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
   const [filterEstado, setFilterEstado]     = useState('');
   const [formData, setFormData]         = useState({
     cedula: '', username: '', nombre: '',
-    email: '', telefono: '', rol: '', rolId: '', password: '',
+    email: '', telefono: '', rol: '', rolId: '',
     direccion: '', fechaIngreso: '',
   });
 
@@ -474,7 +471,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
 
   // ── Crear ────────────────────────────────────────────────────────────────────
   const handleOpenCreate = () => {
-    setFormData({ cedula: '', username: '', nombre: '', email: '', telefono: '', rol: '', rolId: '', password: '', direccion: '', fechaIngreso: '' });
+    setFormData({ cedula: '', username: '', nombre: '', email: '', telefono: '', rol: '', rolId: '', direccion: '', fechaIngreso: '' });
     setFormErrors({});
     setIsCreateModalOpen(true);
   };
@@ -489,8 +486,6 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
     if (!formData.telefono.trim())       { toast.error('El teléfono es obligatorio'); return; }
     if (formData.telefono.trim().length > 15) { toast.error('El teléfono no puede superar 15 caracteres'); return; }
     if (!formData.rolId)                  { toast.error('Debes seleccionar un rol'); return; }
-    if (!formData.password.trim())       { toast.error('La contraseña es obligatoria'); return; }
-    if (formData.password.trim().length < 6) { toast.error('La contraseña debe tener al menos 6 caracteres'); return; }
 
     // Campos adicionales si es Asociado
     if (formData.rol === 'Asociado') {
@@ -508,14 +503,18 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       { toast.error(`Ya existe un usuario con el email "${formData.email}"`); return; }
 
     try {
-      // Crear en Supabase Auth usando signUp (funciona desde el frontend)
-      const { data: authData, error: authErr } = await supabase.auth.signUp({
-        email:    formData.email.trim(),
-        password: formData.password.trim(),
-        options:  { data: { nombre: formData.nombre.trim() } },
+      // Enviar invitación por email usando el helper de administración (inviteUser)
+      const { data: inviteRes, error: inviteErr } = await supabase.functions.invoke('admin-helper', {
+        body: {
+          action: 'inviteUser',
+          email: formData.email.trim(),
+          redirectTo: `${window.location.origin}/?bienvenido=1`,
+          data: { nombre: formData.nombre.trim(), rol: formData.rol },
+        }
       });
-      if (authErr) throw authErr;
-      if (!authData.user) throw new Error('No se pudo crear el usuario en Auth');
+      if (inviteErr) throw inviteErr;
+      if (!inviteRes?.data?.user) throw new Error('No se pudo invitar al usuario en Auth');
+      const authUserObj = inviteRes.data.user;
 
       // Campos adicionales para usuarios con rol Asociado
       const camposAsociado = formData.rol === 'Asociado' ? {
@@ -528,7 +527,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
 
       // UPSERT — el trigger on_auth_user_created puede haber creado ya la fila con el mismo id
       const { error: userErr } = await supabase.from('usuarios').upsert({
-        id:             authData.user.id,
+        id:             authUserObj.id,
         nombre:         formData.nombre.trim(),
         email:          formData.email.trim(),
         username:       formData.username.trim().toLowerCase(),
@@ -546,14 +545,14 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       });
 
       setUsuarios(prev => [...prev, {
-        id:             authData.user!.id,
+        id:             authUserObj.id,
         cedula:         formData.cedula.trim(),
         username:       formData.username.trim().toLowerCase(),
         nombre:         formData.nombre.trim(),
         email:          formData.email.trim(),
         telefono:       formData.telefono.trim(),
         rol:            formData.rol,
-        asociado_id:    authData.user!.id,
+        asociado_id:    authUserObj.id,
         ultimoAcceso:   'Nunca',
         estado:         true,
         fechaCreacion:  new Date().toISOString().split('T')[0],
@@ -561,7 +560,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       }]);
 
       guardarAuditoria({
-        usuarioId:        authData.user!.id,
+        usuarioId:        authUserObj.id,
         usuarioNombre:    formData.nombre.trim(),
         estadoAnterior:   '—',
         estadoNuevo:      `Rol: ${formData.rol} | Email: ${formData.email.trim()}`,
@@ -570,7 +569,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
         accion:           'CREACIÓN',
       });
 
-      toast.success(`Usuario "${formData.nombre}" creado exitosamente`);
+      toast.success(`Usuario "${formData.nombre}" creado e invitado exitosamente`);
       setIsCreateModalOpen(false);
     } catch (err: any) {
       toast.error(traducirErrorAuth(err.message));
@@ -594,7 +593,6 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
       direccion:      usuario.direccion || '',
       rol:            usuario.rol,
       rolId:          rolEncontrado?.id ?? usuario.rol_id ?? '',
-      password:       '',
       fechaIngreso:   '',
     });
     setIsEditModalOpen(true);
@@ -1392,16 +1390,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                 </Select>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="c-password">Contraseña *</Label>
-              <Input id="c-password" type="password" placeholder="••••••••"
-                autoComplete="new-password"
-                value={formData.password}
-                onChange={e => handleFormChange('password', e.target.value)}
-                onBlur={e => validarCampoUsuario('password', e.target.value)}
-                className={formErrors.password ? 'border-red-400' : ''} />
-              {formErrors.password && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.password}</p>}
-            </div>
+
             {formData.rol === 'Asociado' && (
               <>
                 <div className="border-t border-slate-200 pt-4">

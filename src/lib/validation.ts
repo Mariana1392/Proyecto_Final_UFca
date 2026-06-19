@@ -147,3 +147,31 @@ export const validateEmailDomain = async (email: string): Promise<boolean> => {
     return true;
   }
 };
+
+/**
+ * Valida si una contraseña cumple con los requisitos estándar de seguridad (Google):
+ * - Mínimo 8 caracteres
+ * - Al menos una letra mayúscula
+ * - Al menos una letra minúscula
+ * - Al menos un número
+ * - Al menos un carácter especial (ej. !@#$%^&*(),.?":{}|<>)
+ */
+export const validatePassword = (password: string): { isValid: boolean; error?: string } => {
+  if (password.length < 8) {
+    return { isValid: false, error: 'La contraseña debe tener al menos 8 caracteres' };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { isValid: false, error: 'La contraseña debe incluir al menos una letra mayúscula (A–Z)' };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { isValid: false, error: 'La contraseña debe incluir al menos una letra minúscula (a–z)' };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { isValid: false, error: 'La contraseña debe incluir al menos un número (0–9)' };
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password)) {
+    return { isValid: false, error: 'La contraseña debe incluir al menos un carácter especial (ej. !, @, #, $, %)' };
+  }
+  return { isValid: true };
+};
+
