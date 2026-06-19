@@ -387,6 +387,42 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
                   className="w-full h-12 rounded-xl bg-gradient-to-r from-[#054030] to-[#0a7050] hover:from-[#032a1e] hover:to-[#054030] text-white font-bold text-base shadow-lg shadow-emerald-900/20">
                   {isLoading ? 'Iniciando sesión...' : 'Iniciar sesión'}
                 </Button>
+                {import.meta.env.DEV && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const adminPerms = [
+                        'dashboard', 'gestion_usuarios', 'gestion_roles', 'gestion_asociados',
+                        'ahorros', 'creditos', 'liquidaciones', 'solicitudes', 'excepciones',
+                        'auditoria', 'configuracion', 'notificaciones', 'reportes'
+                      ];
+                      iniciarSesion({
+                        id: 'dev-admin-id',
+                        nombre: 'Admin de Desarrollo',
+                        email: 'admin.dev@ufca.com',
+                        username: 'admin.dev',
+                        rol: 'admin',
+                        rol_id: 'admin',
+                        activo: true,
+                        permisos: adminPerms,
+                      });
+                      onLogin('admin', {
+                        id: 'dev-admin-id',
+                        name: 'Admin de Desarrollo',
+                        email: 'admin.dev@ufca.com',
+                        role: 'admin',
+                        rol_nombre: 'admin',
+                        permisos: adminPerms,
+                        cedula: '12345678',
+                        telefono: '555-5555',
+                      });
+                    }}
+                    className="w-full mt-2 border-dashed border-emerald-600 text-emerald-700 hover:bg-emerald-50 rounded-xl h-11"
+                  >
+                    Bypass Desarrollo: Entrar como Admin
+                  </Button>
+                )}
               </form>
 
               {/* Avisos Inferiores */}

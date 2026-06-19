@@ -8,7 +8,7 @@ import { Badge } from './ui/badge';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Plus, ChevronLeft, ChevronRight, ChevronDown, UserCircle, UserCircle2, Edit, Trash2, Shield, Clock, FileText, AlertTriangle, User, Lock, History, Unlock, Ban } from 'lucide-react';
+import { Search, Plus, ChevronLeft, ChevronRight, ChevronDown, UserCircle, UserCircle2, Edit, Trash2, Shield, Clock, FileText, AlertTriangle, User, Lock, History, Unlock, Ban, Mail, Phone, Calendar, MapPin, UserCheck } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
@@ -1311,120 +1311,183 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
 
       {/* ── Modal Crear Usuario ── */}
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserCircle className="size-5 text-emerald-600" />
+        <DialogContent className="max-w-2xl border-none shadow-2xl rounded-3xl overflow-hidden bg-white">
+          <DialogHeader className="bg-gradient-to-br from-[#021810] to-[#054030] p-6 text-white relative">
+            <div className="absolute inset-0 opacity-5" style={{backgroundImage:'radial-gradient(#fff 1px,transparent 1px)',backgroundSize:'20px 20px'}}/>
+            <DialogTitle className="flex items-center gap-2.5 text-xl font-bold text-white relative z-10">
+              <UserCircle className="size-6 text-[#f0c040]" />
               Crear Nuevo Usuario
             </DialogTitle>
-            <DialogDescription>Completa los datos del nuevo usuario del sistema</DialogDescription>
+            <DialogDescription className="text-emerald-100/70 text-xs font-medium mt-1 relative z-10">
+              Completa los datos del nuevo usuario para registrarlo en el sistema.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="c-identificacion">Identificación * <span className="text-xs text-slate-400 font-normal">(solo números, máx. 15)</span></Label>
-                <Input id="c-identificacion" placeholder="1010123456"
-                  inputMode="numeric" maxLength={15}
-                  value={formData.cedula}
-                  onChange={(e) => { const v = e.target.value.replace(/\D/g,'').slice(0,15); handleFormChange('cedula', v); }}
-                  onBlur={e => validarCampoUsuario('cedula', e.target.value)}
-                  className={formErrors.cedula ? 'border-red-400' : ''} />
-                {formErrors.cedula && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.cedula}</p>}
+
+          <div className="p-6 max-h-[70vh] overflow-y-auto space-y-5">
+            {/* Sección 1: Información Personal y de Contacto */}
+            <div className="bg-slate-50/40 border border-slate-100 rounded-2xl p-4 space-y-4 transition-all">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-1">
+                <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-700">
+                  <UserCircle2 className="size-4" />
+                </div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Información Personal</h3>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="c-username">Nombre de usuario *</Label>
-                <Input id="c-username" placeholder="juan.perez"
-                  value={formData.username}
-                  onChange={e => handleFormChange('username', e.target.value)}
-                  onBlur={e => validarCampoUsuario('username', e.target.value)}
-                  className={formErrors.username ? 'border-red-400' : ''} />
-                {formErrors.username && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.username}</p>}
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="c-nombre" className="text-slate-700 font-semibold text-xs">Nombre completo *</Label>
+                  <div className="relative">
+                    <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                    <Input id="c-nombre" placeholder="Juan Pérez"
+                      value={formData.nombre}
+                      onChange={e => handleFormChange('nombre', e.target.value)}
+                      onBlur={e => validarCampoUsuario('nombre', e.target.value)}
+                      className={`pl-9 h-10 rounded-xl transition-all ${formErrors.nombre ? 'border-red-400 bg-red-50/10 focus:ring-red-100' : 'border-slate-200 bg-slate-50/50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-50/20'}`} />
+                  </div>
+                  {formErrors.nombre && <p className="text-[11px] text-red-500 flex items-center gap-1 font-medium mt-1 animate-pulse"><AlertTriangle className="size-3 shrink-0"/>{formErrors.nombre}</p>}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="c-identificacion" className="text-slate-700 font-semibold text-xs">Identificación * <span className="text-[10px] text-slate-400 font-normal">(solo números, 6-15)</span></Label>
+                  <div className="relative">
+                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                    <Input id="c-identificacion" placeholder="1010123456"
+                      inputMode="numeric" maxLength={15}
+                      value={formData.cedula}
+                      onChange={(e) => { const v = e.target.value.replace(/\D/g,'').slice(0,15); handleFormChange('cedula', v); }}
+                      onBlur={e => validarCampoUsuario('cedula', e.target.value)}
+                      className={`pl-9 h-10 rounded-xl transition-all ${formErrors.cedula ? 'border-red-400 bg-red-50/10 focus:ring-red-100' : 'border-slate-200 bg-slate-50/50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-50/20'}`} />
+                  </div>
+                  {formErrors.cedula && <p className="text-[11px] text-red-500 flex items-center gap-1 font-medium mt-1 animate-pulse"><AlertTriangle className="size-3 shrink-0"/>{formErrors.cedula}</p>}
+                </div>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="c-nombre">Nombre completo *</Label>
-                <Input id="c-nombre" placeholder="Juan Pérez"
-                  value={formData.nombre}
-                  onChange={e => handleFormChange('nombre', e.target.value)}
-                  onBlur={e => validarCampoUsuario('nombre', e.target.value)}
-                  className={formErrors.nombre ? 'border-red-400' : ''} />
-                {formErrors.nombre && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.nombre}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="c-email">Email *</Label>
-                <Input id="c-email" type="email" placeholder="juan.perez@ufca.com"
-                  value={formData.email}
-                  onChange={e => handleFormChange('email', e.target.value)}
-                  onBlur={e => validarCampoUsuario('email', e.target.value)}
-                  className={formErrors.email ? 'border-red-400' : ''} />
-                {formErrors.email && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.email}</p>}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="c-telefono">Teléfono * <span className="text-xs text-slate-400 font-normal">(máx. 15 caracteres)</span></Label>
-                <Input id="c-telefono" placeholder="+57 300 111 2222"
-                  inputMode="tel" maxLength={15}
-                  value={formData.telefono}
-                  onChange={(e) => { const v = e.target.value.replace(/[^\d+\s\-()]/g,'').slice(0,15); handleFormChange('telefono', v); }}
-                  onBlur={e => validarCampoUsuario('telefono', e.target.value)}
-                  className={formErrors.telefono ? 'border-red-400' : ''} />
-                {formErrors.telefono && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.telefono}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="c-rol">Rol *</Label>
-                <Select
-                  value={formData.rolId}
-                  onValueChange={(id: string) => {
-                    const r = roles.find(r => r.id === id);
-                    setFormData(prev => ({ ...prev, rolId: id, rol: r ? (r.label ?? rolLabel(r.nombre)) : '' }));
-                  }}
-                >
-                  <SelectTrigger><SelectValue placeholder="Seleccionar rol" /></SelectTrigger>
-                  <SelectContent>
-                    {roles.map(r => (
-                      <SelectItem key={r.id} value={r.id}>{r.label ?? rolLabel(r.nombre)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="c-email" className="text-slate-700 font-semibold text-xs">Correo electrónico *</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                    <Input id="c-email" type="email" placeholder="juan.perez@ufca.com"
+                      value={formData.email}
+                      onChange={e => handleFormChange('email', e.target.value)}
+                      onBlur={e => validarCampoUsuario('email', e.target.value)}
+                      className={`pl-9 h-10 rounded-xl transition-all ${formErrors.email ? 'border-red-400 bg-red-50/10 focus:ring-red-100' : 'border-slate-200 bg-slate-50/50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-50/20'}`} />
+                  </div>
+                  {formErrors.email && <p className="text-[11px] text-red-500 flex items-center gap-1 font-medium mt-1 animate-pulse"><AlertTriangle className="size-3 shrink-0"/>{formErrors.email}</p>}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="c-telefono" className="text-slate-700 font-semibold text-xs">Teléfono * <span className="text-[10px] text-slate-400 font-normal">(máx. 15 caract.)</span></Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                    <Input id="c-telefono" placeholder="+57 300 111 2222"
+                      inputMode="tel" maxLength={15}
+                      value={formData.telefono}
+                      onChange={(e) => { const v = e.target.value.replace(/[^\d+\s\-()]/g,'').slice(0,15); handleFormChange('telefono', v); }}
+                      onBlur={e => validarCampoUsuario('telefono', e.target.value)}
+                      className={`pl-9 h-10 rounded-xl transition-all ${formErrors.telefono ? 'border-red-400 bg-red-50/10 focus:ring-red-100' : 'border-slate-200 bg-slate-50/50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-50/20'}`} />
+                  </div>
+                  {formErrors.telefono && <p className="text-[11px] text-red-500 flex items-center gap-1 font-medium mt-1 animate-pulse"><AlertTriangle className="size-3 shrink-0"/>{formErrors.telefono}</p>}
+                </div>
               </div>
             </div>
 
+            {/* Sección 2: Credenciales y Rol */}
+            <div className="bg-slate-50/40 border border-slate-100 rounded-2xl p-4 space-y-4 transition-all">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-1">
+                <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-700">
+                  <Lock className="size-4" />
+                </div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Credenciales del Sistema</h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="c-username" className="text-slate-700 font-semibold text-xs">Nombre de usuario *</Label>
+                  <div className="relative">
+                    <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                    <Input id="c-username" placeholder="juan.perez"
+                      value={formData.username}
+                      onChange={e => handleFormChange('username', e.target.value)}
+                      onBlur={e => validarCampoUsuario('username', e.target.value)}
+                      className={`pl-9 h-10 rounded-xl transition-all ${formErrors.username ? 'border-red-400 bg-red-50/10 focus:ring-red-100' : 'border-slate-200 bg-slate-50/50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-50/20'}`} />
+                  </div>
+                  {formErrors.username && <p className="text-[11px] text-red-500 flex items-center gap-1 font-medium mt-1 animate-pulse"><AlertTriangle className="size-3 shrink-0"/>{formErrors.username}</p>}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="c-rol" className="text-slate-700 font-semibold text-xs">Rol de Usuario *</Label>
+                  <Select
+                    value={formData.rolId}
+                    onValueChange={(id: string) => {
+                      const r = roles.find(r => r.id === id);
+                      setFormData(prev => ({ ...prev, rolId: id, rol: r ? (r.label ?? rolLabel(r.nombre)) : '' }));
+                    }}
+                  >
+                    <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-slate-50/50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-50/20 transition-all">
+                      <SelectValue placeholder="Seleccionar rol" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-slate-100 shadow-xl bg-white">
+                      {roles.map(r => (
+                        <SelectItem key={r.id} value={r.id} className="rounded-lg">{r.label ?? rolLabel(r.nombre)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Sección 3: Datos de Asociado (Condicional) */}
             {formData.rol === 'Asociado' && (
-              <>
-                <div className="border-t border-slate-200 pt-4">
-                  <p className="text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
-                    <User className="size-4 text-emerald-600" />
-                    Datos de asociado (requeridos al registrar con rol Asociado)
-                  </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="c-direccion">Dirección *</Label>
+              <div className="bg-gradient-to-br from-emerald-50/30 to-emerald-50/70 border border-emerald-100 rounded-2xl p-4 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                <div className="flex items-center gap-2.5 border-b border-emerald-100/50 pb-2 mb-1">
+                  <div className="p-1.5 bg-emerald-100 rounded-lg text-emerald-700">
+                    <User className="size-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-950">Datos de Asociado</h3>
+                    <p className="text-[10px] text-emerald-800/80 font-medium">Requeridos para el registro de asociados activos</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="c-direccion" className="text-emerald-950 font-semibold text-xs">Dirección de residencia *</Label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-emerald-600" />
                       <Input id="c-direccion" placeholder="Calle 10 # 5-20, Florencia"
                         value={formData.direccion}
                         onChange={e => handleFormChange('direccion', e.target.value)}
                         onBlur={e => validarCampoUsuario('direccion', e.target.value)}
-                        className={formErrors.direccion ? 'border-red-400' : ''} />
-                      {formErrors.direccion && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.direccion}</p>}
+                        className={`pl-9 h-10 rounded-xl transition-all ${formErrors.direccion ? 'border-red-400 bg-red-50/10 focus:ring-red-100' : 'border-emerald-200 bg-white/80 focus:bg-white focus:border-emerald-600 focus:ring-emerald-50/20'}`} />
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="c-fecha-ingreso">Fecha de ingreso *</Label>
+                    {formErrors.direccion && <p className="text-[11px] text-red-500 flex items-center gap-1 font-medium mt-1 animate-pulse"><AlertTriangle className="size-3 shrink-0"/>{formErrors.direccion}</p>}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="c-fecha-ingreso" className="text-emerald-950 font-semibold text-xs">Fecha de ingreso *</Label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-emerald-600" />
                       <Input id="c-fecha-ingreso" type="date"
                         value={formData.fechaIngreso}
                         onChange={e => handleFormChange('fechaIngreso', e.target.value)}
                         onBlur={e => validarCampoUsuario('fechaIngreso', e.target.value)}
-                        className={formErrors.fechaIngreso ? 'border-red-400' : ''} />
-                      {formErrors.fechaIngreso && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{formErrors.fechaIngreso}</p>}
+                        className={`pl-9 h-10 rounded-xl transition-all ${formErrors.fechaIngreso ? 'border-red-400 bg-red-50/10 focus:ring-red-100' : 'border-emerald-200 bg-white/80 focus:bg-white focus:border-emerald-600 focus:ring-emerald-50/20'}`} />
                     </div>
+                    {formErrors.fechaIngreso && <p className="text-[11px] text-red-500 flex items-center gap-1 font-medium mt-1 animate-pulse"><AlertTriangle className="size-3 shrink-0"/>{formErrors.fechaIngreso}</p>}
                   </div>
                 </div>
-              </>
+              </div>
             )}
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreate} className="bg-emerald-600 hover:bg-emerald-700">Crear usuario</Button>
+
+          <DialogFooter className="bg-slate-50 px-6 py-4 flex gap-2 border-t border-slate-100 justify-end">
+            <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)} className="rounded-xl h-10 px-5 font-semibold text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-800 transition-all">
+              Cancelar
+            </Button>
+            <Button onClick={handleCreate} className="rounded-xl h-10 px-5 font-semibold bg-gradient-to-r from-emerald-600 to-[#0a7050] hover:from-emerald-700 hover:to-[#054030] text-white shadow-lg shadow-emerald-900/10 hover:shadow-emerald-900/20 hover:scale-[1.01] active:scale-[0.99] transition-all">
+              Crear usuario
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
