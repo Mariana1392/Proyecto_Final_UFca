@@ -1348,7 +1348,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="c-identificacion" className="text-slate-700 font-semibold text-xs">Identificación * <span className="text-[10px] text-slate-400 font-normal">(solo números, 6-15)</span></Label>
+                  <Label htmlFor="c-identificacion" className="text-slate-700 font-semibold text-xs">Identificación *</Label>
                   <div className="relative">
                     <Shield className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
                     <Input id="c-identificacion" placeholder="1010123456"
@@ -1358,7 +1358,11 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                       onBlur={e => validarCampoUsuario('cedula', e.target.value)}
                       className={`pl-9 h-10 rounded-xl transition-all ${formErrors.cedula ? 'border-red-400 bg-red-50/10 focus:ring-red-100' : 'border-slate-200 bg-slate-50/50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-50/20'}`} />
                   </div>
-                  {formErrors.cedula && <p className="text-[11px] text-red-500 flex items-center gap-1 font-medium mt-1 animate-pulse"><AlertTriangle className="size-3 shrink-0"/>{formErrors.cedula}</p>}
+                  {formErrors.cedula ? (
+                    <p className="text-[11px] text-red-500 flex items-center gap-1 font-medium mt-1 animate-pulse"><AlertTriangle className="size-3 shrink-0"/>{formErrors.cedula}</p>
+                  ) : (
+                    <p className="text-[10px] text-slate-400 mt-1 pl-1">Solo números, de 6 a 15 dígitos</p>
+                  )}
                 </div>
               </div>
 
@@ -1377,7 +1381,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="c-telefono" className="text-slate-700 font-semibold text-xs">Teléfono * <span className="text-[10px] text-slate-400 font-normal">(máx. 15 caract.)</span></Label>
+                  <Label htmlFor="c-telefono" className="text-slate-700 font-semibold text-xs">Teléfono *</Label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
                     <Input id="c-telefono" placeholder="+57 300 111 2222"
@@ -1387,7 +1391,11 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
                       onBlur={e => validarCampoUsuario('telefono', e.target.value)}
                       className={`pl-9 h-10 rounded-xl transition-all ${formErrors.telefono ? 'border-red-400 bg-red-50/10 focus:ring-red-100' : 'border-slate-200 bg-slate-50/50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-50/20'}`} />
                   </div>
-                  {formErrors.telefono && <p className="text-[11px] text-red-500 flex items-center gap-1 font-medium mt-1 animate-pulse"><AlertTriangle className="size-3 shrink-0"/>{formErrors.telefono}</p>}
+                  {formErrors.telefono ? (
+                    <p className="text-[11px] text-red-500 flex items-center gap-1 font-medium mt-1 animate-pulse"><AlertTriangle className="size-3 shrink-0"/>{formErrors.telefono}</p>
+                  ) : (
+                    <p className="text-[10px] text-slate-400 mt-1 pl-1">Máximo 15 caracteres</p>
+                  )}
                 </div>
               </div>
             </div>
