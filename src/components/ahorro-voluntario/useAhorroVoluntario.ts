@@ -976,7 +976,7 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
     pdfPreviewFilename,
     pdfDownloadFn, setPdfDownloadFn,
     // Datos
-    ahorros, loading, montoMinimo,
+    ahorros, loading, montoMinimo, asociadosDisponibles,
     // Solicitudes
     solicitudesVol, setSolicitudesVol,
     solVolSeleccionada, setSolVolSeleccionada,
