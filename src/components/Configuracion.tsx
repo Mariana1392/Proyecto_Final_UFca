@@ -27,7 +27,6 @@ interface Parametros {
   tasa_vivienda:        string;
   tasa_calamidad:       string;
   tasa_mora_creditos:   string;
-  tasa_interes_ahorros: string;
   // Operativos
   aporte_minimo:                    string;
   cuotas_maximas_incumplidas:       string;
@@ -42,7 +41,6 @@ const DEFAULTS: Parametros = {
   tasa_vivienda:        '12',
   tasa_calamidad:       '10',
   tasa_mora_creditos:   '27',
-  tasa_interes_ahorros: '4',
   aporte_minimo:                      '100000',
   cuotas_maximas_incumplidas:         '3',
   dias_mora_maximo:                   '90',
@@ -100,7 +98,7 @@ export default function Configuracion({ userData }: ConfiguracionProps) {
     // Validaciones rápidas
     const tasaKeys: (keyof Parametros)[] = [
       'tasa_libre_inversion', 'tasa_educacion', 'tasa_vivienda',
-      'tasa_calamidad', 'tasa_mora_creditos', 'tasa_interes_ahorros',
+      'tasa_calamidad', 'tasa_mora_creditos',
     ];
     for (const k of tasaKeys) {
       const v = parseFloat(params[k]);
@@ -331,6 +329,11 @@ export default function Configuracion({ userData }: ConfiguracionProps) {
         </CardContent>
       </Card>
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> edc646882009d195a52c832a2fcf1cd62e212932
       {/* ── SECCIÓN: Parámetros operativos ─────────────────────────────────── */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">

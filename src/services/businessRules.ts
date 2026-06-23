@@ -78,7 +78,6 @@ const CLAVES_CONFIG = [
   'tasa_vivienda',
   'tasa_calamidad',
   'tasa_mora_credito',
-  'tasa_interes_ahorros',
   'multa_mora_ahorro_diaria',
 ] as const;
 
@@ -96,7 +95,7 @@ const CONFIG_DEFAULTS: ConfigParametros = {
   tasaVivienda:       12,
   tasaCalamidad:      10,
   tasaMoraCreditos:   27,
-  tasaInteresAhorros:  4,
+  tasaInteresAhorros:  0,
   multaMoraAhorroDiaria: 2000,
 };
 
@@ -157,7 +156,7 @@ class BusinessRulesEngine {
       tasaVivienda:       Number(get('tasa_vivienda')        ?? CONFIG_DEFAULTS.tasaVivienda),
       tasaCalamidad:      Number(get('tasa_calamidad')       ?? CONFIG_DEFAULTS.tasaCalamidad),
       tasaMoraCreditos:   Number(get('tasa_mora_credito')   ?? CONFIG_DEFAULTS.tasaMoraCreditos),
-      tasaInteresAhorros: Number(get('tasa_interes_ahorros') ?? CONFIG_DEFAULTS.tasaInteresAhorros),
+      tasaInteresAhorros: 0,
       multaMoraAhorroDiaria: Number(get('multa_mora_ahorro_diaria') ?? CONFIG_DEFAULTS.multaMoraAhorroDiaria),
     };
 
@@ -640,7 +639,7 @@ class BusinessRulesEngine {
   getTasaMoraCreditos(): number { return this.config.tasaMoraCreditos; }
 
   /** Tasa EA % de rendimiento de ahorros voluntarios */
-  getTasaAhorros(): number { return this.config.tasaInteresAhorros; }
+  getTasaAhorros(): number { return 0; }
 
   /** Multa diaria por mora en ahorro permanente */
   getMultaMoraAhorroDiaria(): number { return this.config.multaMoraAhorroDiaria; }

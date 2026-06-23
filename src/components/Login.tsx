@@ -387,6 +387,7 @@ export default function Login({ onLogin, onShowRecovery }: LoginProps) {
                   className="w-full h-12 rounded-xl bg-gradient-to-r from-[#054030] to-[#0a7050] hover:from-[#032a1e] hover:to-[#054030] text-white font-bold text-base shadow-lg shadow-emerald-900/20">
                   {isLoading ? 'Iniciando sesión...' : 'Iniciar sesión'}
                 </Button>
+
               </form>
 
               {/* Avisos Inferiores */}
