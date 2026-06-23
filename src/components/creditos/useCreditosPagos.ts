@@ -68,13 +68,15 @@ export function useCreditosPagos({
       return;
     }
 
-    // Tasa mensual efectiva desde EA (fórmula correcta)
-    const tasaMensual   = tasaEAaMensual(selectedItem.tasaInteres ?? 0);
     const tipoInteres   = selectedItem.tipoInteres ?? 'compuesto';
-    // Para interés simple: siempre sobre el capital original (monto)
-    // Para interés compuesto: sobre el saldo pendiente
-    const baseInteres   = tipoInteres === 'simple' ? (selectedItem.monto ?? selectedItem.saldo) : selectedItem.saldo;
-    const interesCuota  = Math.round(baseInteres * tasaMensual);
+    
+    // Distribución del pago (capital vs interés) según las fórmulas de UFCA:
+    // Simple: Monto * Tasa_Periodo
+    // Compuesto: Cuota - (Monto / Plazo)
+    const interesCuota  = tipoInteres === 'simple'
+      ? Math.round((selectedItem.monto ?? 0) * ((selectedItem.tasaInteres ?? 0) / 100))
+      : Math.max(0, (selectedItem.cuotaMensual ?? 0) - Math.round((selectedItem.monto ?? 0) / (selectedItem.plazo ?? 1)));
+      
     const capitalCuota  = Math.round(monto - interesCuota);
     const saldoDespues  = Math.max(0, selectedItem.saldo - capitalCuota);
 

@@ -119,6 +119,33 @@ export default function CreditoDialogSimulacion({ hook }: CreditoDialogSimulacio
                 </div>
               </div>
 
+              {/* Fórmulas explicativas */}
+              <div className="text-xs bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+                <p className="font-bold text-slate-700 flex items-center gap-1.5">
+                  📐 Fórmulas de cálculo de interés aplicadas:
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 divide-y md:divide-y-0 md:divide-x divide-slate-200">
+                  <div className="space-y-1">
+                    <p className="font-semibold text-purple-700">Interés Simple (Capital original)</p>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      <strong>Fórmula:</strong> Monto × Interés × 1
+                    </p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      <strong>Ejemplo:</strong> $2.000.000 × 0,05 × 1 = $100.000 (interés fijo sobre capital original).
+                    </p>
+                  </div>
+                  <div className="space-y-1 md:pl-4 pt-3 md:pt-0">
+                    <p className="font-semibold text-purple-700">Interés Compuesto (Método Francés)</p>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      <strong>Fórmula:</strong> K × (1 + i)^n
+                    </p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      <strong>Ejemplo:</strong> $1.000.000 × (1,02)^6 = $1.126.162,42 (interés capitalizado mes a mes).
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* Nota informativa */}
               <p className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 ⚠️ Esta simulación <strong>no registra el crédito</strong>. Al enviarla al asociado, quedará en estado <strong>"Simulación"</strong> hasta que él confirme o rechace. Solo entonces se registrará oficialmente.
