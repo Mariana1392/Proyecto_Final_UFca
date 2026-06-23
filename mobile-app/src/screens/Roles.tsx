@@ -294,18 +294,6 @@ export default function RolesScreen() {
         </CardContent>
       </Card>
 
-      {/* Rendimiento ahorros */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <CheckCircle className="size-4 text-emerald-500" /> Rendimiento — Ahorros voluntarios
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TasaInput clave="tasa_interes_ahorros" label="Tasa de interés sobre ahorros (EA)" desc="Lo que UFCA paga a los asociados sobre ahorros voluntarios" color="text-emerald-600" />
-        </CardContent>
-      </Card>
-
       {/* Parámetros operativos */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">

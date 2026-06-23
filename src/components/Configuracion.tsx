@@ -331,30 +331,6 @@ export default function Configuracion({ userData }: ConfiguracionProps) {
         </CardContent>
       </Card>
 
-      {/* ── SECCIÓN: Tasa de ahorros ────────────────────────────────────────── */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <CheckCircle className="size-4 text-emerald-500" />
-            Rendimiento — Ahorros voluntarios
-          </CardTitle>
-          <p className="text-xs text-slate-500 mt-1">
-            Tasa EA que UFCA paga a los asociados sobre sus saldos de ahorro voluntario.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="max-w-xs">
-            <TasaInput
-              clave="tasa_interes_ahorros"
-              label="Tasa de interés sobre ahorros (EA)"
-              desc="Rendimiento que la cooperativa abona periódicamente sobre ahorros voluntarios"
-              icon={<Percent className="size-3.5 text-emerald-500" />}
-              color="text-emerald-600"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
       {/* ── SECCIÓN: Parámetros operativos ─────────────────────────────────── */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
