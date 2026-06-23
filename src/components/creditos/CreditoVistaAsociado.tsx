@@ -1297,6 +1297,33 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
           </div>
         </div>
 
+        {/* Fórmulas explicativas */}
+        <div className="mx-5 mb-4 text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+          <p className="font-bold text-slate-700 flex items-center gap-1.5">
+            📐 Fórmulas de cálculo de interés aplicadas:
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 divide-y md:divide-y-0 md:divide-x divide-slate-200">
+            <div className="space-y-0.5">
+              <p className="font-semibold text-purple-700">Interés Simple (Capital original)</p>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                <strong>Fórmula:</strong> Monto × Interés × 1
+              </p>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                <strong>Ejemplo:</strong> $2.000.000 × 0,05 × 1 = $100.000 (interés fijo sobre capital original).
+              </p>
+            </div>
+            <div className="space-y-0.5 md:pl-4 pt-2.5 md:pt-0">
+              <p className="font-semibold text-purple-700">Interés Compuesto (Método Francés)</p>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                <strong>Fórmula:</strong> K × (1 + i)^n
+              </p>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                <strong>Ejemplo:</strong> $1.000.000 × (1,02)^6 = $1.126.162,42 (interés capitalizado mes a mes).
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 pb-5 border-t border-slate-100 pt-3">
           <p className="text-xs text-slate-500 text-center sm:text-left">
             ¿Te convence el plan? Envía tu solicitud y el administrador la revisará.
@@ -1371,15 +1398,11 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
           // Intereses pendientes estimados según tipo
           let interesesPendientes = 0;
           if (tipoInteres === 'simple') {
-            interesesPendientes = cuotasPendientes * Math.round(monto * tasaMensual);
+            interesesPendientes = cuotasPendientes * Math.round(monto * (tasaAnual / 100));
           } else {
-            let saldoTemp = saldo;
-            for (let i = 0; i < cuotasPendientes; i++) {
-              const intCuota = Math.round(saldoTemp * tasaMensual);
-              const capCuota = Math.round(cuota - intCuota);
-              interesesPendientes += intCuota;
-              saldoTemp = Math.max(0, saldoTemp - capCuota);
-            }
+            // Interés compuesto acumulado: interes fijo por cuota
+            const interesFijoCompuesto = cuota - Math.round(monto / plazo);
+            interesesPendientes = cuotasPendientes * interesFijoCompuesto;
           }
 
           const fechaBase = selectedItem.fechaDesembolso
@@ -1398,7 +1421,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
 
           const amortizacion: { num: number; fecha: string; cuota: number; capital: number; interes: number; saldoFinal: number; pagada: boolean }[] = [];
           let saldoAcum = monto;
-          const interesFijoSimple = tipoInteres === 'simple' ? Math.round(monto * tasaMensual) : 0;
+          const interesFijoSimple = tipoInteres === 'simple' ? Math.round(monto * (tasaAnual / 100)) : 0;
           const capitalFijoSimple = tipoInteres === 'simple' ? Math.round(monto / plazo)       : 0;
           const cuotaSimple       = tipoInteres === 'simple' ? calcularCuotaSimple(monto, tasaAnual, plazo) : cuota;
           for (let i = 1; i <= plazo; i++) {
@@ -1410,8 +1433,8 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
               capitalCuota = i < plazo ? capitalFijoSimple : saldoAcum;
               cuotaFila    = cuotaSimple;
             } else {
-              interesCuota = Math.round(saldoAcum * tasaMensual);
-              capitalCuota = Math.round(cuota - interesCuota);
+              capitalCuota = i < plazo ? Math.round(monto / plazo) : saldoAcum; // capital fijo compuesto
+              interesCuota = cuota - capitalCuota;
               cuotaFila    = cuota;
             }
             saldoAcum = Math.max(0, saldoAcum - capitalCuota);

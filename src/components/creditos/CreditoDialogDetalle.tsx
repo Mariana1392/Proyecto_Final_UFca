@@ -76,17 +76,12 @@ export default function CreditoDialogDetalle({ hook }: CreditoDialogDetalleProps
           let interesesPendientes = 0;
           if (tipoInteres === 'simple') {
             // Interés simple: siempre sobre el capital original
-            const interesFijo = Math.round(monto * tasaMensual);
+            const interesFijo = Math.round(monto * (tasaAnual / 100));
             interesesPendientes = cuotasPendientes * interesFijo;
           } else {
-            // Interés compuesto (francés): sobre el saldo pendiente
-            let saldoTemp = saldo;
-            for (let i = 0; i < cuotasPendientes; i++) {
-              const intCuota = Math.round(saldoTemp * tasaMensual);
-              const capCuota = Math.round(cuota - intCuota);
-              interesesPendientes += intCuota;
-              saldoTemp = Math.max(0, saldoTemp - capCuota);
-            }
+            // Interés compuesto acumulado: interés fijo por cuota
+            const interesFijoCompuesto = cuota - Math.round(monto / plazo);
+            interesesPendientes = cuotasPendientes * interesFijoCompuesto;
           }
 
           const fechaBase = selectedItem.fechaDesembolso
@@ -114,7 +109,7 @@ export default function CreditoDialogDetalle({ hook }: CreditoDialogDetalleProps
           }[] = [];
           let saldoAcum = monto;
           // Interés simple: valores fijos basados en capital original
-          const interesFijoSimple = tipoInteres === 'simple' ? Math.round(monto * tasaMensual) : 0;
+          const interesFijoSimple = tipoInteres === 'simple' ? Math.round(monto * (tasaAnual / 100)) : 0;
           const capitalFijoSimple = tipoInteres === 'simple' ? Math.round(monto / plazo)       : 0;
           const cuotaSimple       = tipoInteres === 'simple' ? calcularCuotaSimple(monto, tasaAnual, plazo) : cuota;
           for (let i = 1; i <= plazo; i++) {
@@ -126,8 +121,8 @@ export default function CreditoDialogDetalle({ hook }: CreditoDialogDetalleProps
               capitalCuota = i < plazo ? capitalFijoSimple : saldoAcum; // última cuota cierra exacto
               cuotaFila    = cuotaSimple;
             } else {
-              interesCuota = Math.round(saldoAcum * tasaMensual);
-              capitalCuota = Math.round(cuota - interesCuota);
+              capitalCuota = i < plazo ? Math.round(monto / plazo) : saldoAcum; // capital fijo compuesto
+              interesCuota = cuota - capitalCuota;
               cuotaFila    = cuota;
             }
             saldoAcum = Math.max(0, saldoAcum - capitalCuota);

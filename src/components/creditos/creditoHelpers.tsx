@@ -28,12 +28,12 @@ export const TIPOS_INTERES = [
   {
     value: 'compuesto',
     label: 'Interés compuesto — Francés (EA)',
-    desc:  'El interés se calcula sobre el saldo pendiente cada mes. Cuota fija, amortización creciente.',
+    desc:  'El interés se calcula sobre el saldo pendiente cada mes. Fórmula: K * (1 + i)^n. Ejemplo: $1.000.000 (capital) * (1,02)^6 (periodo) = $1.126.162,42.',
   },
   {
     value: 'simple',
     label: 'Interés simple — Capital original',
-    desc:  'El interés se calcula siempre sobre el capital original. Cuota fija, interés y capital constantes.',
+    desc:  'El interés se calcula siempre sobre el capital original. Fórmula: Monto * Interés * 1. Ejemplo: $2.000.000 * 0,05 * 1 = $100.000 (donde 0,05 es la tasa del 5%).',
   },
 ] as const;
 
@@ -68,15 +68,15 @@ export const calcularMontoInteresSimple = (C: number, i: number, n: number): num
 /** Convierte tasa Efectiva Anual (EA) a tasa mensual efectiva */
 export const tasaEAaMensual = (tasaAnualPct: number): number => {
   if (!tasaAnualPct || tasaAnualPct <= 0) return 0;
-  return Math.pow(1 + tasaAnualPct / 100, 1 / 12) - 1;
+  return tasaAnualPct / 100;
 };
 
-/** Calcula cuota mensual con amortización francesa — tasa EA */
+/** Calcula cuota mensual con interés compuesto acumulado */
 export const calcularCuota = (monto: number, tasaAnual: number, plazoMeses: number): number => {
   if (!monto || !plazoMeses) return 0;
   if (!tasaAnual) return Math.round(monto / plazoMeses);
-  const i = tasaEAaMensual(tasaAnual);
-  return Math.round(monto * (i * Math.pow(1 + i, plazoMeses)) / (Math.pow(1 + i, plazoMeses) - 1));
+  const i = tasaAnual / 100;
+  return Math.round((monto * Math.pow(1 + i, plazoMeses)) / plazoMeses);
 };
 
 /**
@@ -88,7 +88,7 @@ export const calcularCuota = (monto: number, tasaAnual: number, plazoMeses: numb
 export const calcularCuotaSimple = (monto: number, tasaAnual: number, plazoMeses: number): number => {
   if (!monto || !plazoMeses) return 0;
   if (!tasaAnual) return Math.round(monto / plazoMeses);
-  const i = tasaEAaMensual(tasaAnual);
+  const i = tasaAnual / 100;
   return Math.round(monto / plazoMeses + monto * i);
 };
 
@@ -97,7 +97,7 @@ export const generarTablaAmortizacionSimple = (
   monto: number, tasaAnual: number, plazo: number, fechaInicio: string
 ): FilaAmortizacion[] => {
   if (!monto || !plazo) return [];
-  const i      = tasaEAaMensual(tasaAnual);
+  const i      = tasaAnual / 100;
   const cuota  = calcularCuotaSimple(monto, tasaAnual, plazo);
   const interesFijo = Math.round(monto * i);          // siempre sobre capital original
   const capitalFijo = Math.round(monto / plazo);       // cuota de capital constante
@@ -130,24 +130,24 @@ export interface FilaAmortizacion {
   saldo: number;
 }
 
-/** Genera tabla de amortización francesa completa — tasa EA */
+/** Genera tabla de amortización con interés compuesto acumulado */
 export const generarTablaAmortizacion = (
   monto: number, tasaAnual: number, plazo: number, fechaInicio: string
 ): FilaAmortizacion[] => {
   if (!monto || !plazo) return [];
-  const r = tasaEAaMensual(tasaAnual);
   const cuota = calcularCuota(monto, tasaAnual, plazo);
+  const capitalFijo = Math.round(monto / plazo);
   const rows: FilaAmortizacion[] = [];
   let saldo = monto;
   const base = fechaInicio ? new Date(fechaInicio + 'T00:00:00') : new Date();
 
-  for (let i = 1; i <= plazo; i++) {
-    const fecha = new Date(base.getFullYear(), base.getMonth() + i, base.getDate());
-    const interes = Math.round(saldo * r);
-    const capital = Math.min(cuota - interes, saldo);
+  for (let k = 1; k <= plazo; k++) {
+    const fecha = new Date(base.getFullYear(), base.getMonth() + k, base.getDate());
+    const capital = k < plazo ? capitalFijo : saldo; // última cuota ajusta para cerrar exacto
+    const interes = cuota - capital;
     saldo = Math.max(0, saldo - capital);
     rows.push({
-      numero: i,
+      numero: k,
       fecha: fecha.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }),
       cuota,
       interes,
