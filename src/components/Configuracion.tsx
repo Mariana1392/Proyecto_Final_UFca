@@ -329,10 +329,6 @@ export default function Configuracion({ userData }: ConfiguracionProps) {
         </CardContent>
       </Card>
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 69a7bc47bc8ed2c101600a16ab1bbe8504102a1e
       {/* ── SECCIÓN: Parámetros operativos ─────────────────────────────────── */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
