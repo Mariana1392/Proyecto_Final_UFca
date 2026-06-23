@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Plus, Search, X, Calendar, CreditCard, BarChart2, Check, AlertTriangle,
   Eye, Banknote, FileText, Clock, Percent, Table2, Download, CheckCircle2,
@@ -40,6 +40,20 @@ interface CreditoVistaAsociadoProps {
 export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAsociadoProps) {
   const [solErrors, setSolErrors] = useState<Record<string, string>>({});
 
+  const maxPlazoCalculado = useMemo(() => {
+    const today = new Date();
+    const month = today.getMonth() + 1;
+    let maxPlazo = 12;
+    if (month < 11) {
+      maxPlazo = 10 - month;
+    } else {
+      maxPlazo = 10 + (12 - month);
+    }
+    const res = Math.min(12, Math.max(0, maxPlazo));
+    console.log('DEBUG CICLO NOVIEMBRE - Fecha detectada:', today.toLocaleDateString(), 'Mes:', month, 'Límite maxPlazo:', res);
+    return res;
+  }, []);
+
   const validarSolCampo = (name: string, value: string) => {
     let error = '';
     if (name === 'monto') {
@@ -48,8 +62,23 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
     }
     if (name === 'plazo') {
       const n = parseInt(value) || 0;
-      if (!n || n <= 0) error = 'El plazo debe ser mayor a 0';
-      else if (n > 12) error = 'El plazo máximo es de 12 meses';
+      const today = new Date();
+      const month = today.getMonth() + 1;
+      let maxP = 12;
+      if (month < 11) {
+        maxP = 10 - month;
+      } else {
+        maxP = 10 + (12 - month);
+      }
+      maxP = Math.min(12, Math.max(0, maxP));
+
+      if (!n || n <= 0) {
+        error = 'El plazo debe ser mayor a 0';
+      } else if (maxP === 0) {
+        error = 'No es posible solicitar créditos en octubre para el ciclo actual.';
+      } else if (n > maxP) {
+        error = `El plazo máximo es de ${maxP} meses por el cierre de ciclo en noviembre.`;
+      }
     }
     if (name === 'banco' && !value.trim()) error = 'El banco es obligatorio';
     if (name === 'numeroCuenta' && !value.trim()) error = 'El número de cuenta es obligatorio';
@@ -928,18 +957,19 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
                 <Input
                   className={`pl-8 ${solErrors.plazo ? 'border-red-400' : ''}`}
-                  type="number" min={1} max={12} placeholder="12"
+                  type="number" min={1} max={maxPlazoCalculado} placeholder={maxPlazoCalculado > 0 ? `Máx: ${maxPlazoCalculado}` : 'No permitido'}
                   value={solPlazo}
                   onChange={(e) => {
                     let val = e.target.value;
                     const num = parseInt(val, 10) || 0;
-                    if (num > 12) {
-                      val = '12';
+                    if (num > maxPlazoCalculado) {
+                      val = maxPlazoCalculado.toString();
                     }
                     setSolPlazo(val);
                     validarSolCampo('plazo', val);
                   }}
                   onBlur={e => validarSolCampo('plazo', e.target.value)}
+                  disabled={maxPlazoCalculado === 0}
                 />
               </div>
               {solErrors.plazo && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{solErrors.plazo}</p>}
@@ -1202,7 +1232,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={() => setIsSolicitudDialogOpen(false)}>Cancelar</Button>
-          <Button className="bg-blue-600 hover:bg-blue-700" disabled={savingSolicitud || (solEsParaReferido && !solReferidoNombre.trim()) || !(parseInt(solPlazo) > 0 && parseInt(solPlazo) <= 12)} onClick={handleSolicitarCredito}>
+          <Button className="bg-blue-600 hover:bg-blue-700" disabled={savingSolicitud || (solEsParaReferido && !solReferidoNombre.trim()) || !(parseInt(solPlazo) > 0 && parseInt(solPlazo) <= maxPlazoCalculado)} onClick={handleSolicitarCredito}>
             {savingSolicitud ? 'Enviando...' : 'Enviar solicitud'}
           </Button>
         </DialogFooter>
@@ -1320,7 +1350,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
             </Button>
             <Button
               className="bg-blue-600 hover:bg-blue-700 gap-2"
-              disabled={savingSolicitud || (solEsParaReferido && !solReferidoNombre.trim()) || !(parseInt(solPlazo) > 0 && parseInt(solPlazo) <= 12)}
+              disabled={savingSolicitud || (solEsParaReferido && !solReferidoNombre.trim()) || !(parseInt(solPlazo) > 0 && parseInt(solPlazo) <= maxPlazoCalculado)}
               onClick={() => { setIsSolSimOpen(false); handleSolicitarCredito(); }}
             >
               {savingSolicitud ? 'Enviando...' : '📤 Enviar solicitud'}

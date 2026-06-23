@@ -72,7 +72,30 @@ export function useCreditosSimulacion({
     }
     if (!monto || monto <= 0) { toast.error('Ingresa un monto válido'); return; }
     if (plazo <= 0)  { toast.error('El plazo debe ser mayor a 0'); return; }
-    if (plazo > 12)  { toast.error('El plazo máximo permitido es de 12 meses'); return; }
+    
+    // Validar plazo por cierre en noviembre
+    const parts = (formFecha || new Date().toISOString().split('T')[0]).split('-');
+    if (parts.length >= 2) {
+      const month = parseInt(parts[1], 10);
+      let maxP = 12;
+      if (month < 11) {
+        maxP = 10 - month;
+      } else {
+        maxP = 10 + (12 - month);
+      }
+      maxP = Math.min(12, Math.max(0, maxP));
+      if (maxP === 0) {
+        toast.error('No es posible simular créditos en octubre para el ciclo actual debido al cierre en noviembre.');
+        return;
+      }
+      if (plazo > maxP) {
+        toast.error(`El plazo máximo permitido para la fecha seleccionada es de ${maxP} meses debido al cierre de ciclo en noviembre.`);
+        return;
+      }
+    } else if (plazo > 12) {
+      toast.error('El plazo máximo permitido es de 12 meses');
+      return;
+    }
     const tabla = formTipoInteres === 'simple'
       ? generarTablaAmortizacionSimple(monto, tasa, plazo, formFecha || new Date().toISOString().split('T')[0])
       : generarTablaAmortizacion(monto, tasa, plazo, formFecha || new Date().toISOString().split('T')[0]);
@@ -91,6 +114,31 @@ export function useCreditosSimulacion({
     const monto = parseMonto(formMonto);
     const tasa  = parseFloat(formTasa) || 0;
     const plazo = parseInt(formPlazo)  || 0;
+    
+    // Validar plazo por cierre en noviembre
+    const partsSim = (formFecha || new Date().toISOString().split('T')[0]).split('-');
+    if (partsSim.length >= 2) {
+      const month = parseInt(partsSim[1], 10);
+      let maxP = 12;
+      if (month < 11) {
+        maxP = 10 - month;
+      } else {
+        maxP = 10 + (12 - month);
+      }
+      maxP = Math.min(12, Math.max(0, maxP));
+      if (maxP === 0) {
+        toast.error('No es posible enviar simulaciones en octubre para el ciclo actual debido al cierre en noviembre.');
+        return;
+      }
+      if (plazo > maxP) {
+        toast.error(`El plazo máximo permitido para la fecha seleccionada es de ${maxP} meses debido al cierre de ciclo en noviembre.`);
+        return;
+      }
+    } else if (plazo > 12) {
+      toast.error('El plazo máximo permitido es de 12 meses');
+      return;
+    }
+    
     const cuota = formTipoInteres === 'simple'
       ? calcularCuotaSimple(monto, tasa, plazo)
       : calcularCuota(monto, tasa, plazo);

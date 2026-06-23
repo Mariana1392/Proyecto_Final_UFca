@@ -1,7 +1,8 @@
 // ── AhorroDialogCrear.tsx ─────────────────────────────────────────────────────
 // Diálogo para crear un nuevo ahorro permanente o editar uno existente.
 
-import { Calendar, ClipboardList } from 'lucide-react';
+import { useState } from 'react';
+import { Calendar, ClipboardList, Search, Check, Users } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -12,6 +13,7 @@ import {
 } from '../ui/dialog';
 import { toast } from 'sonner';
 import { formatCurrency, parseCurrencyInput } from '../../lib/formatters';
+import SelectorAsociadoModal from '../SelectorAsociadoModal';
 
 interface AhorroDialogCrearProps {
   open:                    boolean;
@@ -21,6 +23,13 @@ interface AhorroDialogCrearProps {
   formAsociadoId:          string;
   setFormAsociadoId:       (v: string) => void;
   asociadosDisponibles:    any[];
+  autocompleteSearch:      string;
+  setAutocompleteSearch:   (v: string) => void;
+  showAutocomplete:        boolean;
+  setShowAutocomplete:     (v: boolean) => void;
+  autocompleteRef:         React.RefObject<HTMLDivElement | null>;
+  acSuggestions:           any[];
+  handleSelectAsociado:    (a: any) => void;
   // Cuota mensual
   formCuotaMensual:        string;
   handleCuotaMensualChange:(e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -47,12 +56,17 @@ interface AhorroDialogCrearProps {
 export default function AhorroDialogCrear({
   open, onClose, selectedItem,
   formAsociadoId, setFormAsociadoId, asociadosDisponibles,
+  autocompleteSearch, setAutocompleteSearch,
+  showAutocomplete, setShowAutocomplete,
+  autocompleteRef, acSuggestions, handleSelectAsociado,
   formCuotaMensual, handleCuotaMensualChange, handleCuotaMensualBlur, montoObligatorio,
   formSaldoInicial, handleSaldoInicialChange, handleSaldoInicialBlur, saldoInicialError,
   formFechaInicio, setFormFechaInicio, editHasMovimientos, loadingEditMovs,
   formObservaciones, setFormObservaciones,
   handleSaveAhorro, setIsConfirmEditDialogOpen,
 }: AhorroDialogCrearProps) {
+  const [isSelectorModalOpen, setIsSelectorModalOpen] = useState(false);
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
       <DialogContent>
@@ -71,25 +85,49 @@ export default function AhorroDialogCrear({
           {/* Asociado — siempre deshabilitado al editar */}
           <div className="space-y-2">
             <Label htmlFor="asociado">Asociado *</Label>
-            <Select value={formAsociadoId} onValueChange={setFormAsociadoId} disabled={!!selectedItem}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar asociado...">
-                  {selectedItem
-                    ? selectedItem.asociado
-                    : (() => {
-                        const asoc = asociadosDisponibles.find(a => a.id === formAsociadoId);
-                        return asoc ? `${asoc.nombre} (${asoc.cedula})` : undefined;
-                      })()}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {asociadosDisponibles.filter(a => a.activo !== false || a.estado_cuenta === 'activo').map(asociado => (
-                  <SelectItem key={asociado.id} value={asociado.id}>
-                    {asociado.nombre} ({asociado.cedula})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <div className="relative flex-1" ref={!selectedItem ? autocompleteRef : undefined}>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none z-10" />
+                <Input
+                  className="pl-10 pr-8"
+                  placeholder="Buscar asociado por nombre o cédula..."
+                  value={autocompleteSearch}
+                  disabled={!!selectedItem}
+                  autoComplete="off"
+                  onChange={(e) => { setAutocompleteSearch(e.target.value); setFormAsociadoId(''); setShowAutocomplete(true); }}
+                  onFocus={() => { if (!selectedItem) setShowAutocomplete(true); }}
+                />
+                {formAsociadoId && <Check className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-emerald-500" />}
+                {showAutocomplete && !selectedItem && acSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-44 overflow-y-auto">
+                    {acSuggestions.map(a => (
+                      <button key={a.id} type="button"
+                        className="w-full text-left px-3 py-2.5 hover:bg-emerald-50 flex items-center justify-between group transition-colors"
+                        onMouseDown={() => handleSelectAsociado(a)}>
+                        <span className="font-medium text-slate-800 text-sm group-hover:text-emerald-700">{a.nombre}</span>
+                        <span className="text-xs text-slate-400">{a.cedula}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {showAutocomplete && !selectedItem && autocompleteSearch.length > 0 && acSuggestions.length === 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg px-3 py-3 text-sm text-slate-500 text-center">
+                    Sin resultados para "{autocompleteSearch}"
+                  </div>
+                )}
+              </div>
+              {!selectedItem && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsSelectorModalOpen(true)}
+                  className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 shrink-0 gap-1.5"
+                >
+                  <Users className="size-4" />
+                  <span className="hidden sm:inline">Ver todos</span>
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Cuota mensual — siempre editable */}
@@ -229,6 +267,12 @@ export default function AhorroDialogCrear({
           </Button>
         </DialogFooter>
       </DialogContent>
+      <SelectorAsociadoModal
+        open={isSelectorModalOpen}
+        onClose={() => setIsSelectorModalOpen(false)}
+        asociados={asociadosDisponibles.filter(a => a.activo !== false || a.estado_cuenta === 'activo')}
+        onSelect={handleSelectAsociado}
+      />
     </Dialog>
   );
 }

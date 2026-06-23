@@ -495,6 +495,13 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
         selectedItem={h.selectedItem}
         formAsociadoId={h.formAsociadoId}
         setFormAsociadoId={h.setFormAsociadoId}
+        autocompleteSearch={h.autocompleteSearch}
+        setAutocompleteSearch={h.setAutocompleteSearch}
+        showAutocomplete={h.showAutocomplete}
+        setShowAutocomplete={h.setShowAutocomplete}
+        autocompleteRef={h.autocompleteRef}
+        acSuggestions={h.acSuggestions}
+        handleSelectAsociado={h.handleSelectAsociado}
         asociadosDisponibles={h.asociadosDisponibles}
         formCuotaMensual={h.formCuotaMensual}
         handleCuotaMensualChange={h.handleCuotaMensualChange}

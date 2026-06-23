@@ -323,13 +323,14 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
 
   const hayFiltros = !!(searchTerm || filterEstado || filterFechaInicio || filterFechaFin);
 
-  const autocompleteSuggestions = asociadosDisponibles
-    .filter(a =>
-      !autocompleteSearch ||
-      a.nombre.toLowerCase().includes(autocompleteSearch.toLowerCase()) ||
-      (a.cedula && a.cedula.includes(autocompleteSearch))
-    )
-    .slice(0, 8);
+  const autocompleteSuggestions = autocompleteSearch.trim() === ''
+    ? []
+    : asociadosDisponibles
+        .filter(a =>
+          a.nombre.toLowerCase().includes(autocompleteSearch.toLowerCase()) ||
+          (a.cedula && a.cedula.includes(autocompleteSearch))
+        )
+        .slice(0, 8);
 
   // Resumen para el tab de transacciones
   const totalDepositado = movimientosDetalle.reduce((s, m) => {
@@ -676,6 +677,14 @@ export function useAhorroVoluntario(userRole?: UserRole | null, userData?: any) 
       toast.error('❌ Error de validación', { description: 'Selecciona un asociado' }); return;
     }
     const saldo = parseCurrencyInput(formSaldoInicial);
+
+    if (!selectedItem) {
+      const hoyStr = new Date().toISOString().split('T')[0];
+      if (formFechaInicio !== hoyStr) {
+        toast.error('❌ Error de validación', { description: 'La fecha de inicio debe ser el día actual' });
+        return;
+      }
+    }
 
     if (!selectedItem && !forzar && saldo > 0 && saldo < montoMinimo) {
       setIsConfirmSaldoBajoVolOpen(true); return;

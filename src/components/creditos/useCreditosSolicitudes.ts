@@ -116,8 +116,30 @@ export function useCreditosSolicitudes({
     const monto = parseMonto(solMonto);
     if (!monto || monto <= 0)      { toast.error('Ingresa un monto válido'); return; }
     const plazo = parseInt(solPlazo) || 0;
-    if (plazo <= 0)                { toast.error('El plazo debe ser mayor a 0 meses'); return; }
-    if (plazo > 12)                { toast.error('El plazo máximo permitido es de 12 meses'); return; }
+    
+    // Validar plazo por cierre en noviembre (el mes de noviembre no cuenta)
+    const today = new Date();
+    const month = today.getMonth() + 1;
+    let maxP = 12;
+    if (month < 11) {
+      maxP = 10 - month;
+    } else {
+      maxP = 10 + (12 - month);
+    }
+    maxP = Math.min(12, Math.max(0, maxP));
+
+    if (plazo <= 0) {
+      toast.error('El plazo debe ser mayor a 0 meses');
+      return;
+    }
+    if (maxP === 0) {
+      toast.error('No es posible solicitar créditos en octubre para el ciclo actual.');
+      return;
+    }
+    if (plazo > maxP) {
+      toast.error(`El plazo máximo permitido para este mes es de ${maxP} meses debido al cierre de ciclo en noviembre.`);
+      return;
+    }
     if (solEsParaReferido && !solReferidoNombre.trim()) {
       toast.error('Ingresa el nombre del referido'); return;
     }

@@ -154,12 +154,14 @@ export function useCreditosCRUD({
   const autocompleteRef                             = useRef<HTMLDivElement>(null);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  const acSuggestions = asociadosDisponibles
-    .filter(a => a.activo !== false && a.estado_cuenta !== 'inactivo' && (
-      (a.nombre ?? '').toLowerCase().includes(autocompleteSearch.toLowerCase()) ||
-      (a.cedula ?? '').includes(autocompleteSearch)
-    ))
-    .slice(0, 8);
+  const acSuggestions = autocompleteSearch.trim() === ''
+    ? []
+    : asociadosDisponibles
+        .filter(a => a.activo !== false && a.estado_cuenta !== 'inactivo' && (
+          (a.nombre ?? '').toLowerCase().includes(autocompleteSearch.toLowerCase()) ||
+          (a.cedula ?? '').includes(autocompleteSearch)
+        ))
+        .slice(0, 8);
 
   const handleSelectAsociado = (a: any) => {
     setFormAsociadoId(a.id);
@@ -240,8 +242,31 @@ export function useCreditosCRUD({
     if (isNaN(tasa) || tasa < 0 || tasa > 100) { toast.error('La tasa de interés debe estar entre 0 y 100'); return; }
     const plazo = parseInt(formPlazo) || 0;
     if (plazo <= 0)           { toast.error('El plazo debe ser mayor a 0 meses'); return; }
-    if (plazo > 12)           { toast.error('El plazo máximo permitido es de 12 meses'); return; }
     if (!formFecha)           { toast.error('Selecciona la fecha de desembolso'); return; }
+
+    // Validar plazo por cierre en noviembre
+    const parts = formFecha.split('-');
+    if (parts.length >= 2) {
+      const month = parseInt(parts[1], 10);
+      let maxP = 12;
+      if (month < 11) {
+        maxP = 10 - month;
+      } else {
+        maxP = 10 + (12 - month);
+      }
+      maxP = Math.min(12, Math.max(0, maxP));
+      if (maxP === 0) {
+        toast.error('No es posible solicitar créditos en octubre para el ciclo actual debido al cierre en noviembre.');
+        return;
+      }
+      if (plazo > maxP) {
+        toast.error(`El plazo excede el límite de ${maxP} meses establecido por el cierre de ciclo en noviembre.`);
+        return;
+      }
+    } else if (plazo > 12) {
+      toast.error('El plazo máximo permitido es de 12 meses');
+      return;
+    }
 
     // ── Interceptar si el monto excede el ahorro (solo al crear, no al editar) ──
     if (!selectedItem && !excedeAhorroBypass && totalAhorroAsociado > 0 && monto > totalAhorroAsociado) {

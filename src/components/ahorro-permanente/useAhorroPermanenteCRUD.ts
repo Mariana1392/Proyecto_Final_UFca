@@ -2,7 +2,7 @@
 // Gestiona el formulario de crear/editar, los diálogos de CRUD y la
 // configuración del monto obligatorio.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction, ChangeEvent } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
@@ -44,6 +44,28 @@ export function useAhorroPermanenteCRUD({
   const [saldoInicialError,  setSaldoInicialError]  = useState('');
   const [editHasMovimientos, setEditHasMovimientos] = useState(false);
   const [loadingEditMovs,    setLoadingEditMovs]    = useState(false);
+
+  // ── Autocompletado asociados ──────────────────────────────────────────────
+  const [autocompleteSearch, setAutocompleteSearch] = useState('');
+  const [showAutocomplete, setShowAutocomplete]     = useState(false);
+  const autocompleteRef                             = useRef<HTMLDivElement>(null);
+
+  // Suggestions for autocomplete (only when not empty)
+  const acSuggestions = autocompleteSearch.trim() === ''
+    ? []
+    : asociadosDisponibles
+        .filter(a => a.activo !== false || a.estado_cuenta === 'activo')
+        .filter(a =>
+          (a.nombre ?? '').toLowerCase().includes(autocompleteSearch.toLowerCase()) ||
+          (a.cedula ?? '').includes(autocompleteSearch)
+        )
+        .slice(0, 8);
+
+  const handleSelectAsociado = (a: any) => {
+    setFormAsociadoId(a.id);
+    setAutocompleteSearch(`${a.nombre}  ·  ${a.cedula}`);
+    setShowAutocomplete(false);
+  };
 
   // ── Estado cambio de estado ────────────────────────────────────────────────
   const [justificacionAnulacion,  setJustificacionAnulacion]  = useState('');
@@ -88,6 +110,7 @@ export function useAhorroPermanenteCRUD({
     if (item) {
       setSelectedItem(item);
       setFormAsociadoId(item.asociado_id);
+      setAutocompleteSearch(`${item.asociado}  ·  ${item.cedula || ''}`);
       setFormCuotaMensual(formatCurrencyRealTime(item.cuotaMensual.toString()));
       setFormSaldoInicial(formatCurrencyRealTime(item.montoAhorrado.toString().replace(/\./g, ',')));
       setFormFechaInicio(item.fechaInicio);
@@ -124,6 +147,8 @@ export function useAhorroPermanenteCRUD({
     setFormObservaciones('');
     setEditHasMovimientos(false);
     setLoadingEditMovs(false);
+    setFormAsociadoId('');
+    setAutocompleteSearch('');
   };
 
   const openAnularDialog = (ahorro: any) => {
@@ -538,6 +563,7 @@ export function useAhorroPermanenteCRUD({
     setIsCreateDialogOpen(false);
     setSelectedItem(null);
     setFormAsociadoId('');
+    setAutocompleteSearch('');
     setFormCuotaMensual('');
     setFormSaldoInicial('0,0');
     setFormFechaInicio('');
@@ -568,6 +594,12 @@ export function useAhorroPermanenteCRUD({
     // Monto obligatorio
     isEditingMonto,       setIsEditingMonto,
     tempMontoObligatorio, setTempMontoObligatorio,
+    // Autocompletado
+    autocompleteSearch, setAutocompleteSearch,
+    showAutocomplete, setShowAutocomplete,
+    autocompleteRef,
+    acSuggestions,
+    handleSelectAsociado,
     // Handlers
     handleCuotaMensualChange,
     handleCuotaMensualBlur,

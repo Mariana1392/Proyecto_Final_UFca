@@ -1,7 +1,8 @@
 // ── AhorroVoluntarioDialogCrear.tsx ─────────────────────────────────────────
 // Diálogo de creación / edición de un ahorro voluntario.
 
-import { Search, Check } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Check, Users } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -10,6 +11,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '../ui/dialog';
 import { formatCurrencyInput, parseCurrencyInput, formatCurrencyRealTime } from '../../lib/formatters';
+import SelectorAsociadoModal from '../SelectorAsociadoModal';
 
 interface AhorroVoluntarioDialogCrearProps {
   isCreateDialogOpen:    boolean;
@@ -29,6 +31,7 @@ interface AhorroVoluntarioDialogCrearProps {
   setShowAutocomplete:   (v: boolean) => void;
   autocompleteRef:       React.RefObject<HTMLDivElement | null>;
   autocompleteSuggestions: any[];
+  asociadosDisponibles:  any[];
   handleSelectAsociado:  (a: any) => void;
   // Frecuencia y objetivo
   formFrecuencia:       string;
@@ -47,12 +50,14 @@ export default function AhorroVoluntarioDialogCrear({
   formAsociadoId, formSaldoInicial, formFechaInicio, setFormFechaInicio,
   autocompleteSearch, setAutocompleteSearch, setFormAsociadoId,
   showAutocomplete, setShowAutocomplete,
-  autocompleteRef, autocompleteSuggestions, handleSelectAsociado,
+  autocompleteRef, autocompleteSuggestions, asociadosDisponibles, handleSelectAsociado,
   formFrecuencia, setFormFrecuencia,
   formMontoObjetivo, setFormMontoObjetivo,
   handleSaldoInicialChange, handleSaldoInicialBlur,
   handleSaveAhorro,
 }: AhorroVoluntarioDialogCrearProps) {
+  const [isSelectorModalOpen, setIsSelectorModalOpen] = useState(false);
+
   const handleClose = () => {
     setIsCreateDialogOpen(false);
     setSelectedItem(null);
@@ -79,43 +84,56 @@ export default function AhorroVoluntarioDialogCrear({
           {/* ── Asociado con autocompletado ── */}
           <div className="space-y-2">
             <Label>Asociado <span className="text-red-500">*</span></Label>
-            <div className="relative" ref={!selectedItem ? autocompleteRef : undefined}>
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
-              <Input
-                className="pl-10"
-                placeholder="Buscar por nombre o cédula..."
-                value={autocompleteSearch}
-                disabled={!!selectedItem}
-                onChange={(e) => {
-                  setAutocompleteSearch(e.target.value);
-                  setFormAsociadoId('');
-                  setShowAutocomplete(true);
-                }}
-                onFocus={() => { if (!selectedItem) setShowAutocomplete(true); }}
-                autoComplete="off"
-              />
-              {formAsociadoId && (
-                <Check className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-emerald-500" />
-              )}
-              {showAutocomplete && !selectedItem && autocompleteSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {autocompleteSuggestions.map((a) => (
-                    <button
-                      key={a.id}
-                      type="button"
-                      className="w-full text-left px-3 py-2.5 hover:bg-purple-50 flex items-center justify-between group transition-colors"
-                      onMouseDown={() => handleSelectAsociado(a)}
-                    >
-                      <span className="font-medium text-slate-800 text-sm group-hover:text-purple-700">{a.nombre}</span>
-                      <span className="text-xs text-slate-400">{a.cedula}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {showAutocomplete && !selectedItem && autocompleteSearch.length > 0 && autocompleteSuggestions.length === 0 && (
-                <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg px-3 py-3 text-sm text-slate-500 text-center">
-                  Sin resultados para "{autocompleteSearch}"
-                </div>
+            <div className="flex gap-2">
+              <div className="relative flex-1" ref={!selectedItem ? autocompleteRef : undefined}>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none z-10" />
+                <Input
+                  className="pl-10 pr-8"
+                  placeholder="Buscar por nombre o cédula..."
+                  value={autocompleteSearch}
+                  disabled={!!selectedItem}
+                  onChange={(e) => {
+                    setAutocompleteSearch(e.target.value);
+                    setFormAsociadoId('');
+                    setShowAutocomplete(true);
+                  }}
+                  onFocus={() => { if (!selectedItem) setShowAutocomplete(true); }}
+                  autoComplete="off"
+                />
+                {formAsociadoId && (
+                  <Check className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-emerald-500" />
+                )}
+                {showAutocomplete && !selectedItem && autocompleteSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {autocompleteSuggestions.map((a) => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2.5 hover:bg-purple-50 flex items-center justify-between group transition-colors"
+                        onMouseDown={() => handleSelectAsociado(a)}
+                      >
+                        <span className="font-medium text-slate-800 text-sm group-hover:text-purple-700">{a.nombre}</span>
+                        <span className="text-xs text-slate-400">{a.cedula}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {showAutocomplete && !selectedItem && autocompleteSearch.length > 0 && autocompleteSuggestions.length === 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg px-3 py-3 text-sm text-slate-500 text-center">
+                    Sin resultados para "{autocompleteSearch}"
+                  </div>
+                )}
+              </div>
+              {!selectedItem && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsSelectorModalOpen(true)}
+                  className="border-purple-200 text-purple-700 hover:bg-purple-50 shrink-0 gap-1.5"
+                >
+                  <Users className="size-4" />
+                  <span className="hidden sm:inline">Ver todos</span>
+                </Button>
               )}
             </div>
             {!formAsociadoId && autocompleteSearch.length > 0 && (
@@ -141,7 +159,8 @@ export default function AhorroVoluntarioDialogCrear({
                 id="fecha"
                 type="date"
                 value={formFechaInicio}
-                min={new Date().toISOString().split('T')[0]}
+                min={!selectedItem ? new Date().toISOString().split('T')[0] : undefined}
+                max={!selectedItem ? new Date().toISOString().split('T')[0] : undefined}
                 onChange={(e) => setFormFechaInicio(e.target.value)}
               />
             </div>
@@ -193,6 +212,12 @@ export default function AhorroVoluntarioDialogCrear({
           </Button>
         </DialogFooter>
       </DialogContent>
+      <SelectorAsociadoModal
+        open={isSelectorModalOpen}
+        onClose={() => setIsSelectorModalOpen(false)}
+        asociados={asociadosDisponibles}
+        onSelect={handleSelectAsociado}
+      />
     </Dialog>
   );
 }

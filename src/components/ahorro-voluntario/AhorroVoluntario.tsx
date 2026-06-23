@@ -68,7 +68,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
                 h.setSelectedItem(null);
                 h.setFormAsociadoId('');
                 h.setFormSaldoInicial('0,0');
-                h.setFormFechaInicio('');
+                h.setFormFechaInicio(new Date().toISOString().split('T')[0]);
                 h.setFormFrecuencia('');
                 h.setFormMontoObjetivo('');
                 h.setAutocompleteSearch('');
@@ -547,6 +547,7 @@ export default function AhorroVoluntario({ userRole, userData }: AhorroVoluntari
         setShowAutocomplete={h.setShowAutocomplete}
         autocompleteRef={h.autocompleteRef}
         autocompleteSuggestions={h.autocompleteSuggestions}
+        asociadosDisponibles={h.asociadosDisponibles}
         handleSelectAsociado={h.handleSelectAsociado}
         formFrecuencia={h.formFrecuencia}
         setFormFrecuencia={h.setFormFrecuencia}

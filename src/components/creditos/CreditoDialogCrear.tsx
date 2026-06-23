@@ -13,6 +13,7 @@ import { TIPOS_CREDITO } from '../../lib/constants';
 import { formatCurrency } from '../../lib/formatters';
 import { ESTADOS_APROBACION, TIPOS_INTERES } from './creditoHelpers';
 import type { CreditosHook } from './useCreditos';
+import SelectorAsociadoModal from '../SelectorAsociadoModal';
 
 interface CreditoDialogCrearProps {
   hook: CreditosHook;
@@ -63,6 +64,21 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
     formIngresoMensual,
   } = hook;
 
+  // Plazo máximo dinámico por cierre en noviembre
+  const maxPlazoCalculado = useMemo(() => {
+    if (!formFecha) return 12;
+    const parts = formFecha.split('-');
+    if (parts.length < 2) return 12;
+    const month = parseInt(parts[1], 10);
+    let maxPlazo = 12;
+    if (month < 11) {
+      maxPlazo = 10 - month;
+    } else {
+      maxPlazo = 10 + (12 - month);
+    }
+    return Math.min(12, Math.max(0, maxPlazo));
+  }, [formFecha]);
+
   // ── Errores inline ────────────────────────────────────────────────────────
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const validarCampo = (name: string, value: string) => {
@@ -73,8 +89,22 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
     }
     if (name === 'plazo') {
       const p = parseInt(value);
-      if (!p || p <= 0) error = 'El plazo debe ser mayor a 0';
-      else if (p > 12) error = 'El plazo máximo es de 12 meses';
+      const parts = formFecha.split('-');
+      let maxP = 12;
+      if (parts.length >= 2) {
+        const month = parseInt(parts[1], 10);
+        if (month < 11) maxP = 10 - month;
+        else maxP = 10 + (12 - month);
+      }
+      maxP = Math.min(12, Math.max(0, maxP));
+
+      if (!p || p <= 0) {
+        error = 'El plazo debe ser mayor a 0';
+      } else if (maxP === 0) {
+        error = 'No es posible solicitar créditos en octubre para el ciclo actual.';
+      } else if (p > maxP) {
+        error = `El plazo máximo es de ${maxP} meses por el cierre de ciclo en noviembre.`;
+      }
     }
     if (name === 'tasa') {
       const t = parseFloat(value);
@@ -91,14 +121,14 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
     const montoNum = parseFloat(formMonto.replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
     if (montoNum <= 0) return false;
     const plazoNum = parseInt(formPlazo) || 0;
-    if (plazoNum <= 0 || plazoNum > 12) return false;
+    if (plazoNum <= 0 || plazoNum > maxPlazoCalculado) return false;
     const tasaNum = parseFloat(formTasa);
     if (isNaN(tasaNum) || tasaNum < 0 || tasaNum > 100) return false;
     if (!formFecha) return false;
     if (Object.values(fieldErrors).some(e => e !== '')) return false;
     if (formEsParaReferido && !formReferidoNombre.trim()) return false;
     return true;
-  }, [formAsociadoId, formMonto, formPlazo, formTasa, formFecha, fieldErrors, formEsParaReferido, formReferidoNombre]);
+  }, [formAsociadoId, formMonto, formPlazo, formTasa, formFecha, fieldErrors, formEsParaReferido, formReferidoNombre, maxPlazoCalculado]);
 
   // ── Validación en tiempo real: monto vs ahorro del asociado ────────────
   const montoActual = useMemo(() =>
@@ -118,6 +148,8 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
     );
   }, [creditos, formAsociadoId]);
   const cuotaTotalAsoc = creditosActivosAsoc.reduce((s, c) => s + (c.cuotaMensual ?? 0), 0);
+
+  const [isSelectorModalOpen, setIsSelectorModalOpen] = useState(false);
 
   return (
     <>
@@ -168,34 +200,47 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
             {/* ── Sección: Asociado ── */}
             <div className="space-y-1.5">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">1. Asociado</p>
-              <div className="relative" ref={!selectedItem ? autocompleteRef : undefined}>
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none z-10" />
-                <Input
-                  className="pl-10 pr-8"
-                  placeholder="Buscar asociado por nombre o cédula..."
-                  value={autocompleteSearch}
-                  disabled={!!selectedItem}
-                  autoComplete="off"
-                  onChange={(e) => { setAutocompleteSearch(e.target.value); setFormAsociadoId(''); setShowAutocomplete(true); }}
-                  onFocus={() => { if (!selectedItem) setShowAutocomplete(true); }}
-                />
-                {formAsociadoId && <Check className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-emerald-500" />}
-                {showAutocomplete && !selectedItem && acSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-44 overflow-y-auto">
-                    {acSuggestions.map(a => (
-                      <button key={a.id} type="button"
-                        className="w-full text-left px-3 py-2.5 hover:bg-blue-50 flex items-center justify-between group transition-colors"
-                        onMouseDown={() => handleSelectAsociado(a)}>
-                        <span className="font-medium text-slate-800 text-sm group-hover:text-blue-700">{a.nombre}</span>
-                        <span className="text-xs text-slate-400">{a.cedula}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {showAutocomplete && !selectedItem && autocompleteSearch.length > 0 && acSuggestions.length === 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg px-3 py-3 text-sm text-slate-500 text-center">
-                    Sin resultados para "{autocompleteSearch}"
-                  </div>
+              <div className="flex gap-2">
+                <div className="relative flex-1" ref={!selectedItem ? autocompleteRef : undefined}>
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none z-10" />
+                  <Input
+                    className="pl-10 pr-8"
+                    placeholder="Buscar asociado por nombre o cédula..."
+                    value={autocompleteSearch}
+                    disabled={!!selectedItem}
+                    autoComplete="off"
+                    onChange={(e) => { setAutocompleteSearch(e.target.value); setFormAsociadoId(''); setShowAutocomplete(true); }}
+                    onFocus={() => { if (!selectedItem) setShowAutocomplete(true); }}
+                  />
+                  {formAsociadoId && <Check className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-emerald-500" />}
+                  {showAutocomplete && !selectedItem && acSuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-44 overflow-y-auto">
+                      {acSuggestions.map(a => (
+                        <button key={a.id} type="button"
+                          className="w-full text-left px-3 py-2.5 hover:bg-blue-50 flex items-center justify-between group transition-colors"
+                          onMouseDown={() => handleSelectAsociado(a)}>
+                          <span className="font-medium text-slate-800 text-sm group-hover:text-blue-700">{a.nombre}</span>
+                          <span className="text-xs text-slate-400">{a.cedula}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {showAutocomplete && !selectedItem && autocompleteSearch.length > 0 && acSuggestions.length === 0 && (
+                    <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg px-3 py-3 text-sm text-slate-500 text-center">
+                      Sin resultados para "{autocompleteSearch}"
+                    </div>
+                  )}
+                </div>
+                {!selectedItem && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsSelectorModalOpen(true)}
+                    className="border-blue-200 text-blue-750 hover:bg-blue-50 shrink-0 gap-1.5"
+                  >
+                    <Users className="size-4" />
+                    <span className="hidden sm:inline">Ver todos</span>
+                  </Button>
                 )}
               </div>
               {!formAsociadoId && autocompleteSearch.length > 0 && (
@@ -428,19 +473,19 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
                   <Label htmlFor="plazo" className="flex items-center gap-1.5">
                     <Clock className="size-3.5 text-indigo-500" /> Plazo (meses) <span className="text-red-500">*</span>
                   </Label>
-                  <Input id="plazo" type="number" min="1" max="12" placeholder="12"
+                  <Input id="plazo" type="number" min="1" max={maxPlazoCalculado} placeholder={maxPlazoCalculado > 0 ? `Máx: ${maxPlazoCalculado}` : 'No permitido'}
                     value={formPlazo}
                     onChange={(e) => {
                       let val = e.target.value;
                       const num = parseInt(val, 10) || 0;
-                      if (num > 12) {
-                        val = '12';
+                      if (num > maxPlazoCalculado) {
+                        val = maxPlazoCalculado.toString();
                       }
                       setFormPlazo(val);
                       validarCampo('plazo', val);
                     }}
                     onBlur={e => validarCampo('plazo', e.target.value)}
-                    disabled={bloqueado}
+                    disabled={bloqueado || maxPlazoCalculado === 0}
                     className={fieldErrors.plazo ? 'border-red-400' : ''}
                   />
                   {fieldErrors.plazo && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="size-3"/>{fieldErrors.plazo}</p>}
@@ -469,8 +514,30 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
                 <Input id="fecha" type="date" value={formFecha}
                   min={!selectedItem ? new Date().toISOString().split('T')[0] : undefined}
                   onChange={(e) => {
-                    setFormFecha(e.target.value);
-                    if (fieldErrors.fecha) validarCampo('fecha', e.target.value);
+                    const nuevaFecha = e.target.value;
+                    setFormFecha(nuevaFecha);
+                    if (fieldErrors.fecha) validarCampo('fecha', nuevaFecha);
+                    
+                    // Re-validar plazo dinámicamente con la nueva fecha
+                    const parts = nuevaFecha.split('-');
+                    let maxP = 12;
+                    if (parts.length >= 2) {
+                      const month = parseInt(parts[1], 10);
+                      if (month < 11) maxP = 10 - month;
+                      else maxP = 10 + (12 - month);
+                    }
+                    maxP = Math.min(12, Math.max(0, maxP));
+
+                    const p = parseInt(formPlazo);
+                    let plazoErr = '';
+                    if (p > 0) {
+                      if (maxP === 0) {
+                        plazoErr = 'No es posible solicitar créditos en octubre para el ciclo actual.';
+                      } else if (p > maxP) {
+                        plazoErr = `El plazo máximo es de ${maxP} meses por el cierre de ciclo en noviembre.`;
+                      }
+                    }
+                    setFieldErrors(prev => ({ ...prev, plazo: plazoErr }));
                   }}
                   onBlur={(e) => validarCampo('fecha', e.target.value)}
                   disabled={bloqueado}
@@ -782,6 +849,13 @@ export default function CreditoDialogCrear({ hook }: CreditoDialogCrearProps) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <SelectorAsociadoModal
+      open={isSelectorModalOpen}
+      onClose={() => setIsSelectorModalOpen(false)}
+      asociados={hook.asociadosDisponibles.filter(a => a.activo !== false && a.estado_cuenta !== 'inactivo')}
+      onSelect={handleSelectAsociado}
+    />
 
     </>
   );
