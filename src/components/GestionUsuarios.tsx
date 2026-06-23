@@ -1311,8 +1311,8 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
 
       {/* ── Modal Crear Usuario ── */}
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent className="max-w-2xl border-none shadow-2xl rounded-3xl overflow-hidden bg-white">
-          <DialogHeader className="bg-gradient-to-br from-[#021810] to-[#054030] p-6 text-white relative">
+        <DialogContent className="max-w-2xl w-full max-h-[90vh] flex flex-col p-0 gap-0 border-none shadow-2xl rounded-3xl overflow-hidden bg-white">
+          <DialogHeader className="bg-gradient-to-br from-[#021810] to-[#054030] p-6 text-white relative shrink-0">
             <div className="absolute inset-0 opacity-5" style={{backgroundImage:'radial-gradient(#fff 1px,transparent 1px)',backgroundSize:'20px 20px'}}/>
             <DialogTitle className="flex items-center gap-2.5 text-xl font-bold text-white relative z-10">
               <UserCircle className="size-6 text-[#f0c040]" />
@@ -1323,7 +1323,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
             </DialogDescription>
           </DialogHeader>
 
-          <div className="p-6 max-h-[70vh] overflow-y-auto space-y-5">
+          <div className="p-6 overflow-y-auto space-y-5 flex-1 min-h-0">
             {/* Sección 1: Información Personal y de Contacto */}
             <div className="bg-slate-50/40 border border-slate-100 rounded-2xl p-4 space-y-4 transition-all">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-1">
@@ -1489,7 +1489,7 @@ export default function GestionUsuarios({ userRole: _userRoleProp }: GestionUsua
             )}
           </div>
 
-          <DialogFooter className="bg-slate-50 px-6 py-4 flex gap-2 border-t border-slate-100 justify-end">
+          <DialogFooter className="bg-slate-50 px-6 py-4 flex gap-2 border-t border-slate-100 justify-end shrink-0">
             <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)} className="rounded-xl h-10 px-5 font-semibold text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-800 transition-all">
               Cancelar
             </Button>
