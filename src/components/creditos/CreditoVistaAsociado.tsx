@@ -848,7 +848,7 @@ export default function CreditoVistaAsociado({ hook, userData }: CreditoVistaAso
     {/* ── Dialog solicitar crédito (asociado) ── */}
     <Dialog open={isSolicitudDialogOpen} onOpenChange={(open) => {
       setIsSolicitudDialogOpen(open);
-      if (!open) { setSolMonto(''); setSolTipo('libre_inversion'); setSolPlazo(''); setSolTasa(''); setSolDestino(''); setSolObs(''); setSolBanco(''); setSolBancoSeleccionado(''); setSolBancoSubSeleccionado(''); setSolTipoCuenta('ahorros'); setSolNumeroCuenta(''); setSolDocCartaLaboral(null); setSolDocCedula(null); setSolEsParaReferido(false); setSolReferidoNombre(''); }
+      if (!open) { setSolMonto(''); setSolTipo('libre_inversion'); setSolPlazo(''); setSolTasa(''); setSolDestino(''); setSolObs(''); setSolBanco(''); setSolBancoSeleccionado(''); setSolBancoSubSeleccionado(''); setSolTipoCuenta('ahorros'); setSolNumeroCuenta(''); setSolDocSoporte(null); setSolEsParaReferido(false); setSolReferidoNombre(''); }
     }}>
       <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto">
         <DialogHeader>

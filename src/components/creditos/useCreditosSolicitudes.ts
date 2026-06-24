@@ -58,9 +58,11 @@ export function useCreditosSolicitudes({
 
   // Cargar tasas desde configuracion (al montar Y cada vez que se abre el dialog)
   useEffect(() => {
-    const claves = Object.values(TIPO_A_CLAVE);
-    supabase.from('configuracion').select('clave, valor').in('clave', claves)
-      .then(({ data }) => {
+    const loadDatos = async () => {
+      // Cargar tasas desde configuracion (al montar Y cada vez que se abre el dialog)
+      try {
+        const claves = Object.values(TIPO_A_CLAVE);
+        const { data } = await supabase.from('configuracion').select('clave, valor').in('clave', claves);
         const mapa: Record<string, number> = {};
         (data ?? []).forEach((r: any) => { mapa[r.clave] = parseFloat(r.valor) || 0; });
         setTasasParametrizadas(mapa);
@@ -68,39 +70,49 @@ export function useCreditosSolicitudes({
         const clave = TIPO_A_CLAVE[solTipo] ?? 'tasa_libre_inversion';
         const tasa  = mapa[clave] ?? 0;
         setSolTasa(tasa > 0 ? String(tasa) : '');
-      });
+      } catch (err) {
+        console.error('Error cargando tasas:', err);
+      }
 
-    // Cargar total de ahorros del asociado al abrir el dialog
-    if (isSolicitudDialogOpen && userData?.id) {
-      supabase.from('cuentas_ahorro')
-        .select('monto_ahorrado')
-        .eq('asociado_id', userData.id)
-        .eq('estado', 'activo')
-        .then(({ data }) => {
+      // Cargar total de ahorros del asociado al abrir el dialog
+      if (isSolicitudDialogOpen && userData?.id) {
+        try {
+          const { data } = await supabase.from('cuentas_ahorro')
+            .select('monto_ahorrado')
+            .eq('asociado_id', userData.id)
+            .eq('estado', 'activo');
           const sum = (data || []).reduce((acc: number, curr: any) => acc + (curr.monto_ahorrado || 0), 0);
           setTotalAhorros(sum);
-        });
+        } catch (err) {
+          console.error('Error cargando total de ahorros:', err);
+        }
 
-      // Fetch monthly income from solicitudes_asociados
-      const query = supabase.from('solicitudes_asociados').select('ingreso_mensual');
-      if (userData.cedula) {
-        query.eq('cedula', userData.cedula);
-      } else {
-        query.eq('usuario_id', userData.id);
-      }
-      query.order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-        .then(({ data }) => {
+        // Fetch monthly income from solicitudes_asociados
+        try {
+          const query = supabase.from('solicitudes_asociados').select('ingreso_mensual');
+          if (userData.cedula) {
+            query.eq('cedula', userData.cedula);
+          } else {
+            query.eq('usuario_id', userData.id);
+          }
+          const { data } = await query.order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
           if (data?.ingreso_mensual) {
             setAsocIngresoMensual(parseFloat(data.ingreso_mensual) || 0);
           } else {
             setAsocIngresoMensual(0);
           }
-        })
-        .catch(() => setAsocIngresoMensual(0));
-    }
-  }, [isSolicitudDialogOpen, userData?.id, userData?.cedula]); // se recarga cada vez que el dialog abre/cierra
+        } catch (err) {
+          console.error('Error cargando ingreso mensual:', err);
+          setAsocIngresoMensual(0);
+        }
+      }
+    };
+
+    void loadDatos();
+  }, [isSolicitudDialogOpen, userData?.id, userData?.cedula, solTipo]); // se recarga cada vez que el dialog abre/cierra o cambia el tipo
 
   // Cuando cambia el tipo, actualizar la tasa automáticamente
   const handleSolTipoChange = (tipo: string) => {

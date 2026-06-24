@@ -3,7 +3,7 @@
 // Toda la lógica de estado y handlers vive en useAhorroPermanente.
 // Los sub-componentes están en src/components/ahorro-permanente/.
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import PiggyBankLoader from '../ui/PiggyBankLoader';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -264,7 +264,7 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
         {userRole === 'admin' && (() => {
           const AUDITORIA_PER_PAGE = 5;
 
-          const ACTION_CFG: Record<string, { label: string; icon: JSX.Element; color: string; bg: string; border: string; dot: string }> = {
+          const ACTION_CFG: Record<string, { label: string; icon: React.ReactNode; color: string; bg: string; border: string; dot: string }> = {
             'CREACIÓN': { label: 'CREACIÓN', icon: <Plus className="size-3.5" />, color: 'text-emerald-700 dark:text-emerald-300', bg: 'bg-emerald-50 dark:bg-emerald-950/40', border: 'border-emerald-200 dark:border-emerald-900', dot: 'bg-emerald-500' },
             'EDICIÓN':  { label: 'EDICIÓN',  icon: <Edit className="size-3.5" />, color: 'text-blue-700 dark:text-blue-300', bg: 'bg-blue-50 dark:bg-blue-950/40', border: 'border-blue-200 dark:border-blue-900', dot: 'bg-blue-500' },
             'ANULACIÓN': { label: 'ANULACIÓN', icon: <Trash2 className="size-3.5" />, color: 'text-red-700 dark:text-red-300', bg: 'bg-red-50 dark:bg-red-950/40', border: 'border-red-200 dark:border-red-900', dot: 'bg-red-500' },
@@ -352,7 +352,7 @@ export default function AhorroPermanente({ userRole, userData }: AhorroPermanent
                         >
                           <span className={`size-2 rounded-full shrink-0 ${cfg.dot}`} />
                           {accion}
-                          <span className={`font-bold ${activo ? '' : 'text-slate-400'}`}>{count}</span>
+                          <span className={`font-bold ${activo ? '' : 'text-slate-400'}`}>{count as number}</span>
                         </button>
                       );
                     })}

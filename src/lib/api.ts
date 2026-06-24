@@ -72,6 +72,7 @@ export interface CreditoRow {
   url_comprobante_solicitud?:  string | null;
   fecha_estado_cambio?:        string | null;
   motivo_estado_cambio?:       string | null;
+  referido_nombre?:            string | null;
   created_at: string;
   updated_at: string;
 }

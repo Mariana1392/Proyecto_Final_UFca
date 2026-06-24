@@ -98,41 +98,53 @@ export function useCreditosCRUD({
       return;
     }
     setLoadingAhorro(true);
-    supabase
-      .from('cuentas_ahorro')
-      .select('monto_ahorrado')
-      .eq('asociado_id', formAsociadoId)
-      .eq('estado', 'activo')
-      .eq('anulado', false)
-      .then(({ data }) => {
+
+    const fetchDatosAsociado = async () => {
+      try {
+        const { data } = await supabase
+          .from('cuentas_ahorro')
+          .select('monto_ahorrado')
+          .eq('asociado_id', formAsociadoId)
+          .eq('estado', 'activo')
+          .eq('anulado', false);
+
         const sum = (data || []).reduce(
           (acc: number, cur: any) => acc + (cur.monto_ahorrado || 0),
           0,
         );
         setTotalAhorroAsociado(sum);
-      })
-      .finally(() => setLoadingAhorro(false));
+      } catch (err) {
+        console.error('Error fetching total ahorro:', err);
+      } finally {
+        setLoadingAhorro(false);
+      }
 
-    const asoc = asociadosDisponibles.find(a => a.id === formAsociadoId);
-    if (asoc?.cedula) {
-      supabase
-        .from('solicitudes_asociados')
-        .select('ingreso_mensual')
-        .eq('cedula', asoc.cedula)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-        .then(({ data }) => {
+      const asoc = asociadosDisponibles.find(a => a.id === formAsociadoId);
+      if (asoc?.cedula) {
+        try {
+          const { data } = await supabase
+            .from('solicitudes_asociados')
+            .select('ingreso_mensual')
+            .eq('cedula', asoc.cedula)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
           if (data?.ingreso_mensual) {
             setFormIngresoMensual(parseFloat(data.ingreso_mensual) || 0);
           } else {
             setFormIngresoMensual(0);
           }
-        })
-        .catch(() => setFormIngresoMensual(0));
-    } else {
-      setFormIngresoMensual(0);
-    }
+        } catch (err) {
+          console.error('Error fetching monthly income:', err);
+          setFormIngresoMensual(0);
+        }
+      } else {
+        setFormIngresoMensual(0);
+      }
+    };
+
+    void fetchDatosAsociado();
   }, [formAsociadoId, asociadosDisponibles]);
 
   const handleTipoChange = (tipo: string) => {
