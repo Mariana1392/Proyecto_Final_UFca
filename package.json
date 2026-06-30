@@ -55,6 +55,7 @@
   },
   "devDependencies": {
     "@cucumber/cucumber": "^13.0.0",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/vite": "4.1.12",
     "@types/node": "^20.10.0",
     "@types/react": "^19.2.14",
@@ -67,6 +68,9 @@
     "dev": "vite",
     "build": "vite build",
     "gen:types": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > src/lib/database.types.ts",
-    "test": "cucumber-js"
+    "test": "cucumber-js",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report"
   }
 }
